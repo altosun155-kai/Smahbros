@@ -704,6 +704,7 @@ with st.sidebar:
             "My Brackets",
             "My RR Sessions",
             "🎖️ My Tier List",
+            "⭐ My Favorite Characters",
             invite_label,
             "🌍 Global Leaderboard",
         ]
@@ -987,6 +988,30 @@ elif page.startswith("📬 Invites"):
 
 elif page == "🎖️ My Tier List":
     show_tier_list_page()
+
+elif page == "⭐ My Favorite Characters":
+    st.title("⭐ My Favorite Characters")
+    st.caption("Pick your favorite Smash Ultimate fighters.")
+
+    data = api_get("/characters/favorites")
+    current_favs = data["characters"] if data else []
+
+    updated = st.multiselect(
+        "Select your favorites",
+        options=SMASH_ULTIMATE_ROSTER,
+        default=current_favs,
+        key="fav_chars_select",
+    )
+
+    if st.button("💾 Save Favorites", type="primary"):
+        result = api_put("/characters/favorites", {"characters": updated})
+        if result:
+            st.success("Saved!")
+
+    if current_favs:
+        st.markdown("---")
+        st.subheader("Your current favorites")
+        st.markdown(" ".join(f"**{c}**" for c in current_favs))
 
 elif page == "🌍 Global Leaderboard":
     st.title("🌍 Global Leaderboard")

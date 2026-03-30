@@ -11,8 +11,7 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
-        value: YOUR_SUPABASE_CONNECTION_STRING_HERE
-
+        sync: false
   - type: web
     name: smash-bracket-ui
     runtime: python
@@ -23,7 +22,4 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: BACKEND_URL
-        fromService:
-          name: smash-bracket-api
-          type: web
-          property: host
+        value: https://smash-bracket-api.onrender.com

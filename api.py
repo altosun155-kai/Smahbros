@@ -9,7 +9,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 import os
 
-from database import SessionLocal, engine, Base, User, Bracket, RoundRobinResult, CharacterRanking, TournamentInvite
+from database import SessionLocal, engine, Base, User, Bracket, RoundRobinResult, CharacterRanking, TournamentInvite, FavoriteCharacters
 
 Base.metadata.create_all(bind=engine)
 
@@ -377,3 +377,27 @@ def leaderboard(db: Session = Depends(get_db)):
         result.append({"username": u.username, "wins": wins, "losses": losses, "sessions": sessions})
     result.sort(key=lambda x: (-x["wins"], x["losses"]))
     return result
+
+
+# ── Favorite Characters ───────────────────────────────────────────────────────
+
+class FavoritesUpdate(BaseModel):
+    characters: list
+
+
+@app.get("/characters/favorites")
+def get_favorites(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    fav = db.query(FavoriteCharacters).filter(FavoriteCharacters.owner_id == current_user.id).first()
+    return {"characters": fav.characters if fav else []}
+
+
+@app.put("/characters/favorites")
+def save_favorites(req: FavoritesUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    fav = db.query(FavoriteCharacters).filter(FavoriteCharacters.owner_id == current_user.id).first()
+    if fav:
+        fav.characters = req.characters
+    else:
+        fav = FavoriteCharacters(owner_id=current_user.id, characters=req.characters)
+        db.add(fav)
+    db.commit()
+    return {"ok": True}

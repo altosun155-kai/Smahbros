@@ -28,8 +28,9 @@ class User(Base):
     brackets          = relationship("Bracket", back_populates="owner", cascade="all, delete-orphan")
     rr_sessions       = relationship("RoundRobinResult", back_populates="owner", cascade="all, delete-orphan")
     character_ranking = relationship("CharacterRanking", back_populates="owner", uselist=False, cascade="all, delete-orphan")
-    sent_invites      = relationship("TournamentInvite", foreign_keys="TournamentInvite.inviter_id", back_populates="inviter")
-    received_invites  = relationship("TournamentInvite", foreign_keys="TournamentInvite.invitee_id", back_populates="invitee")
+    sent_invites        = relationship("TournamentInvite", foreign_keys="TournamentInvite.inviter_id", back_populates="inviter")
+    received_invites    = relationship("TournamentInvite", foreign_keys="TournamentInvite.invitee_id", back_populates="invitee")
+    favorite_characters = relationship("FavoriteCharacters", back_populates="owner", uselist=False, cascade="all, delete-orphan")
 
 
 class Bracket(Base):
@@ -99,3 +100,14 @@ class TournamentInvite(Base):
     bracket = relationship("Bracket", back_populates="invites")
     inviter = relationship("User", foreign_keys=[inviter_id], back_populates="sent_invites")
     invitee = relationship("User", foreign_keys=[invitee_id], back_populates="received_invites")
+
+
+class FavoriteCharacters(Base):
+    __tablename__ = "favorite_characters"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    owner_id   = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    characters = Column(JSON, default=list)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    owner = relationship("User", back_populates="favorite_characters")

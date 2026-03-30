@@ -9,14 +9,13 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
-        value: YOUR_SUPABASE_CONNECTION_STRING_HERE
-
+        value: postgresql://postgres.oqtdlertvgmopnibrbiu:244510Hi#25@aws-1-us-east-2.pooler.supabase.com:6543/postgres
   - type: web
     name: smash-bracket-ui
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: streamlit run "main (1).py" --server.port $PORT --server.address 0.0.0.0
+    startCommand: streamlit run " frontend.py" --server.port $PORT --server.address 0.0.0.0
     envVars:
       - key: BACKEND_URL
         fromService:

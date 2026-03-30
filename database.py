@@ -1,17 +1,15 @@
-from sqlalchemy import create_engine, Column, Integer, String, JSON, DateTime, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, JSON, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from datetime import datetime
 import os
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./smash.db")
 
-# Render gives Postgres URLs that start with "postgres://" — SQLAlchemy needs "postgresql://"
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 engine = create_engine(
     DATABASE_URL,
-    # SQLite only: remove connect_args when using Postgres
     connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {},
 )
 
@@ -22,40 +20,82 @@ Base = declarative_base()
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True, nullable=False)
+    id              = Column(Integer, primary_key=True, index=True)
+    username        = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at      = Column(DateTime, default=datetime.utcnow)
 
-    brackets = relationship("Bracket", back_populates="owner", cascade="all, delete-orphan")
-    rr_sessions = relationship("RoundRobinResult", back_populates="owner", cascade="all, delete-orphan")
+    brackets          = relationship("Bracket", back_populates="owner", cascade="all, delete-orphan")
+    rr_sessions       = relationship("RoundRobinResult", back_populates="owner", cascade="all, delete-orphan")
+    character_ranking = relationship("CharacterRanking", back_populates="owner", uselist=False, cascade="all, delete-orphan")
+    sent_invites      = relationship("TournamentInvite", foreign_keys="TournamentInvite.inviter_id", back_populates="inviter")
+    received_invites  = relationship("TournamentInvite", foreign_keys="TournamentInvite.invitee_id", back_populates="invitee")
 
 
 class Bracket(Base):
     __tablename__ = "brackets"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    name = Column(String, nullable=False)          # user-given name, e.g. "Friday Night S3"
-    mode = Column(String, default="regular")        # "regular" | "teams"
-    players = Column(JSON, default=list)            # ["Alice", "Bob", ...]
-    entries = Column(JSON, default=list)            # [{"player": ..., "character": ...}]
-    bracket_data = Column(JSON, default=list)       # round-1 pairs as dicts
-    winner = Column(String, nullable=True)          # winning player name, filled in later
-    created_at = Column(DateTime, default=datetime.utcnow)
+    id           = Column(Integer, primary_key=True, index=True)
+    user_id      = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name         = Column(String, nullable=False)
+    mode         = Column(String, default="regular")
+    players      = Column(JSON, default=list)
+    entries      = Column(JSON, default=list)
+    bracket_data = Column(JSON, default=list)
+    winner       = Column(String, nullable=True)
+    created_at   = Column(DateTime, default=datetime.utcnow)
 
-    owner = relationship("User", back_populates="brackets")
+    owner   = relationship("User", back_populates="brackets")
+    invites = relationship("TournamentInvite", back_populates="bracket", cascade="all, delete-orphan")
 
 
 class RoundRobinResult(Base):
     __tablename__ = "roundrobin_results"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    name = Column(String, nullable=False)
-    players = Column(JSON, default=list)
-    results = Column(JSON, default=dict)    # match_id -> winner player name
-    records = Column(JSON, default=dict)    # player -> {"Wins": N, "Losses": N}
+    id         = Column(Integer, primary_key=True, index=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name       = Column(String, nullable=False)
+    players    = Column(JSON, default=list)
+    results    = Column(JSON, default=dict)
+    records    = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     owner = relationship("User", back_populates="rr_sessions")
+
+
+class CharacterRanking(Base):
+    """
+    One row per user. Stores their full Smash Ultimate tier list.
+    ranking = {
+      "S": ["Mario", "Pikachu", ...],
+      "A": [...], "B": [...], "C": [...], "D": [...], "F": [...],
+      "unranked": [...]   <- all characters the user hasn't placed yet
+    }
+    """
+    __tablename__ = "character_rankings"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    owner_id   = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    ranking    = Column(JSON, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    owner = relationship("User", back_populates="character_ranking")
+
+
+class TournamentInvite(Base):
+    """
+    Tracks per-bracket invites from one user to another.
+    status: "pending" | "accepted" | "declined"
+    """
+    __tablename__ = "tournament_invites"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    bracket_id = Column(Integer, ForeignKey("brackets.id"), nullable=False)
+    inviter_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    invitee_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status     = Column(String, default="pending")   # pending | accepted | declined
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    bracket = relationship("Bracket", back_populates="invites")
+    inviter = relationship("User", foreign_keys=[inviter_id], back_populates="sent_invites")
+    invitee = relationship("User", foreign_keys=[invitee_id], back_populates="received_invites")

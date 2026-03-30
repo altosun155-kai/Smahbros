@@ -8,7 +8,7 @@ services:
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: SECRET_KEY
-        generateValue: true          # Render auto-generates a secure random string
+        generateValue: true
       - key: DATABASE_URL
         fromDatabase:
           name: smash-bracket-db
@@ -26,7 +26,7 @@ services:
         fromService:
           name: smash-bracket-api
           type: web
-          property: host             # Render fills in the API's internal URL
+          property: host
 
 # ── PostgreSQL Database ──────────────────────────────────────────────────────
 databases:

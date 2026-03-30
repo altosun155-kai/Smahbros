@@ -32,6 +32,8 @@ st.markdown("""
 
 # ── Backend URL ───────────────────────────────────────────────────────────────
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
+if BACKEND_URL and not BACKEND_URL.startswith("http"):
+    BACKEND_URL = "https://" + BACKEND_URL
 
 # ── All 89 Smash Ultimate fighters (official roster order) ───────────────────
 SMASH_ULTIMATE_ROSTER = [

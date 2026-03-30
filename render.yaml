@@ -3,7 +3,6 @@ services:
     name: smash-bracket-api
     runtime: python
     plan: free
-    rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
@@ -16,9 +15,8 @@ services:
     name: smash-bracket-ui
     runtime: python
     plan: free
-    rootDir: frontend
     buildCommand: pip install -r requirements.txt
-    startCommand: streamlit run main.py --server.port $PORT --server.address 0.0.0.0
+    startCommand: streamlit run "main (1).py" --server.port $PORT --server.address 0.0.0.0
     envVars:
       - key: BACKEND_URL
         fromService:

@@ -1,0 +1,36 @@
+services:
+  # ── FastAPI Backend ──────────────────────────────────────────────────────────
+  - type: web
+    name: smash-bracket-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true          # Render auto-generates a secure random string
+      - key: DATABASE_URL
+        fromDatabase:
+          name: smash-bracket-db
+          property: connectionString
+
+  # ── Streamlit Frontend ───────────────────────────────────────────────────────
+  - type: web
+    name: smash-bracket-ui
+    runtime: python
+    rootDir: frontend
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run main.py --server.port $PORT --server.address 0.0.0.0
+    envVars:
+      - key: BACKEND_URL
+        fromService:
+          name: smash-bracket-api
+          type: web
+          property: host             # Render fills in the API's internal URL
+
+# ── PostgreSQL Database ──────────────────────────────────────────────────────
+databases:
+  - name: smash-bracket-db
+    databaseName: smashbracket
+    user: smashuser
+    plan: free

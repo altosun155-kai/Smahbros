@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smash Bracket — Invites</title>
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/auth.js"></script>
+  <style>
+    .invite-row { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+    .invite-info { flex: 1; min-width: 200px; }
+    .invite-bracket { font-size: 0.95rem; font-weight: 600; color: var(--text); }
+    .invite-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 3px; }
+    .invite-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .search-results { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; margin-top: 4px; overflow: hidden; max-width: 400px; }
+    .search-result-item { padding: 10px 14px; cursor: pointer; font-size: 0.88rem; color: var(--text); transition: background 0.12s; }
+    .search-result-item:hover { background: rgba(255,255,255,0.05); }
+    .selected-invitee { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; font-size: 0.88rem; color: var(--text); display: inline-flex; align-items: center; gap: 8px; }
+    .selected-invitee button { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; line-height: 1; }
+  </style>
+</head>
+<body>
+<script>requireAuth();</script>
+<div id="toast-container"></div>
+
+<nav class="navbar">
+  <a class="logo" href="index.html">Smash<span>Bros</span></a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="bracket.html">Bracket</a></li>
+    <li><a href="roundrobin.html">Round Robin</a></li>
+    <li><a href="my-brackets.html">My Brackets</a></li>
+    <li><a href="tier-list.html">Tier List</a></li>
+    <li><a href="favorites.html">Favorites</a></li>
+    <li><a href="stats.html">Stats</a></li>
+    <li><a href="leaderboard.html">Leaderboard</a></li>
+    <li><a href="invites.html" class="active">Invites</a></li>
+    <li><a href="profile.html">Profile</a></li>
+  </ul>
+  <div class="nav-right">
+    <div class="nav-user">
+      <img class="nav-avatar" id="navAvatar" src="" alt="" onerror="this.style.display='none'" />
+      <span id="navUsername"></span>
+    </div>
+    <button class="btn-signout" onclick="logout()">Sign Out</button>
+  </div>
+</nav>
+
+<main class="page-container">
+  <div class="page-header">
+    <h1>📬 Tournament Invites</h1>
+    <p>Manage your tournament invitations.</p>
+  </div>
+
+  <div class="tabs" id="invTabs">
+    <button class="tab-btn active" onclick="switchInvTab('received')">Received</button>
+    <button class="tab-btn" onclick="switchInvTab('sent')">Sent</button>
+    <button class="tab-btn" onclick="switchInvTab('send')">Send New</button>
+  </div>
+
+  <!-- Received tab -->
+  <div class="tab-panel active" id="tab-received">
+    <div id="receivedLoading" class="loading-center">
+      <div class="spinner"></div><span>Loading invites…</span>
+    </div>
+    <div id="receivedContent" style="display:none;max-width:700px;"></div>
+    <div id="receivedEmpty" class="empty-state" style="display:none;">
+      <p>No invites received yet.</p>
+    </div>
+  </div>
+
+  <!-- Sent tab -->
+  <div class="tab-panel" id="tab-sent">
+    <div id="sentLoading" class="loading-center" style="display:none;">
+      <div class="spinner"></div><span>Loading sent invites…</span>
+    </div>
+    <div id="sentContent" style="display:none;max-width:700px;"></div>
+    <div id="sentEmpty" class="empty-state" style="display:none;">
+      <p>You haven't sent any invites yet.</p>
+    </div>
+  </div>
+
+  <!-- Send New tab -->
+  <div class="tab-panel" id="tab-send">
+    <div style="max-width:500px;">
+      <div class="form-group">
+        <label>Bracket Name</label>
+        <input type="text" id="sendBracketName" placeholder="Enter bracket name or description…" />
+      </div>
+
+      <div class="form-group">
+        <label>Search Player</label>
+        <input type="text" id="userSearchInput" placeholder="Start typing a username…" oninput="searchUsers()" />
+        <div id="searchResults" class="search-results" style="display:none;"></div>
+      </div>
+
+      <div id="selectedInviteeContainer" style="margin-bottom:14px;display:none;">
+        <span class="selected-invitee">
+          <span id="selectedInviteeName"></span>
+          <button onclick="clearInvitee()">×</button>
+        </span>
+      </div>
+
+      <button class="btn btn-primary" onclick="sendInvite()">Send Invite</button>
+    </div>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script>
+  let selectedInvitee = null;
+  let searchTimer = null;
+
+  function switchInvTab(tab) {
+    ['received','sent','send'].forEach((t, i) => {
+      document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+      document.querySelectorAll('#invTabs .tab-btn')[i].classList.toggle('active', t === tab);
+    });
+    if (tab === 'received') loadReceived();
+    if (tab === 'sent') loadSent();
+  }
+
+  // ── Received ─────────────────────────────────────
+  async function loadReceived() {
+    const loading = document.getElementById('receivedLoading');
+    const content = document.getElementById('receivedContent');
+    const empty = document.getElementById('receivedEmpty');
+
+    loading.style.display = 'flex';
+    content.style.display = 'none';
+    empty.style.display = 'none';
+
+    try {
+      const data = await apiGet('/invites/received');
+      loading.style.display = 'none';
+
+      if (!data || data.length === 0) { empty.style.display = 'block'; return; }
+
+      const pending = data.filter(i => i.status === 'pending');
+      const past = data.filter(i => i.status !== 'pending');
+
+      let html = '';
+      if (pending.length) {
+        html += `<h2 style="font-size:0.85rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Pending</h2>`;
+        html += pending.map(inv => `
+          <div class="invite-row">
+            <div class="invite-info">
+              <div class="invite-bracket">${inv.bracket_name || 'Bracket'}</div>
+              <div class="invite-meta">From <strong>${inv.inviter}</strong> · ${inv.created_at ? inv.created_at.slice(0,10) : ''}</div>
+            </div>
+            <div class="invite-actions">
+              <button class="btn btn-primary btn-sm" onclick="respondInvite(${inv.id},'accepted')">Accept</button>
+              <button class="btn btn-danger btn-sm" onclick="respondInvite(${inv.id},'declined')">Decline</button>
+            </div>
+          </div>
+        `).join('');
+      }
+      if (past.length) {
+        html += `<h2 style="font-size:0.85rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 10px;">Past</h2>`;
+        html += past.map(inv => {
+          const badge = inv.status === 'accepted'
+            ? '<span class="badge badge-accepted">Accepted</span>'
+            : '<span class="badge badge-declined">Declined</span>';
+          return `
+            <div class="invite-row">
+              <div class="invite-info">
+                <div class="invite-bracket">${inv.bracket_name || 'Bracket'}</div>
+                <div class="invite-meta">From <strong>${inv.inviter}</strong> · ${inv.created_at ? inv.created_at.slice(0,10) : ''}</div>
+              </div>
+              <div>${badge}</div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      content.style.display = 'block';
+      content.innerHTML = html;
+    } catch (err) {
+      loading.style.display = 'none';
+      showToast('Error loading invites: ' + err.message, 'error');
+    }
+  }
+
+  async function respondInvite(id, status) {
+    try {
+      await apiPatch(`/invites/${id}`, {status});
+      showToast(`Invite ${status}!`, 'success');
+      loadReceived();
+    } catch (err) {
+      showToast('Error: ' + err.message, 'error');
+    }
+  }
+
+  // ── Sent ──────────────────────────────────────────
+  async function loadSent() {
+    const loading = document.getElementById('sentLoading');
+    const content = document.getElementById('sentContent');
+    const empty = document.getElementById('sentEmpty');
+
+    loading.style.display = 'flex';
+    content.style.display = 'none';
+    empty.style.display = 'none';
+
+    try {
+      const data = await apiGet('/invites/sent');
+      loading.style.display = 'none';
+
+      if (!data || data.length === 0) { empty.style.display = 'block'; return; }
+
+      content.style.display = 'block';
+      content.innerHTML = data.map(inv => {
+        const badge = inv.status === 'pending'
+          ? '<span class="badge badge-pending">Pending</span>'
+          : inv.status === 'accepted'
+          ? '<span class="badge badge-accepted">Accepted</span>'
+          : '<span class="badge badge-declined">Declined</span>';
+        const cancelBtn = inv.status === 'pending'
+          ? `<button class="btn btn-danger btn-sm" onclick="cancelInvite(${inv.id})">Cancel</button>`
+          : '';
+        return `
+          <div class="invite-row">
+            <div class="invite-info">
+              <div class="invite-bracket">${inv.bracket_name || 'Bracket'}</div>
+              <div class="invite-meta">To <strong>${inv.invitee}</strong> · ${inv.created_at ? inv.created_at.slice(0,10) : ''}</div>
+            </div>
+            <div class="invite-actions">${badge}${cancelBtn}</div>
+          </div>
+        `;
+      }).join('');
+    } catch (err) {
+      loading.style.display = 'none';
+      showToast('Error loading sent invites: ' + err.message, 'error');
+    }
+  }
+
+  async function cancelInvite(id) {
+    if (!confirm('Cancel this invite?')) return;
+    try {
+      await apiDelete(`/invites/${id}`);
+      showToast('Invite cancelled.', 'success');
+      loadSent();
+    } catch (err) {
+      showToast('Error: ' + err.message, 'error');
+    }
+  }
+
+  // ── Send New ──────────────────────────────────────
+  function searchUsers() {
+    const q = document.getElementById('userSearchInput').value.trim();
+    clearTimeout(searchTimer);
+    if (!q) {
+      document.getElementById('searchResults').style.display = 'none';
+      return;
+    }
+    searchTimer = setTimeout(async () => {
+      try {
+        const data = await apiGet(`/users/search?q=${encodeURIComponent(q)}`);
+        const results = document.getElementById('searchResults');
+        if (!data || data.length === 0) {
+          results.style.display = 'none';
+          return;
+        }
+        results.style.display = 'block';
+        results.innerHTML = data.map(u => `
+          <div class="search-result-item" onclick="selectInvitee('${u.username}')">
+            ${u.username}
+          </div>
+        `).join('');
+      } catch (_) {}
+    }, 300);
+  }
+
+  function selectInvitee(username) {
+    selectedInvitee = username;
+    document.getElementById('selectedInviteeName').textContent = username;
+    document.getElementById('selectedInviteeContainer').style.display = 'block';
+    document.getElementById('searchResults').style.display = 'none';
+    document.getElementById('userSearchInput').value = '';
+  }
+
+  function clearInvitee() {
+    selectedInvitee = null;
+    document.getElementById('selectedInviteeContainer').style.display = 'none';
+  }
+
+  async function sendInvite() {
+    const bracketName = document.getElementById('sendBracketName').value.trim();
+    if (!bracketName) { showToast('Enter a bracket name.', 'warn'); return; }
+    if (!selectedInvitee) { showToast('Search and select a player to invite.', 'warn'); return; }
+
+    try {
+      await apiPost('/invites', {
+        invitee_username: selectedInvitee,
+        bracket_name: bracketName,
+      });
+      showToast(`Invite sent to ${selectedInvitee}!`, 'success');
+      clearInvitee();
+      document.getElementById('sendBracketName').value = '';
+    } catch (err) {
+      showToast('Error sending invite: ' + err.message, 'error');
+    }
+  }
+
+  // ── Init ─────────────────────────────────────────
+  (async function init() {
+    try {
+      const me = await apiGet('/users/me');
+      if (me) {
+        document.getElementById('navUsername').textContent = me.username;
+        const url = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
+        const av = document.getElementById('navAvatar');
+        av.src = url; av.style.display = 'block';
+      }
+    } catch (_) {}
+    loadReceived();
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,206 @@
+/* auth.css — login & signup page styles (Smash Bros dark theme) */
+
+.auth-page {
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.auth-logo {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.5px;
+  margin-bottom: 28px;
+  text-align: center;
+}
+
+.auth-logo span {
+  color: var(--accent-gold);
+}
+
+.auth-card {
+  background: var(--card-bg);
+  border-radius: 14px;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.5);
+  border: 1px solid var(--border);
+  padding: 40px 40px 32px;
+  width: 100%;
+  max-width: 420px;
+}
+
+/* Tabs for Sign In / Sign Up */
+.auth-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 28px;
+  gap: 0;
+}
+
+.auth-tab-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 10px 20px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+  flex: 1;
+}
+
+.auth-tab-btn:hover {
+  color: var(--text);
+}
+
+.auth-tab-btn.active {
+  color: var(--accent-blue);
+  border-bottom-color: var(--accent-blue);
+}
+
+.auth-panel {
+  display: none;
+}
+
+.auth-panel.active {
+  display: block;
+}
+
+.auth-heading {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.auth-subheading {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.auth-card .form-group {
+  margin-bottom: 18px;
+}
+
+.auth-card .form-group label {
+  display: block;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 7px;
+  font-size: 0.93rem;
+}
+
+.auth-card .form-group input {
+  width: 100%;
+  padding: 11px 13px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 7px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: var(--text);
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.auth-card .form-group input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(0,119,200,0.2);
+}
+
+.auth-card .form-group input::placeholder {
+  color: #444;
+}
+
+.auth-card .form-group input.input-error {
+  border-color: #e74c3c;
+}
+
+.auth-card .form-group input.input-error:focus {
+  box-shadow: 0 0 0 3px rgba(231,76,60,0.15);
+}
+
+.field-error {
+  font-size: 0.8rem;
+  color: #e74c3c;
+  margin-top: 5px;
+  display: none;
+}
+
+.field-error.visible {
+  display: block;
+}
+
+.auth-submit {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent-blue);
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 0.97rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.auth-submit:hover {
+  background: #005fa3;
+  transform: translateY(-1px);
+}
+
+.auth-submit:disabled {
+  background: #333;
+  color: var(--text-muted);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.auth-error-banner {
+  background: rgba(192,57,43,0.15);
+  border: 1px solid rgba(192,57,43,0.4);
+  border-radius: 7px;
+  padding: 10px 14px;
+  font-size: 0.86rem;
+  color: #e74c3c;
+  margin-bottom: 18px;
+  display: none;
+}
+
+.auth-error-banner.visible {
+  display: block;
+}
+
+.auth-success-banner {
+  background: rgba(39,174,96,0.15);
+  border: 1px solid rgba(39,174,96,0.3);
+  border-radius: 7px;
+  padding: 10px 14px;
+  font-size: 0.86rem;
+  color: #27ae60;
+  margin-bottom: 18px;
+  display: none;
+}
+
+.auth-success-banner.visible {
+  display: block;
+}
+
+/* ── Responsive ─────────────────────────────────── */
+@media (max-width: 480px) {
+  .auth-card {
+    padding: 28px 20px 24px;
+  }
+}

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smash Bracket — Leaderboard</title>
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/auth.js"></script>
+  <style>
+    .char-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 14px; }
+    .char-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 8px;
+      position: relative;
+    }
+    .char-card-img {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+      border-radius: 8px;
+      background: var(--card-bg2);
+    }
+    .char-fallback {
+      width: 72px;
+      height: 72px;
+      border-radius: 8px;
+      background: var(--card-bg2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--accent-gold);
+    }
+    .char-card-name { font-size: 0.9rem; font-weight: 700; color: var(--text); }
+    .char-card-points { font-size: 1.15rem; font-weight: 800; color: var(--accent-gold); }
+    .char-card-user {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: auto;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      width: 100%;
+      justify-content: center;
+    }
+    .user-av {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .user-name { font-size: 0.78rem; color: var(--text-muted); font-weight: 500; }
+    .rank-gold   { color: #ffd700; }
+    .rank-silver { color: #c0c0c0; }
+    .rank-bronze { color: #cd7f32; }
+    .global-row-gold td   { color: #ffd700; }
+    .global-row-silver td { color: #c0c0c0; }
+    .global-row-bronze td { color: #cd7f32; }
+  </style>
+</head>
+<body>
+<script>requireAuth();</script>
+<div id="toast-container"></div>
+
+<nav class="navbar">
+  <a class="logo" href="index.html">Smash<span>Bros</span></a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="bracket.html">Bracket</a></li>
+    <li><a href="roundrobin.html">Round Robin</a></li>
+    <li><a href="my-brackets.html">My Brackets</a></li>
+    <li><a href="tier-list.html">Tier List</a></li>
+    <li><a href="favorites.html">Favorites</a></li>
+    <li><a href="stats.html">Stats</a></li>
+    <li><a href="leaderboard.html" class="active">Leaderboard</a></li>
+    <li><a href="invites.html">Invites</a></li>
+    <li><a href="profile.html">Profile</a></li>
+  </ul>
+  <div class="nav-right">
+    <div class="nav-user">
+      <img class="nav-avatar" id="navAvatar" src="" alt="" onerror="this.style.display='none'" />
+      <span id="navUsername"></span>
+    </div>
+    <button class="btn-signout" onclick="logout()">Sign Out</button>
+  </div>
+</nav>
+
+<main class="page-container">
+  <div class="page-header">
+    <h1>🏆 Leaderboard</h1>
+    <p>See who's dominating — by character and overall.</p>
+  </div>
+
+  <div class="tabs" id="lbTabs">
+    <button class="tab-btn active" onclick="switchLBTab('chars')">Character Leaderboard</button>
+    <button class="tab-btn" onclick="switchLBTab('global')">Global Leaderboard</button>
+  </div>
+
+  <!-- Character tab -->
+  <div class="tab-panel active" id="tab-chars">
+    <div id="charLoading" class="loading-center">
+      <div class="spinner"></div><span>Loading character leaderboard…</span>
+    </div>
+    <div id="charEmpty" class="empty-state" style="display:none;">
+      <p>No character stats recorded yet.</p>
+    </div>
+    <div class="char-cards" id="charCards" style="display:none;"></div>
+  </div>
+
+  <!-- Global tab -->
+  <div class="tab-panel" id="tab-global">
+    <div id="globalLoading" class="loading-center">
+      <div class="spinner"></div><span>Loading global leaderboard…</span>
+    </div>
+    <div id="globalEmpty" class="empty-state" style="display:none;">
+      <p>No global stats available yet.</p>
+    </div>
+    <div style="overflow-x:auto;" id="globalTableWrap" style="display:none;">
+      <table class="data-table" id="globalTable">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Player</th>
+            <th>Wins</th>
+            <th>Losses</th>
+            <th>Sessions</th>
+          </tr>
+        </thead>
+        <tbody id="globalBody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script>
+  const CHAR_SLUG = {"Mario":"mario","Donkey Kong":"donkey_kong","Link":"link","Samus":"samus","Dark Samus":"dark_samus","Yoshi":"yoshi","Kirby":"kirby","Fox":"fox","Pikachu":"pikachu","Luigi":"luigi","Ness":"ness","Captain Falcon":"captain_falcon","Jigglypuff":"jigglypuff","Peach":"peach","Daisy":"daisy","Bowser":"bowser","Ice Climbers":"ice_climbers","Sheik":"sheik","Zelda":"zelda","Dr. Mario":"dr_mario","Pichu":"pichu","Falco":"falco","Marth":"marth","Lucina":"lucina","Young Link":"young_link","Ganondorf":"ganondorf","Mewtwo":"mewtwo","Roy":"roy","Chrom":"chrom","Mr. Game & Watch":"game_and_watch","Meta Knight":"meta_knight","Pit":"pit","Dark Pit":"dark_pit","Zero Suit Samus":"zero_suit_samus","Wario":"wario","Snake":"snake","Ike":"ike","Pokémon Trainer":"pokemon_trainer","Diddy Kong":"diddy_kong","Lucas":"lucas","Sonic":"sonic","King Dedede":"king_dedede","Olimar":"olimar","Lucario":"lucario","R.O.B.":"robot","Toon Link":"toon_link","Wolf":"wolf","Villager":"villager","Mega Man":"rockman","Wii Fit Trainer":"wii_fit_trainer","Rosalina & Luma":"rosalina","Little Mac":"littlemac","Greninja":"gekkouga","Mii Brawler":"mii_brawler","Mii Swordfighter":"mii_swordfighter","Mii Gunner":"mii_gunner","Palutena":"palutena","Pac-Man":"pacman","Robin":"reflet","Shulk":"shulk","Bowser Jr.":"koopa_jr","Duck Hunt":"duckhunt","Ryu":"ryu","Ken":"ken","Cloud":"cloud","Corrin":"kamui","Bayonetta":"bayonetta","Inkling":"inkling","Ridley":"ridley","Simon":"simon","Richter":"richter","King K. Rool":"krool","Isabelle":"shizue","Incineroar":"gaogaen","Piranha Plant":"packun","Joker":"joker","Hero":"brave","Banjo & Kazooie":"buddy","Terry":"terry","Byleth":"master","Min Min":"tantan","Steve":"pickel","Sephiroth":"sephiroth","Pyra/Mythra":"eflame_ref","Kazuya":"kazuya","Sora":"sora"};
+
+  function charImgUrl(name) {
+    const slug = CHAR_SLUG[name];
+    if (!slug) return null;
+    return `https://www.smashbros.com/assets_v2/img/fighter/${slug}/main.png`;
+  }
+
+  function userAvatarUrl(username, storedUrl) {
+    if (storedUrl) return storedUrl;
+    return `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(username)}`;
+  }
+
+  function switchLBTab(tab) {
+    document.querySelectorAll('#lbTabs .tab-btn').forEach((b, i) => {
+      b.classList.toggle('active', (i === 0 && tab === 'chars') || (i === 1 && tab === 'global'));
+    });
+    document.getElementById('tab-chars').classList.toggle('active', tab === 'chars');
+    document.getElementById('tab-global').classList.toggle('active', tab === 'global');
+    if (tab === 'global') loadGlobal();
+  }
+
+  async function loadCharLeaderboard() {
+    try {
+      const data = await apiGet('/characters/stats/leaderboard');
+      document.getElementById('charLoading').style.display = 'none';
+
+      if (!data || data.length === 0) {
+        document.getElementById('charEmpty').style.display = 'block';
+        return;
+      }
+
+      const container = document.getElementById('charCards');
+      container.style.display = 'grid';
+
+      container.innerHTML = data.map(entry => {
+        const imgUrl = charImgUrl(entry.character);
+        const avatarUrl = userAvatarUrl(entry.username, entry.avatar_url);
+
+        const imgHtml = imgUrl
+          ? `<img class="char-card-img" src="${imgUrl}" alt="${entry.character}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" /><div class="char-fallback" style="display:none;">${entry.character.charAt(0)}</div>`
+          : `<div class="char-fallback">${entry.character.charAt(0)}</div>`;
+
+        return `
+          <div class="char-card">
+            ${imgHtml}
+            <div class="char-card-name">${entry.character}</div>
+            <div class="char-card-points">${entry.points} pts</div>
+            <div class="char-card-user">
+              <img class="user-av" src="${avatarUrl}" alt="${entry.username}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=default'" />
+              <span class="user-name">${entry.username}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    } catch (err) {
+      document.getElementById('charLoading').style.display = 'none';
+      showToast('Error loading character leaderboard: ' + err.message, 'error');
+    }
+  }
+
+  async function loadGlobal() {
+    const loading = document.getElementById('globalLoading');
+    const wrap = document.getElementById('globalTableWrap');
+    const empty = document.getElementById('globalEmpty');
+
+    if (loading.style.display === 'none') return; // already loaded
+
+    try {
+      const data = await apiGet('/leaderboard');
+      loading.style.display = 'none';
+
+      if (!data || data.length === 0) {
+        empty.style.display = 'block';
+        return;
+      }
+
+      wrap.style.display = 'block';
+      const body = document.getElementById('globalBody');
+      body.innerHTML = data.map((u, i) => {
+        const rowClass = i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '';
+        const rankSymbol = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}`;
+        return `<tr class="${rowClass}">
+          <td style="font-weight:700;">${rankSymbol}</td>
+          <td style="font-weight:600;">${u.username}</td>
+          <td style="color:#27ae60;">${u.wins || 0}</td>
+          <td style="color:#e74c3c;">${u.losses || 0}</td>
+          <td>${u.sessions || 0}</td>
+        </tr>`;
+      }).join('');
+    } catch (err) {
+      loading.style.display = 'none';
+      showToast('Error loading global leaderboard: ' + err.message, 'error');
+    }
+  }
+
+  (async function init() {
+    try {
+      const me = await apiGet('/users/me');
+      if (me) {
+        document.getElementById('navUsername').textContent = me.username;
+        const url = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
+        const av = document.getElementById('navAvatar');
+        av.src = url; av.style.display = 'block';
+      }
+    } catch (_) {}
+
+    loadCharLeaderboard();
+
+    // Check URL hash for direct-link to global
+    if (window.location.hash === '#global') {
+      switchLBTab('global');
+    }
+  })();
+</script>
+</body>
+</html>

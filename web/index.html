@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smash Bracket — Dashboard</title>
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/auth.js"></script>
+</head>
+<body>
+<script>requireAuth();</script>
+
+<div id="toast-container"></div>
+
+<nav class="navbar">
+  <a class="logo" href="index.html">Smash<span>Bros</span></a>
+  <ul class="nav-links">
+    <li><a href="index.html" class="active">Home</a></li>
+    <li><a href="bracket.html">Bracket</a></li>
+    <li><a href="roundrobin.html">Round Robin</a></li>
+    <li><a href="my-brackets.html">My Brackets</a></li>
+    <li><a href="tier-list.html">Tier List</a></li>
+    <li><a href="favorites.html">Favorites</a></li>
+    <li><a href="stats.html">Stats</a></li>
+    <li><a href="leaderboard.html">Leaderboard</a></li>
+    <li><a href="invites.html">Invites</a></li>
+    <li><a href="profile.html">Profile</a></li>
+  </ul>
+  <div class="nav-right">
+    <div class="nav-user">
+      <img class="nav-avatar" id="navAvatar" src="" alt="avatar" onerror="this.style.display='none'" />
+      <span id="navUsername"></span>
+    </div>
+    <button class="btn-signout" onclick="logout()">Sign Out</button>
+  </div>
+</nav>
+
+<main class="page-container">
+  <div class="page-header">
+    <h1>Dashboard</h1>
+    <p>Welcome back! What would you like to do today?</p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px;" id="dashGrid">
+
+    <a href="bracket.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
+      <div style="font-size:2rem;flex-shrink:0;">🎮</div>
+      <div style="flex:1">
+        <h3>Bracket Generator</h3>
+        <p>Create single-elimination brackets for regular or team play.</p>
+      </div>
+      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+    </a>
+
+    <a href="roundrobin.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
+      <div style="font-size:2rem;flex-shrink:0;">🔄</div>
+      <div style="flex:1">
+        <h3>Round Robin</h3>
+        <p>Schedule everyone vs everyone and track standings live.</p>
+      </div>
+      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+    </a>
+
+    <a href="my-brackets.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
+      <div style="font-size:2rem;flex-shrink:0;">📁</div>
+      <div style="flex:1">
+        <h3>My Brackets</h3>
+        <p>View and manage your saved single-elimination brackets.</p>
+      </div>
+      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+    </a>
+
+    <a href="roundrobin.html#saved" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
+      <div style="font-size:2rem;flex-shrink:0;">📋</div>
+      <div style="flex:1">
+        <h3>My RR Sessions</h3>
+        <p>Browse your saved round-robin session results.</p>
+      </div>
+      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+    </a>
+
+    <a href="tier-list.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
+      <div style="font-size:2rem;flex-shrink:0;">🎖️</div>
+      <div style="flex:1">
+        <h3>My Tier List</h3>
+        <p>Rate all 89 Smash Ultimate fighters from S to F tier.</p>
+      </div>
+      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+    </a>
+
+    <a href="favorites.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
+      <div style="font-size:2rem;flex-shrink:0;">⭐</div>
+      <div style="flex:1">
+        <h3>Top 10 Favorites</h3>
+        <p>Pick your top 10 favorite fighters from the full roster.</p>
+      </div>
+      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+    </a>
+
+    <a href="stats.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
+      <div style="font-size:2rem;flex-shrink:0;">📊</div>
+      <div style="flex:1">
+        <h3>Character Stats</h3>
+        <p>Track win/loss points per character. Win = +1, Loss = −1.</p>
+      </div>
+      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+    </a>
+
+    <a href="leaderboard.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
+      <div style="font-size:2rem;flex-shrink:0;">🏆</div>
+      <div style="flex:1">
+        <h3>Character Leaderboard</h3>
+        <p>See which characters are dominating across all players.</p>
+      </div>
+      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+    </a>
+
+    <a href="invites.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
+      <div style="font-size:2rem;flex-shrink:0;">📬</div>
+      <div style="flex:1">
+        <h3>Invites</h3>
+        <p>Send and manage tournament invites to other players.</p>
+        <div id="pendingBadge" style="display:none;margin-top:6px;">
+          <span class="badge badge-pending" id="pendingCount"></span>
+        </div>
+      </div>
+      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+    </a>
+
+    <a href="leaderboard.html#global" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
+      <div style="font-size:2rem;flex-shrink:0;">🌍</div>
+      <div style="flex:1">
+        <h3>Global Leaderboard</h3>
+        <p>Overall rankings by wins, losses, and sessions played.</p>
+      </div>
+      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+    </a>
+
+    <a href="profile.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
+      <div style="font-size:2rem;flex-shrink:0;">⚙️</div>
+      <div style="flex:1">
+        <h3>Profile</h3>
+        <p>Customize your avatar with DiceBear styles or a custom URL.</p>
+      </div>
+      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+    </a>
+
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script>
+  (async function init() {
+    // Load user info for navbar
+    try {
+      const me = await apiGet('/users/me');
+      if (me) {
+        document.getElementById('navUsername').textContent = me.username;
+        const avatarEl = document.getElementById('navAvatar');
+        const avatarUrl = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
+        avatarEl.src = avatarUrl;
+        avatarEl.style.display = 'block';
+      }
+    } catch (_) {}
+
+    // Check pending invites
+    try {
+      const invites = await apiGet('/invites/received');
+      if (invites) {
+        const pending = invites.filter(i => i.status === 'pending').length;
+        if (pending > 0) {
+          const badge = document.getElementById('pendingBadge');
+          document.getElementById('pendingCount').textContent = `${pending} pending`;
+          badge.style.display = 'block';
+        }
+      }
+    } catch (_) {}
+  })();
+</script>
+</body>
+</html>

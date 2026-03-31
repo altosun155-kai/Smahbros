@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smash Bracket — Round Robin</title>
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/auth.js"></script>
+  <style>
+    .rr-layout { display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start; }
+    .match-card { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; }
+    .match-label { font-size: 0.88rem; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+    .winner-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+    .winner-btn { padding: 5px 12px; border-radius: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border); background: var(--card-bg); color: var(--text-muted); transition: all 0.15s; }
+    .winner-btn.selected-a { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+    .winner-btn.selected-b { background: var(--accent-gold); border-color: var(--accent-gold); color: #111; }
+    .winner-btn.selected-none { background: var(--card-bg2); color: var(--text-muted); }
+    .matches-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 12px; }
+    .standings-table { width: 100%; }
+    .saved-session { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; }
+    .saved-session h3 { font-size: 0.95rem; color: var(--text); margin-bottom: 4px; }
+    .saved-session .meta { font-size: 0.8rem; color: var(--text-muted); }
+    .section-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; }
+    @media (max-width: 900px) { .rr-layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<script>requireAuth();</script>
+<div id="toast-container"></div>
+
+<nav class="navbar">
+  <a class="logo" href="index.html">Smash<span>Bros</span></a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="bracket.html">Bracket</a></li>
+    <li><a href="roundrobin.html" class="active">Round Robin</a></li>
+    <li><a href="my-brackets.html">My Brackets</a></li>
+    <li><a href="tier-list.html">Tier List</a></li>
+    <li><a href="favorites.html">Favorites</a></li>
+    <li><a href="stats.html">Stats</a></li>
+    <li><a href="leaderboard.html">Leaderboard</a></li>
+    <li><a href="invites.html">Invites</a></li>
+    <li><a href="profile.html">Profile</a></li>
+  </ul>
+  <div class="nav-right">
+    <div class="nav-user">
+      <img class="nav-avatar" id="navAvatar" src="" alt="" onerror="this.style.display='none'" />
+      <span id="navUsername"></span>
+    </div>
+    <button class="btn-signout" onclick="logout()">Sign Out</button>
+  </div>
+</nav>
+
+<main class="page-container">
+  <div class="page-header">
+    <h1>🔄 Round Robin Scheduler</h1>
+    <p>Schedule everyone vs everyone and track live standings.</p>
+  </div>
+
+  <div class="tabs" id="rrTabs">
+    <button class="tab-btn active" onclick="switchRRTab('generate')">Generate Schedule</button>
+    <button class="tab-btn" onclick="switchRRTab('saved')">My Saved Sessions</button>
+  </div>
+
+  <!-- Generate tab -->
+  <div class="tab-panel active" id="tab-generate">
+    <div class="rr-layout">
+      <div>
+        <div class="card" style="margin-bottom:16px;">
+          <h2 style="font-size:0.9rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Players</h2>
+          <div class="form-group">
+            <textarea id="rrPlayersInput" rows="6" placeholder="You&#10;Friend1&#10;Friend2">You
+Friend1
+Friend2</textarea>
+          </div>
+          <button class="btn btn-gold" style="width:100%;" onclick="generateRR()">Generate Schedule</button>
+        </div>
+
+        <div class="card" id="standingsCard" style="display:none;">
+          <div class="section-title">Live Standings</div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Player</th>
+                <th>W</th>
+                <th>L</th>
+                <th>Win%</th>
+              </tr>
+            </thead>
+            <tbody id="standingsBody"></tbody>
+          </table>
+
+          <hr class="section-divider" />
+          <div style="display:flex;gap:10px;align-items:center;">
+            <input type="text" id="rrSessionName" placeholder="Session name…" style="flex:1;padding:9px 12px;background:#0f0f17;border:1px solid rgba(255,255,255,0.15);border-radius:7px;color:#e8edf3;font-size:0.88rem;" />
+            <button class="btn btn-primary btn-sm" onclick="saveRRSession()">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div id="rrEmpty" style="color:var(--text-muted);font-size:0.9rem;padding:32px 0;">
+          Add players and click "Generate Schedule" to begin.
+        </div>
+        <div id="rrMatchesContainer" style="display:none;">
+          <div class="section-title" id="rrMatchCount"></div>
+          <div class="matches-grid" id="rrMatches"></div>
+          <div style="margin-top:16px;">
+            <button class="btn btn-outline btn-sm" onclick="resetRR()">Reset</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Saved sessions tab -->
+  <div class="tab-panel" id="tab-saved">
+    <div id="savedLoading" class="loading-center">
+      <div class="spinner"></div><span>Loading sessions…</span>
+    </div>
+    <div id="savedList" style="display:none;max-width:700px;"></div>
+    <div id="savedEmpty" class="empty-state" style="display:none;">
+      <p>No saved sessions yet. Generate and save one first.</p>
+    </div>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script>
+  let rrSchedule = null;
+  let rrResults = {};
+
+  function getPlayers() {
+    return document.getElementById('rrPlayersInput').value
+      .split('\n').map(p => p.trim()).filter(p => p && p.toUpperCase() !== 'BYE');
+  }
+
+  function generateRR() {
+    const players = getPlayers();
+    if (players.length < 2) { showToast('Need at least 2 players.', 'warn'); return; }
+
+    const schedule = [];
+    for (let i = 0; i < players.length; i++) {
+      for (let j = i + 1; j < players.length; j++) {
+        schedule.push([players[i], players[j]]);
+      }
+    }
+    // Shuffle
+    for (let i = schedule.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [schedule[i], schedule[j]] = [schedule[j], schedule[i]];
+    }
+
+    rrSchedule = schedule;
+    rrResults = {};
+    renderMatches();
+    updateStandings();
+  }
+
+  function renderMatches() {
+    const container = document.getElementById('rrMatches');
+    const empty = document.getElementById('rrEmpty');
+    const matchesSection = document.getElementById('rrMatchesContainer');
+    const standingsCard = document.getElementById('standingsCard');
+
+    empty.style.display = 'none';
+    matchesSection.style.display = 'block';
+    standingsCard.style.display = 'block';
+    document.getElementById('rrMatchCount').textContent = `${rrSchedule.length} Matches`;
+
+    container.innerHTML = '';
+    rrSchedule.forEach(([p1, p2], i) => {
+      const mid = `${i}_${p1}_${p2}`;
+      const cur = rrResults[mid] || '';
+      const card = document.createElement('div');
+      card.className = 'match-card';
+      card.id = `match_${i}`;
+      card.innerHTML = `
+        <div class="match-label">Match ${i + 1}: <strong>${p1}</strong> vs <strong>${p2}</strong></div>
+        <div class="winner-btns">
+          <button class="winner-btn ${cur===p1?'selected-a':''}" onclick="pickWinner(${i},'${p1}','${p2}','${p1}')">
+            ${p1}
+          </button>
+          <button class="winner-btn ${cur===p2?'selected-b':''}" onclick="pickWinner(${i},'${p1}','${p2}','${p2}')">
+            ${p2}
+          </button>
+          <button class="winner-btn ${cur===''?'selected-none':''}" onclick="pickWinner(${i},'${p1}','${p2}','')">
+            Undecided
+          </button>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  function pickWinner(i, p1, p2, winner) {
+    const mid = `${i}_${p1}_${p2}`;
+    rrResults[mid] = winner;
+    // Update buttons
+    const card = document.getElementById(`match_${i}`);
+    const btns = card.querySelectorAll('.winner-btn');
+    btns[0].className = `winner-btn ${winner===p1?'selected-a':''}`;
+    btns[1].className = `winner-btn ${winner===p2?'selected-b':''}`;
+    btns[2].className = `winner-btn ${winner===''?'selected-none':''}`;
+    updateStandings();
+  }
+
+  function updateStandings() {
+    if (!rrSchedule) return;
+    const players = getPlayers();
+    const records = {};
+    players.forEach(p => { records[p] = {wins: 0, losses: 0}; });
+
+    rrSchedule.forEach(([p1, p2], i) => {
+      const mid = `${i}_${p1}_${p2}`;
+      const w = rrResults[mid];
+      if (w === p1) { records[p1].wins++; records[p2].losses++; }
+      else if (w === p2) { records[p2].wins++; records[p1].losses++; }
+    });
+
+    const sorted = Object.entries(records).sort((a, b) => {
+      if (b[1].wins !== a[1].wins) return b[1].wins - a[1].wins;
+      return a[1].losses - b[1].losses;
+    });
+
+    const tbody = document.getElementById('standingsBody');
+    tbody.innerHTML = sorted.map(([p, r], i) => {
+      const total = r.wins + r.losses;
+      const pct = total > 0 ? Math.round(r.wins / total * 100) : 0;
+      return `<tr>
+        <td style="color:var(--text-muted);font-weight:700;">${i+1}</td>
+        <td style="font-weight:600;">${p}</td>
+        <td style="color:#27ae60;">${r.wins}</td>
+        <td style="color:#e74c3c;">${r.losses}</td>
+        <td>${pct}%</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function resetRR() {
+    rrSchedule = null;
+    rrResults = {};
+    document.getElementById('rrEmpty').style.display = 'block';
+    document.getElementById('rrMatchesContainer').style.display = 'none';
+    document.getElementById('standingsCard').style.display = 'none';
+  }
+
+  async function saveRRSession() {
+    const name = document.getElementById('rrSessionName').value.trim();
+    if (!name) { showToast('Enter a session name.', 'warn'); return; }
+    if (!rrSchedule) { showToast('Generate a schedule first.', 'warn'); return; }
+    const players = getPlayers();
+    const records = {};
+    players.forEach(p => { records[p] = {wins: 0, losses: 0}; });
+    rrSchedule.forEach(([p1, p2], i) => {
+      const mid = `${i}_${p1}_${p2}`;
+      const w = rrResults[mid];
+      if (w === p1) { records[p1].wins++; records[p2].losses++; }
+      else if (w === p2) { records[p2].wins++; records[p1].losses++; }
+    });
+    try {
+      await apiPost('/roundrobin', {
+        session_name: name,
+        players,
+        records,
+        schedule: rrSchedule.map(([p1,p2]) => ({p1, p2})),
+      });
+      showToast(`Saved "${name}"!`, 'success');
+    } catch (err) {
+      showToast('Error saving: ' + err.message, 'error');
+    }
+  }
+
+  // ── Tab switching ─────────────────────────────────
+  function switchRRTab(tab) {
+    document.querySelectorAll('#rrTabs .tab-btn').forEach((b, i) => {
+      b.classList.toggle('active', (i === 0 && tab === 'generate') || (i === 1 && tab === 'saved'));
+    });
+    document.getElementById('tab-generate').classList.toggle('active', tab === 'generate');
+    document.getElementById('tab-saved').classList.toggle('active', tab === 'saved');
+    if (tab === 'saved') loadSavedSessions();
+  }
+
+  async function loadSavedSessions() {
+    const loading = document.getElementById('savedLoading');
+    const list = document.getElementById('savedList');
+    const empty = document.getElementById('savedEmpty');
+    loading.style.display = 'flex';
+    list.style.display = 'none';
+    empty.style.display = 'none';
+
+    try {
+      const data = await apiGet('/roundrobin');
+      loading.style.display = 'none';
+      if (!data || data.length === 0) {
+        empty.style.display = 'block';
+        return;
+      }
+      list.style.display = 'block';
+      list.innerHTML = data.map(s => `
+        <div class="saved-session">
+          <h3>${s.session_name || s.name || 'Session'}</h3>
+          <div class="meta">${s.created_at ? s.created_at.slice(0,10) : ''} · ${(s.players || []).length} players</div>
+        </div>
+      `).join('');
+    } catch (err) {
+      loading.style.display = 'none';
+      showToast('Error loading sessions: ' + err.message, 'error');
+    }
+  }
+
+  // ── Init ─────────────────────────────────────────
+  (async function init() {
+    try {
+      const me = await apiGet('/users/me');
+      if (me) {
+        document.getElementById('navUsername').textContent = me.username;
+        const url = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
+        const av = document.getElementById('navAvatar');
+        av.src = url; av.style.display = 'block';
+      }
+    } catch (_) {}
+
+    // Check if opened with #saved hash
+    if (window.location.hash === '#saved') {
+      switchRRTab('saved');
+    }
+  })();
+</script>
+</body>
+</html>

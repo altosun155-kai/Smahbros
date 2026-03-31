@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smash Bracket — Top 10 Favorites</title>
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/auth.js"></script>
+  <style>
+    .chips-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+    .char-chip {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: var(--card-bg);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .char-chip:hover { border-color: var(--accent-blue); color: var(--text); }
+    .char-chip.selected {
+      background: var(--accent-blue);
+      border-color: var(--accent-blue);
+      color: #fff;
+    }
+    .char-chip.disabled { opacity: 0.4; cursor: not-allowed; }
+    .counter { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; }
+    .counter span { color: var(--accent-gold); }
+    .fav-list { list-style: none; }
+    .fav-list li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; color: var(--text); display: flex; align-items: center; gap: 10px; }
+    .fav-list li:last-child { border-bottom: none; }
+    .fav-rank { font-weight: 700; color: var(--text-muted); min-width: 24px; }
+  </style>
+</head>
+<body>
+<script>requireAuth();</script>
+<div id="toast-container"></div>
+
+<nav class="navbar">
+  <a class="logo" href="index.html">Smash<span>Bros</span></a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="bracket.html">Bracket</a></li>
+    <li><a href="roundrobin.html">Round Robin</a></li>
+    <li><a href="my-brackets.html">My Brackets</a></li>
+    <li><a href="tier-list.html">Tier List</a></li>
+    <li><a href="favorites.html" class="active">Favorites</a></li>
+    <li><a href="stats.html">Stats</a></li>
+    <li><a href="leaderboard.html">Leaderboard</a></li>
+    <li><a href="invites.html">Invites</a></li>
+    <li><a href="profile.html">Profile</a></li>
+  </ul>
+  <div class="nav-right">
+    <div class="nav-user">
+      <img class="nav-avatar" id="navAvatar" src="" alt="" onerror="this.style.display='none'" />
+      <span id="navUsername"></span>
+    </div>
+    <button class="btn-signout" onclick="logout()">Sign Out</button>
+  </div>
+</nav>
+
+<main class="page-container">
+  <div class="page-header">
+    <h1>⭐ Top 10 Favorite Characters</h1>
+    <p>Pick up to 10 of your favorite Smash Ultimate fighters.</p>
+  </div>
+
+  <div id="loadingState" class="loading-center">
+    <div class="spinner"></div><span>Loading favorites…</span>
+  </div>
+
+  <div id="favsContent" style="display:none;">
+    <div class="counter"><span id="selCount">0</span>/10 selected</div>
+
+    <div class="chips-grid" id="chipsGrid"></div>
+
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:32px;">
+      <button class="btn btn-primary" onclick="saveFavorites()">Save Favorites</button>
+      <button class="btn btn-outline" onclick="clearAll()">Clear All</button>
+    </div>
+
+    <div id="currentFavsSection" style="display:none;">
+      <h2 style="font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:14px;">Your Current Top 10</h2>
+      <ul class="fav-list" id="favList"></ul>
+    </div>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script>
+  const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];
+
+  let selected = new Set();
+
+  function buildChips() {
+    const grid = document.getElementById('chipsGrid');
+    grid.innerHTML = '';
+    ROSTER.forEach(char => {
+      const chip = document.createElement('span');
+      chip.className = 'char-chip' + (selected.has(char) ? ' selected' : '');
+      chip.id = `chip_${char.replace(/[^a-zA-Z0-9]/g,'_')}`;
+      chip.textContent = char;
+      chip.addEventListener('click', () => toggleChar(char));
+      grid.appendChild(chip);
+    });
+    updateCounter();
+  }
+
+  function toggleChar(char) {
+    if (selected.has(char)) {
+      selected.delete(char);
+    } else {
+      if (selected.size >= 10) {
+        showToast('Maximum 10 favorites allowed.', 'warn');
+        return;
+      }
+      selected.add(char);
+    }
+    const id = `chip_${char.replace(/[^a-zA-Z0-9]/g,'_')}`;
+    const chip = document.getElementById(id);
+    if (chip) chip.classList.toggle('selected', selected.has(char));
+    updateCounter();
+    updateFavList();
+  }
+
+  function updateCounter() {
+    document.getElementById('selCount').textContent = selected.size;
+  }
+
+  function updateFavList() {
+    const section = document.getElementById('currentFavsSection');
+    const list = document.getElementById('favList');
+    const arr = [...selected];
+    if (!arr.length) { section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    list.innerHTML = arr.map((c, i) => `
+      <li>
+        <span class="fav-rank">#${i+1}</span>
+        <span>${c}</span>
+      </li>
+    `).join('');
+  }
+
+  function clearAll() {
+    selected = new Set();
+    buildChips();
+    updateFavList();
+  }
+
+  async function saveFavorites() {
+    try {
+      await apiPut('/characters/favorites', {characters: [...selected]});
+      showToast('Favorites saved!', 'success');
+    } catch (err) {
+      showToast('Error saving: ' + err.message, 'error');
+    }
+  }
+
+  (async function init() {
+    try {
+      const me = await apiGet('/users/me');
+      if (me) {
+        document.getElementById('navUsername').textContent = me.username;
+        const url = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
+        const av = document.getElementById('navAvatar');
+        av.src = url; av.style.display = 'block';
+      }
+    } catch (_) {}
+
+    try {
+      const data = await apiGet('/characters/favorites');
+      if (data && data.characters) {
+        data.characters.slice(0,10).forEach(c => selected.add(c));
+      }
+    } catch (_) {}
+
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('favsContent').style.display = 'block';
+    buildChips();
+    updateFavList();
+  })();
+</script>
+</body>
+</html>

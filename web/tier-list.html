@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smash Bracket — Tier List</title>
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/auth.js"></script>
+  <style>
+    .tier-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 10px; margin-bottom: 28px; }
+    .tier-row { display: flex; align-items: center; gap: 10px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+    .char-name { font-size: 0.85rem; font-weight: 500; color: var(--text); min-width: 130px; flex-shrink: 0; }
+    .tier-slider { flex: 1; accent-color: var(--accent-blue); }
+    .tier-badge { font-size: 0.82rem; font-weight: 800; width: 28px; text-align: center; flex-shrink: 0; }
+    .view-user-row { display: flex; gap: 10px; max-width: 400px; margin-bottom: 20px; }
+    .view-user-row input { flex: 1; }
+    .viewed-tier-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .tier-label-badge { border-radius: 6px; padding: 4px 10px; font-weight: 900; font-size: 0.95rem; color: #111; }
+    .char-chip { background: var(--card-bg2); color: var(--text); border-radius: 5px; padding: 2px 7px; font-size: 0.8rem; }
+    .top-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; align-items: center; }
+    .last-saved { font-size: 0.82rem; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+<script>requireAuth();</script>
+<div id="toast-container"></div>
+
+<nav class="navbar">
+  <a class="logo" href="index.html">Smash<span>Bros</span></a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="bracket.html">Bracket</a></li>
+    <li><a href="roundrobin.html">Round Robin</a></li>
+    <li><a href="my-brackets.html">My Brackets</a></li>
+    <li><a href="tier-list.html" class="active">Tier List</a></li>
+    <li><a href="favorites.html">Favorites</a></li>
+    <li><a href="stats.html">Stats</a></li>
+    <li><a href="leaderboard.html">Leaderboard</a></li>
+    <li><a href="invites.html">Invites</a></li>
+    <li><a href="profile.html">Profile</a></li>
+  </ul>
+  <div class="nav-right">
+    <div class="nav-user">
+      <img class="nav-avatar" id="navAvatar" src="" alt="" onerror="this.style.display='none'" />
+      <span id="navUsername"></span>
+    </div>
+    <button class="btn-signout" onclick="logout()">Sign Out</button>
+  </div>
+</nav>
+
+<main class="page-container">
+  <div class="page-header">
+    <h1>🎖️ My Tier List</h1>
+    <p>Rate all 89 Smash Ultimate fighters. Drag sliders from Unranked to S tier.</p>
+  </div>
+
+  <div id="loadingState" class="loading-center">
+    <div class="spinner"></div><span>Loading tier list…</span>
+  </div>
+
+  <div id="tierContent" style="display:none;">
+    <div class="top-bar">
+      <button class="btn btn-primary" onclick="saveTierList()">Save Tier List</button>
+      <button class="btn btn-outline" onclick="resetTierList()">Reset All</button>
+      <span class="last-saved" id="lastSaved"></span>
+    </div>
+
+    <div class="tier-grid" id="tierGrid"></div>
+
+    <hr class="section-divider" />
+    <h2 style="font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:14px;">View someone else's tier list</h2>
+    <div class="view-user-row">
+      <input type="text" id="viewUserInput" placeholder="Enter username…" />
+      <button class="btn btn-outline" onclick="viewUserTierList()">View</button>
+    </div>
+    <div id="viewedTierContainer" style="display:none;">
+      <h3 id="viewedTierTitle" style="font-size:1rem;font-weight:700;color:var(--text);margin-bottom:12px;"></h3>
+      <div id="viewedTierList"></div>
+    </div>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script>
+  const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];
+
+  const TIER_LABELS = ['Unranked','F','D','C','B','A','S'];
+  const TIER_COLORS = {S:'#ff7f7f',A:'#ffbf7f',B:'#ffff7f',C:'#7fff7f',D:'#7fbfff',F:'#bf7fff',Unranked:'#8892a4'};
+
+  let sliderValues = {}; // char -> 0-6
+
+  function getTierLabel(val) { return TIER_LABELS[val] || 'Unranked'; }
+
+  function getTierColor(label) { return TIER_COLORS[label] || '#8892a4'; }
+
+  function buildTierGrid() {
+    const grid = document.getElementById('tierGrid');
+    grid.innerHTML = '';
+    ROSTER.forEach(char => {
+      const val = sliderValues[char] !== undefined ? sliderValues[char] : 0;
+      const label = getTierLabel(val);
+      const color = getTierColor(label);
+
+      const row = document.createElement('div');
+      row.className = 'tier-row';
+      row.innerHTML = `
+        <span class="char-name">${char}</span>
+        <input
+          type="range"
+          class="tier-slider"
+          id="slider_${char.replace(/[^a-zA-Z0-9]/g,'_')}"
+          min="0" max="6" step="1"
+          value="${val}"
+        />
+        <span class="tier-badge" id="badge_${char.replace(/[^a-zA-Z0-9]/g,'_')}"
+          style="color:${color};">${label}</span>
+      `;
+      grid.appendChild(row);
+
+      const slider = row.querySelector('.tier-slider');
+      slider.addEventListener('input', () => {
+        const v = parseInt(slider.value);
+        sliderValues[char] = v;
+        const lbl = getTierLabel(v);
+        const badge = row.querySelector('.tier-badge');
+        badge.textContent = lbl;
+        badge.style.color = getTierColor(lbl);
+      });
+    });
+  }
+
+  function rankingToSliders(ranking) {
+    const map = {};
+    const tierIdx = {S:6,A:5,B:4,C:3,D:2,F:1};
+    Object.entries(ranking).forEach(([tier, chars]) => {
+      const idx = tierIdx[tier] !== undefined ? tierIdx[tier] : 0;
+      chars.forEach(c => { map[c] = idx; });
+    });
+    return map;
+  }
+
+  function slidersToRanking() {
+    const ranking = {S:[],A:[],B:[],C:[],D:[],F:[],unranked:[]};
+    const tierNames = ['unranked','F','D','C','B','A','S'];
+    ROSTER.forEach(char => {
+      const val = sliderValues[char] || 0;
+      const tierKey = tierNames[val];
+      if (ranking[tierKey] !== undefined) ranking[tierKey].push(char);
+      else ranking.unranked.push(char);
+    });
+    return ranking;
+  }
+
+  async function saveTierList() {
+    const ranking = slidersToRanking();
+    try {
+      await apiPut('/characters/ranking', {ranking});
+      showToast('Tier list saved!', 'success');
+    } catch (err) {
+      showToast('Error saving: ' + err.message, 'error');
+    }
+  }
+
+  function resetTierList() {
+    ROSTER.forEach(c => { sliderValues[c] = 0; });
+    buildTierGrid();
+  }
+
+  async function viewUserTierList() {
+    const username = document.getElementById('viewUserInput').value.trim();
+    if (!username) { showToast('Enter a username.', 'warn'); return; }
+    try {
+      const data = await apiGet(`/characters/ranking/${username}`);
+      document.getElementById('viewedTierContainer').style.display = 'block';
+      document.getElementById('viewedTierTitle').textContent = `${data.username}'s Tier List`;
+      const container = document.getElementById('viewedTierList');
+      const tiers = ['S','A','B','C','D','F'];
+      container.innerHTML = tiers.map(tier => {
+        const chars = (data.ranking || {})[tier] || [];
+        if (!chars.length) return '';
+        const color = TIER_COLORS[tier];
+        const chips = chars.map(c => `<span class="char-chip">${c}</span>`).join('');
+        return `<div class="viewed-tier-row">
+          <span class="tier-label-badge" style="background:${color};">${tier}</span>
+          ${chips}
+        </div>`;
+      }).join('');
+    } catch (err) {
+      showToast('Error loading tier list: ' + err.message, 'error');
+    }
+  }
+
+  (async function init() {
+    try {
+      const me = await apiGet('/users/me');
+      if (me) {
+        document.getElementById('navUsername').textContent = me.username;
+        const url = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
+        const av = document.getElementById('navAvatar');
+        av.src = url; av.style.display = 'block';
+      }
+    } catch (_) {}
+
+    try {
+      const data = await apiGet('/characters/ranking');
+      if (data && data.ranking) {
+        sliderValues = rankingToSliders(data.ranking);
+        if (data.updated_at) {
+          document.getElementById('lastSaved').textContent =
+            'Last saved: ' + data.updated_at.slice(0,16).replace('T',' ') + ' UTC';
+        }
+      } else {
+        ROSTER.forEach(c => { sliderValues[c] = 0; });
+      }
+    } catch (_) {
+      ROSTER.forEach(c => { sliderValues[c] = 0; });
+    }
+
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('tierContent').style.display = 'block';
+    buildTierGrid();
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smash Bracket — Bracket Generator</title>
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/auth.js"></script>
+  <style>
+    .bracket-layout { display: grid; grid-template-columns: 340px 1fr; gap: 24px; align-items: start; }
+    .sidebar-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+    .sidebar-card h2 { font-size: 0.95rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; }
+    .player-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; align-items: center; }
+    .player-label { font-size: 0.85rem; color: var(--text); font-weight: 500; }
+    .player-row select { padding: 6px 8px; font-size: 0.82rem; }
+    .team-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px; align-items: center; }
+    .team-row label { font-size: 0.85rem; color: var(--text); }
+    .match-box { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; min-width: 180px; }
+    .match-entry { padding: 4px 0; font-size: 0.82rem; color: var(--text); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
+    .match-entry:last-child { border-bottom: none; }
+    .match-entry.bye { color: var(--text-muted); font-style: italic; opacity: 0.6; }
+    .round-col { flex-shrink: 0; }
+    .round-title { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+    .bracket-rounds { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 12px; }
+    .round-col { min-width: 200px; }
+    .winner-select { width: 100%; padding: 5px 8px; font-size: 0.8rem; margin-top: 4px; }
+    .save-bracket-row { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-top: 20px; display: flex; gap: 10px; align-items: center; }
+    .save-bracket-row input { flex: 1; }
+    .mode-toggle { display: flex; gap: 8px; margin-bottom: 16px; }
+    .mode-btn { flex: 1; padding: 8px; background: var(--card-bg2); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+    .mode-btn.active { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+    @media (max-width: 900px) { .bracket-layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<script>requireAuth();</script>
+<div id="toast-container"></div>
+
+<nav class="navbar">
+  <a class="logo" href="index.html">Smash<span>Bros</span></a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="bracket.html" class="active">Bracket</a></li>
+    <li><a href="roundrobin.html">Round Robin</a></li>
+    <li><a href="my-brackets.html">My Brackets</a></li>
+    <li><a href="tier-list.html">Tier List</a></li>
+    <li><a href="favorites.html">Favorites</a></li>
+    <li><a href="stats.html">Stats</a></li>
+    <li><a href="leaderboard.html">Leaderboard</a></li>
+    <li><a href="invites.html">Invites</a></li>
+    <li><a href="profile.html">Profile</a></li>
+  </ul>
+  <div class="nav-right">
+    <div class="nav-user">
+      <img class="nav-avatar" id="navAvatar" src="" alt="avatar" onerror="this.style.display='none'" />
+      <span id="navUsername"></span>
+    </div>
+    <button class="btn-signout" onclick="logout()">Sign Out</button>
+  </div>
+</nav>
+
+<main class="page-container">
+  <div class="page-header">
+    <h1>🎮 Bracket Generator</h1>
+    <p>Set up players, choose characters, then generate a single-elimination bracket.</p>
+  </div>
+
+  <div class="bracket-layout">
+
+    <!-- Sidebar: Config -->
+    <div>
+      <div class="sidebar-card" style="margin-bottom:16px;">
+        <h2>Mode</h2>
+        <div class="mode-toggle">
+          <button class="mode-btn active" id="btnRegular" onclick="setMode('regular')">Regular</button>
+          <button class="mode-btn" id="btnTeams" onclick="setMode('teams')">Teams</button>
+        </div>
+
+        <h2>Players (one per line)</h2>
+        <div class="form-group" style="margin-bottom:12px;">
+          <textarea id="playersInput" rows="5" placeholder="You&#10;Friend1&#10;Friend2">You
+Friend1
+Friend2</textarea>
+        </div>
+
+        <div id="teamsSection" style="display:none;">
+          <h2 style="margin-top:8px;">Team Labels</h2>
+          <div class="form-group" style="margin-bottom:12px;">
+            <input type="text" id="teamLabelsInput" value="Red, Blue" placeholder="Red, Blue" />
+          </div>
+          <div id="teamAssignments"></div>
+        </div>
+
+        <h2 style="margin-top:8px;">Characters per Player</h2>
+        <div class="form-group" style="margin-bottom:12px;">
+          <input type="number" id="charsPerPlayer" value="2" min="1" max="10" />
+        </div>
+
+        <button class="btn btn-primary" style="width:100%;margin-bottom:8px;" onclick="buildEntryGrid()">Build Entry Grid</button>
+        <button class="btn btn-outline" style="width:100%;" onclick="autofillChars()">Auto-fill Characters</button>
+      </div>
+
+      <div class="sidebar-card" id="entryGridSection" style="display:none;">
+        <h2>Entries</h2>
+        <div id="entryGrid"></div>
+      </div>
+    </div>
+
+    <!-- Main: Bracket -->
+    <div>
+      <div style="display:flex;gap:10px;margin-bottom:20px;">
+        <button class="btn btn-gold" onclick="generateBracket()">Generate Bracket</button>
+        <button class="btn btn-outline" onclick="clearBracket()">Clear</button>
+      </div>
+
+      <div id="bracketOutput" style="display:none;">
+        <div class="bracket-rounds" id="bracketRounds"></div>
+
+        <div class="save-bracket-row" id="saveBracketRow">
+          <input type="text" class="form-group" id="bracketName" placeholder="Bracket name (e.g. Friday Night S3)" style="margin:0;flex:1;padding:9px 12px;background:#0f0f17;border:1px solid rgba(255,255,255,0.15);border-radius:7px;color:var(--text);" />
+          <button class="btn btn-primary btn-sm" onclick="saveBracket()">Save Bracket</button>
+        </div>
+      </div>
+
+      <div id="bracketEmpty" style="color:var(--text-muted);font-size:0.9rem;padding:32px 0;">
+        Configure players and click "Generate Bracket" to get started.
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script>
+// ── Roster ────────────────────────────────────────
+const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];
+
+let currentMode = 'regular';
+let currentEntries = []; // [{player, character}]
+let currentBracket = []; // [{a, b}] first round pairs
+let roundWinners = {}; // match index -> label
+
+// ── Mode toggle ───────────────────────────────────
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('btnRegular').classList.toggle('active', mode === 'regular');
+  document.getElementById('btnTeams').classList.toggle('active', mode === 'teams');
+  document.getElementById('teamsSection').style.display = mode === 'teams' ? 'block' : 'none';
+  if (mode === 'teams') renderTeamAssignments();
+}
+
+function getPlayers() {
+  return document.getElementById('playersInput').value.split('\n')
+    .map(p => p.trim()).filter(p => p && p.toUpperCase() !== 'BYE');
+}
+
+function getTeamLabels() {
+  return document.getElementById('teamLabelsInput').value.split(',')
+    .map(t => t.trim()).filter(t => t) || ['Team A','Team B'];
+}
+
+function renderTeamAssignments() {
+  const players = getPlayers();
+  const labels = getTeamLabels();
+  const container = document.getElementById('teamAssignments');
+  container.innerHTML = '<h2 style="margin-top:8px;">Player Teams</h2>';
+  players.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'team-row';
+    const lbl = document.createElement('label');
+    lbl.textContent = p;
+    const sel = document.createElement('select');
+    sel.id = `team_${p}`;
+    sel.innerHTML = '<option value="">(none)</option>' + labels.map(l => `<option value="${l}">${l}</option>`).join('');
+    sel.style.cssText = 'padding:5px 8px;font-size:0.82rem;background:#0f0f17;border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#e8edf3;';
+    row.appendChild(lbl);
+    row.appendChild(sel);
+    container.appendChild(row);
+  });
+}
+
+// ── Entry grid ────────────────────────────────────
+function buildEntryGrid() {
+  const players = getPlayers();
+  if (!players.length) { showToast('Add players first.', 'warn'); return; }
+  const k = parseInt(document.getElementById('charsPerPlayer').value) || 2;
+  const section = document.getElementById('entryGridSection');
+  const grid = document.getElementById('entryGrid');
+  section.style.display = 'block';
+
+  // Build entries: k rows per player
+  currentEntries = [];
+  players.forEach(p => {
+    for (let i = 0; i < k; i++) {
+      currentEntries.push({player: p, character: ''});
+    }
+  });
+
+  renderEntryGrid();
+  if (currentMode === 'teams') renderTeamAssignments();
+}
+
+function renderEntryGrid() {
+  const grid = document.getElementById('entryGrid');
+  grid.innerHTML = '';
+  currentEntries.forEach((entry, idx) => {
+    const row = document.createElement('div');
+    row.className = 'player-row';
+    const lbl = document.createElement('span');
+    lbl.className = 'player-label';
+    lbl.textContent = entry.player;
+    const sel = document.createElement('select');
+    sel.id = `entry_${idx}`;
+    sel.style.cssText = 'padding:6px 8px;font-size:0.82rem;background:#0f0f17;border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#e8edf3;';
+    sel.innerHTML = '<option value="">— Pick —</option>' + ROSTER.map(c => `<option value="${c}"${entry.character===c?' selected':''}>${c}</option>`).join('');
+    sel.addEventListener('change', () => { currentEntries[idx].character = sel.value; });
+    row.appendChild(lbl);
+    row.appendChild(sel);
+    grid.appendChild(row);
+  });
+}
+
+function autofillChars() {
+  currentEntries.forEach((entry, idx) => {
+    if (!entry.character) {
+      entry.character = ROSTER[Math.floor(Math.random() * ROSTER.length)];
+    }
+  });
+  renderEntryGrid();
+}
+
+// ── Bracket algorithm ─────────────────────────────
+function nextPow2(n) {
+  if (n <= 1) return 1;
+  let p = 1;
+  while (p < n) p <<= 1;
+  return p;
+}
+
+function getTeamOf(player) {
+  if (currentMode !== 'teams') return '';
+  const sel = document.getElementById(`team_${player}`);
+  return sel ? sel.value : '';
+}
+
+function generateBracket() {
+  // Sync current entry characters from selects
+  currentEntries.forEach((entry, idx) => {
+    const sel = document.getElementById(`entry_${idx}`);
+    if (sel) entry.character = sel.value;
+  });
+
+  const base = currentEntries.filter(e => e.player && e.character);
+  if (base.length < 2) { showToast('Add at least 2 entries with characters.', 'warn'); return; }
+
+  const teamOf = {};
+  if (currentMode === 'teams') {
+    getPlayers().forEach(p => { teamOf[p] = getTeamOf(p); });
+  }
+
+  const pairs = generateBracketJS(base, currentMode === 'teams', teamOf);
+  if (!pairs.length) { showToast('Could not build a valid bracket with those constraints.', 'error'); return; }
+
+  currentBracket = pairs;
+  roundWinners = {};
+  renderBracket();
+}
+
+function generateBracketJS(base, teamMode, teamOf) {
+  const BYE = {player:'SYSTEM', character:'BYE'};
+  const target = nextPow2(base.length);
+  const byesNeeded = target - base.length;
+  const targetPairs = target / 2;
+
+  function allowed(a, b) {
+    if (a.player === b.player) return false;
+    if (teamMode) {
+      const ta = teamOf[a.player] || '', tb = teamOf[b.player] || '';
+      if (ta && tb && ta === tb) return false;
+    }
+    return true;
+  }
+
+  let best = [], bestScore = [-1, -Infinity];
+
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const remaining = [...base];
+    // Fisher-Yates shuffle
+    for (let i = remaining.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+    }
+
+    const pairs = [];
+    let byesLeft = byesNeeded;
+    while (byesLeft > 0 && remaining.length) {
+      pairs.push([remaining.pop(), BYE]);
+      byesLeft--;
+    }
+
+    let stuck = 0;
+    while (remaining.length >= 2 && pairs.length < targetPairs) {
+      stuck++;
+      if (stuck > 5000) break;
+      const fi = Math.floor(Math.random() * remaining.length);
+      const first = remaining[fi];
+      remaining.splice(fi, 1);
+      const candidates = remaining.filter(x => allowed(first, x));
+      if (!candidates.length) { remaining.push(first); continue; }
+      const second = candidates[Math.floor(Math.random() * candidates.length)];
+      remaining.splice(remaining.indexOf(second), 1);
+      pairs.push([first, second]);
+    }
+
+    const nonBye = pairs.filter(([a,b]) =>
+      a.character.toUpperCase() !== 'BYE' && b.character.toUpperCase() !== 'BYE'
+    ).length;
+    const score = [nonBye, -remaining.length];
+    if (score[0] > bestScore[0] || (score[0] === bestScore[0] && score[1] > bestScore[1])) {
+      bestScore = score;
+      best = pairs;
+    }
+    if (best.length === targetPairs && remaining.length === 0) return best;
+  }
+  return best;
+}
+
+function entryLabel(e) {
+  if (!e) return '';
+  if (e.character.toUpperCase() === 'BYE') return 'BYE';
+  return `${e.player} — ${e.character}`;
+}
+
+// ── Render bracket ────────────────────────────────
+function renderBracket() {
+  document.getElementById('bracketOutput').style.display = 'block';
+  document.getElementById('bracketEmpty').style.display = 'none';
+
+  const r1 = currentBracket;
+  const allRounds = computeRounds(r1);
+  const container = document.getElementById('bracketRounds');
+  container.innerHTML = '';
+
+  const roundNames = ['Round 1','Round of 16','Quarterfinals','Semifinals','Finals','Grand Final'];
+
+  allRounds.forEach((round, ri) => {
+    const col = document.createElement('div');
+    col.className = 'round-col';
+    const total = allRounds[0].length * 2;
+    let rname = roundNames[0];
+    if (ri === allRounds.length - 1 && allRounds.length > 1) {
+      rname = allRounds.length === 2 ? 'Finals' : 'Grand Final';
+    } else if (ri === allRounds.length - 2 && allRounds.length > 2) {
+      rname = 'Semifinals';
+    } else if (ri === allRounds.length - 3 && allRounds.length > 3) {
+      rname = 'Quarterfinals';
+    } else {
+      rname = `Round ${ri + 1}`;
+    }
+    col.innerHTML = `<div class="round-title">${rname}</div>`;
+
+    round.forEach(([a, b], mi) => {
+      const box = document.createElement('div');
+      box.className = 'match-box';
+      const la = a ? entryLabel(a) : 'TBD';
+      const lb = b ? entryLabel(b) : 'TBD';
+      const isBye = (a && a.character.toUpperCase()==='BYE') || (b && b.character.toUpperCase()==='BYE');
+
+      let html = `<div class="match-entry${a && a.character.toUpperCase()==='BYE'?' bye':''}">${la}</div>`;
+      html += `<div class="match-entry${b && b.character.toUpperCase()==='BYE'?' bye':''}">${lb}</div>`;
+
+      if (ri === 0 && !isBye && la !== 'TBD' && lb !== 'TBD') {
+        const key = `r${ri}_m${mi}`;
+        const cur = roundWinners[key] || '';
+        html += `<select class="winner-select" onchange="setWinner('${key}', this.value)" style="background:#0f0f17;border:1px solid rgba(255,255,255,0.15);color:#e8edf3;border-radius:5px;">
+          <option value="">— Pick winner —</option>
+          <option value="${la}"${cur===la?' selected':''}>${la}</option>
+          <option value="${lb}"${cur===lb?' selected':''}>${lb}</option>
+        </select>`;
+      }
+
+      box.innerHTML = html;
+      col.appendChild(box);
+    });
+
+    container.appendChild(col);
+  });
+}
+
+function setWinner(key, val) {
+  roundWinners[key] = val;
+  // Recompute subsequent rounds
+  renderBracket();
+}
+
+function computeRounds(r1) {
+  const rounds = [r1];
+  let prev = r1;
+  while (prev.length > 1) {
+    const next = [];
+    for (let i = 0; i < prev.length; i += 2) {
+      const a = getWinnerOf(i, prev);
+      const b = getWinnerOf(i + 1, prev);
+      next.push([a, b]);
+    }
+    rounds.push(next);
+    prev = next;
+  }
+  return rounds;
+}
+
+function getWinnerOf(matchIdx, pairs) {
+  if (matchIdx >= pairs.length) return null;
+  const [a, b] = pairs[matchIdx];
+  if (!a && !b) return null;
+  if (!a) return b && b.character.toUpperCase() !== 'BYE' ? b : null;
+  if (!b) return a && a.character.toUpperCase() !== 'BYE' ? a : null;
+  if (a.character.toUpperCase() === 'BYE') return b;
+  if (b.character.toUpperCase() === 'BYE') return a;
+  // Find the round index for this match
+  const key = `r0_m${matchIdx}`;
+  const picked = roundWinners[key];
+  const la = entryLabel(a), lb = entryLabel(b);
+  if (picked === la) return a;
+  if (picked === lb) return b;
+  return null;
+}
+
+function clearBracket() {
+  currentBracket = [];
+  roundWinners = {};
+  document.getElementById('bracketOutput').style.display = 'none';
+  document.getElementById('bracketEmpty').style.display = 'block';
+}
+
+async function saveBracket() {
+  const name = document.getElementById('bracketName').value.trim();
+  if (!name) { showToast('Enter a bracket name first.', 'warn'); return; }
+  try {
+    await apiPost('/brackets', {
+      name,
+      mode: currentMode,
+      players: getPlayers(),
+      entries: currentEntries.filter(e => e.character),
+      bracket_data: currentBracket.map(([a,b]) => ({a: entryLabel(a), b: entryLabel(b)})),
+    });
+    showToast(`Saved "${name}"!`, 'success');
+  } catch (err) {
+    showToast('Error saving bracket: ' + err.message, 'error');
+  }
+}
+
+// ── Init ──────────────────────────────────────────
+(async function init() {
+  try {
+    const me = await apiGet('/users/me');
+    if (me) {
+      document.getElementById('navUsername').textContent = me.username;
+      const url = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
+      const av = document.getElementById('navAvatar');
+      av.src = url; av.style.display = 'block';
+    }
+  } catch (_) {}
+})();
+</script>
+</body>
+</html>

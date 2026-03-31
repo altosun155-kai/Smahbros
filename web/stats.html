@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smash Bracket — Character Stats</title>
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/auth.js"></script>
+  <style>
+    .record-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 28px; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+    .record-bar select { flex: 1; min-width: 180px; max-width: 300px; }
+    .points-cell { font-weight: 700; color: var(--accent-gold); }
+    .rank-cell { color: var(--text-muted); font-weight: 700; }
+    .char-img { width: 36px; height: 36px; object-fit: contain; border-radius: 4px; vertical-align: middle; }
+    .view-user-row { display: flex; gap: 10px; max-width: 400px; margin-top: 24px; }
+    .view-user-row input { flex: 1; }
+  </style>
+</head>
+<body>
+<script>requireAuth();</script>
+<div id="toast-container"></div>
+
+<nav class="navbar">
+  <a class="logo" href="index.html">Smash<span>Bros</span></a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="bracket.html">Bracket</a></li>
+    <li><a href="roundrobin.html">Round Robin</a></li>
+    <li><a href="my-brackets.html">My Brackets</a></li>
+    <li><a href="tier-list.html">Tier List</a></li>
+    <li><a href="favorites.html">Favorites</a></li>
+    <li><a href="stats.html" class="active">Stats</a></li>
+    <li><a href="leaderboard.html">Leaderboard</a></li>
+    <li><a href="invites.html">Invites</a></li>
+    <li><a href="profile.html">Profile</a></li>
+  </ul>
+  <div class="nav-right">
+    <div class="nav-user">
+      <img class="nav-avatar" id="navAvatar" src="" alt="" onerror="this.style.display='none'" />
+      <span id="navUsername"></span>
+    </div>
+    <button class="btn-signout" onclick="logout()">Sign Out</button>
+  </div>
+</nav>
+
+<main class="page-container">
+  <div class="page-header">
+    <h1>📊 Character Stats</h1>
+    <p>Track your win/loss points per character. Win = +1, Loss = −1 (floor 0).</p>
+  </div>
+
+  <div class="record-bar">
+    <select id="charSelect">
+      <option value="">Select character…</option>
+    </select>
+    <button class="btn btn-primary" onclick="recordResult('win')">Win +1</button>
+    <button class="btn btn-danger" onclick="recordResult('loss')">Loss −1</button>
+  </div>
+
+  <div id="statsLoading" class="loading-center">
+    <div class="spinner"></div><span>Loading stats…</span>
+  </div>
+
+  <div id="statsContent" style="display:none;">
+    <h2 style="font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:14px;">Your Stats</h2>
+    <div id="statsEmpty" class="empty-state" style="display:none;">
+      <p>No stats yet. Record a result above to get started.</p>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="data-table" id="statsTable" style="display:none;">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Character</th>
+            <th>Points</th>
+          </tr>
+        </thead>
+        <tbody id="statsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <hr class="section-divider" style="margin-top:28px;" />
+  <h2 style="font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:12px;">View another user's stats</h2>
+  <div class="view-user-row">
+    <input type="text" id="viewUserInput" placeholder="Enter username…" />
+    <button class="btn btn-outline" onclick="viewUserStats()">View</button>
+  </div>
+  <div id="viewedStatsContainer" style="margin-top:20px;display:none;">
+    <h3 id="viewedStatsTitle" style="font-size:0.95rem;font-weight:700;color:var(--text);margin-bottom:10px;"></h3>
+    <div style="overflow-x:auto;">
+      <table class="data-table" id="viewedStatsTable">
+        <thead>
+          <tr><th>#</th><th>Character</th><th>Points</th></tr>
+        </thead>
+        <tbody id="viewedStatsBody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script>
+  const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];
+
+  // Populate character select
+  const sel = document.getElementById('charSelect');
+  ROSTER.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    sel.appendChild(opt);
+  });
+
+  async function recordResult(result) {
+    const char = document.getElementById('charSelect').value;
+    if (!char) { showToast('Select a character first.', 'warn'); return; }
+    try {
+      await apiPost('/characters/stats/record', {character: char, result});
+      showToast(`Recorded ${result} for ${char}!`, 'success');
+      loadStats();
+    } catch (err) {
+      showToast('Error recording: ' + err.message, 'error');
+    }
+  }
+
+  function renderStatsTable(data, bodyId, tableId, emptyId) {
+    const body = document.getElementById(bodyId);
+    const table = document.getElementById(tableId);
+    const empty = emptyId ? document.getElementById(emptyId) : null;
+
+    const filtered = (data || []).filter(s => s.points > 0);
+    filtered.sort((a,b) => b.points - a.points);
+
+    if (!filtered.length) {
+      if (table) table.style.display = 'none';
+      if (empty) empty.style.display = 'block';
+      return;
+    }
+
+    if (empty) empty.style.display = 'none';
+    if (table) table.style.display = 'table';
+
+    body.innerHTML = filtered.map((s, i) => `
+      <tr>
+        <td class="rank-cell">${i+1}</td>
+        <td style="font-weight:500;">${s.character}</td>
+        <td class="points-cell">${s.points}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function loadStats() {
+    document.getElementById('statsLoading').style.display = 'flex';
+    document.getElementById('statsContent').style.display = 'none';
+
+    try {
+      const data = await apiGet('/characters/stats');
+      document.getElementById('statsLoading').style.display = 'none';
+      document.getElementById('statsContent').style.display = 'block';
+      renderStatsTable(data, 'statsBody', 'statsTable', 'statsEmpty');
+    } catch (err) {
+      document.getElementById('statsLoading').style.display = 'none';
+      document.getElementById('statsContent').style.display = 'block';
+      showToast('Error loading stats: ' + err.message, 'error');
+    }
+  }
+
+  async function viewUserStats() {
+    const username = document.getElementById('viewUserInput').value.trim();
+    if (!username) { showToast('Enter a username.', 'warn'); return; }
+    try {
+      const data = await apiGet(`/characters/stats/${username}`);
+      document.getElementById('viewedStatsContainer').style.display = 'block';
+      document.getElementById('viewedStatsTitle').textContent = `${username}'s Stats`;
+      renderStatsTable(data, 'viewedStatsBody', 'viewedStatsTable', null);
+    } catch (err) {
+      showToast('Error: ' + err.message, 'error');
+    }
+  }
+
+  (async function init() {
+    try {
+      const me = await apiGet('/users/me');
+      if (me) {
+        document.getElementById('navUsername').textContent = me.username;
+        const url = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
+        const av = document.getElementById('navAvatar');
+        av.src = url; av.style.display = 'block';
+      }
+    } catch (_) {}
+    loadStats();
+  })();
+</script>
+</body>
+</html>

@@ -14,12 +14,5 @@ services:
         sync: false
   - type: web
     name: smash-bracket-ui
-    runtime: python
-    plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: streamlit run frontend.py --server.port $PORT --server.address 0.0.0.0
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.9
-      - key: BACKEND_URL
-        value: https://smash-bracket-api.onrender.com
+    runtime: static
+    staticPublishPath: web

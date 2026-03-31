@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smash Bracket — Profile</title>
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/auth.js"></script>
+  <style>
+    .profile-layout { display: grid; grid-template-columns: 240px 1fr; gap: 28px; align-items: start; }
+    .profile-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; text-align: center; }
+    .profile-avatar { width: 100px; height: 100px; border-radius: 50%; background: var(--card-bg2); margin: 0 auto 14px; object-fit: cover; display: block; }
+    .profile-username { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .profile-id { font-size: 0.8rem; color: var(--text-muted); }
+    .avatar-preview { width: 96px; height: 96px; border-radius: 50%; background: var(--card-bg2); margin: 16px 0; object-fit: cover; border: 2px solid var(--border); }
+    .style-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .style-btn { padding: 6px 14px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--card-bg2); color: var(--text-muted); font-size: 0.83rem; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+    .style-btn:hover { border-color: var(--accent-blue); color: var(--text); }
+    .style-btn.active { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+    @media (max-width: 700px) { .profile-layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<script>requireAuth();</script>
+<div id="toast-container"></div>
+
+<nav class="navbar">
+  <a class="logo" href="index.html">Smash<span>Bros</span></a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="bracket.html">Bracket</a></li>
+    <li><a href="roundrobin.html">Round Robin</a></li>
+    <li><a href="my-brackets.html">My Brackets</a></li>
+    <li><a href="tier-list.html">Tier List</a></li>
+    <li><a href="favorites.html">Favorites</a></li>
+    <li><a href="stats.html">Stats</a></li>
+    <li><a href="leaderboard.html">Leaderboard</a></li>
+    <li><a href="invites.html">Invites</a></li>
+    <li><a href="profile.html" class="active">Profile</a></li>
+  </ul>
+  <div class="nav-right">
+    <div class="nav-user">
+      <img class="nav-avatar" id="navAvatar" src="" alt="" onerror="this.style.display='none'" />
+      <span id="navUsername"></span>
+    </div>
+    <button class="btn-signout" onclick="logout()">Sign Out</button>
+  </div>
+</nav>
+
+<main class="page-container">
+  <div class="page-header">
+    <h1>⚙️ Profile</h1>
+    <p>Customize your avatar.</p>
+  </div>
+
+  <div id="loadingState" class="loading-center">
+    <div class="spinner"></div><span>Loading profile…</span>
+  </div>
+
+  <div id="profileContent" style="display:none;">
+    <div class="profile-layout">
+
+      <!-- Left: current profile -->
+      <div class="profile-card">
+        <img class="profile-avatar" id="currentAvatar" src="" alt="avatar" />
+        <div class="profile-username" id="profileUsername"></div>
+        <div class="profile-id" id="profileId"></div>
+      </div>
+
+      <!-- Right: edit -->
+      <div>
+        <div class="tabs" id="profTabs">
+          <button class="tab-btn active" onclick="switchProfTab('generate')">Generate Avatar</button>
+          <button class="tab-btn" onclick="switchProfTab('custom')">Custom URL</button>
+        </div>
+
+        <!-- Generate tab -->
+        <div class="tab-panel active" id="tab-generate">
+          <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:14px;">Pick a DiceBear style and seed, then preview and save.</p>
+
+          <div class="style-grid" id="styleGrid"></div>
+
+          <div class="form-group">
+            <label for="seedInput">Seed (any text)</label>
+            <input type="text" id="seedInput" placeholder="your-username or any text" />
+          </div>
+
+          <img id="generatePreview" class="avatar-preview" src="" alt="preview" />
+
+          <div style="display:flex;gap:10px;">
+            <button class="btn btn-outline" onclick="previewGenerated()">Preview</button>
+            <button class="btn btn-primary" onclick="saveGeneratedAvatar()">Save Avatar</button>
+          </div>
+        </div>
+
+        <!-- Custom URL tab -->
+        <div class="tab-panel" id="tab-custom">
+          <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:14px;">Paste any image URL to use as your avatar.</p>
+
+          <div class="form-group">
+            <label for="customUrlInput">Avatar URL</label>
+            <input type="text" id="customUrlInput" placeholder="https://example.com/avatar.png" oninput="previewCustom()" />
+          </div>
+
+          <img id="customPreview" class="avatar-preview" src="" alt="preview" style="display:none;" />
+
+          <div style="display:flex;gap:10px;margin-top:14px;">
+            <button class="btn btn-primary" onclick="saveCustomAvatar()">Save Avatar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script>
+  const DICEBEAR_STYLES = ['pixel-art','adventurer','bottts','fun-emoji','shapes','identicon'];
+  let selectedStyle = 'pixel-art';
+  let currentUsername = '';
+
+  function dicebearUrl(style, seed) {
+    return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}`;
+  }
+
+  function buildStyleGrid() {
+    const grid = document.getElementById('styleGrid');
+    grid.innerHTML = DICEBEAR_STYLES.map(s => `
+      <button class="style-btn ${s === selectedStyle ? 'active' : ''}" onclick="selectStyle('${s}')">${s}</button>
+    `).join('');
+  }
+
+  function selectStyle(style) {
+    selectedStyle = style;
+    document.querySelectorAll('.style-btn').forEach(b => {
+      b.classList.toggle('active', b.textContent === style);
+    });
+    previewGenerated();
+  }
+
+  function previewGenerated() {
+    const seed = document.getElementById('seedInput').value.trim() || currentUsername || 'default';
+    const url = dicebearUrl(selectedStyle, seed);
+    const img = document.getElementById('generatePreview');
+    img.src = url;
+  }
+
+  function previewCustom() {
+    const url = document.getElementById('customUrlInput').value.trim();
+    const img = document.getElementById('customPreview');
+    if (url) {
+      img.src = url;
+      img.style.display = 'block';
+    } else {
+      img.style.display = 'none';
+    }
+  }
+
+  async function saveGeneratedAvatar() {
+    const seed = document.getElementById('seedInput').value.trim() || currentUsername;
+    const url = dicebearUrl(selectedStyle, seed);
+    await saveAvatar(url);
+  }
+
+  async function saveCustomAvatar() {
+    const url = document.getElementById('customUrlInput').value.trim();
+    if (!url) { showToast('Enter a URL first.', 'warn'); return; }
+    await saveAvatar(url);
+  }
+
+  async function saveAvatar(url) {
+    try {
+      await apiPut('/users/me/avatar', {avatar_url: url});
+      // Update displays
+      document.getElementById('currentAvatar').src = url;
+      document.getElementById('navAvatar').src = url;
+      showToast('Avatar saved!', 'success');
+    } catch (err) {
+      showToast('Error saving avatar: ' + err.message, 'error');
+    }
+  }
+
+  function switchProfTab(tab) {
+    document.querySelectorAll('#profTabs .tab-btn').forEach((b, i) => {
+      b.classList.toggle('active', (i === 0 && tab === 'generate') || (i === 1 && tab === 'custom'));
+    });
+    document.getElementById('tab-generate').classList.toggle('active', tab === 'generate');
+    document.getElementById('tab-custom').classList.toggle('active', tab === 'custom');
+  }
+
+  (async function init() {
+    try {
+      const me = await apiGet('/users/me');
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('profileContent').style.display = 'block';
+
+      if (me) {
+        currentUsername = me.username;
+        document.getElementById('navUsername').textContent = me.username;
+        document.getElementById('profileUsername').textContent = me.username;
+        document.getElementById('profileId').textContent = `ID: ${me.id}`;
+
+        const avatarUrl = me.avatar_url || dicebearUrl('pixel-art', me.username);
+        document.getElementById('currentAvatar').src = avatarUrl;
+        const av = document.getElementById('navAvatar');
+        av.src = avatarUrl; av.style.display = 'block';
+
+        // Pre-fill seed with username
+        document.getElementById('seedInput').value = me.username;
+        document.getElementById('generatePreview').src = dicebearUrl(selectedStyle, me.username);
+      }
+    } catch (err) {
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('profileContent').style.display = 'block';
+      showToast('Error loading profile: ' + err.message, 'error');
+    }
+
+    buildStyleGrid();
+  })();
+</script>
+</body>
+</html>

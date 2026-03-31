@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smash Bracket — My Brackets</title>
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/auth.js"></script>
+  <style>
+    .bracket-item { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; }
+    .bracket-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; cursor: pointer; }
+    .bracket-header:hover { background: rgba(255,255,255,0.03); }
+    .bracket-name { font-size: 0.98rem; font-weight: 600; color: var(--text); }
+    .bracket-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 3px; }
+    .bracket-actions { display: flex; gap: 8px; align-items: center; }
+    .expand-icon { color: var(--text-muted); font-size: 1.1rem; transition: transform 0.2s; }
+    .bracket-body { display: none; padding: 0 20px 16px; border-top: 1px solid var(--border); }
+    .bracket-body.open { display: block; }
+    .expand-icon.open { transform: rotate(90deg); }
+    .match-list { margin-top: 10px; }
+    .match-row { display: flex; gap: 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; color: var(--text); }
+    .match-row:last-child { border-bottom: none; }
+    .vs-badge { color: var(--text-muted); font-size: 0.75rem; font-weight: 700; }
+  </style>
+</head>
+<body>
+<script>requireAuth();</script>
+<div id="toast-container"></div>
+
+<nav class="navbar">
+  <a class="logo" href="index.html">Smash<span>Bros</span></a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="bracket.html">Bracket</a></li>
+    <li><a href="roundrobin.html">Round Robin</a></li>
+    <li><a href="my-brackets.html" class="active">My Brackets</a></li>
+    <li><a href="tier-list.html">Tier List</a></li>
+    <li><a href="favorites.html">Favorites</a></li>
+    <li><a href="stats.html">Stats</a></li>
+    <li><a href="leaderboard.html">Leaderboard</a></li>
+    <li><a href="invites.html">Invites</a></li>
+    <li><a href="profile.html">Profile</a></li>
+  </ul>
+  <div class="nav-right">
+    <div class="nav-user">
+      <img class="nav-avatar" id="navAvatar" src="" alt="" onerror="this.style.display='none'" />
+      <span id="navUsername"></span>
+    </div>
+    <button class="btn-signout" onclick="logout()">Sign Out</button>
+  </div>
+</nav>
+
+<main class="page-container">
+  <div class="page-header">
+    <h1>📁 My Saved Brackets</h1>
+    <p>All your saved single-elimination brackets.</p>
+  </div>
+
+  <div id="loadingState" class="loading-center">
+    <div class="spinner"></div><span>Loading brackets…</span>
+  </div>
+
+  <div id="bracketList" style="display:none;max-width:800px;"></div>
+
+  <div id="emptyState" class="empty-state" style="display:none;">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M3 3h18v4H3zM3 10h18v4H3zM3 17h18v4H3z"/>
+    </svg>
+    <p>No saved brackets yet. <a href="bracket.html">Create one</a> in the Bracket Generator.</p>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script>
+  let brackets = [];
+
+  function toggleBracket(id) {
+    const body = document.getElementById(`body_${id}`);
+    const icon = document.getElementById(`icon_${id}`);
+    body.classList.toggle('open');
+    icon.classList.toggle('open');
+  }
+
+  async function deleteBracket(id, name) {
+    if (!confirm(`Delete bracket "${name}"?`)) return;
+    try {
+      await apiDelete(`/brackets/${id}`);
+      showToast('Bracket deleted.', 'success');
+      loadBrackets();
+    } catch (err) {
+      showToast('Error deleting: ' + err.message, 'error');
+    }
+  }
+
+  function renderBrackets(data) {
+    const list = document.getElementById('bracketList');
+    list.innerHTML = data.map(b => {
+      const matches = (b.bracket_data || []).map((m, i) =>
+        `<div class="match-row">
+          <span>${m.a || '—'}</span>
+          <span class="vs-badge">VS</span>
+          <span>${m.b || '—'}</span>
+        </div>`
+      ).join('');
+
+      return `
+        <div class="bracket-item">
+          <div class="bracket-header" onclick="toggleBracket(${b.id})">
+            <div>
+              <div class="bracket-name">${b.name}</div>
+              <div class="bracket-meta">
+                Mode: ${b.mode || 'regular'} ·
+                Players: ${(b.players || []).length} ·
+                ${b.created_at ? b.created_at.slice(0,10) : ''}
+              </div>
+            </div>
+            <div class="bracket-actions">
+              <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteBracket(${b.id},'${b.name.replace(/'/g,"\\'")}')" >Delete</button>
+              <span class="expand-icon" id="icon_${b.id}">›</span>
+            </div>
+          </div>
+          <div class="bracket-body" id="body_${b.id}">
+            ${(b.bracket_data||[]).length ? `<div class="match-list">${matches}</div>` : '<p style="color:var(--text-muted);font-size:0.85rem;margin-top:8px;">No match data stored.</p>'}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function loadBrackets() {
+    document.getElementById('loadingState').style.display = 'flex';
+    document.getElementById('bracketList').style.display = 'none';
+    document.getElementById('emptyState').style.display = 'none';
+
+    try {
+      const data = await apiGet('/brackets');
+      document.getElementById('loadingState').style.display = 'none';
+
+      if (!data || data.length === 0) {
+        document.getElementById('emptyState').style.display = 'block';
+        return;
+      }
+      brackets = data;
+      document.getElementById('bracketList').style.display = 'block';
+      renderBrackets(data);
+    } catch (err) {
+      document.getElementById('loadingState').style.display = 'none';
+      showToast('Error loading brackets: ' + err.message, 'error');
+    }
+  }
+
+  (async function init() {
+    try {
+      const me = await apiGet('/users/me');
+      if (me) {
+        document.getElementById('navUsername').textContent = me.username;
+        const url = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
+        const av = document.getElementById('navAvatar');
+        av.src = url; av.style.display = 'block';
+      }
+    } catch (_) {}
+    loadBrackets();
+  })();
+</script>
+</body>
+</html>

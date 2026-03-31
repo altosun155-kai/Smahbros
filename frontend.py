@@ -665,6 +665,7 @@ with st.sidebar:
         "My RR Sessions",
         "🎖️ My Tier List",
         "⭐ My Favorite Characters",
+        "📊 Character Stats",
         invite_label,
         "🌍 Global Leaderboard",
     ]
@@ -977,6 +978,67 @@ elif page == "⭐ My Favorite Characters":
         st.subheader("Your current top 10")
         for rank, char in enumerate(current_favs, 1):
             st.markdown(f"**#{rank}** {char}")
+
+elif page == "📊 Character Stats":
+    st.title("📊 Character Stats")
+    st.caption("Track your points per character. Win = +1, Loss = -1 (floor 0).")
+
+    # ── Record a result ───────────────────────────────────────────────────────
+    st.subheader("Record a result")
+    rc1, rc2, rc3 = st.columns([3, 1, 1])
+    with rc1:
+        chosen_char = st.selectbox("Character", SMASH_ULTIMATE_ROSTER, key="stat_char_pick", label_visibility="collapsed")
+    with rc2:
+        if st.button("✅ Win", use_container_width=True, type="primary"):
+            res = api_post("/characters/stats/record", {"character": chosen_char, "result": "win"})
+            if res:
+                st.success(f"{chosen_char}: {res['points']} pts")
+                st.rerun()
+    with rc3:
+        if st.button("❌ Loss", use_container_width=True):
+            res = api_post("/characters/stats/record", {"character": chosen_char, "result": "loss"})
+            if res:
+                st.info(f"{chosen_char}: {res['points']} pts")
+                st.rerun()
+
+    st.markdown("---")
+
+    # ── Your stats table ──────────────────────────────────────────────────────
+    st.subheader("Your character points")
+    stats_data = api_get("/characters/stats")
+    if stats_data:
+        stats_data.sort(key=lambda x: -x["points"])
+        df_stats = pd.DataFrame(stats_data)
+        df_stats.columns = ["Character", "Points"]
+        df_stats.index = range(1, len(df_stats) + 1)
+        st.dataframe(df_stats, use_container_width=True)
+    else:
+        st.info("No stats yet — record a win or loss above.")
+
+    st.markdown("---")
+
+    # ── View another user's stats ─────────────────────────────────────────────
+    st.subheader("👀 View someone else's stats")
+    sv1, sv2 = st.columns([3, 1])
+    with sv1:
+        view_stats_user = st.text_input("Username", key="view_stats_user", label_visibility="collapsed", placeholder="Enter a username…")
+    with sv2:
+        if st.button("View", key="view_stats_btn", use_container_width=True) and view_stats_user.strip():
+            vdata = api_get(f"/characters/stats/{view_stats_user.strip()}")
+            if vdata:
+                st.session_state["viewed_stats"] = vdata
+
+    if st.session_state.get("viewed_stats"):
+        vs = st.session_state["viewed_stats"]
+        st.markdown(f"### {vs['username']}'s character stats")
+        if vs["stats"]:
+            vs["stats"].sort(key=lambda x: -x["points"])
+            df_vs = pd.DataFrame(vs["stats"])
+            df_vs.columns = ["Character", "Points"]
+            df_vs.index = range(1, len(df_vs) + 1)
+            st.dataframe(df_vs, use_container_width=True)
+        else:
+            st.info("No stats recorded yet.")
 
 elif page == "🌍 Global Leaderboard":
     st.title("🌍 Global Leaderboard")

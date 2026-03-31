@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
 
-from database import engine, Base, User, Bracket, RoundRobinResult, CharacterRanking, TournamentInvite, FavoriteCharacters
+from database import engine, Base, User, Bracket, RoundRobinResult, CharacterRanking, TournamentInvite, FavoriteCharacters, CharacterStats
 from auth import get_db, get_current_user, hash_password, verify_password, create_access_token
 
 Base.metadata.create_all(bind=engine)
@@ -353,3 +353,44 @@ def save_favorites(req: FavoritesUpdate, db: Session = Depends(get_db), current_
         db.add(fav)
     db.commit()
     return {"ok": True}
+
+
+# ── Character Stats ───────────────────────────────────────────────────────────
+
+class StatRecord(BaseModel):
+    character: str
+    result: str  # "win" or "loss"
+
+
+@app.get("/characters/stats")
+def get_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    rows = db.query(CharacterStats).filter(CharacterStats.user_id == current_user.id).all()
+    return [{"character": r.character, "points": r.points} for r in rows]
+
+
+@app.get("/characters/stats/{username}")
+def get_stats_by_user(username: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    rows = db.query(CharacterStats).filter(CharacterStats.user_id == user.id).all()
+    return {"username": user.username, "stats": [{"character": r.character, "points": r.points} for r in rows]}
+
+
+@app.post("/characters/stats/record")
+def record_stat(req: StatRecord, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if req.result not in ("win", "loss"):
+        raise HTTPException(status_code=400, detail="result must be 'win' or 'loss'")
+    row = db.query(CharacterStats).filter(
+        CharacterStats.user_id == current_user.id,
+        CharacterStats.character == req.character,
+    ).first()
+    if row is None:
+        row = CharacterStats(user_id=current_user.id, character=req.character, points=0)
+        db.add(row)
+    if req.result == "win":
+        row.points += 1
+    else:
+        row.points = max(0, row.points - 1)
+    db.commit()
+    return {"character": row.character, "points": row.points}

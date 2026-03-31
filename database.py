@@ -31,6 +31,7 @@ class User(Base):
     sent_invites        = relationship("TournamentInvite", foreign_keys="TournamentInvite.inviter_id", back_populates="inviter")
     received_invites    = relationship("TournamentInvite", foreign_keys="TournamentInvite.invitee_id", back_populates="invitee")
     favorite_characters = relationship("FavoriteCharacters", back_populates="owner", uselist=False, cascade="all, delete-orphan")
+    character_stats     = relationship("CharacterStats", back_populates="owner", cascade="all, delete-orphan")
 
 
 class Bracket(Base):
@@ -111,3 +112,19 @@ class FavoriteCharacters(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     owner = relationship("User", back_populates="favorite_characters")
+
+
+class CharacterStats(Base):
+    """
+    One row per (user, character). Points start at 0, +1 on win, -1 on loss
+    with a floor of 0.
+    """
+    __tablename__ = "character_stats"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
+    character  = Column(String, nullable=False)
+    points     = Column(Integer, default=0, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    owner = relationship("User", back_populates="character_stats")

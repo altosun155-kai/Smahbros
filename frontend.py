@@ -661,55 +661,57 @@ def get_pending_invite_count() -> int:
     return sum(1 for i in data if i["status"] == "pending")
 
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.header("👤 Account")
-
-    if st.session_state.auth_token:
-        st.success(f"Logged in as **{st.session_state.username}**")
-        if st.button("Log out"):
-            st.session_state.auth_token = None
-            st.session_state.username = None
-            st.session_state.tier_ranking = None
-            st.rerun()
-    else:
+# ── Login wall ────────────────────────────────────────────────────────────────
+if not st.session_state.auth_token:
+    _, col, _ = st.columns([1, 2, 1])
+    with col:
+        st.title("🎮 Smash Bracket")
+        st.subheader("Sign in to continue")
         auth_tab = st.radio("", ["Log in", "Sign up"], horizontal=True, label_visibility="collapsed")
         uname = st.text_input("Username", key="auth_uname")
         pwd   = st.text_input("Password", type="password", key="auth_pwd")
 
         if auth_tab == "Log in":
-            if st.button("Log in", use_container_width=True):
+            if st.button("Log in", use_container_width=True, type="primary"):
                 resp = api_post_form("/auth/login", {"username": uname, "password": pwd})
                 if resp:
                     st.session_state.auth_token = resp["access_token"]
                     st.session_state.username = uname
-                    st.session_state.tier_ranking = None  # will reload
+                    st.session_state.tier_ranking = None
                     st.rerun()
         else:
-            if st.button("Create account", use_container_width=True):
+            if st.button("Create account", use_container_width=True, type="primary"):
                 resp = api_post("/auth/register", {"username": uname, "password": pwd}, auth=False)
                 if resp:
-                    st.success("Account created! Log in above.")
+                    st.success("Account created! Switch to Log in above.")
+    st.stop()
+
+# ── Sidebar (only shown when logged in) ───────────────────────────────────────
+with st.sidebar:
+    st.success(f"Logged in as **{st.session_state.username}**")
+    if st.button("Log out"):
+        st.session_state.auth_token = None
+        st.session_state.username = None
+        st.session_state.tier_ranking = None
+        st.rerun()
 
     st.divider()
 
     # ── Navigation ─────────────────────────────────────────────────────────────
     st.header("Navigation")
-    nav_options = ["Bracket Generator", "Round Robin"]
-    if st.session_state.auth_token:
-        # Show pending invite count in the label
-        pending_count = get_pending_invite_count()
-        invite_label  = f"📬 Invites ({pending_count} pending)" if pending_count else "📬 Invites"
-        nav_options += [
-            "My Brackets",
-            "My RR Sessions",
-            "🎖️ My Tier List",
-            "⭐ My Favorite Characters",
-            invite_label,
-            "🌍 Global Leaderboard",
-        ]
+    pending_count = get_pending_invite_count()
+    invite_label  = f"📬 Invites ({pending_count} pending)" if pending_count else "📬 Invites"
+    nav_options = [
+        "Bracket Generator",
+        "Round Robin",
+        "My Brackets",
+        "My RR Sessions",
+        "🎖️ My Tier List",
+        "⭐ My Favorite Characters",
+        invite_label,
+        "🌍 Global Leaderboard",
+    ]
 
-    # Normalize the page key to handle the dynamic invite label
     current_page = st.session_state.page
     if current_page.startswith("📬 Invites"):
         current_page = next((o for o in nav_options if o.startswith("📬 Invites")), nav_options[0])

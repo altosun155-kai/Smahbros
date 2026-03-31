@@ -101,6 +101,9 @@
 
 <script src="js/api.js"></script>
 <script>
+  // Pre-warm the API in the background so it's ready by the time the user clicks Sign In
+  fetch(API_BASE + '/health').catch(() => {});
+
   function switchTab(tab) {
     document.getElementById('panelSignin').classList.toggle('active', tab === 'signin');
     document.getElementById('panelSignup').classList.toggle('active', tab === 'signup');

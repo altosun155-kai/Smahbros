@@ -1,0 +1,41 @@
+// chars.js — shared Smash Ultimate roster data and character image URLs
+
+const SUPABASE_CHARS = 'https://oqtdlertvgmopnibrbiu.supabase.co/storage/v1/object/public/Characters/';
+
+// Overrides for characters whose filename differs from their display name
+const CHAR_FILE_OVERRIDES = {
+  'Pokémon Trainer':  'Pokemon Trainer.png',
+  'Rosalina & Luma':  'Rosalina and Luma.png',
+  'Pac-Man':          'Pac Man.png',
+  'Bowser Jr.':       'Bowser Jr.png',
+  'King K. Rool':     'King K Rool.png',
+  'Banjo & Kazooie':  'Banjo and Kazooie.png',
+  'Pyra/Mythra':      'Pyra Mythra.png',
+  'R.O.B.':           'R.O.B..png',
+};
+
+// Characters with no image in Supabase
+const CHAR_NO_IMAGE = new Set([
+  'Donkey Kong', 'Wii Fit Trainer', 'Mii Brawler', 'Mii Swordfighter', 'Mii Gunner',
+]);
+
+function charImgUrl(name) {
+  if (CHAR_NO_IMAGE.has(name)) return '';
+  const filename = CHAR_FILE_OVERRIDES[name] || (name + '.png');
+  return SUPABASE_CHARS + encodeURIComponent(filename);
+}
+
+const SMASH_ROSTER = [
+  'Mario','Donkey Kong','Link','Samus','Dark Samus','Yoshi','Kirby','Fox','Pikachu',
+  'Luigi','Ness','Captain Falcon','Jigglypuff','Peach','Daisy','Bowser','Ice Climbers',
+  'Sheik','Zelda','Dr. Mario','Pichu','Falco','Marth','Lucina','Young Link','Ganondorf',
+  'Mewtwo','Roy','Chrom','Mr. Game & Watch','Meta Knight','Pit','Dark Pit',
+  'Zero Suit Samus','Wario','Snake','Ike','Pokémon Trainer','Diddy Kong','Lucas',
+  'Sonic','King Dedede','Olimar','Lucario','R.O.B.','Toon Link','Wolf','Villager',
+  'Mega Man','Wii Fit Trainer','Rosalina & Luma','Little Mac','Greninja','Mii Brawler',
+  'Mii Swordfighter','Mii Gunner','Palutena','Pac-Man','Robin','Shulk','Bowser Jr.',
+  'Duck Hunt','Ryu','Ken','Cloud','Corrin','Bayonetta','Inkling','Ridley','Simon',
+  'Richter','King K. Rool','Isabelle','Incineroar','Piranha Plant','Joker','Hero',
+  'Banjo & Kazooie','Terry','Byleth','Min Min','Steve','Sephiroth','Pyra/Mythra',
+  'Kazuya','Sora',
+];

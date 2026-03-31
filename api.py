@@ -21,6 +21,11 @@ app.add_middleware(
 )
 
 
+@app.get("/health")
+def health():
+    return {"ok": True}
+
+
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
 class RegisterRequest(BaseModel):

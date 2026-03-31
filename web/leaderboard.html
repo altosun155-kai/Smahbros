@@ -142,15 +142,8 @@
 </main>
 
 <script src="js/api.js"></script>
+<script src="js/chars.js"></script>
 <script>
-  const CHAR_SLUG = {"Mario":"mario","Donkey Kong":"donkey_kong","Link":"link","Samus":"samus","Dark Samus":"dark_samus","Yoshi":"yoshi","Kirby":"kirby","Fox":"fox","Pikachu":"pikachu","Luigi":"luigi","Ness":"ness","Captain Falcon":"captain_falcon","Jigglypuff":"jigglypuff","Peach":"peach","Daisy":"daisy","Bowser":"bowser","Ice Climbers":"ice_climbers","Sheik":"sheik","Zelda":"zelda","Dr. Mario":"dr_mario","Pichu":"pichu","Falco":"falco","Marth":"marth","Lucina":"lucina","Young Link":"young_link","Ganondorf":"ganondorf","Mewtwo":"mewtwo","Roy":"roy","Chrom":"chrom","Mr. Game & Watch":"game_and_watch","Meta Knight":"meta_knight","Pit":"pit","Dark Pit":"dark_pit","Zero Suit Samus":"zero_suit_samus","Wario":"wario","Snake":"snake","Ike":"ike","Pokémon Trainer":"pokemon_trainer","Diddy Kong":"diddy_kong","Lucas":"lucas","Sonic":"sonic","King Dedede":"king_dedede","Olimar":"olimar","Lucario":"lucario","R.O.B.":"robot","Toon Link":"toon_link","Wolf":"wolf","Villager":"villager","Mega Man":"rockman","Wii Fit Trainer":"wii_fit_trainer","Rosalina & Luma":"rosalina","Little Mac":"littlemac","Greninja":"gekkouga","Mii Brawler":"mii_brawler","Mii Swordfighter":"mii_swordfighter","Mii Gunner":"mii_gunner","Palutena":"palutena","Pac-Man":"pacman","Robin":"reflet","Shulk":"shulk","Bowser Jr.":"koopa_jr","Duck Hunt":"duckhunt","Ryu":"ryu","Ken":"ken","Cloud":"cloud","Corrin":"kamui","Bayonetta":"bayonetta","Inkling":"inkling","Ridley":"ridley","Simon":"simon","Richter":"richter","King K. Rool":"krool","Isabelle":"shizue","Incineroar":"gaogaen","Piranha Plant":"packun","Joker":"joker","Hero":"brave","Banjo & Kazooie":"buddy","Terry":"terry","Byleth":"master","Min Min":"tantan","Steve":"pickel","Sephiroth":"sephiroth","Pyra/Mythra":"eflame_ref","Kazuya":"kazuya","Sora":"sora"};
-
-  function charImgUrl(name) {
-    const slug = CHAR_SLUG[name];
-    if (!slug) return null;
-    return `https://www.smashbros.com/assets_v2/img/fighter/${slug}/main.png`;
-  }
-
   function userAvatarUrl(username, storedUrl) {
     if (storedUrl) return storedUrl;
     return `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(username)}`;

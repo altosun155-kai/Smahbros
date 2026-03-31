@@ -14,5 +14,5 @@ services:
         sync: false
   - type: web
     name: smash-bracket-ui
-    runtime: static
+    env: static
     staticPublishPath: web

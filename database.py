@@ -23,6 +23,7 @@ class User(Base):
     id              = Column(Integer, primary_key=True, index=True)
     username        = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
+    avatar_url      = Column(String, nullable=True)
     created_at      = Column(DateTime, default=datetime.utcnow)
 
     brackets          = relationship("Bracket", back_populates="owner", cascade="all, delete-orphan")

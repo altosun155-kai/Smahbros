@@ -50,6 +50,53 @@ SMASH_ULTIMATE_ROSTER = [
     "Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora",
 ]
 
+# ── Character image helpers ───────────────────────────────────────────────────
+CHAR_SLUG = {
+    "Mario": "mario", "Donkey Kong": "donkey_kong", "Link": "link",
+    "Samus": "samus", "Dark Samus": "dark_samus", "Yoshi": "yoshi",
+    "Kirby": "kirby", "Fox": "fox", "Pikachu": "pikachu", "Luigi": "luigi",
+    "Ness": "ness", "Captain Falcon": "captain_falcon", "Jigglypuff": "jigglypuff",
+    "Peach": "peach", "Daisy": "daisy", "Bowser": "bowser",
+    "Ice Climbers": "ice_climbers", "Sheik": "sheik", "Zelda": "zelda",
+    "Dr. Mario": "dr_mario", "Pichu": "pichu", "Falco": "falco",
+    "Marth": "marth", "Lucina": "lucina", "Young Link": "young_link",
+    "Ganondorf": "ganondorf", "Mewtwo": "mewtwo", "Roy": "roy", "Chrom": "chrom",
+    "Mr. Game & Watch": "game_and_watch", "Meta Knight": "meta_knight",
+    "Pit": "pit", "Dark Pit": "dark_pit", "Zero Suit Samus": "zero_suit_samus",
+    "Wario": "wario", "Snake": "snake", "Ike": "ike",
+    "Pokémon Trainer": "pokemon_trainer", "Diddy Kong": "diddy_kong",
+    "Lucas": "lucas", "Sonic": "sonic", "King Dedede": "king_dedede",
+    "Olimar": "olimar", "Lucario": "lucario", "R.O.B.": "robot",
+    "Toon Link": "toon_link", "Wolf": "wolf", "Villager": "villager",
+    "Mega Man": "rockman", "Wii Fit Trainer": "wii_fit_trainer",
+    "Rosalina & Luma": "rosalina", "Little Mac": "littlemac",
+    "Greninja": "gekkouga", "Mii Brawler": "mii_brawler",
+    "Mii Swordfighter": "mii_swordfighter", "Mii Gunner": "mii_gunner",
+    "Palutena": "palutena", "Pac-Man": "pacman", "Robin": "reflet",
+    "Shulk": "shulk", "Bowser Jr.": "koopa_jr", "Duck Hunt": "duckhunt",
+    "Ryu": "ryu", "Ken": "ken", "Cloud": "cloud", "Corrin": "kamui",
+    "Bayonetta": "bayonetta", "Inkling": "inkling", "Ridley": "ridley",
+    "Simon": "simon", "Richter": "richter", "King K. Rool": "krool",
+    "Isabelle": "shizue", "Incineroar": "gaogaen", "Piranha Plant": "packun",
+    "Joker": "joker", "Hero": "brave", "Banjo & Kazooie": "buddy",
+    "Terry": "terry", "Byleth": "master", "Min Min": "tantan",
+    "Steve": "pickel", "Sephiroth": "sephiroth", "Pyra/Mythra": "eflame_ref",
+    "Kazuya": "kazuya", "Sora": "sora",
+}
+
+def char_img_url(name: str) -> str:
+    slug = CHAR_SLUG.get(name)
+    if not slug:
+        return ""
+    return f"https://www.smashbros.com/assets_v2/img/fighter/{slug}/main.png"
+
+def user_avatar_url(username: str, stored_url: Optional[str] = None) -> str:
+    if stored_url:
+        return stored_url
+    return f"https://api.dicebear.com/9.x/pixel-art/svg?seed={username}"
+
+DICEBEAR_STYLES = ["pixel-art", "adventurer", "bottts", "fun-emoji", "shapes", "identicon"]
+
 TIER_COLORS = {
     "S": "#ff7f7f",
     "A": "#ffbf7f",
@@ -645,7 +692,14 @@ if not st.session_state.auth_token:
 
 # ── Sidebar (only shown when logged in) ───────────────────────────────────────
 with st.sidebar:
-    st.success(f"Logged in as **{st.session_state.username}**")
+    me = api_get("/users/me") or {}
+    av_url = user_avatar_url(st.session_state.username, me.get("avatar_url"))
+    st.markdown(
+        f"<div style='display:flex;align-items:center;gap:10px;margin-bottom:6px'>"
+        f"<img src='{av_url}' width='44' height='44' style='border-radius:50%;background:#2a2a3e'>"
+        f"<span style='font-weight:700'>{st.session_state.username}</span></div>",
+        unsafe_allow_html=True,
+    )
     if st.button("Log out"):
         st.session_state.auth_token = None
         st.session_state.username = None
@@ -666,8 +720,10 @@ with st.sidebar:
         "🎖️ My Tier List",
         "⭐ My Favorite Characters",
         "📊 Character Stats",
+        "🏆 Character Leaderboard",
         invite_label,
         "🌍 Global Leaderboard",
+        "⚙️ Profile",
     ]
 
     current_page = st.session_state.page
@@ -1039,6 +1095,96 @@ elif page == "📊 Character Stats":
             st.dataframe(df_vs, use_container_width=True)
         else:
             st.info("No stats recorded yet.")
+
+elif page == "🏆 Character Leaderboard":
+    st.title("🏆 Character Leaderboard")
+    st.caption("The top-scoring player for each character.")
+
+    lb_data = api_get("/characters/stats/leaderboard")
+    if not lb_data:
+        st.info("No character stats recorded yet. Go to 📊 Character Stats to start tracking!")
+    else:
+        cols_per_row = 4
+        for row_start in range(0, len(lb_data), cols_per_row):
+            row_items = lb_data[row_start: row_start + cols_per_row]
+            cols = st.columns(cols_per_row)
+            for col, entry in zip(cols, row_items):
+                char      = entry["character"]
+                pts       = entry["points"]
+                uname     = entry["username"]
+                av        = user_avatar_url(uname, entry.get("avatar_url"))
+                img_url   = char_img_url(char)
+                img_html  = (
+                    f"<img src='{img_url}' style='width:100%;max-height:120px;object-fit:contain;"
+                    f"display:block;margin:auto' onerror=\"this.style.display='none'\">"
+                    if img_url else ""
+                )
+                with col:
+                    st.markdown(
+                        f"""
+                        <div style='background:#1e1e2e;border-radius:12px;padding:12px 10px 10px;
+                             text-align:center;position:relative;min-height:180px;margin-bottom:8px'>
+                          {img_html}
+                          <div style='font-weight:700;font-size:14px;margin-top:6px'>{char}</div>
+                          <div style='color:#ffbf7f;font-size:13px'>{pts} pts</div>
+                          <div style='position:absolute;bottom:8px;right:8px;display:flex;
+                               align-items:center;gap:5px'>
+                            <span style='font-size:11px;color:#aaa'>{uname}</span>
+                            <img src='{av}' width='28' height='28'
+                                 style='border-radius:50%;background:#2a2a3e'>
+                          </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+elif page == "⚙️ Profile":
+    st.title("⚙️ Profile")
+
+    me = api_get("/users/me") or {}
+    current_av = me.get("avatar_url") or ""
+    av_preview = user_avatar_url(st.session_state.username, current_av or None)
+
+    st.subheader("Your avatar")
+    st.markdown(
+        f"<img src='{av_preview}' width='96' height='96' style='border-radius:50%;background:#2a2a3e'>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("")
+
+    tab_gen, tab_custom = st.tabs(["🎲 Generate avatar", "🔗 Custom URL"])
+
+    with tab_gen:
+        st.caption("Pick a style and preview — save when you're happy.")
+        style = st.selectbox("Avatar style", DICEBEAR_STYLES, key="av_style")
+        seed  = st.text_input("Seed (default: your username)", value=st.session_state.username, key="av_seed")
+        gen_url = f"https://api.dicebear.com/9.x/{style}/svg?seed={seed or st.session_state.username}"
+        st.markdown(
+            f"<img src='{gen_url}' width='80' height='80' style='border-radius:50%;background:#2a2a3e;margin:6px 0'>",
+            unsafe_allow_html=True,
+        )
+        if st.button("💾 Save this avatar", key="save_gen_av", type="primary"):
+            if api_put("/users/me/avatar", {"avatar_url": gen_url}):
+                st.success("Avatar saved!")
+                st.rerun()
+
+    with tab_custom:
+        st.caption("Paste any image URL (PNG, JPG, or SVG).")
+        custom_url = st.text_input("Image URL", value=current_av, key="av_custom_url")
+        if custom_url:
+            st.markdown(
+                f"<img src='{custom_url}' width='80' height='80' style='border-radius:50%;object-fit:cover;background:#2a2a3e;margin:6px 0'>",
+                unsafe_allow_html=True,
+            )
+        if st.button("💾 Save custom URL", key="save_custom_av", type="primary"):
+            if api_put("/users/me/avatar", {"avatar_url": custom_url}):
+                st.success("Avatar saved!")
+                st.rerun()
+
+    if current_av and st.button("🗑️ Remove avatar (reset to default)"):
+        if api_put("/users/me/avatar", {"avatar_url": ""}):
+            st.success("Reset to default avatar.")
+            st.rerun()
 
 elif page == "🌍 Global Leaderboard":
     st.title("🌍 Global Leaderboard")

@@ -377,6 +377,24 @@ def get_stats_by_user(username: str, db: Session = Depends(get_db)):
     return {"username": user.username, "stats": [{"character": r.character, "points": r.points} for r in rows]}
 
 
+@app.get("/characters/stats/leaderboard")
+def character_leaderboard(db: Session = Depends(get_db)):
+    """For each character, return the player with the most points."""
+    rows = db.query(CharacterStats).filter(CharacterStats.points > 0).all()
+    char_top: dict = {}
+    for row in rows:
+        if row.character not in char_top or row.points > char_top[row.character]["points"]:
+            char_top[row.character] = {
+                "character": row.character,
+                "points": row.points,
+                "username": row.owner.username,
+                "avatar_url": row.owner.avatar_url,
+            }
+    result = list(char_top.values())
+    result.sort(key=lambda x: -x["points"])
+    return result
+
+
 @app.post("/characters/stats/record")
 def record_stat(req: StatRecord, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if req.result not in ("win", "loss"):
@@ -394,3 +412,21 @@ def record_stat(req: StatRecord, db: Session = Depends(get_db), current_user: Us
         row.points = max(0, row.points - 1)
     db.commit()
     return {"character": row.character, "points": row.points}
+
+
+# ── User profile ──────────────────────────────────────────────────────────────
+
+class AvatarUpdate(BaseModel):
+    avatar_url: str
+
+
+@app.get("/users/me")
+def get_me(current_user: User = Depends(get_current_user)):
+    return {"id": current_user.id, "username": current_user.username, "avatar_url": current_user.avatar_url}
+
+
+@app.put("/users/me/avatar")
+def update_avatar(req: AvatarUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    current_user.avatar_url = req.avatar_url or None
+    db.commit()
+    return {"ok": True}

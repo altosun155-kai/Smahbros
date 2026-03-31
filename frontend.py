@@ -71,10 +71,21 @@ def _error_detail(r) -> str:
     except Exception:
         return r.text or f"HTTP {r.status_code}"
 
+def _request_with_retry(method: str, url: str, **kwargs):
+    """Make a request, retrying once on 502 (Render free-tier cold start)."""
+    import time
+    kwargs.setdefault("timeout", 60)
+    r = requests.request(method, url, **kwargs)
+    if r.status_code == 502:
+        with st.spinner("API is waking up, retrying in 15 seconds…"):
+            time.sleep(15)
+        r = requests.request(method, url, **kwargs)
+    return r
+
 def api_post(path: str, json: dict, auth: bool = True) -> Optional[dict]:
     try:
         headers = api_headers() if auth else {}
-        r = requests.post(f"{BACKEND_URL}{path}", json=json, headers=headers, timeout=10)
+        r = _request_with_retry("POST", f"{BACKEND_URL}{path}", json=json, headers=headers)
         if r.ok:
             return r.json()
         st.error(f"API error {r.status_code}: {_error_detail(r)}")
@@ -84,7 +95,7 @@ def api_post(path: str, json: dict, auth: bool = True) -> Optional[dict]:
 
 def api_post_form(path: str, data: dict) -> Optional[dict]:
     try:
-        r = requests.post(f"{BACKEND_URL}{path}", data=data, timeout=10)
+        r = _request_with_retry("POST", f"{BACKEND_URL}{path}", data=data)
         if r.ok:
             return r.json()
         st.error(f"Login error: {_error_detail(r)}")
@@ -94,7 +105,7 @@ def api_post_form(path: str, data: dict) -> Optional[dict]:
 
 def api_get(path: str) -> Optional[dict | list]:
     try:
-        r = requests.get(f"{BACKEND_URL}{path}", headers=api_headers(), timeout=10)
+        r = _request_with_retry("GET", f"{BACKEND_URL}{path}", headers=api_headers())
         if r.ok:
             return r.json()
         st.error(f"API error {r.status_code}: {_error_detail(r)}")
@@ -104,27 +115,27 @@ def api_get(path: str) -> Optional[dict | list]:
 
 def api_put(path: str, json: dict) -> Optional[dict]:
     try:
-        r = requests.put(f"{BACKEND_URL}{path}", json=json, headers=api_headers(), timeout=10)
+        r = _request_with_retry("PUT", f"{BACKEND_URL}{path}", json=json, headers=api_headers())
         if r.ok:
             return r.json()
-        st.error(f"API error {r.status_code}: {r.json().get('detail', r.text)}")
+        st.error(f"API error {r.status_code}: {_error_detail(r)}")
     except Exception as e:
         st.error(f"Could not reach backend: {e}")
     return None
 
 def api_patch(path: str, json: dict) -> Optional[dict]:
     try:
-        r = requests.patch(f"{BACKEND_URL}{path}", json=json, headers=api_headers(), timeout=10)
+        r = _request_with_retry("PATCH", f"{BACKEND_URL}{path}", json=json, headers=api_headers())
         if r.ok:
             return r.json()
-        st.error(f"API error {r.status_code}: {r.json().get('detail', r.text)}")
+        st.error(f"API error {r.status_code}: {_error_detail(r)}")
     except Exception as e:
         st.error(f"Could not reach backend: {e}")
     return None
 
 def api_delete(path: str) -> bool:
     try:
-        r = requests.delete(f"{BACKEND_URL}{path}", headers=api_headers(), timeout=10)
+        r = _request_with_retry("DELETE", f"{BACKEND_URL}{path}", headers=api_headers())
         return r.ok
     except Exception as e:
         st.error(f"Could not reach backend: {e}")

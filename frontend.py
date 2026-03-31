@@ -65,13 +65,19 @@ def api_headers() -> dict:
     token = st.session_state.get("auth_token")
     return {"Authorization": f"Bearer {token}"} if token else {}
 
+def _error_detail(r) -> str:
+    try:
+        return r.json().get("detail", r.text)
+    except Exception:
+        return r.text or f"HTTP {r.status_code}"
+
 def api_post(path: str, json: dict, auth: bool = True) -> Optional[dict]:
     try:
         headers = api_headers() if auth else {}
         r = requests.post(f"{BACKEND_URL}{path}", json=json, headers=headers, timeout=10)
         if r.ok:
             return r.json()
-        st.error(f"API error {r.status_code}: {r.json().get('detail', r.text)}")
+        st.error(f"API error {r.status_code}: {_error_detail(r)}")
     except Exception as e:
         st.error(f"Could not reach backend: {e}")
     return None
@@ -81,7 +87,7 @@ def api_post_form(path: str, data: dict) -> Optional[dict]:
         r = requests.post(f"{BACKEND_URL}{path}", data=data, timeout=10)
         if r.ok:
             return r.json()
-        st.error(f"Login error: {r.json().get('detail', r.text)}")
+        st.error(f"Login error: {_error_detail(r)}")
     except Exception as e:
         st.error(f"Could not reach backend: {e}")
     return None
@@ -91,7 +97,7 @@ def api_get(path: str) -> Optional[dict | list]:
         r = requests.get(f"{BACKEND_URL}{path}", headers=api_headers(), timeout=10)
         if r.ok:
             return r.json()
-        st.error(f"API error {r.status_code}: {r.json().get('detail', r.text)}")
+        st.error(f"API error {r.status_code}: {_error_detail(r)}")
     except Exception as e:
         st.error(f"Could not reach backend: {e}")
     return None

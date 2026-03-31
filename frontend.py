@@ -408,9 +408,11 @@ def _init_tier_ranking(saved: Optional[dict] = None) -> dict:
         return result
     return {t: [] for t in TIERS} | {"unranked": list(SMASH_ULTIMATE_ROSTER)}
 
+SLIDER_OPTIONS = ["Unranked", "F", "D", "C", "B", "A", "S"]
+
 def show_tier_list_page():
     st.title("🎖️ My Smash Ultimate Tier List")
-    st.caption("Rank all 89 fighters. Changes are saved to your account.")
+    st.caption("Use the sliders to rate all 89 fighters.")
 
     # Load saved ranking from backend on first visit
     if st.session_state.tier_ranking is None:
@@ -424,112 +426,50 @@ def show_tier_list_page():
 
     ranking = st.session_state.tier_ranking
 
-    # ── Controls row ─────────────────────────────────────────────────────────
-    col_save, col_reset, col_search = st.columns([1, 1, 2])
+    # Build per-char lookup from stored ranking
+    char_to_tier: dict = {}
+    for tier in TIERS:
+        for c in ranking.get(tier, []):
+            char_to_tier[c] = tier
+    for c in ranking.get("unranked", []):
+        char_to_tier[c] = "Unranked"
+
+    # ── Controls ─────────────────────────────────────────────────────────────
+    col_save, col_reset = st.columns([1, 1])
     with col_save:
         if st.button("💾 Save Tier List", type="primary", use_container_width=True):
-            result = api_put("/characters/ranking", {"ranking": ranking})
+            new_ranking = {t: [] for t in TIERS}
+            new_ranking["unranked"] = []
+            for char in SMASH_ULTIMATE_ROSTER:
+                val = st.session_state.get(f"tier_slider_{char}", char_to_tier.get(char, "Unranked"))
+                if val in TIERS:
+                    new_ranking[val].append(char)
+                else:
+                    new_ranking["unranked"].append(char)
+            result = api_put("/characters/ranking", {"ranking": new_ranking})
             if result:
+                st.session_state.tier_ranking = new_ranking
                 st.success("Saved!")
-                st.session_state.tier_dirty = False
     with col_reset:
         if st.button("🗑️ Reset All", use_container_width=True):
+            for char in SMASH_ULTIMATE_ROSTER:
+                st.session_state[f"tier_slider_{char}"] = "Unranked"
             st.session_state.tier_ranking = _init_tier_ranking()
-            st.session_state.tier_dirty = True
             st.rerun()
-    with col_search:
-        search_q = st.text_input("🔍 Filter characters", placeholder="Type a name…", key="tier_search", label_visibility="collapsed")
-
-    if st.session_state.tier_dirty:
-        st.info("⚠️ You have unsaved changes.")
 
     st.markdown("---")
 
-    # ── Tier rows ─────────────────────────────────────────────────────────────
-    # Each tier: show a colored header + multiselect to add chars,
-    # and a way to move chars back to unranked.
-    for tier in TIERS:
-        color   = TIER_COLORS[tier]
-        chars   = ranking[tier]
-        if search_q:
-            chars = [c for c in chars if search_q.lower() in c.lower()]
-
-        with st.container():
-            hcol, ccol = st.columns([1, 11])
-            with hcol:
-                st.markdown(
-                    f"<div style='background:{color};color:#111;font-weight:900;"
-                    f"font-size:22px;text-align:center;border-radius:8px;padding:8px 0;"
-                    f"min-height:44px;line-height:44px'>{tier}</div>",
-                    unsafe_allow_html=True
-                )
-            with ccol:
-                if chars:
-                    badges = " ".join(
-                        f"<span class='tier-char' style='border-left:3px solid {color}'>{c}</span>"
-                        for c in chars
-                    )
-                    st.markdown(f"<div style='display:flex;flex-wrap:wrap;gap:4px;padding:4px 0'>{badges}</div>",
-                                unsafe_allow_html=True)
-                else:
-                    st.caption("— empty —")
-
-        # Move chars out of this tier → unranked
-        if ranking[tier]:
-            remove_from = st.multiselect(
-                f"Remove from {tier}",
-                options=ranking[tier],
-                key=f"remove_{tier}",
-                label_visibility="collapsed",
-                placeholder=f"Select to remove from {tier}…"
+    # ── Slider grid (3 columns) ───────────────────────────────────────────────
+    cols = st.columns(3)
+    for i, char in enumerate(SMASH_ULTIMATE_ROSTER):
+        default = char_to_tier.get(char, "Unranked")
+        with cols[i % 3]:
+            st.select_slider(
+                char,
+                options=SLIDER_OPTIONS,
+                value=st.session_state.get(f"tier_slider_{char}", default),
+                key=f"tier_slider_{char}",
             )
-            if remove_from:
-                for c in remove_from:
-                    ranking[tier].remove(c)
-                    ranking["unranked"].append(c)
-                st.session_state.tier_dirty = True
-                st.rerun()
-
-    # ── Unranked pool ─────────────────────────────────────────────────────────
-    st.markdown("---")
-    st.subheader(f"📦 Unranked ({len(ranking['unranked'])} fighters)")
-
-    unranked_display = ranking["unranked"]
-    if search_q:
-        unranked_display = [c for c in unranked_display if search_q.lower() in c.lower()]
-
-    if unranked_display:
-        # Show in a compact grid and allow assigning to a tier
-        assign_col, tier_col, btn_col = st.columns([3, 1, 1])
-        with assign_col:
-            to_assign = st.multiselect(
-                "Select fighters to rank",
-                options=unranked_display,
-                key="assign_chars",
-                label_visibility="collapsed",
-                placeholder="Pick fighters to place in a tier…"
-            )
-        with tier_col:
-            dest_tier = st.selectbox("Tier", TIERS, key="assign_dest_tier", label_visibility="collapsed")
-        with btn_col:
-            if st.button("➕ Add to tier", use_container_width=True):
-                if to_assign:
-                    for c in to_assign:
-                        if c in ranking["unranked"]:
-                            ranking["unranked"].remove(c)
-                            ranking[dest_tier].append(c)
-                    st.session_state.tier_dirty = True
-                    st.rerun()
-
-        # Compact badge display of all unranked
-        st.markdown(
-            "<div style='display:flex;flex-wrap:wrap;gap:4px;margin-top:6px'>"
-            + "".join(f"<span class='tier-char'>{c}</span>" for c in unranked_display)
-            + "</div>",
-            unsafe_allow_html=True
-        )
-    else:
-        st.success("🎉 All fighters ranked!")
 
     # ── View another user's tier list ─────────────────────────────────────────
     st.markdown("---")
@@ -1009,28 +949,34 @@ elif page == "🎖️ My Tier List":
     show_tier_list_page()
 
 elif page == "⭐ My Favorite Characters":
-    st.title("⭐ My Favorite Characters")
-    st.caption("Pick your favorite Smash Ultimate fighters.")
+    st.title("⭐ My Top 10 Characters")
+    st.caption("Pick up to 10 of your favorite Smash Ultimate fighters.")
 
     data = api_get("/characters/favorites")
-    current_favs = data["characters"] if data else []
+    current_favs = (data["characters"] if data else [])[:10]
 
     updated = st.multiselect(
-        "Select your favorites",
+        "Select your top 10 fighters",
         options=SMASH_ULTIMATE_ROSTER,
         default=current_favs,
+        max_selections=10,
         key="fav_chars_select",
     )
 
-    if st.button("💾 Save Favorites", type="primary"):
+    remaining = 10 - len(updated)
+    if remaining > 0:
+        st.caption(f"{remaining} slot(s) remaining")
+
+    if st.button("💾 Save Top 10", type="primary"):
         result = api_put("/characters/favorites", {"characters": updated})
         if result:
             st.success("Saved!")
 
     if current_favs:
         st.markdown("---")
-        st.subheader("Your current favorites")
-        st.markdown(" ".join(f"**{c}**" for c in current_favs))
+        st.subheader("Your current top 10")
+        for rank, char in enumerate(current_favs, 1):
+            st.markdown(f"**#{rank}** {char}")
 
 elif page == "🌍 Global Leaderboard":
     st.title("🌍 Global Leaderboard")

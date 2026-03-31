@@ -101,8 +101,41 @@
 
 <script src="js/api.js"></script>
 <script>
-  // Pre-warm the API in the background so it's ready by the time the user clicks Sign In
-  fetch(API_BASE + '/health').catch(() => {});
+  // ── Server ready gate ────────────────────────────────────────────────────────
+  // Disable both submit buttons and show a status banner until /health responds.
+  const signinBtn  = document.getElementById('signinBtn');
+  const signupBtn  = document.getElementById('signupBtn');
+  const errorBannerSignin = document.getElementById('signinError');
+
+  function setServerReady(ready) {
+    signinBtn.disabled = !ready;
+    signupBtn.disabled = !ready;
+    if (ready) {
+      signinBtn.textContent = 'Sign In';
+      signupBtn.textContent = 'Create Account';
+      errorBannerSignin.classList.remove('visible');
+    } else {
+      signinBtn.textContent = 'Connecting to server…';
+      signupBtn.textContent = 'Connecting to server…';
+    }
+  }
+
+  async function waitForServer() {
+    setServerReady(false);
+    for (let i = 0; i < 10; i++) {          // up to ~90 s
+      try {
+        const r = await fetch(API_BASE + '/health', { cache: 'no-store' });
+        if (r.ok) { setServerReady(true); return; }
+      } catch (_) {}
+      await new Promise(r => setTimeout(r, i === 0 ? 2000 : 10000));
+    }
+    // Give up waiting — let them try anyway
+    setServerReady(true);
+    errorBannerSignin.textContent = 'Server may still be starting. If login fails, wait 30 s and try again.';
+    errorBannerSignin.classList.add('visible');
+  }
+
+  waitForServer();
 
   function switchTab(tab) {
     document.getElementById('panelSignin').classList.toggle('active', tab === 'signin');

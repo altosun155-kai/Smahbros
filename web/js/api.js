@@ -52,13 +52,13 @@ async function apiFetch(method, path, body = null, auth = true) {
 
   for (let attempt = 0; attempt < RETRY_ATTEMPTS; attempt++) {
     if (attempt > 0) {
-      const waitSec = 20;
-      const toast = _showToast(
-        `API is waking up… retrying in ${waitSec}s (attempt ${attempt + 1}/${RETRY_ATTEMPTS})`,
+      const waitSec = 25;
+      _showToast(
+        `API is waking up… retrying (attempt ${attempt + 1}/${RETRY_ATTEMPTS})`,
         'warn',
         waitSec * 1000
       );
-      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      await new Promise(resolve => setTimeout(resolve, waitSec * 1000));
     }
 
     let res;
@@ -69,10 +69,18 @@ async function apiFetch(method, path, body = null, auth = true) {
         body: requestBody,
       });
     } catch (err) {
-      if (attempt === RETRY_ATTEMPTS - 1) {
-        throw new Error('Network error: could not reach the API. Check your connection.');
+      // fetch threw — no response at all (cold start / network issue)
+      if (attempt < RETRY_ATTEMPTS - 1) {
+        const waitSec = 25;
+        _showToast(
+          `API is waking up… retrying (attempt ${attempt + 2}/${RETRY_ATTEMPTS})`,
+          'warn',
+          waitSec * 1000
+        );
+        await new Promise(resolve => setTimeout(resolve, waitSec * 1000));
+        continue;
       }
-      continue;
+      throw new Error('Could not reach the API. It may still be waking up — please try again in a moment.');
     }
 
     if (res.status === 502 && attempt < RETRY_ATTEMPTS - 1) {

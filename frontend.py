@@ -119,14 +119,16 @@ def _error_detail(r) -> str:
         return r.text or f"HTTP {r.status_code}"
 
 def _request_with_retry(method: str, url: str, **kwargs):
-    """Make a request, retrying once on 502 (Render free-tier cold start)."""
+    """Retry up to 3 times on 502 (Render free-tier cold start, ~50 s spin-up)."""
     import time
     kwargs.setdefault("timeout", 60)
-    r = requests.request(method, url, **kwargs)
-    if r.status_code == 502:
-        with st.spinner("API is waking up, retrying in 15 seconds…"):
-            time.sleep(15)
+    for attempt in range(3):
         r = requests.request(method, url, **kwargs)
+        if r.status_code != 502:
+            return r
+        wait = 20 * (attempt + 1)  # 20 s, 40 s, 60 s
+        with st.spinner(f"API is waking up… retrying in {wait}s (attempt {attempt + 1}/3)"):
+            time.sleep(wait)
     return r
 
 def api_post(path: str, json: dict, auth: bool = True) -> Optional[dict]:

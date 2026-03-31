@@ -12,7 +12,3 @@ services:
         generateValue: true
       - key: DATABASE_URL
         sync: false
-  - type: web
-    name: smash-bracket-ui
-    env: static
-    staticPublishPath: web

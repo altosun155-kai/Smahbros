@@ -1,9 +1,12 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
+import os
 
 from database import engine, Base, User, Bracket, RoundRobinResult, CharacterRanking, TournamentInvite, FavoriteCharacters, CharacterStats
 from auth import get_db, get_current_user, hash_password, verify_password, create_access_token
@@ -19,6 +22,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve the web/ frontend — mount AFTER all API routes are defined (see bottom of file)
+WEB_DIR = os.path.join(os.path.dirname(__file__), "web")
 
 
 @app.get("/health")
@@ -435,3 +441,11 @@ def update_avatar(req: AvatarUpdate, db: Session = Depends(get_db), current_user
     current_user.avatar_url = req.avatar_url or None
     db.commit()
     return {"ok": True}
+
+
+# ── Serve frontend (must be last) ─────────────────────────────────────────────
+@app.get("/")
+def root():
+    return FileResponse(os.path.join(WEB_DIR, "login.html"))
+
+app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="frontend")

@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Depends, HTTPException
-from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -9,7 +8,7 @@ from datetime import datetime
 import os
 
 from database import engine, Base, User, Bracket, RoundRobinResult, CharacterRanking, TournamentInvite, FavoriteCharacters, CharacterStats
-from auth import get_db, get_current_user, hash_password, verify_password, create_access_token
+from auth import get_db, get_current_user, hash_password, verify_password, make_token
 
 Base.metadata.create_all(bind=engine)
 
@@ -39,6 +38,11 @@ class RegisterRequest(BaseModel):
     password: str
 
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
 @app.post("/auth/register")
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
     if db.query(User).filter(User.username == req.username).first():
@@ -47,16 +51,15 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
-    return {"id": user.id, "username": user.username}
+    return {"token": make_token(user.id), "username": user.username}
 
 
 @app.post("/auth/login")
-def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == form.username).first()
-    if not user or not verify_password(form.password, user.hashed_password):
+def login(req: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == req.username).first()
+    if not user or not verify_password(req.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect username or password")
-    token = create_access_token({"sub": user.username})
-    return {"access_token": token, "token_type": "bearer"}
+    return {"token": make_token(user.id), "username": user.username}
 
 
 # ── Users ─────────────────────────────────────────────────────────────────────

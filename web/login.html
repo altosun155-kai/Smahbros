@@ -176,14 +176,10 @@
     btn.textContent = 'Signing in…';
 
     try {
-      const formData = new URLSearchParams();
-      formData.append('username', username);
-      formData.append('password', password);
+      const data = await apiFetch('POST', '/auth/login', { username, password }, false);
 
-      const data = await apiFetch('POST', '/auth/login', formData, false);
-
-      setToken(data.access_token);
-      setUsername(username);
+      setToken(data.token);
+      setUsername(data.username);
       window.location.href = 'index.html';
     } catch (err) {
       errorBanner.textContent = err.message || 'Invalid username or password.';

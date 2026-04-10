@@ -65,6 +65,11 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
 
 # ── Users ─────────────────────────────────────────────────────────────────────
 
+@app.get("/users/all")
+def all_users(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    users = db.query(User).order_by(User.username).all()
+    return [{"id": u.id, "username": u.username} for u in users]
+
 @app.get("/users/search")
 def search_users(q: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     users = db.query(User).filter(User.username.ilike(f"%{q}%")).limit(10).all()
@@ -409,6 +414,63 @@ def character_leaderboard(db: Session = Depends(get_db)):
     result.sort(key=lambda x: -x["points"])
     return result
 
+
+class BulkStatEntry(BaseModel):
+    character: str
+    wins: int
+    losses: int
+
+class BulkStatsRequest(BaseModel):
+    username: str
+    entries: list[BulkStatEntry]
+
+@app.post("/characters/stats/bulk")
+def bulk_set_stats(req: BulkStatsRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    target = db.query(User).filter(User.username == req.username).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    for entry in req.entries:
+        if not entry.character:
+            continue
+        points = max(0, entry.wins - entry.losses)
+        row = db.query(CharacterStats).filter(
+            CharacterStats.user_id == target.id,
+            CharacterStats.character == entry.character,
+        ).first()
+        if row is None:
+            row = CharacterStats(user_id=target.id, character=entry.character, points=points)
+            db.add(row)
+        else:
+            row.points = points
+    db.commit()
+    return {"ok": True}
+
+class StatRecordFor(BaseModel):
+    username: str
+    character: str
+    result: str  # "win" or "loss"
+
+@app.post("/characters/stats/record-for")
+def record_stat_for(req: StatRecordFor, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Record a win/loss for any user (for quick match entry)."""
+    if req.result not in ("win", "loss"):
+        raise HTTPException(status_code=400, detail="result must be 'win' or 'loss'")
+    target = db.query(User).filter(User.username == req.username).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    row = db.query(CharacterStats).filter(
+        CharacterStats.user_id == target.id,
+        CharacterStats.character == req.character,
+    ).first()
+    if row is None:
+        row = CharacterStats(user_id=target.id, character=req.character, points=0)
+        db.add(row)
+    if req.result == "win":
+        row.points += 1
+    else:
+        row.points = max(0, row.points - 1)
+    db.commit()
+    return {"character": row.character, "points": row.points}
 
 @app.post("/characters/stats/record")
 def record_stat(req: StatRecord, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

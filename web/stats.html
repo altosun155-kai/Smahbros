@@ -15,6 +15,16 @@
     .char-img { width: 36px; height: 36px; object-fit: contain; border-radius: 4px; vertical-align: middle; }
     .view-user-row { display: flex; gap: 10px; max-width: 400px; margin-top: 24px; }
     .view-user-row input { flex: 1; }
+    .bulk-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    .bulk-table th { text-align: left; font-size: 0.8rem; color: var(--text-muted); padding: 6px 8px; border-bottom: 1px solid var(--border); }
+    .bulk-table td { padding: 4px 8px; }
+    .bulk-table input[type=number] { width: 60px; background: var(--card-bg2); border: 1px solid var(--border); border-radius: 5px; color: var(--text); padding: 4px 6px; font-size: 0.85rem; text-align: center; }
+    .bulk-table input[type=number]:focus { outline: none; border-color: var(--accent-blue); }
+    .bulk-char-name { font-size: 0.88rem; }
+    .bulk-user-row { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+    .bulk-user-row input { max-width: 220px; }
+    .bulk-search { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 8px 12px; font-size: 0.9rem; max-width: 260px; width: 100%; }
+    .bulk-search:focus { outline: none; border-color: var(--accent-blue); }
   </style>
 </head>
 <body>
@@ -33,6 +43,7 @@
     <li><a href="stats.html" class="active">Stats</a></li>
     <li><a href="leaderboard.html">Leaderboard</a></li>
     <li><a href="invites.html">Invites</a></li>
+    <li><a href="friends.html">Friends</a></li>
     <li><a href="profile.html">Profile</a></li>
   </ul>
   <div class="nav-right">
@@ -79,6 +90,57 @@
         <tbody id="statsBody"></tbody>
       </table>
     </div>
+  </div>
+
+  <!-- Quick Match -->
+  <hr class="section-divider" style="margin-top:28px;" />
+  <h2 style="font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:6px;">Quick Match Result</h2>
+  <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:16px;">Pick both players and their characters, then tap the winner.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:600px;" id="quickMatchGrid">
+    <div class="card" style="padding:16px;">
+      <div style="font-weight:700;margin-bottom:10px;color:var(--accent-blue);">Player 1</div>
+      <select id="qm_user1" style="width:100%;margin-bottom:8px;padding:7px 10px;background:var(--card-bg2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:0.88rem;">
+        <option value="">Select player…</option>
+      </select>
+      <select id="qm_char1" style="width:100%;padding:7px 10px;background:var(--card-bg2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:0.88rem;">
+        <option value="">Select character…</option>
+      </select>
+    </div>
+    <div class="card" style="padding:16px;">
+      <div style="font-weight:700;margin-bottom:10px;color:var(--accent-gold);">Player 2</div>
+      <select id="qm_user2" style="width:100%;margin-bottom:8px;padding:7px 10px;background:var(--card-bg2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:0.88rem;">
+        <option value="">Select player…</option>
+      </select>
+      <select id="qm_char2" style="width:100%;padding:7px 10px;background:var(--card-bg2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:0.88rem;">
+        <option value="">Select character…</option>
+      </select>
+    </div>
+  </div>
+  <div style="display:flex;gap:12px;margin-top:14px;max-width:600px;">
+    <button class="btn btn-primary" style="flex:1;" onclick="recordQuickMatch(1)">Player 1 Won</button>
+    <button class="btn btn-gold" style="flex:1;" onclick="recordQuickMatch(2)">Player 2 Won</button>
+  </div>
+  <p id="qmMsg" style="margin-top:10px;font-size:0.88rem;"></p>
+
+  <!-- Bulk Entry -->
+  <hr class="section-divider" style="margin-top:28px;" />
+  <h2 style="font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:6px;">Bulk Entry</h2>
+  <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:14px;">Enter wins &amp; losses per character for any user at once.</p>
+
+  <div class="bulk-user-row">
+    <select id="bulkUserSelect" style="max-width:220px;padding:8px 12px;background:var(--card-bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;">
+      <option value="">Select user…</option>
+    </select>
+    <input class="bulk-search" id="bulkSearch" placeholder="Filter characters…" oninput="filterBulkTable()" />
+    <button class="btn btn-primary" onclick="submitBulk()">Save All</button>
+  </div>
+
+  <div style="overflow-x:auto;max-height:500px;overflow-y:auto;">
+    <table class="bulk-table" id="bulkTable">
+      <thead><tr><th>Character</th><th>Wins</th><th>Losses</th></tr></thead>
+      <tbody id="bulkBody"></tbody>
+    </table>
   </div>
 
   <hr class="section-divider" style="margin-top:28px;" />
@@ -179,6 +241,89 @@
     }
   }
 
+  // ── Quick Match ───────────────────────────────────
+  function populateCharSelects() {
+    ['qm_char1','qm_char2'].forEach(id => {
+      const sel = document.getElementById(id);
+      sel.innerHTML = '<option value="">Select character…</option>' +
+        ROSTER.map(c => `<option value="${c}">${c}</option>`).join('');
+    });
+  }
+
+  async function recordQuickMatch(winner) {
+    const u1 = document.getElementById('qm_user1').value;
+    const u2 = document.getElementById('qm_user2').value;
+    const c1 = document.getElementById('qm_char1').value;
+    const c2 = document.getElementById('qm_char2').value;
+    const msg = document.getElementById('qmMsg');
+
+    if (!u1 || !u2 || !c1 || !c2) { msg.style.color='#e74c3c'; msg.textContent='Fill in both players and characters.'; return; }
+    if (u1 === u2) { msg.style.color='#e74c3c'; msg.textContent='Players must be different.'; return; }
+
+    const winUser = winner === 1 ? u1 : u2;
+    const loseUser = winner === 1 ? u2 : u1;
+    const winChar = winner === 1 ? c1 : c2;
+    const loseChar = winner === 1 ? c2 : c1;
+
+    try {
+      await Promise.all([
+        apiPost('/characters/stats/record-for', { username: winUser, character: winChar, result: 'win' }),
+        apiPost('/characters/stats/record-for', { username: loseUser, character: loseChar, result: 'loss' }),
+      ]);
+      msg.style.color = '#4caf50';
+      msg.textContent = `Recorded: ${winUser} (${winChar}) beat ${loseUser} (${loseChar})`;
+      loadStats();
+    } catch (err) {
+      msg.style.color = '#e74c3c';
+      msg.textContent = 'Error: ' + err.message;
+    }
+  }
+
+  // ── Bulk Entry ────────────────────────────────────
+  function buildBulkTable() {
+    const body = document.getElementById('bulkBody');
+    body.innerHTML = ROSTER.map(c => `
+      <tr data-char="${c.toLowerCase()}">
+        <td class="bulk-char-name">${c}</td>
+        <td><input type="number" id="bw_${c}" min="0" value="0" /></td>
+        <td><input type="number" id="bl_${c}" min="0" value="0" /></td>
+      </tr>
+    `).join('');
+  }
+
+  function filterBulkTable() {
+    const q = document.getElementById('bulkSearch').value.toLowerCase();
+    document.querySelectorAll('#bulkBody tr').forEach(row => {
+      row.style.display = row.dataset.char.includes(q) ? '' : 'none';
+    });
+  }
+
+  async function submitBulk() {
+    const username = document.getElementById('bulkUserSelect').value;
+    if (!username) { showToast('Select a user first.', 'warn'); return; }
+    const entries = [];
+    ROSTER.forEach(c => {
+      const wins = parseInt(document.getElementById(`bw_${c}`).value) || 0;
+      const losses = parseInt(document.getElementById(`bl_${c}`).value) || 0;
+      if (wins > 0 || losses > 0) {
+        entries.push({ character: c, wins, losses });
+      }
+    });
+    if (!entries.length) { showToast('No data entered.', 'warn'); return; }
+    try {
+      await apiPost('/characters/stats/bulk', { username, entries });
+      showToast(`Saved ${entries.length} entries for ${username}!`, 'success');
+      // Reset inputs
+      ROSTER.forEach(c => {
+        document.getElementById(`bw_${c}`).value = 0;
+        document.getElementById(`bl_${c}`).value = 0;
+      });
+      loadStats();
+    } catch (err) {
+      showToast('Error: ' + err.message, 'error');
+    }
+  }
+
   (async function init() {
     try {
       const me = await apiGet('/users/me');
@@ -187,8 +332,42 @@
         const url = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
         const av = document.getElementById('navAvatar');
         av.src = url; av.style.display = 'block';
+
+        // Pre-select self in bulk user dropdown
+        const opt = document.createElement('option');
+        opt.value = me.username; opt.textContent = me.username + ' (you)';
+        document.getElementById('bulkUserSelect').appendChild(opt);
+        document.getElementById('bulkUserSelect').value = me.username;
       }
     } catch (_) {}
+
+    // Load all users for bulk + quick match dropdowns
+    try {
+      const res = await apiGet('/users/all');
+      if (res) {
+        const bulkSel = document.getElementById('bulkUserSelect');
+        const myName = bulkSel.value;
+        res.forEach(u => {
+          if (u.username === myName) return;
+          const opt = document.createElement('option');
+          opt.value = u.username; opt.textContent = u.username;
+          bulkSel.appendChild(opt);
+        });
+
+        // Quick match user selects
+        ['qm_user1','qm_user2'].forEach(id => {
+          const sel = document.getElementById(id);
+          res.forEach(u => {
+            const opt = document.createElement('option');
+            opt.value = u.username; opt.textContent = u.username;
+            sel.appendChild(opt);
+          });
+        });
+      }
+    } catch (_) {}
+
+    populateCharSelects();
+    buildBulkTable();
     loadStats();
   })();
 </script>

@@ -235,7 +235,7 @@
       const data = await apiGet(`/characters/stats/${username}`);
       document.getElementById('viewedStatsContainer').style.display = 'block';
       document.getElementById('viewedStatsTitle').textContent = `${username}'s Stats`;
-      renderStatsTable(data, 'viewedStatsBody', 'viewedStatsTable', null);
+      renderStatsTable(data.stats, 'viewedStatsBody', 'viewedStatsTable', null);
     } catch (err) {
       showToast('Error: ' + err.message, 'error');
     }

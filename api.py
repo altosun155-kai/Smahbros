@@ -432,16 +432,14 @@ def bulk_set_stats(req: BulkStatsRequest, db: Session = Depends(get_db), current
     for entry in req.entries:
         if not entry.character:
             continue
-        points = max(0, entry.wins - entry.losses)
         row = db.query(CharacterStats).filter(
             CharacterStats.user_id == target.id,
             CharacterStats.character == entry.character,
         ).first()
         if row is None:
-            row = CharacterStats(user_id=target.id, character=entry.character, points=points)
+            row = CharacterStats(user_id=target.id, character=entry.character, points=0)
             db.add(row)
-        else:
-            row.points = points
+        row.points = max(0, row.points + entry.wins - entry.losses)
     db.commit()
     return {"ok": True}
 

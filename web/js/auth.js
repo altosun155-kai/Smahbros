@@ -1,7 +1,6 @@
 // auth.js — shared auth utilities for Smash Bracket
 
-// Same origin — frontend is served by the API itself
-const API_BASE = window.location.origin;
+const API_BASE = 'https://smash-bracket-api.onrender.com';
 
 // ── Token management ──────────────────────────────
 function getToken() {

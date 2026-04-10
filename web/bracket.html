@@ -31,6 +31,162 @@
     .mode-btn { flex: 1; padding: 8px; background: var(--card-bg2); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
     .mode-btn.active { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
     @media (max-width: 900px) { .bracket-layout { grid-template-columns: 1fr; } }
+
+    /* ── VS Screen Modal ── */
+    #vsModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: #000 url('https://oqtdlertvgmopnibrbiu.supabase.co/storage/v1/object/public/Background/download%20(2).jpeg') center/cover no-repeat;
+      overflow: hidden;
+    }
+    #vsModal.open { display: flex; align-items: center; justify-content: center; }
+    .vs-bg {
+      position: absolute;
+      inset: 0;
+      display: flex;
+    }
+    .vs-bg-left {
+      flex: 1;
+      background: linear-gradient(135deg, #8b0000 0%, #cc1111 40%, #ff4444 60%, transparent 100%);
+      opacity: 0.85;
+    }
+    .vs-bg-right {
+      flex: 1;
+      background: linear-gradient(225deg, #00008b 0%, #1111cc 40%, #4488ff 60%, transparent 100%);
+      opacity: 0.85;
+    }
+    .vs-bg-center {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, rgba(255,255,255,0.08) 0%, transparent 70%);
+    }
+    .vs-lightning {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      transform: translateX(-50%);
+      background: linear-gradient(180deg, transparent, #fff 20%, #ffe066 50%, #fff 80%, transparent);
+      opacity: 0.7;
+      filter: blur(2px);
+    }
+    .vs-content {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 900px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 0;
+      padding: 40px 20px;
+    }
+    .vs-player {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .vs-player-tag {
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      border-radius: 4px;
+    }
+    .vs-player-tag.p1 { background: #cc1111; color: #fff; }
+    .vs-player-tag.p2 { background: #1155cc; color: #fff; }
+    .vs-name {
+      font-size: 2rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.8);
+      text-align: center;
+    }
+    .vs-name.p1 { color: #ff6666; }
+    .vs-name.p2 { color: #66aaff; }
+    .vs-char {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #ffe066;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+    }
+    .vs-avatar {
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      border: 4px solid rgba(255,255,255,0.3);
+      object-fit: cover;
+      box-shadow: 0 0 30px rgba(255,255,255,0.15);
+    }
+    .vs-middle {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 0 24px;
+    }
+    .vs-logo {
+      font-size: 0.65rem;
+      font-weight: 800;
+      letter-spacing: 3px;
+      color: rgba(255,255,255,0.5);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .vs-text {
+      font-size: 4.5rem;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 30px rgba(255,220,0,0.8), 0 0 60px rgba(255,220,0,0.4);
+      letter-spacing: -2px;
+      line-height: 1;
+    }
+    .vs-winner-row {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      z-index: 3;
+    }
+    .vs-win-btn {
+      padding: 12px 28px;
+      font-size: 1rem;
+      font-weight: 800;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      transition: transform 0.1s, opacity 0.1s;
+    }
+    .vs-win-btn:hover { transform: scale(1.06); opacity: 0.9; }
+    .vs-win-btn.p1 { background: #cc1111; color: #fff; }
+    .vs-win-btn.p2 { background: #1155cc; color: #fff; }
+    .vs-close {
+      position: absolute;
+      top: 18px;
+      right: 22px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      border-radius: 6px;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      z-index: 4;
+    }
+    .vs-close:hover { background: rgba(255,255,255,0.2); }
+    .match-box { cursor: pointer; transition: border-color 0.15s; }
+    .match-box:hover { border-color: var(--accent-blue); }
     .friend-chip {
       display: flex; align-items: center; gap: 6px;
       background: var(--card-bg2); border: 1px solid var(--border);
@@ -408,6 +564,14 @@ function renderBracket() {
       }
 
       box.innerHTML = html;
+      // Click to open VS screen for any non-bye match
+      if (!isBye && a && b && la !== 'TBD' && lb !== 'TBD') {
+        const key = `r${ri}_m${mi}`;
+        box.addEventListener('click', (e) => {
+          if (e.target.tagName === 'SELECT') return; // don't open modal when using dropdown
+          openVsModal(a, b, key);
+        });
+      }
       col.appendChild(box);
     });
 
@@ -536,6 +700,94 @@ function addFriendToPlayers(username, chip) {
     chip.classList.add('added');
   }
 }
+
+// ── VS Modal ──────────────────────────────────────
+let vsCurrentKey = null;
+
+function openVsModal(a, b, key) {
+  vsCurrentKey = key;
+  const cur = roundWinners[key] || '';
+  const la = entryLabel(a), lb = entryLabel(b);
+
+  const avatarA = getPlayerAvatar(a.player);
+  const avatarB = getPlayerAvatar(b.player);
+
+  const modal = document.getElementById('vsModal');
+  document.getElementById('vsP1Name').textContent = a.player;
+  document.getElementById('vsP1Char').textContent = a.character;
+  document.getElementById('vsP1Avatar').src = avatarA;
+  document.getElementById('vsP1Avatar').onerror = () => document.getElementById('vsP1Avatar').src = `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(a.player)}`;
+  document.getElementById('vsP2Name').textContent = b.player;
+  document.getElementById('vsP2Char').textContent = b.character;
+  document.getElementById('vsP2Avatar').src = avatarB;
+  document.getElementById('vsP2Avatar').onerror = () => document.getElementById('vsP2Avatar').src = `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(b.player)}`;
+
+  const btn1 = document.getElementById('vsWinBtn1');
+  const btn2 = document.getElementById('vsWinBtn2');
+  btn1.textContent = `${a.player} Wins`;
+  btn2.textContent = `${b.player} Wins`;
+  btn1.onclick = () => { setWinner(vsCurrentKey, la); closeVsModal(); };
+  btn2.onclick = () => { setWinner(vsCurrentKey, lb); closeVsModal(); };
+
+  modal.classList.add('open');
+}
+
+function closeVsModal() {
+  document.getElementById('vsModal').classList.remove('open');
+  vsCurrentKey = null;
+}
+
+function getPlayerAvatar(username) {
+  // Try to get avatar from allUserStats or fall back to dicebear
+  return `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(username)}`;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeVsModal();
+});
 </script>
+
+<!-- VS Modal -->
+<div id="vsModal">
+  <div class="vs-bg">
+    <div class="vs-bg-left"></div>
+    <div class="vs-bg-right"></div>
+    <div class="vs-bg-center"></div>
+    <div class="vs-lightning"></div>
+  </div>
+
+  <button class="vs-close" onclick="closeVsModal()">✕ Close</button>
+
+  <div class="vs-content">
+    <!-- Player 1 -->
+    <div class="vs-player">
+      <div class="vs-player-tag p1">P1</div>
+      <img class="vs-avatar" id="vsP1Avatar" src="" alt="P1" />
+      <div class="vs-name p1" id="vsP1Name">Player 1</div>
+      <div class="vs-char" id="vsP1Char"></div>
+    </div>
+
+    <!-- VS -->
+    <div class="vs-middle">
+      <div class="vs-logo">Super Smash Bros. Ultimate</div>
+      <div class="vs-text">VS</div>
+    </div>
+
+    <!-- Player 2 -->
+    <div class="vs-player">
+      <div class="vs-player-tag p2">P2</div>
+      <img class="vs-avatar" id="vsP2Avatar" src="" alt="P2" />
+      <div class="vs-name p2" id="vsP2Name">Player 2</div>
+      <div class="vs-char" id="vsP2Char"></div>
+    </div>
+  </div>
+
+  <!-- Winner buttons -->
+  <div class="vs-winner-row">
+    <button class="vs-win-btn p1" id="vsWinBtn1">Player 1 Wins</button>
+    <button class="vs-win-btn p2" id="vsWinBtn2">Player 2 Wins</button>
+  </div>
+</div>
+
 </body>
 </html>

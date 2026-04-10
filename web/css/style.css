@@ -25,9 +25,25 @@
 /* ── Base ─────────────────────────────────────────── */
 body {
   font-family: var(--font-system);
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image: url('https://oqtdlertvgmopnibrbiu.supabase.co/storage/v1/object/public/Background/download%20(1).jpeg');
+  background-size: cover;
+  background-position: center top;
+  background-attachment: fixed;
   color: var(--text);
   min-height: 100vh;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 20, 0.82);
+  z-index: 0;
+  pointer-events: none;
+}
+.navbar, main, #toast-container, .auth-page {
+  position: relative;
+  z-index: 1;
 }
 
 a {

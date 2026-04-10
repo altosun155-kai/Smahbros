@@ -4,6 +4,7 @@ const SUPABASE_CHARS = 'https://oqtdlertvgmopnibrbiu.supabase.co/storage/v1/obje
 
 // Overrides for characters whose filename differs from their display name
 const CHAR_FILE_OVERRIDES = {
+  'Donkey Kong':      'Donky Kong.png',
   'Pokémon Trainer':  'Pokemon Trainer.png',
   'Rosalina & Luma':  'Rosalina and Luma.png',
   'Pac-Man':          'Pac Man.png',
@@ -12,12 +13,14 @@ const CHAR_FILE_OVERRIDES = {
   'Banjo & Kazooie':  'Banjo and Kazooie.png',
   'Pyra/Mythra':      'Pyra Mythra.png',
   'R.O.B.':           'R.O.B..png',
+  'Wii Fit Trainer':  'WII Fit Trainer.png',
+  'Mii Brawler':      'Mii_fighter.png',
+  'Mii Swordfighter': 'Mii_sword.png',
+  'Mii Gunner':       'Mii_gunner.png',
 };
 
 // Characters with no image in Supabase
-const CHAR_NO_IMAGE = new Set([
-  'Donkey Kong', 'Wii Fit Trainer', 'Mii Brawler', 'Mii Swordfighter', 'Mii Gunner',
-]);
+const CHAR_NO_IMAGE = new Set([]);
 
 function charImgUrl(name) {
   if (CHAR_NO_IMAGE.has(name)) return '';

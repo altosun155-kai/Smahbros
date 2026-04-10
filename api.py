@@ -388,15 +388,6 @@ def get_stats(db: Session = Depends(get_db), current_user: User = Depends(get_cu
     return [{"character": r.character, "points": r.points} for r in rows]
 
 
-@app.get("/characters/stats/{username}")
-def get_stats_by_user(username: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == username).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    rows = db.query(CharacterStats).filter(CharacterStats.user_id == user.id).all()
-    return {"username": user.username, "stats": [{"character": r.character, "points": r.points} for r in rows]}
-
-
 @app.get("/characters/stats/leaderboard")
 def character_leaderboard(db: Session = Depends(get_db)):
     """For each character, return the player with the most points."""
@@ -413,6 +404,15 @@ def character_leaderboard(db: Session = Depends(get_db)):
     result = list(char_top.values())
     result.sort(key=lambda x: -x["points"])
     return result
+
+
+@app.get("/characters/stats/{username}")
+def get_stats_by_user(username: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    rows = db.query(CharacterStats).filter(CharacterStats.user_id == user.id).all()
+    return {"username": user.username, "stats": [{"character": r.character, "points": r.points} for r in rows]}
 
 
 class BulkStatEntry(BaseModel):

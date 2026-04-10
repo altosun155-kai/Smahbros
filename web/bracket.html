@@ -90,6 +90,14 @@
           <button class="mode-btn" id="btnTeams" onclick="setMode('teams')">Teams</button>
         </div>
 
+        <h2 style="display:flex;align-items:center;justify-content:space-between;">
+          Auto Character Fill
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.8rem;font-weight:400;color:var(--text-muted);">
+            <input type="checkbox" id="autoFillToggle" checked style="width:16px;height:16px;accent-color:var(--accent-blue);cursor:pointer;" />
+            On
+          </label>
+        </h2>
+
         <h2>Players (one per line)</h2>
         <div class="form-group" style="margin-bottom:12px;">
           <textarea id="playersInput" rows="5" placeholder="You&#10;Friend1&#10;Friend2">You
@@ -158,6 +166,8 @@ let currentMode = 'regular';
 let currentEntries = []; // [{player, character}]
 let currentBracket = []; // [{a, b}] first round pairs
 let roundWinners = {}; // match index -> label
+let myUsername = '';
+let allUserStats = {}; // username -> [{character, points}] sorted desc
 
 // ── Mode toggle ───────────────────────────────────
 function setMode(mode) {
@@ -199,19 +209,33 @@ function renderTeamAssignments() {
 }
 
 // ── Entry grid ────────────────────────────────────
-function buildEntryGrid() {
+async function buildEntryGrid() {
   const players = getPlayers();
   if (!players.length) { showToast('Add players first.', 'warn'); return; }
   const k = parseInt(document.getElementById('charsPerPlayer').value) || 2;
   const section = document.getElementById('entryGridSection');
-  const grid = document.getElementById('entryGrid');
   section.style.display = 'block';
 
-  // Build entries: k rows per player
+  // Fetch stats for all players we don't have yet (only if auto-fill is on)
+  const autoFill = document.getElementById('autoFillToggle').checked;
+  if (autoFill) {
+    const toFetch = players.filter(p => !allUserStats[p]);
+    await Promise.all(toFetch.map(async p => {
+      try {
+        const data = await apiGet(`/characters/stats/${encodeURIComponent(p)}`);
+        const sorted = (data.stats || []).filter(s => s.points > 0).sort((a,b) => b.points - a.points);
+        allUserStats[p] = sorted;
+      } catch (_) { allUserStats[p] = []; }
+    }));
+  }
+
+  // Build entries: k rows per player, auto-fill top characters from stats if toggle is on
+  const autoFill = document.getElementById('autoFillToggle').checked;
   currentEntries = [];
   players.forEach(p => {
+    const topChars = autoFill ? (allUserStats[p] || []) : [];
     for (let i = 0; i < k; i++) {
-      currentEntries.push({player: p, character: ''});
+      currentEntries.push({ player: p, character: topChars[i]?.character || '' });
     }
   });
 
@@ -285,63 +309,48 @@ function generateBracket() {
   renderBracket();
 }
 
+function getEntryPoints(entry) {
+  const stats = allUserStats[entry.player] || [];
+  const match = stats.find(s => s.character === entry.character);
+  return match ? match.points : 0;
+}
+
 function generateBracketJS(base, teamMode, teamOf) {
   const BYE = {player:'SYSTEM', character:'BYE'};
   const target = nextPow2(base.length);
   const byesNeeded = target - base.length;
   const targetPairs = target / 2;
 
-  function allowed(a, b) {
-    if (a.player === b.player) return false;
-    if (teamMode) {
+  // Sort by points descending — highest seed first
+  const seeded = [...base].sort((a, b) => getEntryPoints(b) - getEntryPoints(a));
+
+  // Pad with byes at the end (lowest seeds get byes)
+  while (seeded.length < target) seeded.push(BYE);
+
+  // Standard bracket seeding: 1 vs N, 2 vs N-1, ...
+  const pairs = [];
+  const n = seeded.length;
+  for (let i = 0; i < n / 2; i++) {
+    const a = seeded[i];
+    const b = seeded[n - 1 - i];
+    // Skip same-team matchups — swap b with nearest valid opponent
+    if (teamMode && a.player !== 'SYSTEM' && b.player !== 'SYSTEM') {
       const ta = teamOf[a.player] || '', tb = teamOf[b.player] || '';
-      if (ta && tb && ta === tb) return false;
+      if (ta && tb && ta === tb) {
+        // Find a swap candidate from remaining unpaired seeds
+        const paired = new Set(pairs.flatMap(([x,y]) => [x,y]));
+        paired.add(a); paired.add(b);
+        const swap = seeded.find(e => !paired.has(e) && (teamOf[e.player] || '') !== ta);
+        if (swap) {
+          const swapIdx = seeded.indexOf(swap);
+          seeded[n - 1 - i] = swap;
+          seeded[swapIdx] = b;
+        }
+      }
     }
-    return true;
+    pairs.push([seeded[i], seeded[n - 1 - i]]);
   }
-
-  let best = [], bestScore = [-1, -Infinity];
-
-  for (let attempt = 0; attempt < 200; attempt++) {
-    const remaining = [...base];
-    // Fisher-Yates shuffle
-    for (let i = remaining.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
-    }
-
-    const pairs = [];
-    let byesLeft = byesNeeded;
-    while (byesLeft > 0 && remaining.length) {
-      pairs.push([remaining.pop(), BYE]);
-      byesLeft--;
-    }
-
-    let stuck = 0;
-    while (remaining.length >= 2 && pairs.length < targetPairs) {
-      stuck++;
-      if (stuck > 5000) break;
-      const fi = Math.floor(Math.random() * remaining.length);
-      const first = remaining[fi];
-      remaining.splice(fi, 1);
-      const candidates = remaining.filter(x => allowed(first, x));
-      if (!candidates.length) { remaining.push(first); continue; }
-      const second = candidates[Math.floor(Math.random() * candidates.length)];
-      remaining.splice(remaining.indexOf(second), 1);
-      pairs.push([first, second]);
-    }
-
-    const nonBye = pairs.filter(([a,b]) =>
-      a.character.toUpperCase() !== 'BYE' && b.character.toUpperCase() !== 'BYE'
-    ).length;
-    const score = [nonBye, -remaining.length];
-    if (score[0] > bestScore[0] || (score[0] === bestScore[0] && score[1] > bestScore[1])) {
-      bestScore = score;
-      best = pairs;
-    }
-    if (best.length === targetPairs && remaining.length === 0) return best;
-  }
-  return best;
+  return pairs;
 }
 
 function entryLabel(e) {
@@ -474,10 +483,18 @@ async function saveBracket() {
   try {
     const me = await apiGet('/users/me');
     if (me) {
+      myUsername = me.username;
       document.getElementById('navUsername').textContent = me.username;
       const url = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
       const av = document.getElementById('navAvatar');
       av.src = url; av.style.display = 'block';
+
+      // Pre-load current user's stats for auto-fill
+      try {
+        const data = await apiGet(`/characters/stats`);
+        const sorted = (data || []).filter(s => s.points > 0).sort((a,b) => b.points - a.points);
+        allUserStats[me.username] = sorted;
+      } catch (_) {}
     }
   } catch (_) {}
 

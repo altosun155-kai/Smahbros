@@ -24,6 +24,7 @@ class User(Base):
     username        = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     avatar_url      = Column(String, nullable=True)
+    last_seen       = Column(DateTime, nullable=True)
     created_at      = Column(DateTime, default=datetime.utcnow)
 
     brackets          = relationship("Bracket", back_populates="owner", cascade="all, delete-orphan")
@@ -33,6 +34,8 @@ class User(Base):
     received_invites    = relationship("TournamentInvite", foreign_keys="TournamentInvite.invitee_id", back_populates="invitee")
     favorite_characters = relationship("FavoriteCharacters", back_populates="owner", uselist=False, cascade="all, delete-orphan")
     character_stats     = relationship("CharacterStats", back_populates="owner", cascade="all, delete-orphan")
+    sent_friend_requests     = relationship("Friendship", foreign_keys="Friendship.requester_id", back_populates="requester", cascade="all, delete-orphan")
+    received_friend_requests = relationship("Friendship", foreign_keys="Friendship.addressee_id", back_populates="addressee", cascade="all, delete-orphan")
 
 
 class Bracket(Base):
@@ -129,3 +132,20 @@ class CharacterStats(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     owner = relationship("User", back_populates="character_stats")
+
+
+class Friendship(Base):
+    """
+    status: "pending" | "accepted"
+    requester sends the request, addressee receives it.
+    """
+    __tablename__ = "friendships"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    requester_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    addressee_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status       = Column(String, default="pending")
+    created_at   = Column(DateTime, default=datetime.utcnow)
+
+    requester = relationship("User", foreign_keys=[requester_id], back_populates="sent_friend_requests")
+    addressee = relationship("User", foreign_keys=[addressee_id], back_populates="received_friend_requests")

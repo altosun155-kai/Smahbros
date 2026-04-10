@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smash Bracket — Friends</title>
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/auth.js"></script>
+  <style>
+    .friends-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .friend-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .friend-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: var(--card-bg2);
+      flex-shrink: 0;
+    }
+    .friend-info { flex: 1; min-width: 0; }
+    .friend-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .friend-status { font-size: 0.78rem; margin-top: 3px; }
+    .status-active { color: #4caf50; }
+    .status-offline { color: var(--text-muted); }
+    .friend-remove {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      flex-shrink: 0;
+    }
+    .friend-remove:hover { border-color: #e74c3c; color: #e74c3c; }
+
+    .request-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .request-actions { display: flex; gap: 8px; margin-left: auto; flex-shrink: 0; }
+    .btn-accept {
+      background: var(--accent-blue);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 5px 14px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .btn-accept:hover { opacity: 0.85; }
+    .btn-decline {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 6px;
+      padding: 5px 10px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .btn-decline:hover { border-color: #e74c3c; color: #e74c3c; }
+
+    .add-form {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .add-form input {
+      flex: 1;
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 10px 14px;
+      font-size: 0.95rem;
+    }
+    .add-form input:focus { outline: none; border-color: var(--accent-blue); }
+    .btn-add {
+      background: var(--accent-blue);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn-add:hover { opacity: 0.85; }
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    .empty-msg { color: var(--text-muted); font-size: 0.9rem; margin-top: 8px; }
+  </style>
+</head>
+<body>
+<script>requireAuth();</script>
+<div id="toast-container"></div>
+
+<nav class="navbar">
+  <a class="logo" href="index.html">Smash<span>Bros</span></a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="bracket.html">Bracket</a></li>
+    <li><a href="roundrobin.html">Round Robin</a></li>
+    <li><a href="my-brackets.html">My Brackets</a></li>
+    <li><a href="tier-list.html">Tier List</a></li>
+    <li><a href="favorites.html">Favorites</a></li>
+    <li><a href="stats.html">Stats</a></li>
+    <li><a href="leaderboard.html">Leaderboard</a></li>
+    <li><a href="invites.html">Invites</a></li>
+    <li><a href="friends.html" class="active">Friends</a></li>
+    <li><a href="profile.html">Profile</a></li>
+  </ul>
+  <div class="nav-right">
+    <div class="nav-user">
+      <img class="nav-avatar" id="navAvatar" src="" alt="avatar" onerror="this.style.display='none'" />
+      <span id="navUsername"></span>
+    </div>
+    <button class="btn-signout" onclick="logout()">Sign Out</button>
+  </div>
+</nav>
+
+<main class="page-container">
+  <div class="page-header">
+    <h1>Friends</h1>
+    <p>Add friends and see who's online.</p>
+  </div>
+
+  <!-- Add friend -->
+  <div class="card" style="margin-bottom:28px;">
+    <div class="section-title">Add a Friend</div>
+    <div class="add-form">
+      <input type="text" id="addInput" placeholder="Enter username…" autocomplete="off" />
+      <button class="btn-add" id="addBtn" onclick="sendRequest()">Send Request</button>
+    </div>
+    <p id="addMsg" style="margin-top:8px;font-size:0.85rem;"></p>
+  </div>
+
+  <!-- Incoming requests -->
+  <div style="margin-bottom:28px;">
+    <div class="section-title">Incoming Requests <span id="reqCount"></span></div>
+    <div id="requestsList"></div>
+  </div>
+
+  <!-- Friends list -->
+  <div>
+    <div class="section-title">Friends</div>
+    <div class="friends-grid" id="friendsList"></div>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script>
+  async function init() {
+    try {
+      const me = await apiGet('/users/me');
+      if (me) {
+        document.getElementById('navUsername').textContent = me.username;
+        const avatarEl = document.getElementById('navAvatar');
+        avatarEl.src = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
+        avatarEl.style.display = 'block';
+      }
+    } catch (_) {}
+    await loadAll();
+  }
+
+  async function loadAll() {
+    await Promise.all([loadRequests(), loadFriends()]);
+  }
+
+  async function loadRequests() {
+    const list = document.getElementById('requestsList');
+    try {
+      const reqs = await apiGet('/friends/requests');
+      document.getElementById('reqCount').textContent = reqs.length ? `(${reqs.length})` : '';
+      if (!reqs.length) {
+        list.innerHTML = '<p class="empty-msg">No pending requests.</p>';
+        return;
+      }
+      list.innerHTML = reqs.map(r => `
+        <div class="request-card" id="req-${r.id}">
+          <img class="friend-avatar" src="${r.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(r.username)}`}" alt="${r.username}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(r.username)}'" />
+          <span style="font-weight:600;">${r.username}</span>
+          <div class="request-actions">
+            <button class="btn-accept" onclick="acceptRequest(${r.id})">Accept</button>
+            <button class="btn-decline" onclick="declineRequest(${r.id})">Decline</button>
+          </div>
+        </div>
+      `).join('');
+    } catch (_) {
+      list.innerHTML = '<p class="empty-msg">Could not load requests.</p>';
+    }
+  }
+
+  async function loadFriends() {
+    const grid = document.getElementById('friendsList');
+    try {
+      const friends = await apiGet('/friends');
+      if (!friends.length) {
+        grid.innerHTML = '<p class="empty-msg">No friends yet — send a request above!</p>';
+        return;
+      }
+      grid.innerHTML = friends.map(f => `
+        <div class="friend-card" id="friend-${f.id}">
+          <img class="friend-avatar" src="${f.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(f.username)}`}" alt="${f.username}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(f.username)}'" />
+          <div class="friend-info">
+            <div class="friend-name">${f.username}</div>
+            <div class="friend-status ${f.active ? 'status-active' : 'status-offline'}">
+              ${f.active ? '● Online' : '○ Offline'}
+            </div>
+          </div>
+          <button class="friend-remove" onclick="removeFriend(${f.id})">Remove</button>
+        </div>
+      `).join('');
+    } catch (_) {
+      grid.innerHTML = '<p class="empty-msg">Could not load friends.</p>';
+    }
+  }
+
+  async function sendRequest() {
+    const input = document.getElementById('addInput');
+    const msg = document.getElementById('addMsg');
+    const username = input.value.trim();
+    if (!username) return;
+    msg.style.color = 'var(--text-muted)';
+    msg.textContent = 'Sending…';
+    try {
+      await apiPost('/friends/request', { username });
+      msg.style.color = '#4caf50';
+      msg.textContent = `Friend request sent to ${username}!`;
+      input.value = '';
+    } catch (err) {
+      msg.style.color = '#e74c3c';
+      msg.textContent = err.message || 'Could not send request.';
+    }
+  }
+
+  async function acceptRequest(id) {
+    try {
+      await apiPost(`/friends/accept/${id}`);
+      await loadAll();
+    } catch (err) {
+      showToast(err.message || 'Could not accept request.', 'error');
+    }
+  }
+
+  async function declineRequest(id) {
+    try {
+      await apiDelete(`/friends/request/${id}`);
+      await loadAll();
+    } catch (err) {
+      showToast(err.message || 'Could not decline request.', 'error');
+    }
+  }
+
+  async function removeFriend(id) {
+    if (!confirm('Remove this friend?')) return;
+    try {
+      await apiDelete(`/friends/${id}`);
+      await loadFriends();
+    } catch (err) {
+      showToast(err.message || 'Could not remove friend.', 'error');
+    }
+  }
+
+  document.getElementById('addInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendRequest();
+  });
+
+  init();
+</script>
+</body>
+</html>

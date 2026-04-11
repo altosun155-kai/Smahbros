@@ -56,14 +56,6 @@
       background-size: cover;
       background-position: center;
     }
-    #vsModal::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      backdrop-filter: blur(18px) brightness(0.45);
-      -webkit-backdrop-filter: blur(18px) brightness(0.45);
-      z-index: 0;
-    }
     #vsModal.open { display: flex; align-items: center; justify-content: center; }
     .vs-bg {
       position: absolute;
@@ -73,11 +65,29 @@
     }
     .vs-bg-left {
       flex: 1;
-      background: linear-gradient(135deg, rgba(90,0,0,0.82) 0%, rgba(139,0,0,0.82) 50%, rgba(204,17,17,0.82) 100%);
+      background-size: cover;
+      background-position: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .vs-bg-left::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(120,0,0,0.72) 0%, rgba(180,20,20,0.65) 100%);
     }
     .vs-bg-right {
       flex: 1;
-      background: linear-gradient(225deg, rgba(0,0,74,0.82) 0%, rgba(0,0,139,0.82) 50%, rgba(17,85,204,0.82) 100%);
+      background-size: cover;
+      background-position: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .vs-bg-right::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(225deg, rgba(0,0,100,0.72) 0%, rgba(20,60,180,0.65) 100%);
     }
     .vs-bg-center {
       position: absolute;
@@ -1030,11 +1040,10 @@ function openVsModal(a, b, key) {
   const avatarB = getPlayerAvatar(b.player);
 
   const modal = document.getElementById('vsModal');
-  // Use logged-in user's profile pic as blurred background
-  const myAvatar = allUserAvatars[myUsername] || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(myUsername)}`;
-  modal.style.backgroundImage = `url('${myAvatar}')`;
-  modal.style.backgroundSize = 'cover';
-  modal.style.backgroundPosition = 'center';
+  // Each player's avatar fills their half of the screen
+  document.getElementById('vsBgLeft').style.backgroundImage = `url('${avatarA}')`;
+  document.getElementById('vsBgRight').style.backgroundImage = `url('${avatarB}')`;
+  modal.style.backgroundImage = '';
 
   document.getElementById('vsP1Name').textContent = a.player;
   document.getElementById('vsP1Char').textContent = a.character;
@@ -1106,8 +1115,8 @@ document.addEventListener('keydown', e => {
 <!-- VS Modal -->
 <div id="vsModal">
   <div class="vs-bg">
-    <div class="vs-bg-left"></div>
-    <div class="vs-bg-right"></div>
+    <div class="vs-bg-left" id="vsBgLeft"></div>
+    <div class="vs-bg-right" id="vsBgRight"></div>
     <div class="vs-bg-center"></div>
     <div class="vs-lightning"></div>
   </div>

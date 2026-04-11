@@ -39,123 +39,155 @@
 
 <main class="page-container">
   <div class="page-header">
-    <h1>Dashboard</h1>
+    <h1 id="welcomeHeading">Dashboard</h1>
     <p>Welcome back! What would you like to do today?</p>
   </div>
 
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px;" id="dashGrid">
+  <style>
+    .dash-section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin: 24px 0 10px;
+    }
+    .dash-section-label:first-child { margin-top: 0; }
+    .dash-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 14px;
+    }
+    .dash-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      text-decoration: none;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .dash-card:hover { background: var(--card-bg2); border-color: rgba(255,255,255,0.18); }
+    .dash-card .dash-icon { font-size: 1.7rem; flex-shrink: 0; }
+    .dash-card h3 { font-size: 0.95rem; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+    .dash-card p { font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; margin: 0; }
+    .dash-arrow { color: var(--text-muted); font-size: 1.1rem; align-self: center; margin-left: auto; flex-shrink: 0; }
+  </style>
 
-    <a href="bracket.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
-      <div style="font-size:2rem;flex-shrink:0;">🎮</div>
-      <div style="flex:1">
+  <!-- Core Tools -->
+  <div class="dash-section-label">Core Tools</div>
+  <div class="dash-grid">
+    <a href="bracket.html" class="dash-card">
+      <div class="dash-icon">🎮</div>
+      <div>
         <h3>Bracket Generator</h3>
         <p>Create single-elimination brackets for regular or team play.</p>
       </div>
-      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+      <span class="dash-arrow">›</span>
     </a>
-
-    <a href="roundrobin.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
-      <div style="font-size:2rem;flex-shrink:0;">🔄</div>
-      <div style="flex:1">
+    <a href="roundrobin.html" class="dash-card">
+      <div class="dash-icon">🔄</div>
+      <div>
         <h3>Round Robin</h3>
         <p>Schedule everyone vs everyone and track standings live.</p>
       </div>
-      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+      <span class="dash-arrow">›</span>
     </a>
-
-    <a href="my-brackets.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
-      <div style="font-size:2rem;flex-shrink:0;">📁</div>
-      <div style="flex:1">
+    <a href="my-brackets.html" class="dash-card">
+      <div class="dash-icon">📁</div>
+      <div>
         <h3>My Brackets</h3>
         <p>View and manage your saved single-elimination brackets.</p>
       </div>
-      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+      <span class="dash-arrow">›</span>
     </a>
-
-    <a href="roundrobin.html#saved" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
-      <div style="font-size:2rem;flex-shrink:0;">📋</div>
-      <div style="flex:1">
+    <a href="roundrobin.html#saved" class="dash-card">
+      <div class="dash-icon">📋</div>
+      <div>
         <h3>My RR Sessions</h3>
         <p>Browse your saved round-robin session results.</p>
       </div>
-      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+      <span class="dash-arrow">›</span>
     </a>
+  </div>
 
-    <a href="tier-list.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
-      <div style="font-size:2rem;flex-shrink:0;">🎖️</div>
-      <div style="flex:1">
-        <h3>My Tier List</h3>
-        <p>Rate all 89 Smash Ultimate fighters from S to F tier.</p>
-      </div>
-      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
-    </a>
-
-    <a href="favorites.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
-      <div style="font-size:2rem;flex-shrink:0;">⭐</div>
-      <div style="flex:1">
-        <h3>Top 10 Favorites</h3>
-        <p>Pick your top 10 favorite fighters from the full roster.</p>
-      </div>
-      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
-    </a>
-
-    <a href="stats.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
-      <div style="font-size:2rem;flex-shrink:0;">📊</div>
-      <div style="flex:1">
+  <!-- Personal Stats -->
+  <div class="dash-section-label">Personal Stats</div>
+  <div class="dash-grid">
+    <a href="stats.html" class="dash-card">
+      <div class="dash-icon">📊</div>
+      <div>
         <h3>Character Stats</h3>
         <p>Track win/loss points per character. Win = +1, Loss = −1.</p>
       </div>
-      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+      <span class="dash-arrow">›</span>
     </a>
-
-    <a href="leaderboard.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
-      <div style="font-size:2rem;flex-shrink:0;">🏆</div>
-      <div style="flex:1">
-        <h3>Character Leaderboard</h3>
-        <p>See which characters are dominating across all players.</p>
+    <a href="tier-list.html" class="dash-card">
+      <div class="dash-icon">🎖️</div>
+      <div>
+        <h3>My Tier List</h3>
+        <p>Rate all 89 Smash Ultimate fighters from S to F tier.</p>
       </div>
-      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+      <span class="dash-arrow">›</span>
     </a>
+    <a href="favorites.html" class="dash-card">
+      <div class="dash-icon">⭐</div>
+      <div>
+        <h3>Top 10 Favorites</h3>
+        <p>Pick your top 10 favorite fighters from the full roster.</p>
+      </div>
+      <span class="dash-arrow">›</span>
+    </a>
+  </div>
 
-    <a href="invites.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
-      <div style="font-size:2rem;flex-shrink:0;">📬</div>
-      <div style="flex:1">
+  <!-- Social -->
+  <div class="dash-section-label">Social</div>
+  <div class="dash-grid">
+    <a href="invites.html" class="dash-card">
+      <div class="dash-icon">📬</div>
+      <div>
         <h3>Invites</h3>
-        <p>Send and manage tournament invites to other players.</p>
+        <p>Manage tournament invitations from your friends.</p>
         <div id="pendingBadge" style="display:none;margin-top:6px;">
           <span class="badge badge-pending" id="pendingCount"></span>
         </div>
       </div>
-      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+      <span class="dash-arrow">›</span>
     </a>
-
-    <a href="leaderboard.html#global" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
-      <div style="font-size:2rem;flex-shrink:0;">🌍</div>
-      <div style="flex:1">
-        <h3>Global Leaderboard</h3>
-        <p>Overall rankings by wins, losses, and sessions played.</p>
-      </div>
-      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
-    </a>
-
-    <a href="friends.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
-      <div style="font-size:2rem;flex-shrink:0;">👥</div>
-      <div style="flex:1">
+    <a href="friends.html" class="dash-card">
+      <div class="dash-icon">👥</div>
+      <div>
         <h3>Friends</h3>
         <p>Add friends and see who's currently online.</p>
       </div>
-      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+      <span class="dash-arrow">›</span>
     </a>
-
-    <a href="profile.html" class="card card-hover" style="display:flex;align-items:flex-start;gap:14px;text-decoration:none;">
-      <div style="font-size:2rem;flex-shrink:0;">⚙️</div>
-      <div style="flex:1">
+    <a href="leaderboard.html" class="dash-card">
+      <div class="dash-icon">🏆</div>
+      <div>
+        <h3>Character Leaderboard</h3>
+        <p>See which characters are dominating across all players.</p>
+      </div>
+      <span class="dash-arrow">›</span>
+    </a>
+    <a href="leaderboard.html#global" class="dash-card">
+      <div class="dash-icon">🌍</div>
+      <div>
+        <h3>Global Leaderboard</h3>
+        <p>Overall rankings by wins, losses, and sessions played.</p>
+      </div>
+      <span class="dash-arrow">›</span>
+    </a>
+    <a href="profile.html" class="dash-card">
+      <div class="dash-icon">⚙️</div>
+      <div>
         <h3>Profile</h3>
         <p>Customize your avatar with DiceBear styles or a custom URL.</p>
       </div>
-      <span style="color:var(--text-muted);font-size:1.2rem;align-self:center;">→</span>
+      <span class="dash-arrow">›</span>
     </a>
-
   </div>
 </main>
 
@@ -167,6 +199,7 @@
       const me = await apiGet('/users/me');
       if (me) {
         document.getElementById('navUsername').textContent = me.username;
+        document.getElementById('welcomeHeading').textContent = `Hey, ${me.username} 👋`;
         const avatarEl = document.getElementById('navAvatar');
         const avatarUrl = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
         avatarEl.src = avatarUrl;

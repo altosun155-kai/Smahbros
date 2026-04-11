@@ -76,7 +76,8 @@
   <div id="statsContent" style="display:none;">
     <h2 style="font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:14px;">Your Stats</h2>
     <div id="statsEmpty" class="empty-state" style="display:none;">
-      <p>No stats yet. Record a result above to get started.</p>
+      <p style="margin-bottom:10px;">No stats yet.</p>
+      <p style="font-size:0.85rem;color:var(--text-muted);">Use the record bar above or run a match in the <a href="bracket.html">Bracket Generator</a> to start tracking points.</p>
     </div>
     <div style="overflow-x:auto;">
       <table class="data-table" id="statsTable" style="display:none;">
@@ -163,6 +164,7 @@
 </main>
 
 <script src="js/api.js"></script>
+<script src="js/chars.js"></script>
 <script>
   const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];
 
@@ -203,13 +205,17 @@
     if (empty) empty.style.display = 'none';
     if (table) table.style.display = 'table';
 
-    body.innerHTML = filtered.map((s, i) => `
+    body.innerHTML = filtered.map((s, i) => {
+      const img = (typeof charImgUrl === 'function' && charImgUrl(s.character))
+        ? `<img class="char-img" src="${charImgUrl(s.character)}" alt="${s.character}" onerror="this.style.display='none'" />`
+        : '';
+      return `
       <tr>
         <td class="rank-cell">${i+1}</td>
-        <td style="font-weight:500;">${s.character}</td>
+        <td><div style="display:flex;align-items:center;gap:8px;">${img}<span style="font-weight:500;">${s.character}</span></div></td>
         <td class="points-cell">${s.points}</td>
-      </tr>
-    `).join('');
+      </tr>`;
+    }).join('');
   }
 
   async function loadStats() {

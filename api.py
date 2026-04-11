@@ -68,7 +68,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
 @app.get("/users/all")
 def all_users(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     users = db.query(User).order_by(User.username).all()
-    return [{"id": u.id, "username": u.username} for u in users]
+    return [{"id": u.id, "username": u.username, "avatar_url": u.avatar_url} for u in users]
 
 @app.get("/users/search")
 def search_users(q: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

@@ -52,7 +52,6 @@
       position: fixed;
       inset: 0;
       z-index: 1000;
-      background: #000 url('https://oqtdlertvgmopnibrbiu.supabase.co/storage/v1/object/public/Background/download%20(2).jpeg') center/cover no-repeat;
       overflow: hidden;
     }
     #vsModal.open { display: flex; align-items: center; justify-content: center; }
@@ -63,47 +62,68 @@
     }
     .vs-bg-left {
       flex: 1;
-      background: linear-gradient(135deg, #8b0000 0%, #cc1111 40%, #ff4444 60%, transparent 100%);
-      opacity: 0.85;
+      background: linear-gradient(135deg, #5a0000 0%, #8b0000 50%, #cc1111 100%);
     }
     .vs-bg-right {
       flex: 1;
-      background: linear-gradient(225deg, #00008b 0%, #1111cc 40%, #4488ff 60%, transparent 100%);
-      opacity: 0.85;
+      background: linear-gradient(225deg, #00004a 0%, #00008b 50%, #1155cc 100%);
     }
     .vs-bg-center {
       position: absolute;
       inset: 0;
-      background: radial-gradient(ellipse at center, rgba(255,255,255,0.08) 0%, transparent 70%);
+      background: radial-gradient(ellipse at center, rgba(255,255,255,0.06) 0%, transparent 60%);
     }
     .vs-lightning {
       position: absolute;
       left: 50%;
       top: 0;
       bottom: 0;
-      width: 4px;
+      width: 3px;
       transform: translateX(-50%);
       background: linear-gradient(180deg, transparent, #fff 20%, #ffe066 50%, #fff 80%, transparent);
-      opacity: 0.7;
+      opacity: 0.6;
       filter: blur(2px);
     }
+    /* Full-screen layout: char image on far edge, player info in center */
     .vs-content {
       position: relative;
       z-index: 2;
       width: 100%;
-      max-width: 900px;
+      height: 100%;
       display: grid;
       grid-template-columns: 1fr auto 1fr;
       align-items: center;
-      gap: 0;
-      padding: 40px 20px;
     }
     .vs-player {
       display: flex;
-      flex-direction: column;
       align-items: center;
-      gap: 12px;
+      gap: 32px;
+      height: 100%;
     }
+    .vs-player.p1-side {
+      flex-direction: row; /* char on left, info on right */
+      justify-content: flex-start;
+      padding-left: 0;
+    }
+    .vs-player.p2-side {
+      flex-direction: row-reverse; /* char on right, info on left */
+      justify-content: flex-start;
+      padding-right: 0;
+    }
+    .vs-char-img {
+      width: clamp(200px, 28vw, 420px);
+      height: clamp(200px, 28vw, 420px);
+      object-fit: contain;
+      filter: drop-shadow(0 0 24px rgba(255,255,255,0.25));
+      flex-shrink: 0;
+    }
+    .vs-player-info {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .vs-player.p1-side .vs-player-info { align-items: flex-start; }
+    .vs-player.p2-side .vs-player-info { align-items: flex-end; }
     .vs-player-tag {
       font-size: 0.75rem;
       font-weight: 800;
@@ -114,53 +134,48 @@
     }
     .vs-player-tag.p1 { background: #cc1111; color: #fff; }
     .vs-player-tag.p2 { background: #1155cc; color: #fff; }
+    .vs-avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: 3px solid rgba(255,255,255,0.3);
+      object-fit: cover;
+      box-shadow: 0 0 20px rgba(255,255,255,0.12);
+    }
     .vs-name {
-      font-size: 2rem;
+      font-size: 2.2rem;
       font-weight: 900;
       text-transform: uppercase;
       letter-spacing: 2px;
       text-shadow: 0 2px 12px rgba(0,0,0,0.8);
-      text-align: center;
     }
-    .vs-name.p1 { color: #ff6666; }
-    .vs-name.p2 { color: #66aaff; }
-    .vs-char {
-      font-size: 1rem;
+    .vs-name.p1 { color: #ff8888; }
+    .vs-name.p2 { color: #88aaff; }
+    .vs-char-name {
+      font-size: 1.1rem;
       font-weight: 700;
       color: #ffe066;
       text-shadow: 0 1px 6px rgba(0,0,0,0.8);
-    }
-    .vs-char-img {
-      width: 90px;
-      height: 90px;
-      object-fit: contain;
-      filter: drop-shadow(0 0 12px rgba(255,255,255,0.3));
-    }
-    .vs-avatar {
-      width: 110px;
-      height: 110px;
-      border-radius: 50%;
-      border: 4px solid rgba(255,255,255,0.3);
-      object-fit: cover;
-      box-shadow: 0 0 30px rgba(255,255,255,0.15);
     }
     .vs-middle {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 8px;
-      padding: 0 24px;
+      padding: 0 16px;
+      flex-shrink: 0;
     }
     .vs-logo {
-      font-size: 0.65rem;
+      font-size: 0.6rem;
       font-weight: 800;
       letter-spacing: 3px;
-      color: rgba(255,255,255,0.5);
+      color: rgba(255,255,255,0.45);
       text-transform: uppercase;
       margin-bottom: 4px;
+      text-align: center;
     }
     .vs-text {
-      font-size: 4.5rem;
+      font-size: 5rem;
       font-weight: 900;
       color: #fff;
       text-shadow: 0 0 30px rgba(255,220,0,0.8), 0 0 60px rgba(255,220,0,0.4);
@@ -169,16 +184,17 @@
     }
     .vs-winner-row {
       position: absolute;
-      bottom: 40px;
+      bottom: 36px;
       left: 50%;
       transform: translateX(-50%);
       display: flex;
       gap: 16px;
       align-items: center;
       z-index: 3;
+      white-space: nowrap;
     }
     .vs-win-btn {
-      padding: 12px 28px;
+      padding: 14px 32px;
       font-size: 1rem;
       font-weight: 800;
       border: none;
@@ -288,6 +304,18 @@
           </label>
         </div>
 
+        <h2 style="margin-top:14px;">Bracket Style</h2>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;padding:10px;background:var(--card-bg2);border-radius:8px;border:1px solid var(--border);">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+            <input type="radio" name="bracketStyle" value="strongVsStrong" checked style="accent-color:var(--accent-blue);" />
+            <span><strong>Strong vs Strong</strong> — best plays best per slot</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+            <input type="radio" name="bracketStyle" value="strongVsWeak" style="accent-color:var(--accent-blue);" />
+            <span><strong>Strong vs Weak</strong> — best plays worst per slot</span>
+          </label>
+        </div>
+
         <h2>Players (one per line)</h2>
         <div class="form-group" style="margin-bottom:12px;">
           <textarea id="playersInput" rows="5" placeholder="You&#10;Friend1&#10;Friend2">You
@@ -361,11 +389,13 @@ const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby
 let currentMode = 'regular';
 let currentEntries = []; // [{player, character}]
 let currentBracket = []; // [{a, b}] first round pairs
-let roundWinners = {}; // match index -> label
+let roundWinners = {}; // key r{ri}_m{mi} -> winner label
+let lastRenderedRounds = []; // all rounds from last renderBracket call
 let myUsername = '';
 let allUserStats = {};     // username -> [{character, points}] sorted desc (points mode)
 let allUserFavs = {};      // username -> [character, ...] ordered (favorites mode)
 let allUserTiers = {};     // username -> {S:[...], A:[...], ...} (tier list mode)
+let allUserAvatars = {};   // username -> avatar URL (fetched fresh each build)
 
 // ── Mode toggle ───────────────────────────────────
 function setMode(mode) {
@@ -416,6 +446,12 @@ async function buildEntryGrid() {
 
   const autoFill = document.getElementById('autoFillToggle').checked;
   const fillMode = document.querySelector('input[name="fillMode"]:checked')?.value || 'points';
+
+  // Fetch fresh avatars for all users (always re-fetch so profile pic changes show immediately)
+  try {
+    const allUsers = await apiGet('/users/all');
+    allUsers.forEach(u => { allUserAvatars[u.username] = u.avatar_url || null; });
+  } catch (_) {}
 
   // Always load points stats for all players — used for seeding even when auto-fill is off
   await Promise.all(players.map(async p => {
@@ -673,10 +709,9 @@ function getSeedPoints(entry) {
 
 function generateBracketJS(base, teamMode, teamOf) {
   const BYE = { player: 'SYSTEM', character: 'BYE' };
+  const style = document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong';
 
-  // Step 1: Group each player's entries.
-  // Characters were already chosen by the fill mode (points/favorites/tierlist).
-  // We preserve that order (slot 0 = mode's top pick, slot 1 = 2nd pick, etc.)
+  // Step 1: Group each player's entries (order = fill-mode priority: slot 0 = top pick)
   const playerGroups = {};
   base.forEach(e => {
     if (!playerGroups[e.player]) playerGroups[e.player] = [];
@@ -685,24 +720,30 @@ function generateBracketJS(base, teamMode, teamOf) {
   const players = Object.keys(playerGroups);
   const maxChars = Math.max(...Object.values(playerGroups).map(g => g.length));
 
-  // Step 2: For each character slot, rank all players by that slot's actual win/loss
-  // points (always points, regardless of fill mode), then pair rank1 vs rank2, etc.
+  // Step 2: For each slot, rank players by actual win/loss points on that slot's char,
+  // then pair according to the chosen bracket style.
   const pairs = [];
   for (let slot = 0; slot < maxChars; slot++) {
-    const ranked = [...players].sort((a, b) => {
-      const pa = getSeedPoints(playerGroups[a][slot]);
-      const pb = getSeedPoints(playerGroups[b][slot]);
-      return pb - pa;
-    });
+    const ranked = [...players].sort((a, b) =>
+      getSeedPoints(playerGroups[b][slot]) - getSeedPoints(playerGroups[a][slot])
+    );
 
-    for (let i = 0; i + 1 < ranked.length; i += 2) {
-      const a = playerGroups[ranked[i]][slot] || BYE;
-      const b = playerGroups[ranked[i + 1]][slot] || BYE;
-      pairs.push([a, b]);
-    }
-    if (ranked.length % 2 === 1) {
-      const last = ranked[ranked.length - 1];
-      pairs.push([playerGroups[last][slot] || BYE, BYE]);
+    if (style === 'strongVsStrong') {
+      // (rank1 vs rank2), (rank3 vs rank4), ...
+      for (let i = 0; i + 1 < ranked.length; i += 2) {
+        pairs.push([playerGroups[ranked[i]][slot] || BYE, playerGroups[ranked[i + 1]][slot] || BYE]);
+      }
+      if (ranked.length % 2 === 1)
+        pairs.push([playerGroups[ranked[ranked.length - 1]][slot] || BYE, BYE]);
+    } else {
+      // strongVsWeak: (rank1 vs last), (rank2 vs 2nd-to-last), ...
+      let lo = 0, hi = ranked.length - 1;
+      while (lo < hi) {
+        pairs.push([playerGroups[ranked[lo]][slot] || BYE, playerGroups[ranked[hi]][slot] || BYE]);
+        lo++; hi--;
+      }
+      if (lo === hi)
+        pairs.push([playerGroups[ranked[lo]][slot] || BYE, BYE]);
     }
   }
 
@@ -765,6 +806,7 @@ function renderBracket() {
 
   const r1 = currentBracket;
   const allRounds = computeRounds(r1);
+  lastRenderedRounds = allRounds;
   const container = document.getElementById('bracketRounds');
   container.innerHTML = '';
 
@@ -801,7 +843,7 @@ function renderBracket() {
       let html = `<div class="match-entry${a && a.character.toUpperCase()==='BYE'?' bye':''}${swapClassA}" data-pair="${mi}" data-slot="0">${la}</div>`;
       html += `<div class="match-entry${b && b.character.toUpperCase()==='BYE'?' bye':''}${swapClassB}" data-pair="${mi}" data-slot="1">${lb}</div>`;
 
-      if (!swapMode && ri === 0 && !isBye && la !== 'TBD' && lb !== 'TBD') {
+      if (!swapMode && !isBye && la !== 'TBD' && lb !== 'TBD') {
         const key = `r${ri}_m${mi}`;
         const cur = roundWinners[key] || '';
         html += `<select class="winner-select" onchange="setWinner('${key}', this.value)" style="background:#0f0f17;border:1px solid rgba(255,255,255,0.15);color:#e8edf3;border-radius:5px;">
@@ -998,8 +1040,8 @@ function openVsModal(a, b, key) {
   const btn2 = document.getElementById('vsWinBtn2');
   btn1.textContent = `${a.player} Wins`;
   btn2.textContent = `${b.player} Wins`;
-  btn1.onclick = () => { setWinner(vsCurrentKey, la); closeVsModal(); };
-  btn2.onclick = () => { setWinner(vsCurrentKey, lb); closeVsModal(); };
+  btn1.onclick = () => { setWinner(vsCurrentKey, la); advanceVsModal(); };
+  btn2.onclick = () => { setWinner(vsCurrentKey, lb); advanceVsModal(); };
 
   modal.classList.add('open');
 }
@@ -1009,9 +1051,34 @@ function closeVsModal() {
   vsCurrentKey = null;
 }
 
+function advanceVsModal() {
+  // Parse current key: r2_m1 → round 2, match 1
+  const match = vsCurrentKey && vsCurrentKey.match(/^r(\d+)_m(\d+)$/);
+  if (!match) { closeVsModal(); return; }
+  const ri = parseInt(match[1]);
+  const mi = parseInt(match[2]);
+
+  // lastRenderedRounds is already updated by setWinner → renderBracket call
+  const round = lastRenderedRounds[ri];
+  if (!round) { closeVsModal(); return; }
+
+  // Find next match in this round that is ready (both sides known, not a bye)
+  for (let next = mi + 1; next < round.length; next++) {
+    const [a, b] = round[next];
+    if (!a || !b) continue;
+    if (a.character?.toUpperCase() === 'BYE' || b.character?.toUpperCase() === 'BYE') continue;
+    const la = entryLabel(a), lb = entryLabel(b);
+    if (la === 'TBD' || lb === 'TBD') continue;
+    openVsModal(a, b, `r${ri}_m${next}`);
+    return;
+  }
+
+  // No more matches in this round — close
+  closeVsModal();
+}
+
 function getPlayerAvatar(username) {
-  // Try to get avatar from allUserStats or fall back to dicebear
-  return `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(username)}`;
+  return allUserAvatars[username] || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(username)}`;
 }
 
 document.addEventListener('keydown', e => {
@@ -1031,13 +1098,15 @@ document.addEventListener('keydown', e => {
   <button class="vs-close" onclick="closeVsModal()">✕ Close</button>
 
   <div class="vs-content">
-    <!-- Player 1 -->
-    <div class="vs-player">
-      <div class="vs-player-tag p1">P1</div>
-      <img class="vs-avatar" id="vsP1Avatar" src="" alt="P1" />
-      <div class="vs-name p1" id="vsP1Name">Player 1</div>
+    <!-- Player 1: char image on far left, info to the right of it -->
+    <div class="vs-player p1-side">
       <img class="vs-char-img" id="vsP1CharImg" src="" alt="" style="display:none;" />
-      <div class="vs-char" id="vsP1Char"></div>
+      <div class="vs-player-info">
+        <div class="vs-player-tag p1">P1</div>
+        <img class="vs-avatar" id="vsP1Avatar" src="" alt="P1" />
+        <div class="vs-name p1" id="vsP1Name">Player 1</div>
+        <div class="vs-char-name" id="vsP1Char"></div>
+      </div>
     </div>
 
     <!-- VS -->
@@ -1046,13 +1115,15 @@ document.addEventListener('keydown', e => {
       <div class="vs-text">VS</div>
     </div>
 
-    <!-- Player 2 -->
-    <div class="vs-player">
-      <div class="vs-player-tag p2">P2</div>
-      <img class="vs-avatar" id="vsP2Avatar" src="" alt="P2" />
-      <div class="vs-name p2" id="vsP2Name">Player 2</div>
+    <!-- Player 2: info on left, char image on far right -->
+    <div class="vs-player p2-side">
       <img class="vs-char-img" id="vsP2CharImg" src="" alt="" style="display:none;" />
-      <div class="vs-char" id="vsP2Char"></div>
+      <div class="vs-player-info">
+        <div class="vs-player-tag p2">P2</div>
+        <img class="vs-avatar" id="vsP2Avatar" src="" alt="P2" />
+        <div class="vs-name p2" id="vsP2Name">Player 2</div>
+        <div class="vs-char-name" id="vsP2Char"></div>
+      </div>
     </div>
   </div>
 

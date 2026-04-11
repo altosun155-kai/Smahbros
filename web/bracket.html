@@ -25,8 +25,22 @@
     .bracket-rounds { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 12px; }
     .round-col { min-width: 200px; }
     .winner-select { width: 100%; padding: 5px 8px; font-size: 0.8rem; margin-top: 4px; }
+    .char-picker { position: relative; flex: 1; }
+    .char-picker-input { width: 100%; padding: 6px 8px; font-size: 0.82rem; background: #0f0f17; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #e8edf3; box-sizing: border-box; cursor: pointer; }
+    .char-picker-input:focus { outline: none; border-color: var(--accent-blue); }
+    .char-picker-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #1a1a2e; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; z-index: 200; max-height: 200px; overflow-y: auto; margin-top: 2px; box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
+    .char-picker-dropdown.open { display: block; }
+    .char-picker-option { padding: 7px 10px; font-size: 0.82rem; color: #e8edf3; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .char-picker-option:hover, .char-picker-option.focused { background: rgba(0,119,200,0.25); }
+    .char-picker-option.selected { color: var(--accent-blue); font-weight: 600; }
+    .char-picker-none { padding: 8px 10px; font-size: 0.82rem; color: var(--text-muted); font-style: italic; }
     .save-bracket-row { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-top: 20px; display: flex; gap: 10px; align-items: center; }
     .save-bracket-row input { flex: 1; }
+    .swap-banner { background: rgba(0,119,200,0.12); border: 1px solid rgba(0,119,200,0.35); border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; color: var(--accent-blue); margin-bottom: 10px; display: none; }
+    .swap-banner.visible { display: block; }
+    .match-entry.swap-selected { background: rgba(0,119,200,0.25); border-radius: 4px; outline: 2px solid var(--accent-blue); cursor: pointer; }
+    .match-entry.swap-hover { cursor: pointer; }
+    .match-entry.swap-hover:hover { background: rgba(255,255,255,0.08); border-radius: 4px; }
     .mode-toggle { display: flex; gap: 8px; margin-bottom: 16px; }
     .mode-btn { flex: 1; padding: 8px; background: var(--card-bg2); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
     .mode-btn.active { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
@@ -318,6 +332,11 @@ Friend2</textarea>
       </div>
 
       <div id="bracketOutput" style="display:none;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <button id="btnSwapMode" class="btn btn-outline btn-sm" onclick="toggleSwapMode()">✏️ Edit / Swap Entries</button>
+          <button class="btn btn-sm" style="background:var(--card-bg2);border:1px solid var(--border);color:var(--text-muted);" onclick="clearBracket()">Clear</button>
+        </div>
+        <div class="swap-banner" id="swapBanner">Swap mode ON — click any R1 entry to select it, then click another to swap. Click the button again to exit.</div>
         <div class="bracket-rounds" id="bracketRounds"></div>
 
         <div class="save-bracket-row" id="saveBracketRow">
@@ -398,22 +417,25 @@ async function buildEntryGrid() {
   const autoFill = document.getElementById('autoFillToggle').checked;
   const fillMode = document.querySelector('input[name="fillMode"]:checked')?.value || 'points';
 
+  // Always load points stats for all players — used for seeding even when auto-fill is off
+  await Promise.all(players.map(async p => {
+    if (!allUserStats[p]) {
+      try {
+        const data = await apiGet(`/characters/stats/${encodeURIComponent(p)}`);
+        allUserStats[p] = (data.stats || []).filter(s => s.points > 0).sort((a,b) => b.points - a.points);
+      } catch (_) { allUserStats[p] = []; }
+    }
+  }));
+
   if (autoFill) {
     await Promise.all(players.map(async p => {
-      if (fillMode === 'points' && !allUserStats[p]) {
+      if (fillMode === 'favorites' && !allUserFavs[p]) {
         try {
-          const data = await apiGet(`/characters/stats/${encodeURIComponent(p)}`);
-          allUserStats[p] = (data.stats || []).filter(s => s.points > 0).sort((a,b) => b.points - a.points);
-        } catch (_) { allUserStats[p] = []; }
-      } else if (fillMode === 'favorites' && !allUserFavs[p]) {
-        try {
-          // Use own endpoint for self, stats endpoint for others
           let chars = [];
           if (p === myUsername) {
             const d = await apiGet('/characters/favorites');
             chars = d.characters || [];
           } else {
-            // No public favorites endpoint — fall back to stats
             const d = await apiGet(`/characters/stats/${encodeURIComponent(p)}`);
             chars = (d.stats || []).filter(s => s.points > 0).sort((a,b) => b.points - a.points).map(s => s.character);
           }
@@ -464,18 +486,111 @@ function renderEntryGrid() {
   currentEntries.forEach((entry, idx) => {
     const row = document.createElement('div');
     row.className = 'player-row';
+
     const lbl = document.createElement('span');
     lbl.className = 'player-label';
     lbl.textContent = entry.player;
-    const sel = document.createElement('select');
-    sel.id = `entry_${idx}`;
-    sel.style.cssText = 'padding:6px 8px;font-size:0.82rem;background:#0f0f17;border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#e8edf3;';
-    sel.innerHTML = '<option value="">— Pick —</option>' + ROSTER.map(c => `<option value="${c}"${entry.character===c?' selected':''}>${c}</option>`).join('');
-    sel.addEventListener('change', () => { currentEntries[idx].character = sel.value; });
+
+    const picker = makeCharPicker(idx, entry.character);
     row.appendChild(lbl);
-    row.appendChild(sel);
+    row.appendChild(picker);
     grid.appendChild(row);
   });
+}
+
+function makeCharPicker(idx, selected) {
+  const wrap = document.createElement('div');
+  wrap.className = 'char-picker';
+
+  const input = document.createElement('input');
+  input.className = 'char-picker-input';
+  input.type = 'text';
+  input.placeholder = '— Search character —';
+  input.value = selected || '';
+  input.autocomplete = 'off';
+
+  const drop = document.createElement('div');
+  drop.className = 'char-picker-dropdown';
+
+  let focusedIdx = -1;
+
+  function buildList(query) {
+    const q = query.toLowerCase();
+    const matches = ROSTER.filter(c => !q || c.toLowerCase().includes(q));
+    drop.innerHTML = '';
+    focusedIdx = -1;
+    if (!matches.length) {
+      drop.innerHTML = '<div class="char-picker-none">No match</div>';
+      return;
+    }
+    matches.forEach((c, i) => {
+      const opt = document.createElement('div');
+      opt.className = 'char-picker-option' + (c === currentEntries[idx].character ? ' selected' : '');
+      opt.textContent = c;
+      opt.addEventListener('mousedown', e => {
+        e.preventDefault();
+        selectChar(c);
+      });
+      drop.appendChild(opt);
+    });
+  }
+
+  function selectChar(c) {
+    currentEntries[idx].character = c;
+    input.value = c;
+    drop.classList.remove('open');
+  }
+
+  function getOptions() { return drop.querySelectorAll('.char-picker-option'); }
+
+  input.addEventListener('focus', () => {
+    buildList(input.value === currentEntries[idx].character ? '' : input.value);
+    drop.classList.add('open');
+  });
+
+  input.addEventListener('input', () => {
+    buildList(input.value);
+    drop.classList.add('open');
+    // If user cleared the field, clear the selection
+    if (!input.value) currentEntries[idx].character = '';
+  });
+
+  input.addEventListener('keydown', e => {
+    const opts = getOptions();
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      focusedIdx = Math.min(focusedIdx + 1, opts.length - 1);
+      opts.forEach((o, i) => o.classList.toggle('focused', i === focusedIdx));
+      opts[focusedIdx]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      focusedIdx = Math.max(focusedIdx - 1, 0);
+      opts.forEach((o, i) => o.classList.toggle('focused', i === focusedIdx));
+      opts[focusedIdx]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (focusedIdx >= 0 && opts[focusedIdx]) selectChar(opts[focusedIdx].textContent);
+      else if (opts.length === 1) selectChar(opts[0].textContent);
+    } else if (e.key === 'Escape') {
+      input.value = currentEntries[idx].character || '';
+      drop.classList.remove('open');
+    }
+  });
+
+  input.addEventListener('blur', () => {
+    // Small delay so mousedown on option fires first
+    setTimeout(() => {
+      drop.classList.remove('open');
+      // If input doesn't match a real character, revert
+      if (!ROSTER.includes(input.value)) {
+        input.value = currentEntries[idx].character || '';
+      }
+    }, 150);
+  });
+
+  wrap.appendChild(input);
+  wrap.appendChild(drop);
+  return wrap;
 }
 
 function autofillChars() {
@@ -548,71 +663,93 @@ function getEntryPoints(entry) {
   return 0;
 }
 
+// Always uses actual win/loss points for seeding regardless of fill mode
+function getSeedPoints(entry) {
+  if (!entry || entry.player === 'SYSTEM') return -1;
+  const stats = allUserStats[entry.player] || [];
+  const match = stats.find(s => s.character === entry.character);
+  return match ? match.points : 0;
+}
+
 function generateBracketJS(base, teamMode, teamOf) {
   const BYE = { player: 'SYSTEM', character: 'BYE' };
-  const target = nextPow2(base.length);
 
-  // Step 1: Sort all entries by selected fill mode (proper seeding)
-  const seeded = [...base].sort((a, b) => getEntryPoints(b) - getEntryPoints(a));
+  // Step 1: Group each player's entries.
+  // Characters were already chosen by the fill mode (points/favorites/tierlist).
+  // We preserve that order (slot 0 = mode's top pick, slot 1 = 2nd pick, etc.)
+  const playerGroups = {};
+  base.forEach(e => {
+    if (!playerGroups[e.player]) playerGroups[e.player] = [];
+    playerGroups[e.player].push(e);
+  });
+  const players = Object.keys(playerGroups);
+  const maxChars = Math.max(...Object.values(playerGroups).map(g => g.length));
 
-  // Pad to power-of-2 with BYEs
-  while (seeded.length < target) seeded.push(BYE);
-
-  // Step 2: Standard tournament seeding — seed 1 vs seed N, seed 2 vs seed N-1, etc.
-  // This places strongest entries against weakest in R1.
-  const seats = new Array(target);
-  let lo = 0, hi = target - 1;
-  for (let i = 0; i < seeded.length; i++) {
-    if (i % 2 === 0) seats[lo++] = seeded[i];
-    else             seats[hi--] = seeded[i];
-  }
-
-  // Build pairs from seats: (0,1), (2,3), (4,5), ...
+  // Step 2: For each character slot, rank all players by that slot's actual win/loss
+  // points (always points, regardless of fill mode), then pair rank1 vs rank2, etc.
   const pairs = [];
-  for (let i = 0; i + 1 < seats.length; i += 2) {
-    pairs.push([seats[i], seats[i + 1]]);
-  }
+  for (let slot = 0; slot < maxChars; slot++) {
+    const ranked = [...players].sort((a, b) => {
+      const pa = getSeedPoints(playerGroups[a][slot]);
+      const pb = getSeedPoints(playerGroups[b][slot]);
+      return pb - pa;
+    });
 
-  // Step 3: Fix same-player R1 matchups — swap one entry with a neighbour pair
-  // Repeat until stable (cascade swaps can create new conflicts)
-  let changed = true;
-  let safety = 0;
-  while (changed && safety++ < 50) {
-    changed = false;
-    for (let i = 0; i < pairs.length; i++) {
-      const [a, b] = pairs[i];
-      const conflict = a.player !== 'SYSTEM' && b.player !== 'SYSTEM' && a.player === b.player;
-      const teamConflict = !conflict && teamMode &&
-        a.player !== 'SYSTEM' && b.player !== 'SYSTEM' &&
-        (teamOf[a.player] || '') && (teamOf[a.player] || '') === (teamOf[b.player] || '');
-
-      if (!conflict && !teamConflict) continue;
-
-      // Try swapping pairs[i][1] with pairs[j][0] or pairs[j][1] for some j ≠ i
-      let fixed = false;
-      for (let j = 0; j < pairs.length && !fixed; j++) {
-        if (j === i) continue;
-        for (let slot = 0; slot < 2 && !fixed; slot++) {
-          const cand = pairs[j][slot];
-          if (cand.player === 'SYSTEM') continue;
-          if (cand.player === a.player) continue; // swapping would just flip the conflict
-          // Check that swapping doesn't create a NEW conflict in pair j
-          const other = pairs[j][1 - slot];
-          if (other.player !== 'SYSTEM' && other.player === cand.player) continue; // would conflict in j after swap
-          if (teamMode && other.player !== 'SYSTEM' && cand.player !== 'SYSTEM' &&
-              (teamOf[other.player]||'') && (teamOf[other.player]||'') === (teamOf[a.player]||'')) continue;
-
-          // Do the swap
-          pairs[i][1] = cand;
-          pairs[j][slot] = b;
-          changed = true;
-          fixed = true;
-        }
-      }
+    for (let i = 0; i + 1 < ranked.length; i += 2) {
+      const a = playerGroups[ranked[i]][slot] || BYE;
+      const b = playerGroups[ranked[i + 1]][slot] || BYE;
+      pairs.push([a, b]);
+    }
+    if (ranked.length % 2 === 1) {
+      const last = ranked[ranked.length - 1];
+      pairs.push([playerGroups[last][slot] || BYE, BYE]);
     }
   }
 
+  // Pad to next power-of-2
+  const target = nextPow2(pairs.length);
+  while (pairs.length < target) pairs.push([BYE, BYE]);
+
   return pairs;
+}
+
+// ── Swap mode ─────────────────────────────────────
+let swapMode = false;
+let swapSelection = null; // { pairIdx, slot }
+
+function toggleSwapMode() {
+  swapMode = !swapMode;
+  swapSelection = null;
+  document.getElementById('btnSwapMode').classList.toggle('active', swapMode);
+  document.getElementById('btnSwapMode').textContent = swapMode ? '✅ Done Editing' : '✏️ Edit / Swap Entries';
+  document.getElementById('swapBanner').classList.toggle('visible', swapMode);
+  renderBracket();
+}
+
+function handleEntryClick(pairIdx, slot) {
+  const entry = currentBracket[pairIdx][slot];
+  if (!entry || entry.player === 'SYSTEM') return;
+
+  if (!swapSelection) {
+    swapSelection = { pairIdx, slot };
+    renderBracket();
+    return;
+  }
+
+  const { pairIdx: pi2, slot: sl2 } = swapSelection;
+  if (pi2 === pairIdx && sl2 === slot) {
+    swapSelection = null;
+    renderBracket();
+    return;
+  }
+
+  // Swap the two entries
+  const tmp = currentBracket[pairIdx][slot];
+  currentBracket[pairIdx][slot] = currentBracket[pi2][sl2];
+  currentBracket[pi2][sl2] = tmp;
+  swapSelection = null;
+  roundWinners = {};
+  renderBracket();
 }
 
 function entryLabel(e) {
@@ -656,10 +793,15 @@ function renderBracket() {
       const lb = b ? entryLabel(b) : 'TBD';
       const isBye = (a && a.character.toUpperCase()==='BYE') || (b && b.character.toUpperCase()==='BYE');
 
-      let html = `<div class="match-entry${a && a.character.toUpperCase()==='BYE'?' bye':''}">${la}</div>`;
-      html += `<div class="match-entry${b && b.character.toUpperCase()==='BYE'?' bye':''}">${lb}</div>`;
+      const isSwapSelectedA = swapMode && swapSelection && swapSelection.pairIdx === mi && swapSelection.slot === 0;
+      const isSwapSelectedB = swapMode && swapSelection && swapSelection.pairIdx === mi && swapSelection.slot === 1;
+      const swapClassA = swapMode && a && a.player !== 'SYSTEM' ? (isSwapSelectedA ? ' swap-selected' : ' swap-hover') : '';
+      const swapClassB = swapMode && b && b.player !== 'SYSTEM' ? (isSwapSelectedB ? ' swap-selected' : ' swap-hover') : '';
 
-      if (ri === 0 && !isBye && la !== 'TBD' && lb !== 'TBD') {
+      let html = `<div class="match-entry${a && a.character.toUpperCase()==='BYE'?' bye':''}${swapClassA}" data-pair="${mi}" data-slot="0">${la}</div>`;
+      html += `<div class="match-entry${b && b.character.toUpperCase()==='BYE'?' bye':''}${swapClassB}" data-pair="${mi}" data-slot="1">${lb}</div>`;
+
+      if (!swapMode && ri === 0 && !isBye && la !== 'TBD' && lb !== 'TBD') {
         const key = `r${ri}_m${mi}`;
         const cur = roundWinners[key] || '';
         html += `<select class="winner-select" onchange="setWinner('${key}', this.value)" style="background:#0f0f17;border:1px solid rgba(255,255,255,0.15);color:#e8edf3;border-radius:5px;">
@@ -670,11 +812,17 @@ function renderBracket() {
       }
 
       box.innerHTML = html;
-      // Click to open VS screen for any non-bye match
-      if (!isBye && a && b && la !== 'TBD' && lb !== 'TBD') {
+
+      if (swapMode && ri === 0) {
+        box.querySelectorAll('.match-entry[data-pair]').forEach(el => {
+          el.addEventListener('click', () => {
+            handleEntryClick(parseInt(el.dataset.pair), parseInt(el.dataset.slot));
+          });
+        });
+      } else if (!swapMode && !isBye && a && b && la !== 'TBD' && lb !== 'TBD') {
         const key = `r${ri}_m${mi}`;
         box.addEventListener('click', (e) => {
-          if (e.target.tagName === 'SELECT') return; // don't open modal when using dropdown
+          if (e.target.tagName === 'SELECT') return;
           openVsModal(a, b, key);
         });
       }
@@ -727,6 +875,8 @@ function getWinnerOf(matchIdx, pairs) {
 function clearBracket() {
   currentBracket = [];
   roundWinners = {};
+  swapMode = false;
+  swapSelection = null;
   document.getElementById('bracketOutput').style.display = 'none';
   document.getElementById('bracketEmpty').style.display = 'block';
 }

@@ -8,7 +8,11 @@
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/auth.js"></script>
   <style>
-    .bracket-layout { display: grid; grid-template-columns: 340px 1fr; gap: 24px; align-items: start; }
+    .bracket-layout { display: flex; gap: 24px; align-items: start; }
+    .sidebar-wrap { width: 320px; flex-shrink: 0; transition: width 0.22s ease, opacity 0.18s ease; overflow: hidden; }
+    .sidebar-wrap.collapsed { width: 0; opacity: 0; pointer-events: none; }
+    .sidebar-toggle-btn { flex-shrink: 0; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 7px; cursor: pointer; color: var(--text-muted); font-size: 0.7rem; letter-spacing: 1px; writing-mode: vertical-lr; text-orientation: mixed; height: fit-content; transition: color 0.15s, border-color 0.15s; align-self: flex-start; margin-top: 0; white-space: nowrap; }
+    .sidebar-toggle-btn:hover { color: var(--text); border-color: var(--accent-blue); }
     .sidebar-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
     .sidebar-card h2 { font-size: 0.95rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; }
     .player-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; align-items: center; }
@@ -16,14 +20,20 @@
     .player-row select { padding: 6px 8px; font-size: 0.82rem; }
     .team-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px; align-items: center; }
     .team-row label { font-size: 0.85rem; color: var(--text); }
-    .match-box { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; min-width: 180px; }
-    .match-entry { padding: 4px 0; font-size: 0.82rem; color: var(--text); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
+    .match-box { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; min-width: 190px; }
+    .match-entry { padding: 5px 4px; font-size: 0.82rem; color: var(--text); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 7px; }
     .match-entry:last-child { border-bottom: none; }
     .match-entry.bye { color: var(--text-muted); font-style: italic; opacity: 0.6; }
+    .match-entry.tbd { color: rgba(255,255,255,0.18); font-style: italic; font-size: 0.75rem; }
+    .match-entry.winner-highlight { color: #ffe066; font-weight: 700; }
+    .match-char-icon { width: 22px; height: 22px; object-fit: contain; border-radius: 3px; flex-shrink: 0; background: var(--card-bg); }
     .round-col { flex-shrink: 0; }
     .round-title { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
     .bracket-rounds { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 12px; }
     .round-col { min-width: 200px; }
+    .round-col.grand-final .round-title { color: var(--accent-gold); }
+    .round-col.grand-final .match-box { border-color: rgba(245,166,35,0.45); box-shadow: 0 0 18px rgba(245,166,35,0.12); background: linear-gradient(135deg, #1a150a, #16213e); }
+    .sticky-bar { position: sticky; bottom: 0; z-index: 30; background: var(--navbar-bg); border-top: 1px solid var(--border); padding: 12px 0; display: flex; gap: 10px; align-items: center; margin-top: 20px; }
     .winner-select { width: 100%; padding: 5px 8px; font-size: 0.8rem; margin-top: 4px; }
     .char-picker { position: relative; flex: 1; }
     .char-picker-input { width: 100%; padding: 6px 8px; font-size: 0.82rem; background: #0f0f17; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #e8edf3; box-sizing: border-box; cursor: pointer; }
@@ -44,7 +54,7 @@
     .mode-toggle { display: flex; gap: 8px; margin-bottom: 16px; }
     .mode-btn { flex: 1; padding: 8px; background: var(--card-bg2); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
     .mode-btn.active { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
-    @media (max-width: 900px) { .bracket-layout { grid-template-columns: 1fr; } }
+    @media (max-width: 900px) { .bracket-layout { flex-direction: column; } .sidebar-wrap { width: 100% !important; } .sidebar-toggle-btn { display: none; } }
 
     /* ── VS Screen Modal ── */
     #vsModal {
@@ -294,8 +304,11 @@
 
   <div class="bracket-layout">
 
+    <!-- Sidebar toggle tab -->
+    <button class="sidebar-toggle-btn" id="sidebarToggleBtn" onclick="toggleSidebar()" title="Toggle sidebar">◀ Setup</button>
+
     <!-- Sidebar: Config -->
-    <div>
+    <div class="sidebar-wrap" id="sidebarWrap">
       <div class="sidebar-card" style="margin-bottom:16px;">
         <h2>Mode</h2>
         <div class="mode-toggle">
@@ -366,18 +379,16 @@
       </div>
 
       <div class="sidebar-card" id="entryGridSection" style="display:none;">
-        <h2>Entries</h2>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <h2 style="margin-bottom:0;">Entries</h2>
+          <button class="btn btn-sm" style="background:none;border:1px solid var(--border);color:var(--text-muted);font-size:0.75rem;" onclick="toggleEntries()" id="entriesToggleBtn">Hide</button>
+        </div>
         <div id="entryGrid"></div>
       </div>
     </div>
 
     <!-- Main: Bracket -->
-    <div>
-      <div style="display:flex;gap:10px;margin-bottom:20px;">
-        <button class="btn btn-gold" onclick="generateBracket()">Generate Bracket</button>
-        <button class="btn btn-outline" onclick="clearBracket()">Clear</button>
-      </div>
-
+    <div style="flex:1;min-width:0;">
       <div id="bracketOutput" style="display:none;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
           <button id="btnSwapMode" class="btn btn-outline btn-sm" onclick="toggleSwapMode()">✏️ Edit / Swap Entries</button>
@@ -400,6 +411,13 @@
 
       <div id="bracketEmpty" style="color:var(--text-muted);font-size:0.9rem;padding:32px 0;">
         Configure players and click "Generate Bracket" to get started.
+      </div>
+
+      <!-- Sticky action bar -->
+      <div class="sticky-bar">
+        <button class="btn btn-gold" onclick="generateBracket()">Generate Bracket</button>
+        <button class="btn btn-outline" onclick="clearBracket()">Clear</button>
+        <span id="stickyBracketStatus" style="font-size:0.82rem;color:var(--text-muted);margin-left:4px;"></span>
       </div>
     </div>
   </div>
@@ -698,6 +716,18 @@ function generateBracket() {
   currentBracket = pairs;
   roundWinners = {};
   renderBracket();
+
+  // Collapse entries list to give the bracket room
+  const entrySection = document.getElementById('entryGridSection');
+  if (entrySection && entriesVisible) {
+    entriesVisible = false;
+    document.getElementById('entryGrid').style.display = 'none';
+    document.getElementById('entriesToggleBtn').textContent = 'Show';
+  }
+
+  // Update sticky bar status
+  const playerCount = [...new Set(base.map(e => e.player))].length;
+  document.getElementById('stickyBracketStatus').textContent = `${playerCount} players · ${pairs.length} R1 matches`;
 }
 
 function getEntryPoints(entry) {
@@ -851,7 +881,9 @@ function renderBracket() {
     } else {
       rname = `Round ${ri + 1}`;
     }
+    const isGrandFinal = ri === allRounds.length - 1 && allRounds.length > 1;
     col.innerHTML = `<div class="round-title">${rname}</div>`;
+    if (isGrandFinal) col.classList.add('grand-final');
 
     round.forEach(([a, b], mi) => {
       const box = document.createElement('div');
@@ -859,14 +891,28 @@ function renderBracket() {
       const la = a ? entryLabel(a) : 'TBD';
       const lb = b ? entryLabel(b) : 'TBD';
       const isBye = (a && a.character.toUpperCase()==='BYE') || (b && b.character.toUpperCase()==='BYE');
+      const key = `r${ri}_m${mi}`;
+      const curWinner = roundWinners[key] || '';
 
       const isSwapSelectedA = swapMode && swapSelection && swapSelection.pairIdx === mi && swapSelection.slot === 0;
       const isSwapSelectedB = swapMode && swapSelection && swapSelection.pairIdx === mi && swapSelection.slot === 1;
       const swapClassA = swapMode && a && a.player !== 'SYSTEM' ? (isSwapSelectedA ? ' swap-selected' : ' swap-hover') : '';
       const swapClassB = swapMode && b && b.player !== 'SYSTEM' ? (isSwapSelectedB ? ' swap-selected' : ' swap-hover') : '';
 
-      let html = `<div class="match-entry${a && a.character.toUpperCase()==='BYE'?' bye':''}${swapClassA}" data-pair="${mi}" data-slot="0">${la}</div>`;
-      html += `<div class="match-entry${b && b.character.toUpperCase()==='BYE'?' bye':''}${swapClassB}" data-pair="${mi}" data-slot="1">${lb}</div>`;
+      function entryHtml(entry, label, swapClass, slot) {
+        if (!entry || label === 'TBD') {
+          return `<div class="match-entry tbd" data-pair="${mi}" data-slot="${slot}">— TBD —</div>`;
+        }
+        const isByeEntry = entry.character.toUpperCase() === 'BYE';
+        const isWon = curWinner === label;
+        const iconUrl = !isByeEntry && typeof charImgUrl === 'function' ? charImgUrl(entry.character) : null;
+        const icon = iconUrl ? `<img class="match-char-icon" src="${iconUrl}" alt="${entry.character}" onerror="this.style.display='none'" />` : '';
+        const wonClass = isWon ? ' winner-highlight' : '';
+        return `<div class="match-entry${isByeEntry?' bye':''}${swapClass}${wonClass}" data-pair="${mi}" data-slot="${slot}">${icon}<span>${label}</span></div>`;
+      }
+
+      let html = entryHtml(a, la, swapClassA, 0);
+      html += entryHtml(b, lb, swapClassB, 1);
 
       if (!swapMode && !isBye && la !== 'TBD' && lb !== 'TBD') {
         const key = `r${ri}_m${mi}`;
@@ -992,6 +1038,21 @@ function clearBracket() {
   swapSelection = null;
   document.getElementById('bracketOutput').style.display = 'none';
   document.getElementById('bracketEmpty').style.display = 'block';
+  document.getElementById('stickyBracketStatus').textContent = '';
+}
+
+function toggleSidebar() {
+  const wrap = document.getElementById('sidebarWrap');
+  const btn  = document.getElementById('sidebarToggleBtn');
+  const collapsed = wrap.classList.toggle('collapsed');
+  btn.textContent = collapsed ? '▶ Setup' : '◀ Setup';
+}
+
+let entriesVisible = true;
+function toggleEntries() {
+  entriesVisible = !entriesVisible;
+  document.getElementById('entryGrid').style.display = entriesVisible ? '' : 'none';
+  document.getElementById('entriesToggleBtn').textContent = entriesVisible ? 'Hide' : 'Show';
 }
 
 let liveTournamentId = null;

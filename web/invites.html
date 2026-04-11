@@ -56,7 +56,6 @@
   <div class="tabs" id="invTabs">
     <button class="tab-btn active" onclick="switchInvTab('received')">Received</button>
     <button class="tab-btn" onclick="switchInvTab('sent')">Sent</button>
-    <button class="tab-btn" onclick="switchInvTab('send')">Send New</button>
   </div>
 
   <!-- Received tab -->
@@ -81,30 +80,7 @@
     </div>
   </div>
 
-  <!-- Send New tab -->
-  <div class="tab-panel" id="tab-send">
-    <div style="max-width:500px;">
-      <div class="form-group">
-        <label>Bracket Name</label>
-        <input type="text" id="sendBracketName" placeholder="Enter bracket name or description…" />
-      </div>
-
-      <div class="form-group">
-        <label>Search Player</label>
-        <input type="text" id="userSearchInput" placeholder="Start typing a username…" oninput="searchUsers()" />
-        <div id="searchResults" class="search-results" style="display:none;"></div>
-      </div>
-
-      <div id="selectedInviteeContainer" style="margin-bottom:14px;display:none;">
-        <span class="selected-invitee">
-          <span id="selectedInviteeName"></span>
-          <button onclick="clearInvitee()">×</button>
-        </span>
-      </div>
-
-      <button class="btn btn-primary" onclick="sendInvite()">Send Invite</button>
-    </div>
-  </div>
+  <p style="font-size:0.82rem;color:var(--text-muted);margin-top:8px;">Invites are sent automatically when you start a live tournament from the <a href="bracket.html">Bracket</a> page.</p>
 </main>
 
 <script src="js/api.js"></script>
@@ -113,7 +89,7 @@
   let searchTimer = null;
 
   function switchInvTab(tab) {
-    ['received','sent','send'].forEach((t, i) => {
+    ['received','sent'].forEach((t, i) => {
       document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
       document.querySelectorAll('#invTabs .tab-btn')[i].classList.toggle('active', t === tab);
     });

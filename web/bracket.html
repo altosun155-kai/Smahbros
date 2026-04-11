@@ -1137,17 +1137,14 @@ function openVsModal(a, b, key) {
   const avatarB = getPlayerAvatar(b.player);
 
   const modal = document.getElementById('vsModal');
-  // Each player's avatar fills their half of the screen
-  const bgLeft = document.getElementById('vsBgLeft');
-  const bgRight = document.getElementById('vsBgRight');
-  function applyBg(el, url) {
-    el.style.backgroundImage = `url("${url.replace(/"/g, '%22')}")`;
-    el.style.backgroundSize = 'cover';
-    el.style.backgroundPosition = 'center';
-  }
-  applyBg(bgLeft, avatarA);
-  applyBg(bgRight, avatarB);
-  modal.style.backgroundImage = 'none';
+  // Each player's avatar fills their half using an img element (more reliable than CSS background)
+  const dicebear = u => `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}`;
+  const imgLeft  = document.getElementById('vsBgImgLeft');
+  const imgRight = document.getElementById('vsBgImgRight');
+  imgLeft.src  = avatarA || dicebear(a.player);
+  imgRight.src = avatarB || dicebear(b.player);
+  imgLeft.onerror  = () => { imgLeft.src  = dicebear(a.player); };
+  imgRight.onerror = () => { imgRight.src = dicebear(b.player); };
 
   document.getElementById('vsP1Name').textContent = a.player;
   document.getElementById('vsP1Char').textContent = a.character;
@@ -1219,8 +1216,8 @@ document.addEventListener('keydown', e => {
 <!-- VS Modal -->
 <div id="vsModal">
   <div class="vs-bg">
-    <div class="vs-bg-left" id="vsBgLeft"></div>
-    <div class="vs-bg-right" id="vsBgRight"></div>
+    <div class="vs-bg-left" id="vsBgLeft"><img id="vsBgImgLeft" src="" alt="" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;" /></div>
+    <div class="vs-bg-right" id="vsBgRight"><img id="vsBgImgRight" src="" alt="" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;" /></div>
     <div class="vs-bg-center"></div>
     <div class="vs-lightning"></div>
   </div>

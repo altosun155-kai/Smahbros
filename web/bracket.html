@@ -116,6 +116,12 @@
       color: #ffe066;
       text-shadow: 0 1px 6px rgba(0,0,0,0.8);
     }
+    .vs-char-img {
+      width: 90px;
+      height: 90px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 12px rgba(255,255,255,0.3));
+    }
     .vs-avatar {
       width: 110px;
       height: 110px;
@@ -314,6 +320,7 @@ Friend2</textarea>
 </main>
 
 <script src="js/api.js"></script>
+<script src="js/chars.js"></script>
 <script>
 // ── Roster ────────────────────────────────────────
 const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];
@@ -722,6 +729,14 @@ function openVsModal(a, b, key) {
   document.getElementById('vsP2Avatar').src = avatarB;
   document.getElementById('vsP2Avatar').onerror = () => document.getElementById('vsP2Avatar').src = `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(b.player)}`;
 
+  // Character images
+  const charImg1 = document.getElementById('vsP1CharImg');
+  const charImg2 = document.getElementById('vsP2CharImg');
+  const url1 = charImgUrl(a.character);
+  const url2 = charImgUrl(b.character);
+  if (url1) { charImg1.src = url1; charImg1.style.display = 'block'; } else { charImg1.style.display = 'none'; }
+  if (url2) { charImg2.src = url2; charImg2.style.display = 'block'; } else { charImg2.style.display = 'none'; }
+
   const btn1 = document.getElementById('vsWinBtn1');
   const btn2 = document.getElementById('vsWinBtn2');
   btn1.textContent = `${a.player} Wins`;
@@ -764,6 +779,7 @@ document.addEventListener('keydown', e => {
       <div class="vs-player-tag p1">P1</div>
       <img class="vs-avatar" id="vsP1Avatar" src="" alt="P1" />
       <div class="vs-name p1" id="vsP1Name">Player 1</div>
+      <img class="vs-char-img" id="vsP1CharImg" src="" alt="" style="display:none;" />
       <div class="vs-char" id="vsP1Char"></div>
     </div>
 
@@ -778,6 +794,7 @@ document.addEventListener('keydown', e => {
       <div class="vs-player-tag p2">P2</div>
       <img class="vs-avatar" id="vsP2Avatar" src="" alt="P2" />
       <div class="vs-name p2" id="vsP2Name">Player 2</div>
+      <img class="vs-char-img" id="vsP2CharImg" src="" alt="" style="display:none;" />
       <div class="vs-char" id="vsP2Char"></div>
     </div>
   </div>

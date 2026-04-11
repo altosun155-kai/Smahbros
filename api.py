@@ -390,20 +390,17 @@ def get_stats(db: Session = Depends(get_db), current_user: User = Depends(get_cu
 
 @app.get("/characters/stats/leaderboard")
 def character_leaderboard(db: Session = Depends(get_db)):
-    """For each character, return the player with the most points."""
-    rows = db.query(CharacterStats).filter(CharacterStats.points > 0).all()
-    char_top: dict = {}
-    for row in rows:
-        if row.character not in char_top or row.points > char_top[row.character]["points"]:
-            char_top[row.character] = {
-                "character": row.character,
-                "points": row.points,
-                "username": row.owner.username,
-                "avatar_url": row.owner.avatar_url,
-            }
-    result = list(char_top.values())
-    result.sort(key=lambda x: -x["points"])
-    return result
+    """Flat leaderboard: all user+character combos ranked by points."""
+    rows = db.query(CharacterStats).filter(CharacterStats.points > 0).order_by(CharacterStats.points.desc()).all()
+    return [
+        {
+            "username": row.owner.username,
+            "avatar_url": row.owner.avatar_url,
+            "character": row.character,
+            "points": row.points,
+        }
+        for row in rows
+    ]
 
 
 @app.get("/characters/stats/{username}")

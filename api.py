@@ -9,9 +9,33 @@ import os
 
 from database import engine, Base, User, Bracket, RoundRobinResult, CharacterRanking, TournamentInvite, FavoriteCharacters, CharacterStats, Friendship
 from auth import get_db, get_current_user, hash_password, verify_password, make_token
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, text
 
 Base.metadata.create_all(bind=engine)
+
+# Add any missing columns that were added after initial table creation
+def _run_migrations():
+    is_pg = not str(engine.url).startswith("sqlite")
+    with engine.connect() as conn:
+        if is_pg:
+            conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS round_winners JSONB DEFAULT '{}'"))
+            conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS bracket_style VARCHAR DEFAULT 'strongVsStrong'"))
+            conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS is_live BOOLEAN DEFAULT FALSE"))
+            conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS winner VARCHAR"))
+        else:
+            # SQLite: check pragma
+            cols = {row[1] for row in conn.execute(text("PRAGMA table_info(brackets)"))}
+            if "round_winners" not in cols:
+                conn.execute(text("ALTER TABLE brackets ADD COLUMN round_winners TEXT DEFAULT '{}'"))
+            if "bracket_style" not in cols:
+                conn.execute(text("ALTER TABLE brackets ADD COLUMN bracket_style VARCHAR DEFAULT 'strongVsStrong'"))
+            if "is_live" not in cols:
+                conn.execute(text("ALTER TABLE brackets ADD COLUMN is_live BOOLEAN DEFAULT 0"))
+            if "winner" not in cols:
+                conn.execute(text("ALTER TABLE brackets ADD COLUMN winner VARCHAR"))
+        conn.commit()
+
+_run_migrations()
 
 app = FastAPI(title="Smash Bracket API")
 

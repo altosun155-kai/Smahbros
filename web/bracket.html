@@ -65,29 +65,29 @@
     }
     .vs-bg-left {
       flex: 1;
-      background-size: cover;
-      background-position: center;
       position: relative;
       overflow: hidden;
+      background-color: #5a0000;
     }
     .vs-bg-left::after {
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(135deg, rgba(120,0,0,0.72) 0%, rgba(180,20,20,0.65) 100%);
+      background: linear-gradient(135deg, rgba(100,0,0,0.65) 0%, rgba(180,20,20,0.55) 100%);
+      pointer-events: none;
     }
     .vs-bg-right {
       flex: 1;
-      background-size: cover;
-      background-position: center;
       position: relative;
       overflow: hidden;
+      background-color: #00004a;
     }
     .vs-bg-right::after {
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(225deg, rgba(0,0,100,0.72) 0%, rgba(20,60,180,0.65) 100%);
+      background: linear-gradient(225deg, rgba(0,0,80,0.65) 0%, rgba(20,60,180,0.55) 100%);
+      pointer-events: none;
     }
     .vs-bg-center {
       position: absolute;
@@ -1020,6 +1020,12 @@ async function saveBracket() {
     }
   } catch (_) {}
 
+  // Pre-load all user avatars so VS screen always has them
+  try {
+    const allUsers = await apiGet('/users/all');
+    allUsers.forEach(u => { allUserAvatars[u.username] = u.avatar_url || null; });
+  } catch (_) {}
+
   // Load friends for quick-add
   const section = document.getElementById('friendsQuickAdd');
   const chips = document.getElementById('friendChips');
@@ -1080,9 +1086,16 @@ function openVsModal(a, b, key) {
 
   const modal = document.getElementById('vsModal');
   // Each player's avatar fills their half of the screen
-  document.getElementById('vsBgLeft').style.backgroundImage = `url('${avatarA}')`;
-  document.getElementById('vsBgRight').style.backgroundImage = `url('${avatarB}')`;
-  modal.style.backgroundImage = '';
+  const bgLeft = document.getElementById('vsBgLeft');
+  const bgRight = document.getElementById('vsBgRight');
+  function applyBg(el, url) {
+    el.style.backgroundImage = `url("${url.replace(/"/g, '%22')}")`;
+    el.style.backgroundSize = 'cover';
+    el.style.backgroundPosition = 'center';
+  }
+  applyBg(bgLeft, avatarA);
+  applyBg(bgRight, avatarB);
+  modal.style.backgroundImage = 'none';
 
   document.getElementById('vsP1Name').textContent = a.player;
   document.getElementById('vsP1Char').textContent = a.character;

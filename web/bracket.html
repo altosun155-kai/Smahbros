@@ -894,10 +894,49 @@ function renderBracket() {
   });
 }
 
+function parseEntry(label) {
+  // label format: "player — character"
+  const idx = label.indexOf(' — ');
+  if (idx === -1) return null;
+  return { player: label.slice(0, idx), character: label.slice(idx + 3) };
+}
+
+async function recordMatchResult(winnerLabel, loserLabel) {
+  const winner = parseEntry(winnerLabel);
+  const loser  = parseEntry(loserLabel);
+  if (!winner || !loser) return;
+  if (winner.player === 'SYSTEM' || loser.player === 'SYSTEM') return;
+  try {
+    await Promise.all([
+      apiPost('/characters/stats/record-for', { username: winner.player, character: winner.character, result: 'win' }),
+      apiPost('/characters/stats/record-for', { username: loser.player,  character: loser.character,  result: 'loss' }),
+    ]);
+    // Bust the stats cache so next bracket build fetches fresh points
+    delete allUserStats[winner.player];
+    delete allUserStats[loser.player];
+  } catch (err) {
+    showToast('Could not save match result: ' + err.message, 'error');
+  }
+}
+
 function setWinner(key, val) {
+  // Find the previous winner for this key — if already set to same value, skip re-recording
+  const prev = roundWinners[key];
   roundWinners[key] = val;
-  // Recompute subsequent rounds
   renderBracket();
+
+  if (!val || val === prev) return; // no change, don't double-record
+
+  // Determine the loser from the match entries
+  const match = key.match(/^r(\d+)_m(\d+)$/);
+  if (!match) return;
+  const ri = parseInt(match[1]), mi = parseInt(match[2]);
+  const round = lastRenderedRounds[ri];
+  if (!round || !round[mi]) return;
+  const [a, b] = round[mi];
+  const la = entryLabel(a), lb = entryLabel(b);
+  const loserLabel = val === la ? lb : la;
+  recordMatchResult(val, loserLabel);
 }
 
 function computeRounds(r1) {

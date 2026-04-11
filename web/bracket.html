@@ -552,79 +552,66 @@ function generateBracketJS(base, teamMode, teamOf) {
   const BYE = { player: 'SYSTEM', character: 'BYE' };
   const target = nextPow2(base.length);
 
-  // Sort by points descending — highest seed first
+  // Step 1: Sort all entries by selected fill mode (proper seeding)
   const seeded = [...base].sort((a, b) => getEntryPoints(b) - getEntryPoints(a));
 
-  // Place seeds into bracket slots using interleaving so same-player entries
-  // are spread as far apart as possible (different halves, quarters, etc.)
-  const slots = new Array(target).fill(null);
+  // Pad to power-of-2 with BYEs
+  while (seeded.length < target) seeded.push(BYE);
 
-  // Standard bracket slot order: 1,16,9,8,5,12,13,4,3,14,11,6,7,10,15,2 etc.
-  // Build slot positions by recursively splitting
-  function bracketSlots(size) {
-    if (size === 1) return [0];
-    if (size === 2) return [0, 1];
-    const half = size / 2;
-    const top = bracketSlots(half);
-    const bottom = bracketSlots(half).map(i => i + half);
-    // Interleave: top[0], bottom[0], top[1], bottom[1]...
-    const result = [];
-    for (let i = 0; i < top.length; i++) {
-      result.push(top[i]);
-      result.push(bottom[i]);
-    }
-    return result;
-  }
-  const slotOrder = bracketSlots(target);
-
-  // Place seeds into slots — when placing, check if the would-be R1 opponent
-  // is the same player; if so, find the next available slot in a different section
-  for (let seedIdx = 0; seedIdx < seeded.length; seedIdx++) {
-    const entry = seeded[seedIdx];
-    const slotPos = slotOrder[seedIdx];
-    slots[slotPos] = entry;
+  // Step 2: Standard tournament seeding — seed 1 vs seed N, seed 2 vs seed N-1, etc.
+  // This places strongest entries against weakest in R1.
+  const seats = new Array(target);
+  let lo = 0, hi = target - 1;
+  for (let i = 0; i < seeded.length; i++) {
+    if (i % 2 === 0) seats[lo++] = seeded[i];
+    else             seats[hi--] = seeded[i];
   }
 
-  // Fill remaining slots with byes
-  for (let i = 0; i < target; i++) {
-    if (slots[i] === null) slots[i] = BYE;
+  // Build pairs from seats: (0,1), (2,3), (4,5), ...
+  const pairs = [];
+  for (let i = 0; i + 1 < seats.length; i += 2) {
+    pairs.push([seats[i], seats[i + 1]]);
   }
 
-  // Now fix round-1 same-player collisions by swapping with another slot
-  for (let i = 0; i < target; i += 2) {
-    const a = slots[i], b = slots[i + 1];
-    const aPlayer = a.player, bPlayer = b.player;
-    const samePlayer = aPlayer !== 'SYSTEM' && aPlayer === bPlayer;
-    const sameTeam = teamMode && aPlayer !== 'SYSTEM' && bPlayer !== 'SYSTEM' &&
-      (teamOf[aPlayer] || '') && (teamOf[aPlayer] || '') === (teamOf[bPlayer] || '');
+  // Step 3: Fix same-player R1 matchups — swap one entry with a neighbour pair
+  // Repeat until stable (cascade swaps can create new conflicts)
+  let changed = true;
+  let safety = 0;
+  while (changed && safety++ < 50) {
+    changed = false;
+    for (let i = 0; i < pairs.length; i++) {
+      const [a, b] = pairs[i];
+      const conflict = a.player !== 'SYSTEM' && b.player !== 'SYSTEM' && a.player === b.player;
+      const teamConflict = !conflict && teamMode &&
+        a.player !== 'SYSTEM' && b.player !== 'SYSTEM' &&
+        (teamOf[a.player] || '') && (teamOf[a.player] || '') === (teamOf[b.player] || '');
 
-    if (samePlayer || sameTeam) {
-      // Find a swap partner: a slot not in this pair, different player from a
-      let swapped = false;
-      for (let j = 0; j < target; j++) {
-        if (j === i || j === i + 1) continue;
-        const candidate = slots[j];
-        if (candidate.player === 'SYSTEM') continue;
-        if (candidate.player === aPlayer) continue;
-        if (sameTeam && (teamOf[candidate.player] || '') === (teamOf[aPlayer] || '')) continue;
-        // Check swapping slots[j] with slots[i+1] doesn't create a new conflict
-        const jPair = j % 2 === 0 ? j + 1 : j - 1;
-        const jPartner = slots[jPair];
-        if (jPartner.player !== 'SYSTEM' && jPartner.player === aPlayer) continue;
-        // Do the swap
-        slots[i + 1] = candidate;
-        slots[j] = b;
-        swapped = true;
-        break;
+      if (!conflict && !teamConflict) continue;
+
+      // Try swapping pairs[i][1] with pairs[j][0] or pairs[j][1] for some j ≠ i
+      let fixed = false;
+      for (let j = 0; j < pairs.length && !fixed; j++) {
+        if (j === i) continue;
+        for (let slot = 0; slot < 2 && !fixed; slot++) {
+          const cand = pairs[j][slot];
+          if (cand.player === 'SYSTEM') continue;
+          if (cand.player === a.player) continue; // swapping would just flip the conflict
+          // Check that swapping doesn't create a NEW conflict in pair j
+          const other = pairs[j][1 - slot];
+          if (other.player !== 'SYSTEM' && other.player === cand.player) continue; // would conflict in j after swap
+          if (teamMode && other.player !== 'SYSTEM' && cand.player !== 'SYSTEM' &&
+              (teamOf[other.player]||'') && (teamOf[other.player]||'') === (teamOf[a.player]||'')) continue;
+
+          // Do the swap
+          pairs[i][1] = cand;
+          pairs[j][slot] = b;
+          changed = true;
+          fixed = true;
+        }
       }
     }
   }
 
-  // Build pairs from slots
-  const pairs = [];
-  for (let i = 0; i < target; i += 2) {
-    pairs.push([slots[i], slots[i + 1]]);
-  }
   return pairs;
 }
 

@@ -53,20 +53,31 @@
       inset: 0;
       z-index: 1000;
       overflow: hidden;
+      background-size: cover;
+      background-position: center;
+    }
+    #vsModal::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      backdrop-filter: blur(18px) brightness(0.45);
+      -webkit-backdrop-filter: blur(18px) brightness(0.45);
+      z-index: 0;
     }
     #vsModal.open { display: flex; align-items: center; justify-content: center; }
     .vs-bg {
       position: absolute;
       inset: 0;
       display: flex;
+      z-index: 1;
     }
     .vs-bg-left {
       flex: 1;
-      background: linear-gradient(135deg, #5a0000 0%, #8b0000 50%, #cc1111 100%);
+      background: linear-gradient(135deg, rgba(90,0,0,0.82) 0%, rgba(139,0,0,0.82) 50%, rgba(204,17,17,0.82) 100%);
     }
     .vs-bg-right {
       flex: 1;
-      background: linear-gradient(225deg, #00004a 0%, #00008b 50%, #1155cc 100%);
+      background: linear-gradient(225deg, rgba(0,0,74,0.82) 0%, rgba(0,0,139,0.82) 50%, rgba(17,85,204,0.82) 100%);
     }
     .vs-bg-center {
       position: absolute;
@@ -884,20 +895,22 @@ function setWinner(key, val) {
 function computeRounds(r1) {
   const rounds = [r1];
   let prev = r1;
+  let ri = 0;
   while (prev.length > 1) {
     const next = [];
     for (let i = 0; i < prev.length; i += 2) {
-      const a = getWinnerOf(i, prev);
-      const b = getWinnerOf(i + 1, prev);
+      const a = getWinnerOf(ri, i, prev);
+      const b = getWinnerOf(ri, i + 1, prev);
       next.push([a, b]);
     }
     rounds.push(next);
     prev = next;
+    ri++;
   }
   return rounds;
 }
 
-function getWinnerOf(matchIdx, pairs) {
+function getWinnerOf(ri, matchIdx, pairs) {
   if (matchIdx >= pairs.length) return null;
   const [a, b] = pairs[matchIdx];
   if (!a && !b) return null;
@@ -905,8 +918,7 @@ function getWinnerOf(matchIdx, pairs) {
   if (!b) return a && a.character.toUpperCase() !== 'BYE' ? a : null;
   if (a.character.toUpperCase() === 'BYE') return b;
   if (b.character.toUpperCase() === 'BYE') return a;
-  // Find the round index for this match
-  const key = `r0_m${matchIdx}`;
+  const key = `r${ri}_m${matchIdx}`;
   const picked = roundWinners[key];
   const la = entryLabel(a), lb = entryLabel(b);
   if (picked === la) return a;
@@ -1019,6 +1031,12 @@ function openVsModal(a, b, key) {
   const avatarB = getPlayerAvatar(b.player);
 
   const modal = document.getElementById('vsModal');
+  // Use logged-in user's profile pic as blurred background
+  const myAvatar = allUserAvatars[myUsername] || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(myUsername)}`;
+  modal.style.backgroundImage = `url('${myAvatar}')`;
+  modal.style.backgroundSize = 'cover';
+  modal.style.backgroundPosition = 'center';
+
   document.getElementById('vsP1Name').textContent = a.player;
   document.getElementById('vsP1Char').textContent = a.character;
   document.getElementById('vsP1Avatar').src = avatarA;

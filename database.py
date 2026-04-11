@@ -47,9 +47,12 @@ class Bracket(Base):
     mode         = Column(String, default="regular")
     players      = Column(JSON, default=list)
     entries      = Column(JSON, default=list)
-    bracket_data = Column(JSON, default=list)
-    winner       = Column(String, nullable=True)
-    created_at   = Column(DateTime, default=datetime.utcnow)
+    bracket_data  = Column(JSON, default=list)
+    round_winners = Column(JSON, default=dict)   # {"r0_m0": "player — char", ...}
+    bracket_style = Column(String, default="strongVsStrong")
+    is_live       = Column(Boolean, default=False)
+    winner        = Column(String, nullable=True)
+    created_at    = Column(DateTime, default=datetime.utcnow)
 
     owner   = relationship("User", back_populates="brackets")
     invites = relationship("TournamentInvite", back_populates="bracket", cascade="all, delete-orphan")

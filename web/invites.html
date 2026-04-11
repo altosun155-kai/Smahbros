@@ -138,7 +138,8 @@
       if (!data || data.length === 0) { empty.style.display = 'block'; return; }
 
       const pending = data.filter(i => i.status === 'pending');
-      const past = data.filter(i => i.status !== 'pending');
+      const accepted = data.filter(i => i.status === 'accepted');
+      const declined = data.filter(i => i.status === 'declined');
 
       let html = '';
       if (pending.length) {
@@ -146,32 +147,42 @@
         html += pending.map(inv => `
           <div class="invite-row">
             <div class="invite-info">
-              <div class="invite-bracket">${inv.bracket_name || 'Bracket'}</div>
+              <div class="invite-bracket">${inv.bracket_name || 'Tournament'}</div>
               <div class="invite-meta">From <strong>${inv.inviter}</strong> · ${inv.created_at ? inv.created_at.slice(0,10) : ''}</div>
             </div>
             <div class="invite-actions">
-              <button class="btn btn-primary btn-sm" onclick="respondInvite(${inv.id},'accepted')">Accept</button>
-              <button class="btn btn-danger btn-sm" onclick="respondInvite(${inv.id},'declined')">Decline</button>
+              <button class="btn btn-primary btn-sm" onclick="respondInvite(${inv.id}, 'accepted', ${inv.bracket_id})">Accept & Watch</button>
+              <button class="btn btn-danger btn-sm" onclick="respondInvite(${inv.id}, 'declined', null)">Decline</button>
             </div>
           </div>
         `).join('');
       }
-      if (past.length) {
-        html += `<h2 style="font-size:0.85rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 10px;">Past</h2>`;
-        html += past.map(inv => {
-          const badge = inv.status === 'accepted'
-            ? '<span class="badge badge-accepted">Accepted</span>'
-            : '<span class="badge badge-declined">Declined</span>';
-          return `
-            <div class="invite-row">
-              <div class="invite-info">
-                <div class="invite-bracket">${inv.bracket_name || 'Bracket'}</div>
-                <div class="invite-meta">From <strong>${inv.inviter}</strong> · ${inv.created_at ? inv.created_at.slice(0,10) : ''}</div>
-              </div>
-              <div>${badge}</div>
+      if (accepted.length) {
+        html += `<h2 style="font-size:0.85rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 10px;">Accepted</h2>`;
+        html += accepted.map(inv => `
+          <div class="invite-row">
+            <div class="invite-info">
+              <div class="invite-bracket">${inv.bracket_name || 'Tournament'}</div>
+              <div class="invite-meta">From <strong>${inv.inviter}</strong> · ${inv.created_at ? inv.created_at.slice(0,10) : ''}</div>
             </div>
-          `;
-        }).join('');
+            <div class="invite-actions">
+              <span class="badge badge-accepted">Accepted</span>
+              ${inv.bracket_id ? `<a href="tournament.html?id=${inv.bracket_id}" class="btn btn-primary btn-sm">🔴 Watch Live</a>` : ''}
+            </div>
+          </div>
+        `).join('');
+      }
+      if (declined.length) {
+        html += `<h2 style="font-size:0.85rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 10px;">Declined</h2>`;
+        html += declined.map(inv => `
+          <div class="invite-row">
+            <div class="invite-info">
+              <div class="invite-bracket">${inv.bracket_name || 'Tournament'}</div>
+              <div class="invite-meta">From <strong>${inv.inviter}</strong> · ${inv.created_at ? inv.created_at.slice(0,10) : ''}</div>
+            </div>
+            <div><span class="badge badge-declined">Declined</span></div>
+          </div>
+        `).join('');
       }
 
       content.style.display = 'block';
@@ -182,11 +193,15 @@
     }
   }
 
-  async function respondInvite(id, status) {
+  async function respondInvite(id, status, bracketId) {
     try {
-      await apiPatch(`/invites/${id}`, {status});
-      showToast(`Invite ${status}!`, 'success');
-      loadReceived();
+      await apiPatch(`/invites/${id}`, { status });
+      if (status === 'accepted' && bracketId) {
+        window.location.href = `tournament.html?id=${bracketId}`;
+      } else {
+        showToast('Invite declined.', 'info');
+        loadReceived();
+      }
     } catch (err) {
       showToast('Error: ' + err.message, 'error');
     }

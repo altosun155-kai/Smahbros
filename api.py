@@ -84,6 +84,33 @@ class BracketCreate(BaseModel):
     players: list = []
     entries: list = []
     bracket_data: list = []
+    bracket_style: str = "strongVsStrong"
+    is_live: bool = False
+    invite_usernames: list = []   # usernames to invite when going live
+
+
+def bracket_to_dict(b: Bracket, include_invites: bool = False):
+    d = {
+        "id": b.id,
+        "name": b.name,
+        "mode": b.mode,
+        "players": b.players,
+        "entries": b.entries,
+        "bracket_data": b.bracket_data,
+        "round_winners": b.round_winners or {},
+        "bracket_style": b.bracket_style or "strongVsStrong",
+        "is_live": b.is_live,
+        "winner": b.winner,
+        "host": b.owner.username,
+        "host_avatar": b.owner.avatar_url,
+        "created_at": b.created_at.isoformat(),
+    }
+    if include_invites:
+        d["invites"] = [
+            {"id": i.id, "invitee": i.invitee.username, "status": i.status}
+            for i in b.invites
+        ]
+    return d
 
 
 @app.get("/brackets")
@@ -94,10 +121,7 @@ def list_brackets(db: Session = Depends(get_db), current_user: User = Depends(ge
         .order_by(Bracket.created_at.desc())
         .all()
     )
-    return [
-        {"id": b.id, "name": b.name, "mode": b.mode, "winner": b.winner, "created_at": b.created_at.isoformat()}
-        for b in brackets
-    ]
+    return [{"id": b.id, "name": b.name, "mode": b.mode, "is_live": b.is_live, "winner": b.winner, "created_at": b.created_at.isoformat()} for b in brackets]
 
 
 @app.post("/brackets")
@@ -109,11 +133,86 @@ def create_bracket(req: BracketCreate, db: Session = Depends(get_db), current_us
         players=req.players,
         entries=req.entries,
         bracket_data=req.bracket_data,
+        round_winners={},
+        bracket_style=req.bracket_style,
+        is_live=req.is_live,
     )
     db.add(bracket)
     db.commit()
     db.refresh(bracket)
+
+    # Send invites if going live
+    for username in req.invite_usernames:
+        invitee = db.query(User).filter(User.username == username).first()
+        if invitee and invitee.id != current_user.id:
+            invite = TournamentInvite(bracket_id=bracket.id, inviter_id=current_user.id, invitee_id=invitee.id)
+            db.add(invite)
+    db.commit()
+
     return {"id": bracket.id, "name": bracket.name}
+
+
+@app.get("/brackets/live")
+def list_live_brackets(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Brackets the current user is invited to and accepted, that are live."""
+    invites = (
+        db.query(TournamentInvite)
+        .filter(TournamentInvite.invitee_id == current_user.id, TournamentInvite.status == "accepted")
+        .all()
+    )
+    result = []
+    for inv in invites:
+        b = inv.bracket
+        if b and b.is_live:
+            result.append({"id": b.id, "name": b.name, "host": b.owner.username, "created_at": b.created_at.isoformat()})
+    return result
+
+
+@app.get("/brackets/{bracket_id}")
+def get_bracket(bracket_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Get full bracket state. Host or accepted invitee can view."""
+    b = db.query(Bracket).filter(Bracket.id == bracket_id).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="Bracket not found")
+    # Check access: owner, or accepted invite
+    is_owner = b.user_id == current_user.id
+    is_invited = db.query(TournamentInvite).filter(
+        TournamentInvite.bracket_id == bracket_id,
+        TournamentInvite.invitee_id == current_user.id,
+        TournamentInvite.status == "accepted"
+    ).first()
+    if not is_owner and not is_invited:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    return bracket_to_dict(b, include_invites=is_owner)
+
+
+class WinnerUpdate(BaseModel):
+    key: str    # e.g. "r0_m3"
+    winner: str # entry label
+
+
+@app.patch("/brackets/{bracket_id}/winner")
+def set_bracket_winner(bracket_id: int, req: WinnerUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Host records a match result. Updates round_winners in DB."""
+    b = db.query(Bracket).filter(Bracket.id == bracket_id, Bracket.user_id == current_user.id).first()
+    if not b:
+        raise HTTPException(status_code=403, detail="Only the host can record results")
+    rw = dict(b.round_winners or {})
+    rw[req.key] = req.winner
+    b.round_winners = rw
+    db.commit()
+    return {"ok": True}
+
+
+@app.patch("/brackets/{bracket_id}/end")
+def end_tournament(bracket_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Host ends the tournament."""
+    b = db.query(Bracket).filter(Bracket.id == bracket_id, Bracket.user_id == current_user.id).first()
+    if not b:
+        raise HTTPException(status_code=403, detail="Only the host can end")
+    b.is_live = False
+    db.commit()
+    return {"ok": True}
 
 
 @app.delete("/brackets/{bracket_id}")

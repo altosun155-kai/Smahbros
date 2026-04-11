@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from datetime import datetime
 import os
 
-from database import engine, Base, User, Bracket, RoundRobinResult, CharacterRanking, TournamentInvite, FavoriteCharacters, CharacterStats, Friendship
+from database import engine, Base, User, Bracket, RoundRobinResult, CharacterRanking, TournamentInvite, FavoriteCharacters, CharacterStats, Friendship, MatchResult, ProfileComment
 from auth import get_db, get_current_user, hash_password, verify_password, make_token
 from sqlalchemy import or_, and_, text
 
@@ -607,6 +607,189 @@ def record_stat(req: StatRecord, db: Session = Depends(get_db), current_user: Us
         row.points = max(0, row.points - 1)
     db.commit()
     return {"character": row.character, "points": row.points}
+
+
+# ── Match results (H2H + activity feed) ──────────────────────────────────────
+
+class MatchRecord(BaseModel):
+    winner_username: str
+    winner_char: str
+    loser_username: str
+    loser_char: str
+    bracket_id: int | None = None
+
+
+def _update_char_stat(db: Session, user_id: int, character: str, result: str):
+    row = db.query(CharacterStats).filter_by(user_id=user_id, character=character).first()
+    if row is None:
+        row = CharacterStats(user_id=user_id, character=character, points=0)
+        db.add(row)
+    if result == "win":
+        row.points += 1
+    else:
+        row.points = max(0, row.points - 1)
+
+
+@app.post("/matches/record")
+def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Record a completed match: updates char stats + logs match history."""
+    winner = db.query(User).filter(User.username == req.winner_username).first()
+    loser  = db.query(User).filter(User.username == req.loser_username).first()
+    if not winner or not loser:
+        raise HTTPException(status_code=400, detail="Unknown username")
+    _update_char_stat(db, winner.id, req.winner_char, "win")
+    _update_char_stat(db, loser.id,  req.loser_char,  "loss")
+    mr = MatchResult(
+        winner_id=winner.id, winner_char=req.winner_char,
+        loser_id=loser.id,   loser_char=req.loser_char,
+        bracket_id=req.bracket_id,
+    )
+    db.add(mr)
+    db.commit()
+    return {"ok": True}
+
+
+@app.get("/users/{username}/h2h/{other}")
+def h2h(username: str, other: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    u1 = db.query(User).filter(User.username == username).first()
+    u2 = db.query(User).filter(User.username == other).first()
+    if not u1 or not u2:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Matches where u1 beat u2
+    wins_as_winner = db.query(MatchResult).filter(
+        MatchResult.winner_id == u1.id, MatchResult.loser_id == u2.id
+    ).all()
+    # Matches where u2 beat u1
+    wins_as_loser = db.query(MatchResult).filter(
+        MatchResult.winner_id == u2.id, MatchResult.loser_id == u1.id
+    ).all()
+
+    # Per-character breakdown from u1's perspective
+    chars = {}
+    for r in wins_as_winner:
+        c = r.winner_char
+        chars.setdefault(c, {"wins": 0, "losses": 0})
+        chars[c]["wins"] += 1
+    for r in wins_as_loser:
+        c = r.loser_char
+        chars.setdefault(c, {"wins": 0, "losses": 0})
+        chars[c]["losses"] += 1
+
+    u1_wins = len(wins_as_winner)
+    u2_wins = len(wins_as_loser)
+    total   = u1_wins + u2_wins
+    leader  = username if u1_wins > u2_wins else (other if u2_wins > u1_wins else None)
+    return {
+        "user1": username, "user1_wins": u1_wins,
+        "user2": other,    "user2_wins": u2_wins,
+        "total": total, "leader": leader,
+        "chars": chars,   # {charName: {wins, losses}}
+    }
+
+
+@app.get("/users/{username}/activity")
+def activity(username: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    results = db.query(MatchResult).filter(
+        or_(MatchResult.winner_id == user.id, MatchResult.loser_id == user.id)
+    ).order_by(MatchResult.created_at.desc()).limit(20).all()
+    return [{
+        "id": r.id,
+        "winner": r.winner.username,
+        "winner_char": r.winner_char,
+        "loser": r.loser.username,
+        "loser_char": r.loser_char,
+        "created_at": r.created_at.isoformat(),
+    } for r in results]
+
+
+# ── Profile comments ──────────────────────────────────────────────────────────
+
+class CommentCreate(BaseModel):
+    content: str
+
+
+@app.get("/users/{username}/comments")
+def get_comments(username: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    comments = db.query(ProfileComment).filter(ProfileComment.target_id == user.id)\
+        .order_by(ProfileComment.created_at.desc()).limit(50).all()
+    return [{"id": c.id, "author": c.author.username, "author_avatar": c.author.avatar_url,
+             "content": c.content, "created_at": c.created_at.isoformat()} for c in comments]
+
+
+@app.post("/users/{username}/comments")
+def post_comment(username: str, req: CommentCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    target = db.query(User).filter(User.username == username).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not req.content.strip():
+        raise HTTPException(status_code=400, detail="Comment cannot be empty")
+    if len(req.content) > 200:
+        raise HTTPException(status_code=400, detail="Max 200 characters")
+    comment = ProfileComment(author_id=current_user.id, target_id=target.id, content=req.content.strip())
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+    return {"id": comment.id, "author": current_user.username,
+            "author_avatar": current_user.avatar_url,
+            "content": comment.content, "created_at": comment.created_at.isoformat()}
+
+
+@app.delete("/comments/{comment_id}")
+def delete_comment(comment_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    comment = db.query(ProfileComment).filter(ProfileComment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Not found")
+    if comment.author_id != current_user.id and comment.target_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not allowed")
+    db.delete(comment)
+    db.commit()
+    return {"ok": True}
+
+
+# ── Badges ────────────────────────────────────────────────────────────────────
+
+@app.get("/users/{username}/badges")
+def get_badges(username: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    badges = []
+    stats = db.query(CharacterStats).filter(CharacterStats.user_id == user.id, CharacterStats.points > 0).all()
+    if stats:
+        best = max(stats, key=lambda s: s.points)
+        if best.points >= 10:
+            badges.append({"id": "specialist", "label": f"{best.character} Specialist",
+                           "desc": f"{best.points} pts with {best.character}", "color": "#f5a623"})
+        chars_with_pts = len([s for s in stats if s.points > 0])
+        if chars_with_pts >= 5:
+            badges.append({"id": "allrounder", "label": "All-Rounder",
+                           "desc": f"Points with {chars_with_pts} characters", "color": "#27ae60"})
+        if len([s for s in stats if s.points >= 10]) >= 3:
+            badges.append({"id": "consistent", "label": "Consistent",
+                           "desc": "3+ characters at 10+ pts each", "color": "#3498db"})
+    champion = db.query(Bracket).filter(Bracket.winner == username).first()
+    if champion:
+        badges.append({"id": "champion", "label": "Bracket Champion",
+                       "desc": f'Won "{champion.name}"', "color": "#e74c3c"})
+    top_rows = db.query(CharacterStats).filter(CharacterStats.points > 0)\
+        .order_by(CharacterStats.points.desc()).limit(3).all()
+    if any(r.owner.username == username for r in top_rows):
+        badges.append({"id": "top3", "label": "Top Performer",
+                       "desc": "Top 3 on the character leaderboard", "color": "#9b59b6"})
+    match_count = db.query(MatchResult).filter(
+        or_(MatchResult.winner_id == user.id, MatchResult.loser_id == user.id)
+    ).count()
+    if match_count >= 20:
+        badges.append({"id": "veteran", "label": "Veteran",
+                       "desc": f"{match_count} matches played", "color": "#1abc9c"})
+    return badges
 
 
 # ── User profile ──────────────────────────────────────────────────────────────

@@ -85,7 +85,9 @@
           <tr>
             <th>#</th>
             <th>Character</th>
-            <th>Points</th>
+            <th>Your Pts</th>
+            <th>Global Avg</th>
+            <th>vs Avg</th>
           </tr>
         </thead>
         <tbody id="statsBody"></tbody>
@@ -144,6 +146,29 @@
     </table>
   </div>
 
+  <!-- Counter-Pick Advisor -->
+  <hr class="section-divider" style="margin-top:28px;" />
+  <h2 style="font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:4px;">Counter-Pick Advisor</h2>
+  <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:14px;">Pick your opponent's character to see your strongest options and the globally dominant picks.</p>
+  <div style="max-width:320px;">
+    <select id="cpOpponentChar" style="width:100%;padding:8px 12px;background:var(--card-bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;" onchange="renderCounterPick()">
+      <option value="">Select opponent's character…</option>
+    </select>
+  </div>
+  <div id="cpResult" style="display:none;margin-top:16px;display:none;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:600px;">
+      <div class="card" style="padding:16px;">
+        <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:12px;">Your Strongest Picks</div>
+        <div id="cpYours"></div>
+      </div>
+      <div class="card" style="padding:16px;">
+        <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:12px;">Globally Dominant</div>
+        <div id="cpGlobal"></div>
+      </div>
+    </div>
+    <p style="font-size:0.78rem;color:var(--text-muted);margin-top:10px;">Characters with <span style="color:var(--accent-gold);font-weight:700;">★</span> appear in both lists.</p>
+  </div>
+
   <hr class="section-divider" style="margin-top:28px;" />
   <h2 style="font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:12px;">View another user's stats</h2>
   <div class="view-user-row">
@@ -155,7 +180,7 @@
     <div style="overflow-x:auto;">
       <table class="data-table" id="viewedStatsTable">
         <thead>
-          <tr><th>#</th><th>Character</th><th>Points</th></tr>
+          <tr><th>#</th><th>Character</th><th>Their Pts</th><th>Global Avg</th><th>vs Avg</th></tr>
         </thead>
         <tbody id="viewedStatsBody"></tbody>
       </table>
@@ -168,12 +193,67 @@
 <script>
   const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];
 
-  // Populate character select
-  const sel = document.getElementById('charSelect');
-  ROSTER.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c; opt.textContent = c;
-    sel.appendChild(opt);
+  let myStats = [];          // [{character, points}] for current user
+  let globalCharMap = {};    // character -> total points across all players
+  let globalCharCount = {};  // character -> number of players with points > 0
+  let globalCharBest = {};   // character -> highest single-player points
+
+  // ── Counter-Pick Advisor ──────────────────────────
+  function cpCharRow(char, detail, star) {
+    const img = (typeof charImgUrl === 'function' && charImgUrl(char))
+      ? `<img style="width:28px;height:28px;object-fit:contain;border-radius:3px;flex-shrink:0;" src="${charImgUrl(char)}" alt="${char}" onerror="this.style.display='none'" />`
+      : '';
+    return `
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);">
+        ${img}
+        <span style="font-size:0.88rem;font-weight:600;flex:1;">${char}</span>
+        ${star ? `<span style="color:var(--accent-gold);font-weight:700;">★</span>` : ''}
+        <span style="font-size:0.8rem;color:var(--text-muted);">${detail}</span>
+      </div>`;
+  }
+
+  function renderCounterPick() {
+    const opponent = document.getElementById('cpOpponentChar').value;
+    const result = document.getElementById('cpResult');
+    if (!opponent) { result.style.display = 'none'; return; }
+
+    // Your top 5 (excluding opponent's character)
+    const yourTop = [...myStats]
+      .filter(s => s.points > 0 && s.character !== opponent)
+      .sort((a, b) => b.points - a.points)
+      .slice(0, 5);
+
+    // Global top 5 (excluding opponent's character, aggregate by character)
+    const globalTop = Object.entries(globalCharMap)
+      .filter(([c]) => c !== opponent)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([c, pts]) => ({ character: c, points: pts }));
+
+    const globalChars = new Set(globalTop.map(g => g.character));
+    const yourChars = new Set(yourTop.map(y => y.character));
+
+    const yoursHtml = yourTop.length
+      ? yourTop.map(s => cpCharRow(s.character, `${s.points} pts`, globalChars.has(s.character))).join('')
+      : '<p style="font-size:0.82rem;color:var(--text-muted);">No personal stats yet — play some matches first.</p>';
+
+    const globalHtml = globalTop.length
+      ? globalTop.map(s => cpCharRow(s.character, `${s.points} pts total`, yourChars.has(s.character))).join('')
+      : '<p style="font-size:0.82rem;color:var(--text-muted);">No global data yet.</p>';
+
+    document.getElementById('cpYours').innerHTML = yoursHtml;
+    document.getElementById('cpGlobal').innerHTML = globalHtml;
+    result.style.display = 'block';
+  }
+
+  // Populate character selects
+  ['charSelect', 'cpOpponentChar'].forEach(id => {
+    const sel = document.getElementById(id);
+    ROSTER.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c; opt.textContent = c;
+      sel.appendChild(opt);
+    });
   });
 
   async function recordResult(result) {
@@ -209,11 +289,26 @@
       const img = (typeof charImgUrl === 'function' && charImgUrl(s.character))
         ? `<img class="char-img" src="${charImgUrl(s.character)}" alt="${s.character}" onerror="this.style.display='none'" />`
         : '';
+      // Global comparison (only meaningful for the main stats table)
+      const totalPts = globalCharMap[s.character] || 0;
+      const count = globalCharCount[s.character] || 0;
+      const best = globalCharBest[s.character] || 0;
+      const avg = count > 0 ? (totalPts / count).toFixed(1) : null;
+      const diff = avg !== null ? (s.points - parseFloat(avg)) : null;
+      const diffStr = diff === null ? '—'
+        : diff > 0 ? `<span style="color:#4caf50;font-weight:700;">+${diff.toFixed(1)}</span>`
+        : diff < 0 ? `<span style="color:#e74c3c;font-weight:700;">${diff.toFixed(1)}</span>`
+        : `<span style="color:var(--text-muted);">0</span>`;
+      const avgStr = avg !== null
+        ? `<span title="Best: ${best}">${avg}</span>`
+        : '<span style="color:var(--text-muted);">—</span>';
       return `
       <tr>
         <td class="rank-cell">${i+1}</td>
         <td><div style="display:flex;align-items:center;gap:8px;">${img}<span style="font-weight:500;">${s.character}</span></div></td>
         <td class="points-cell">${s.points}</td>
+        <td style="color:var(--text-muted);font-size:0.88rem;">${avgStr}</td>
+        <td>${diffStr}</td>
       </tr>`;
     }).join('');
   }
@@ -224,9 +319,12 @@
 
     try {
       const data = await apiGet('/characters/stats');
+      myStats = data || [];
       document.getElementById('statsLoading').style.display = 'none';
       document.getElementById('statsContent').style.display = 'block';
       renderStatsTable(data, 'statsBody', 'statsTable', 'statsEmpty');
+      // Re-render counter-pick if opponent already selected
+      if (document.getElementById('cpOpponentChar').value) renderCounterPick();
     } catch (err) {
       document.getElementById('statsLoading').style.display = 'none';
       document.getElementById('statsContent').style.display = 'block';
@@ -272,10 +370,10 @@
     const loseChar = winner === 1 ? c2 : c1;
 
     try {
-      await Promise.all([
-        apiPost('/characters/stats/record-for', { username: winUser, character: winChar, result: 'win' }),
-        apiPost('/characters/stats/record-for', { username: loseUser, character: loseChar, result: 'loss' }),
-      ]);
+      await apiPost('/matches/record', {
+        winner_username: winUser, winner_char: winChar,
+        loser_username: loseUser, loser_char: loseChar,
+      });
       msg.style.color = '#4caf50';
       msg.textContent = `Recorded: ${winUser} (${winChar}) beat ${loseUser} (${loseChar})`;
       loadStats();
@@ -375,6 +473,22 @@
     populateCharSelects();
     buildBulkTable();
     loadStats();
+
+    // Load global character stats for counter-pick advisor + vs-global columns
+    try {
+      const lb = await apiGet('/characters/stats/leaderboard');
+      if (lb) {
+        lb.forEach(row => {
+          globalCharMap[row.character] = (globalCharMap[row.character] || 0) + row.points;
+          globalCharCount[row.character] = (globalCharCount[row.character] || 0) + 1;
+          if ((row.points || 0) > (globalCharBest[row.character] || 0)) {
+            globalCharBest[row.character] = row.points;
+          }
+        });
+        // Re-render stats table now that global data is available
+        renderStatsTable(myStats, 'statsBody', 'statsTable', 'statsEmpty');
+      }
+    } catch (_) {}
   })();
 </script>
 </body>

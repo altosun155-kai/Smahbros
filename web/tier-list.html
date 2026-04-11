@@ -8,18 +8,35 @@
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/auth.js"></script>
   <style>
-    .tier-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 10px; margin-bottom: 28px; }
-    .tier-row { display: flex; align-items: center; gap: 10px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
-    .char-name { font-size: 0.85rem; font-weight: 500; color: var(--text); min-width: 130px; flex-shrink: 0; }
-    .tier-slider { flex: 1; accent-color: var(--accent-blue); }
-    .tier-badge { font-size: 0.82rem; font-weight: 800; width: 28px; text-align: center; flex-shrink: 0; }
+    .tier-board { max-width: 960px; }
+    .tier-row { display: flex; align-items: stretch; margin-bottom: 4px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); min-height: 72px; }
+    .tier-label { width: 58px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; font-weight: 900; color: #111; user-select: none; }
+    .tier-zone { flex: 1; display: flex; flex-wrap: wrap; gap: 3px; padding: 8px; background: var(--card-bg2); min-height: 72px; transition: background 0.12s; }
+    .tier-zone.drag-over { background: rgba(255,255,255,0.09); outline: 2px dashed rgba(255,255,255,0.25); outline-offset: -2px; }
+
+    .char-tile { width: 54px; height: 54px; border-radius: 4px; cursor: grab; overflow: hidden; border: 2px solid transparent; transition: border-color 0.1s, transform 0.1s, opacity 0.1s; flex-shrink: 0; background: var(--card-bg); }
+    .char-tile:hover { border-color: rgba(255,255,255,0.4); transform: scale(1.1); z-index: 2; }
+    .char-tile.dragging { opacity: 0.35; cursor: grabbing; }
+    .char-tile img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; }
+    .char-tile .char-fallback { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 0.55rem; font-weight: 700; color: var(--text); text-align: center; padding: 2px; line-height: 1.2; }
+
+    .unranked-section { margin-top: 20px; }
+    .unranked-label { font-size: 0.73rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+    .unranked-zone { display: flex; flex-wrap: wrap; gap: 3px; padding: 10px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; min-height: 72px; transition: background 0.12s; }
+    .unranked-zone.drag-over { background: rgba(255,255,255,0.04); outline: 2px dashed rgba(255,255,255,0.15); outline-offset: -2px; }
+
+    .top-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+    .last-saved { font-size: 0.82rem; color: var(--text-muted); }
+
+    /* Viewed tier list */
+    .vt-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+    .vt-label { width: 40px; height: 40px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1rem; color: #111; flex-shrink: 0; }
+    .vt-tile { width: 44px; height: 44px; border-radius: 4px; overflow: hidden; background: var(--card-bg2); border: 1px solid var(--border); flex-shrink: 0; }
+    .vt-tile img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .vt-tile .char-fallback { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 0.5rem; font-weight: 700; color: var(--text); text-align: center; padding: 2px; line-height: 1.2; }
+
     .view-user-row { display: flex; gap: 10px; max-width: 400px; margin-bottom: 20px; }
     .view-user-row input { flex: 1; }
-    .viewed-tier-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-    .tier-label-badge { border-radius: 6px; padding: 4px 10px; font-weight: 900; font-size: 0.95rem; color: #111; }
-    .char-chip { background: var(--card-bg2); color: var(--text); border-radius: 5px; padding: 2px 7px; font-size: 0.8rem; }
-    .top-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; align-items: center; }
-    .last-saved { font-size: 0.82rem; color: var(--text-muted); }
   </style>
 </head>
 <body>
@@ -52,7 +69,7 @@
 <main class="page-container">
   <div class="page-header">
     <h1>🎖️ My Tier List</h1>
-    <p>Rate all 89 Smash Ultimate fighters. Drag sliders from Unranked to S tier.</p>
+    <p>Drag character icons into tiers. Hover a character to see their name.</p>
   </div>
 
   <div id="loadingState" class="loading-center">
@@ -66,107 +83,190 @@
       <span class="last-saved" id="lastSaved"></span>
     </div>
 
-    <div class="tier-grid" id="tierGrid"></div>
+    <div class="tier-board" id="tierBoard"></div>
 
-    <hr class="section-divider" />
-    <h2 style="font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:14px;">View someone else's tier list</h2>
+    <hr class="section-divider" style="margin-top:32px;" />
+    <h2 style="font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:14px;">View someone else's tier list</h2>
     <div class="view-user-row">
       <input type="text" id="viewUserInput" placeholder="Enter username…" />
       <button class="btn btn-outline" onclick="viewUserTierList()">View</button>
     </div>
     <div id="viewedTierContainer" style="display:none;">
-      <h3 id="viewedTierTitle" style="font-size:1rem;font-weight:700;color:var(--text);margin-bottom:12px;"></h3>
+      <h3 id="viewedTierTitle" style="font-size:0.95rem;font-weight:700;color:var(--text);margin-bottom:12px;"></h3>
       <div id="viewedTierList"></div>
     </div>
   </div>
 </main>
 
 <script src="js/api.js"></script>
+<script src="js/chars.js"></script>
 <script>
   const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];
 
-  const TIER_LABELS = ['Unranked','F','D','C','B','A','S'];
-  const TIER_COLORS = {S:'#ff7f7f',A:'#ffbf7f',B:'#ffff7f',C:'#7fff7f',D:'#7fbfff',F:'#bf7fff',Unranked:'#8892a4'};
+  const TIERS = ['S','A','B','C','D','F'];
+  const TIER_COLORS = {S:'#ff7f7f',A:'#ffbf7f',B:'#ffff7f',C:'#7fff7f',D:'#7fbfff',F:'#bf7fff'};
 
-  let sliderValues = {}; // char -> 0-6
+  let tierMap = {}; // char -> 'S'|'A'|'B'|'C'|'D'|'F'|'unranked'
+  let draggedChar = null;
 
-  function getTierLabel(val) { return TIER_LABELS[val] || 'Unranked'; }
+  // ── Tile factory ─────────────────────────────────
+  function makeTile(char, size = 54) {
+    const tile = document.createElement('div');
+    tile.className = 'char-tile';
+    tile.draggable = true;
+    tile.dataset.char = char;
+    tile.title = char;
+    tile.style.width = tile.style.height = size + 'px';
 
-  function getTierColor(label) { return TIER_COLORS[label] || '#8892a4'; }
+    const url = typeof charImgUrl === 'function' ? charImgUrl(char) : null;
+    if (url) {
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = char;
+      img.onerror = () => {
+        img.remove();
+        addFallback(tile, char);
+      };
+      tile.appendChild(img);
+    } else {
+      addFallback(tile, char);
+    }
 
-  function buildTierGrid() {
-    const grid = document.getElementById('tierGrid');
-    grid.innerHTML = '';
-    ROSTER.forEach(char => {
-      const val = sliderValues[char] !== undefined ? sliderValues[char] : 0;
-      const label = getTierLabel(val);
-      const color = getTierColor(label);
+    tile.addEventListener('dragstart', e => {
+      draggedChar = char;
+      tile.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    tile.addEventListener('dragend', () => {
+      tile.classList.remove('dragging');
+      draggedChar = null;
+    });
 
-      const row = document.createElement('div');
-      row.className = 'tier-row';
-      row.innerHTML = `
-        <span class="char-name">${char}</span>
-        <input
-          type="range"
-          class="tier-slider"
-          id="slider_${char.replace(/[^a-zA-Z0-9]/g,'_')}"
-          min="0" max="6" step="1"
-          value="${val}"
-        />
-        <span class="tier-badge" id="badge_${char.replace(/[^a-zA-Z0-9]/g,'_')}"
-          style="color:${color};">${label}</span>
-      `;
-      grid.appendChild(row);
+    return tile;
+  }
 
-      const slider = row.querySelector('.tier-slider');
-      slider.addEventListener('input', () => {
-        const v = parseInt(slider.value);
-        sliderValues[char] = v;
-        const lbl = getTierLabel(v);
-        const badge = row.querySelector('.tier-badge');
-        badge.textContent = lbl;
-        badge.style.color = getTierColor(lbl);
-      });
+  function addFallback(tile, char) {
+    const fb = document.createElement('div');
+    fb.className = 'char-fallback';
+    fb.textContent = char.length > 6 ? char.slice(0, 5) + '…' : char;
+    tile.appendChild(fb);
+  }
+
+  // ── Drop zone setup ───────────────────────────────
+  function setupDropZone(zone) {
+    zone.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      zone.classList.add('drag-over');
+    });
+    zone.addEventListener('dragleave', e => {
+      if (!zone.contains(e.relatedTarget)) zone.classList.remove('drag-over');
+    });
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      if (!draggedChar) return;
+      const newTier = zone.dataset.tier;
+      tierMap[draggedChar] = newTier;
+      const tile = document.querySelector(`.char-tile[data-char="${CSS.escape(draggedChar)}"]`);
+      if (tile) zone.appendChild(tile);
     });
   }
 
-  function rankingToSliders(ranking) {
+  // ── Build the board ───────────────────────────────
+  function buildBoard() {
+    const board = document.getElementById('tierBoard');
+    board.innerHTML = '';
+
+    TIERS.forEach(tier => {
+      const row = document.createElement('div');
+      row.className = 'tier-row';
+
+      const label = document.createElement('div');
+      label.className = 'tier-label';
+      label.style.background = TIER_COLORS[tier];
+      label.textContent = tier;
+
+      const zone = document.createElement('div');
+      zone.className = 'tier-zone';
+      zone.id = `zone-${tier}`;
+      zone.dataset.tier = tier;
+      setupDropZone(zone);
+
+      row.appendChild(label);
+      row.appendChild(zone);
+      board.appendChild(row);
+    });
+
+    // Unranked pool
+    const unrankedSection = document.createElement('div');
+    unrankedSection.className = 'unranked-section';
+    const unrankedLabel = document.createElement('div');
+    unrankedLabel.className = 'unranked-label';
+    unrankedLabel.textContent = 'Unranked — drag into a tier above';
+    const unrankedZone = document.createElement('div');
+    unrankedZone.className = 'unranked-zone';
+    unrankedZone.id = 'zone-unranked';
+    unrankedZone.dataset.tier = 'unranked';
+    setupDropZone(unrankedZone);
+    unrankedSection.appendChild(unrankedLabel);
+    unrankedSection.appendChild(unrankedZone);
+    board.appendChild(unrankedSection);
+
+    // Place all characters into their zones
+    ROSTER.forEach(char => {
+      const tier = tierMap[char] || 'unranked';
+      const zone = document.getElementById(`zone-${tier}`) || document.getElementById('zone-unranked');
+      zone.appendChild(makeTile(char));
+    });
+  }
+
+  // ── Serialisation ─────────────────────────────────
+  function rankingToTierMap(ranking) {
     const map = {};
-    const tierIdx = {S:6,A:5,B:4,C:3,D:2,F:1};
+    const tierIdx = {S:'S',A:'A',B:'B',C:'C',D:'D',F:'F'};
     Object.entries(ranking).forEach(([tier, chars]) => {
-      const idx = tierIdx[tier] !== undefined ? tierIdx[tier] : 0;
-      chars.forEach(c => { map[c] = idx; });
+      const t = tierIdx[tier];
+      if (t) chars.forEach(c => { map[c] = t; });
     });
     return map;
   }
 
-  function slidersToRanking() {
+  function tierMapToRanking() {
     const ranking = {S:[],A:[],B:[],C:[],D:[],F:[],unranked:[]};
-    const tierNames = ['unranked','F','D','C','B','A','S'];
     ROSTER.forEach(char => {
-      const val = sliderValues[char] || 0;
-      const tierKey = tierNames[val];
-      if (ranking[tierKey] !== undefined) ranking[tierKey].push(char);
-      else ranking.unranked.push(char);
+      const t = tierMap[char] || 'unranked';
+      (ranking[t] || ranking.unranked).push(char);
     });
     return ranking;
   }
 
+  // ── Save / Reset ──────────────────────────────────
   async function saveTierList() {
-    const ranking = slidersToRanking();
+    // Sync tierMap from current DOM positions before saving
+    TIERS.concat(['unranked']).forEach(tier => {
+      const zone = document.getElementById(`zone-${tier}`);
+      if (!zone) return;
+      zone.querySelectorAll('.char-tile').forEach(tile => {
+        tierMap[tile.dataset.char] = tier;
+      });
+    });
     try {
-      await apiPut('/characters/ranking', {ranking});
+      await apiPut('/characters/ranking', { ranking: tierMapToRanking() });
       showToast('Tier list saved!', 'success');
+      document.getElementById('lastSaved').textContent = 'Last saved: just now';
     } catch (err) {
       showToast('Error saving: ' + err.message, 'error');
     }
   }
 
   function resetTierList() {
-    ROSTER.forEach(c => { sliderValues[c] = 0; });
-    buildTierGrid();
+    if (!confirm('Move all characters back to Unranked?')) return;
+    ROSTER.forEach(c => { tierMap[c] = 'unranked'; });
+    buildBoard();
   }
 
+  // ── View another user ─────────────────────────────
   async function viewUserTierList() {
     const username = document.getElementById('viewUserInput').value.trim();
     if (!username) { showToast('Enter a username.', 'warn'); return; }
@@ -175,22 +275,40 @@
       document.getElementById('viewedTierContainer').style.display = 'block';
       document.getElementById('viewedTierTitle').textContent = `${data.username}'s Tier List`;
       const container = document.getElementById('viewedTierList');
-      const tiers = ['S','A','B','C','D','F'];
-      container.innerHTML = tiers.map(tier => {
+      container.innerHTML = '';
+      TIERS.forEach(tier => {
         const chars = (data.ranking || {})[tier] || [];
-        if (!chars.length) return '';
-        const color = TIER_COLORS[tier];
-        const chips = chars.map(c => `<span class="char-chip">${c}</span>`).join('');
-        return `<div class="viewed-tier-row">
-          <span class="tier-label-badge" style="background:${color};">${tier}</span>
-          ${chips}
-        </div>`;
-      }).join('');
+        if (!chars.length) return;
+        const row = document.createElement('div');
+        row.className = 'vt-row';
+        const lbl = document.createElement('div');
+        lbl.className = 'vt-label';
+        lbl.style.background = TIER_COLORS[tier];
+        lbl.textContent = tier;
+        row.appendChild(lbl);
+        chars.forEach(char => {
+          const tile = document.createElement('div');
+          tile.className = 'vt-tile';
+          tile.title = char;
+          const url = typeof charImgUrl === 'function' ? charImgUrl(char) : null;
+          if (url) {
+            const img = document.createElement('img');
+            img.src = url; img.alt = char;
+            img.onerror = () => { img.remove(); addFallback(tile, char); };
+            tile.appendChild(img);
+          } else {
+            addFallback(tile, char);
+          }
+          row.appendChild(tile);
+        });
+        container.appendChild(row);
+      });
     } catch (err) {
       showToast('Error loading tier list: ' + err.message, 'error');
     }
   }
 
+  // ── Init ──────────────────────────────────────────
   (async function init() {
     try {
       const me = await apiGet('/users/me');
@@ -205,21 +323,17 @@
     try {
       const data = await apiGet('/characters/ranking');
       if (data && data.ranking) {
-        sliderValues = rankingToSliders(data.ranking);
+        tierMap = rankingToTierMap(data.ranking);
         if (data.updated_at) {
           document.getElementById('lastSaved').textContent =
             'Last saved: ' + data.updated_at.slice(0,16).replace('T',' ') + ' UTC';
         }
-      } else {
-        ROSTER.forEach(c => { sliderValues[c] = 0; });
       }
-    } catch (_) {
-      ROSTER.forEach(c => { sliderValues[c] = 0; });
-    }
+    } catch (_) {}
 
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('tierContent').style.display = 'block';
-    buildTierGrid();
+    buildBoard();
   })();
 </script>
 </body>

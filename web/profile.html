@@ -8,17 +8,55 @@
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/auth.js"></script>
   <style>
-    .profile-layout { display: grid; grid-template-columns: 240px 1fr; gap: 28px; align-items: start; }
-    .profile-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; text-align: center; }
-    .profile-avatar { width: 100px; height: 100px; border-radius: 50%; background: var(--card-bg2); margin: 0 auto 14px; object-fit: cover; display: block; }
-    .profile-username { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
-    .profile-id { font-size: 0.8rem; color: var(--text-muted); }
-    .avatar-preview { width: 96px; height: 96px; border-radius: 50%; background: var(--card-bg2); margin: 16px 0; object-fit: cover; border: 2px solid var(--border); }
-    .style-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-    .style-btn { padding: 6px 14px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--card-bg2); color: var(--text-muted); font-size: 0.83rem; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+    .profile-layout { display: grid; grid-template-columns: 220px 1fr; gap: 28px; align-items: start; }
+    .profile-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; text-align: center; position: sticky; top: 72px; }
+    .profile-avatar { width: 90px; height: 90px; border-radius: 50%; background: var(--card-bg2); margin: 0 auto 14px; object-fit: cover; display: block; }
+    .profile-username { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .profile-id { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 14px; }
+
+    /* Badges */
+    .badges-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 14px; }
+    .badge-pill { display: inline-flex; align-items: center; gap: 5px; border-radius: 20px; padding: 4px 10px; font-size: 0.72rem; font-weight: 700; color: #111; cursor: default; }
+    .badge-pill .badge-icon { font-size: 0.85rem; }
+
+    /* Avatar editor */
+    .avatar-preview { width: 80px; height: 80px; border-radius: 50%; background: var(--card-bg2); margin: 12px 0; object-fit: cover; border: 2px solid var(--border); display: block; }
+    .style-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+    .style-btn { padding: 5px 12px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--card-bg2); color: var(--text-muted); font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.15s; }
     .style-btn:hover { border-color: var(--accent-blue); color: var(--text); }
     .style-btn.active { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
-    @media (max-width: 700px) { .profile-layout { grid-template-columns: 1fr; } }
+
+    /* Sections */
+    .prof-section { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 18px; }
+    .prof-section-title { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; }
+
+    /* H2H */
+    .h2h-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin: 10px 0; }
+    .h2h-bar-left  { background: var(--accent-blue); transition: width 0.4s; }
+    .h2h-bar-right { background: var(--accent-gold); transition: width 0.4s; }
+    .h2h-labels { display: flex; justify-content: space-between; font-size: 0.82rem; }
+
+    /* Activity feed */
+    .feed-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.84rem; }
+    .feed-item:last-child { border-bottom: none; }
+    .feed-win  { color: #4caf50; font-weight: 700; font-size: 0.72rem; text-transform: uppercase; flex-shrink: 0; }
+    .feed-loss { color: #e74c3c; font-weight: 700; font-size: 0.72rem; text-transform: uppercase; flex-shrink: 0; }
+    .feed-date { font-size: 0.75rem; color: var(--text-muted); margin-left: auto; flex-shrink: 0; }
+
+    /* GG wall */
+    .comment-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .comment-item:last-child { border-bottom: none; }
+    .comment-av { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--card-bg2); }
+    .comment-body { flex: 1; }
+    .comment-author { font-size: 0.82rem; font-weight: 700; color: var(--text); }
+    .comment-text { font-size: 0.85rem; color: var(--text); margin-top: 2px; word-break: break-word; }
+    .comment-meta { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; }
+    .comment-delete { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; padding: 0 4px; }
+    .comment-delete:hover { color: #e74c3c; }
+    .comment-input-row { display: flex; gap: 8px; margin-top: 14px; }
+    .comment-input-row input { flex: 1; }
+
+    @media (max-width: 700px) { .profile-layout { grid-template-columns: 1fr; } .profile-card { position: static; } }
   </style>
 </head>
 <body>
@@ -51,7 +89,6 @@
 <main class="page-container">
   <div class="page-header">
     <h1>⚙️ Profile</h1>
-    <p>Customize your avatar.</p>
   </div>
 
   <div id="loadingState" class="loading-center">
@@ -61,54 +98,102 @@
   <div id="profileContent" style="display:none;">
     <div class="profile-layout">
 
-      <!-- Left: current profile -->
+      <!-- Left: profile card -->
       <div class="profile-card">
         <img class="profile-avatar" id="currentAvatar" src="" alt="avatar" />
         <div class="profile-username" id="profileUsername"></div>
         <div class="profile-id" id="profileId"></div>
-      </div>
+        <div class="badges-row" id="badgesRow"></div>
 
-      <!-- Right: edit -->
-      <div>
-        <div class="tabs" id="profTabs">
-          <button class="tab-btn active" onclick="switchProfTab('generate')">Generate Avatar</button>
+        <div class="tabs" id="profTabs" style="margin-bottom:14px;">
+          <button class="tab-btn active" onclick="switchProfTab('generate')">Generate</button>
           <button class="tab-btn" onclick="switchProfTab('custom')">Custom URL</button>
         </div>
 
-        <!-- Generate tab -->
         <div class="tab-panel active" id="tab-generate">
-          <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:14px;">Pick a DiceBear style and seed, then preview and save.</p>
-
           <div class="style-grid" id="styleGrid"></div>
-
-          <div class="form-group">
-            <label for="seedInput">Seed (any text)</label>
-            <input type="text" id="seedInput" placeholder="your-username or any text" />
+          <div class="form-group" style="margin-bottom:8px;">
+            <input type="text" id="seedInput" placeholder="Seed text…" style="font-size:0.85rem;" />
           </div>
-
-          <img id="generatePreview" class="avatar-preview" src="" alt="preview" />
-
-          <div style="display:flex;gap:10px;">
-            <button class="btn btn-outline" onclick="previewGenerated()">Preview</button>
-            <button class="btn btn-primary" onclick="saveGeneratedAvatar()">Save Avatar</button>
+          <img id="generatePreview" class="avatar-preview" src="" alt="preview" style="margin:8px auto;" />
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-outline btn-sm" onclick="previewGenerated()">Preview</button>
+            <button class="btn btn-primary btn-sm" onclick="saveGeneratedAvatar()">Save</button>
           </div>
         </div>
 
-        <!-- Custom URL tab -->
         <div class="tab-panel" id="tab-custom">
-          <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:14px;">Paste any image URL to use as your avatar.</p>
-
-          <div class="form-group">
-            <label for="customUrlInput">Avatar URL</label>
-            <input type="text" id="customUrlInput" placeholder="https://example.com/avatar.png" oninput="previewCustom()" />
+          <div class="form-group" style="margin-bottom:8px;">
+            <input type="text" id="customUrlInput" placeholder="https://…" oninput="previewCustom()" style="font-size:0.85rem;" />
           </div>
-
-          <img id="customPreview" class="avatar-preview" src="" alt="preview" style="display:none;" />
-
-          <div style="display:flex;gap:10px;margin-top:14px;">
-            <button class="btn btn-primary" onclick="saveCustomAvatar()">Save Avatar</button>
-          </div>
+          <img id="customPreview" class="avatar-preview" src="" alt="preview" style="display:none;margin:8px auto;" />
+          <button class="btn btn-primary btn-sm" onclick="saveCustomAvatar()">Save</button>
         </div>
+      </div>
+
+      <!-- Right: sections -->
+      <div id="rightCol">
+
+        <!-- Rivalry / H2H -->
+        <div class="prof-section">
+          <div class="prof-section-title">Head-to-Head Rivalry</div>
+          <div style="display:flex;gap:8px;max-width:400px;">
+            <select id="rivalSelect" style="flex:1;padding:7px 10px;background:var(--card-bg2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:0.88rem;">
+              <option value="">Select a rival…</option>
+            </select>
+            <button class="btn btn-outline btn-sm" onclick="loadH2H()">Compare</button>
+          </div>
+          <div id="h2hResult" style="display:none;margin-top:14px;">
+            <div class="h2h-labels">
+              <span id="h2hLeft" style="font-weight:700;color:var(--accent-blue);"></span>
+              <span id="h2hTotal" style="color:var(--text-muted);font-size:0.8rem;"></span>
+              <span id="h2hRight" style="font-weight:700;color:var(--accent-gold);"></span>
+            </div>
+            <div class="h2h-bar">
+              <div class="h2h-bar-left" id="h2hBarLeft"></div>
+              <div class="h2h-bar-right" id="h2hBarRight"></div>
+            </div>
+            <p id="h2hVerdict" style="font-size:0.85rem;color:var(--text-muted);margin-top:4px;margin-bottom:14px;"></p>
+
+            <!-- Per-character breakdown -->
+            <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Your characters vs <span id="h2hRivalName"></span></div>
+            <table style="width:100%;border-collapse:collapse;" id="h2hCharTable">
+              <thead>
+                <tr style="font-size:0.72rem;color:var(--text-muted);text-align:left;">
+                  <th style="padding:4px 8px;">Character</th>
+                  <th style="padding:4px 8px;text-align:center;">W</th>
+                  <th style="padding:4px 8px;text-align:center;">L</th>
+                  <th style="padding:4px 8px;text-align:center;">Win %</th>
+                  <th style="padding:4px 8px;"></th>
+                </tr>
+              </thead>
+              <tbody id="h2hCharBody"></tbody>
+            </table>
+          </div>
+          <div id="h2hEmpty" style="display:none;font-size:0.84rem;color:var(--text-muted);margin-top:10px;">No matches recorded yet between these players.</div>
+        </div>
+
+        <!-- Activity feed -->
+        <div class="prof-section">
+          <div class="prof-section-title">Recent Activity</div>
+          <div id="activityLoading" style="font-size:0.84rem;color:var(--text-muted);">Loading…</div>
+          <div id="activityFeed" style="display:none;"></div>
+          <div id="activityEmpty" style="display:none;font-size:0.84rem;color:var(--text-muted);">No matches recorded yet. Play some games!</div>
+        </div>
+
+        <!-- GG Wall -->
+        <div class="prof-section">
+          <div class="prof-section-title">GG Wall</div>
+          <div id="commentsLoading" style="font-size:0.84rem;color:var(--text-muted);">Loading…</div>
+          <div id="commentsList"></div>
+          <div id="commentsEmpty" style="display:none;font-size:0.84rem;color:var(--text-muted);margin-bottom:10px;">No comments yet. Be the first!</div>
+          <div class="comment-input-row">
+            <input type="text" id="commentInput" placeholder="Leave a GG…" maxlength="200" onkeydown="if(event.key==='Enter')postComment()" />
+            <button class="btn btn-primary btn-sm" onclick="postComment()">Post</button>
+          </div>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:5px;" id="charCount">0 / 200</div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -119,7 +204,189 @@
   const DICEBEAR_STYLES = ['pixel-art','adventurer','bottts','fun-emoji','shapes','identicon'];
   let selectedStyle = 'pixel-art';
   let currentUsername = '';
+  let myId = null;
 
+  // ── Badge icons ───────────────────────────────────
+  const BADGE_ICONS = {
+    specialist: '⚔️', allrounder: '🌀', consistent: '📈',
+    champion: '🏆', top3: '🌟', veteran: '🎖️',
+  };
+
+  function renderBadges(badges) {
+    const row = document.getElementById('badgesRow');
+    if (!badges || !badges.length) { row.innerHTML = ''; return; }
+    row.innerHTML = badges.map(b => `
+      <span class="badge-pill" style="background:${b.color}22;border:1px solid ${b.color}55;color:${b.color};" title="${b.desc}">
+        <span class="badge-icon">${BADGE_ICONS[b.id] || '🏅'}</span>${b.label}
+      </span>
+    `).join('');
+  }
+
+  // ── H2H ──────────────────────────────────────────
+  async function loadH2H() {
+    const rival = document.getElementById('rivalSelect').value;
+    if (!rival) { showToast('Select a rival first.', 'warn'); return; }
+    try {
+      const d = await apiGet(`/users/${encodeURIComponent(currentUsername)}/h2h/${encodeURIComponent(rival)}`);
+      document.getElementById('h2hResult').style.display = 'none';
+      document.getElementById('h2hEmpty').style.display = 'none';
+      if (d.total === 0) {
+        document.getElementById('h2hEmpty').style.display = 'block';
+        return;
+      }
+
+      // Overall bar
+      const pct1 = Math.round((d.user1_wins / d.total) * 100);
+      const pct2 = 100 - pct1;
+      document.getElementById('h2hLeft').textContent = `${d.user1}  ${d.user1_wins}`;
+      document.getElementById('h2hRight').textContent = `${d.user2_wins}  ${d.user2}`;
+      document.getElementById('h2hTotal').textContent = `${d.total} matches`;
+      document.getElementById('h2hBarLeft').style.width = pct1 + '%';
+      document.getElementById('h2hBarRight').style.width = pct2 + '%';
+      document.getElementById('h2hVerdict').textContent = d.leader
+        ? `${d.leader} leads the rivalry.` : "It's dead even.";
+      document.getElementById('h2hRivalName').textContent = rival;
+
+      // Per-character table (sorted by total games desc)
+      const chars = d.chars || {};
+      const rows = Object.entries(chars)
+        .map(([char, s]) => ({ char, wins: s.wins, losses: s.losses, total: s.wins + s.losses }))
+        .sort((a, b) => b.total - a.total);
+
+      const tbody = document.getElementById('h2hCharBody');
+      tbody.innerHTML = rows.map(r => {
+        const winPct = r.total > 0 ? Math.round((r.wins / r.total) * 100) : 0;
+        const barColor = winPct >= 50 ? '#4caf50' : '#e74c3c';
+        return `
+          <tr style="border-bottom:1px solid var(--border);font-size:0.84rem;">
+            <td style="padding:5px 8px;font-weight:600;">${r.char}</td>
+            <td style="padding:5px 8px;text-align:center;color:#4caf50;font-weight:700;">${r.wins}</td>
+            <td style="padding:5px 8px;text-align:center;color:#e74c3c;font-weight:700;">${r.losses}</td>
+            <td style="padding:5px 8px;text-align:center;font-weight:700;color:${barColor};">${winPct}%</td>
+            <td style="padding:5px 8px;width:80px;">
+              <div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden;">
+                <div style="height:100%;width:${winPct}%;background:${barColor};border-radius:3px;"></div>
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
+
+      document.getElementById('h2hResult').style.display = 'block';
+    } catch (err) {
+      showToast('Error: ' + err.message, 'error');
+    }
+  }
+
+  // ── Activity feed ─────────────────────────────────
+  async function loadActivity() {
+    try {
+      const data = await apiGet(`/users/${encodeURIComponent(currentUsername)}/activity`);
+      document.getElementById('activityLoading').style.display = 'none';
+      if (!data || data.length === 0) {
+        document.getElementById('activityEmpty').style.display = 'block';
+        return;
+      }
+      const feed = document.getElementById('activityFeed');
+      feed.style.display = 'block';
+      feed.innerHTML = data.map(r => {
+        const won = r.winner === currentUsername;
+        const tag = won
+          ? `<span class="feed-win">W</span>`
+          : `<span class="feed-loss">L</span>`;
+        const desc = won
+          ? `<span style="color:var(--text);">${r.winner_char}</span> <span style="color:var(--text-muted);">beat</span> ${r.loser} <span style="color:var(--text-muted);">playing</span> ${r.loser_char}`
+          : `<span style="color:var(--text);">${r.loser_char}</span> <span style="color:var(--text-muted);">lost to</span> ${r.winner} <span style="color:var(--text-muted);">playing</span> ${r.winner_char}`;
+        const date = r.created_at ? r.created_at.slice(0,10) : '';
+        return `<div class="feed-item">${tag}<span style="flex:1;">${desc}</span><span class="feed-date">${date}</span></div>`;
+      }).join('');
+    } catch (err) {
+      document.getElementById('activityLoading').style.display = 'none';
+      document.getElementById('activityEmpty').style.display = 'block';
+    }
+  }
+
+  // ── GG Wall ───────────────────────────────────────
+  function dicebearFallback(username) {
+    return `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(username)}`;
+  }
+
+  function renderComments(data) {
+    document.getElementById('commentsLoading').style.display = 'none';
+    const list = document.getElementById('commentsList');
+    const empty = document.getElementById('commentsEmpty');
+    if (!data || data.length === 0) { empty.style.display = 'block'; list.innerHTML = ''; return; }
+    empty.style.display = 'none';
+    list.innerHTML = data.map(c => {
+      const av = c.author_avatar || dicebearFallback(c.author);
+      const canDelete = c.author === currentUsername;
+      return `
+        <div class="comment-item" id="cmt-${c.id}">
+          <img class="comment-av" src="${av}" alt="${c.author}" onerror="this.src='${dicebearFallback(c.author)}'" />
+          <div class="comment-body">
+            <div class="comment-author">${c.author}</div>
+            <div class="comment-text">${escHtml(c.content)}</div>
+            <div class="comment-meta">${c.created_at ? c.created_at.slice(0,10) : ''}</div>
+          </div>
+          ${canDelete ? `<button class="comment-delete" onclick="deleteComment(${c.id})" title="Delete">✕</button>` : ''}
+        </div>`;
+    }).join('');
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  async function loadComments() {
+    try {
+      const data = await apiGet(`/users/${encodeURIComponent(currentUsername)}/comments`);
+      renderComments(data);
+    } catch (_) {
+      document.getElementById('commentsLoading').style.display = 'none';
+    }
+  }
+
+  async function postComment() {
+    const input = document.getElementById('commentInput');
+    const content = input.value.trim();
+    if (!content) return;
+    try {
+      const c = await apiPost(`/users/${encodeURIComponent(currentUsername)}/comments`, { content });
+      input.value = '';
+      document.getElementById('charCount').textContent = '0 / 200';
+      // Prepend new comment
+      document.getElementById('commentsEmpty').style.display = 'none';
+      const av = c.author_avatar || dicebearFallback(c.author);
+      const canDelete = c.author === currentUsername;
+      const item = document.createElement('div');
+      item.className = 'comment-item';
+      item.id = `cmt-${c.id}`;
+      item.innerHTML = `
+        <img class="comment-av" src="${av}" alt="${c.author}" onerror="this.src='${dicebearFallback(c.author)}'" />
+        <div class="comment-body">
+          <div class="comment-author">${c.author}</div>
+          <div class="comment-text">${escHtml(c.content)}</div>
+          <div class="comment-meta">${c.created_at ? c.created_at.slice(0,10) : 'just now'}</div>
+        </div>
+        ${canDelete ? `<button class="comment-delete" onclick="deleteComment(${c.id})" title="Delete">✕</button>` : ''}`;
+      document.getElementById('commentsList').prepend(item);
+    } catch (err) {
+      showToast('Error posting: ' + err.message, 'error');
+    }
+  }
+
+  async function deleteComment(id) {
+    try {
+      await apiDelete(`/comments/${id}`);
+      document.getElementById(`cmt-${id}`)?.remove();
+      if (!document.querySelector('.comment-item')) {
+        document.getElementById('commentsEmpty').style.display = 'block';
+      }
+    } catch (err) {
+      showToast('Error: ' + err.message, 'error');
+    }
+  }
+
+  // ── Avatar editor ─────────────────────────────────
   function dicebearUrl(style, seed) {
     return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}`;
   }
@@ -133,34 +400,24 @@
 
   function selectStyle(style) {
     selectedStyle = style;
-    document.querySelectorAll('.style-btn').forEach(b => {
-      b.classList.toggle('active', b.textContent === style);
-    });
+    document.querySelectorAll('.style-btn').forEach(b => b.classList.toggle('active', b.textContent === style));
     previewGenerated();
   }
 
   function previewGenerated() {
     const seed = document.getElementById('seedInput').value.trim() || currentUsername || 'default';
-    const url = dicebearUrl(selectedStyle, seed);
-    const img = document.getElementById('generatePreview');
-    img.src = url;
+    document.getElementById('generatePreview').src = dicebearUrl(selectedStyle, seed);
   }
 
   function previewCustom() {
     const url = document.getElementById('customUrlInput').value.trim();
     const img = document.getElementById('customPreview');
-    if (url) {
-      img.src = url;
-      img.style.display = 'block';
-    } else {
-      img.style.display = 'none';
-    }
+    img.src = url; img.style.display = url ? 'block' : 'none';
   }
 
   async function saveGeneratedAvatar() {
     const seed = document.getElementById('seedInput').value.trim() || currentUsername;
-    const url = dicebearUrl(selectedStyle, seed);
-    await saveAvatar(url);
+    await saveAvatar(dicebearUrl(selectedStyle, seed));
   }
 
   async function saveCustomAvatar() {
@@ -171,8 +428,7 @@
 
   async function saveAvatar(url) {
     try {
-      await apiPut('/users/me/avatar', {avatar_url: url});
-      // Update displays
+      await apiPut('/users/me/avatar', { avatar_url: url });
       document.getElementById('currentAvatar').src = url;
       document.getElementById('navAvatar').src = url;
       showToast('Avatar saved!', 'success');
@@ -182,13 +438,13 @@
   }
 
   function switchProfTab(tab) {
-    document.querySelectorAll('#profTabs .tab-btn').forEach((b, i) => {
-      b.classList.toggle('active', (i === 0 && tab === 'generate') || (i === 1 && tab === 'custom'));
-    });
+    document.querySelectorAll('#profTabs .tab-btn').forEach((b, i) =>
+      b.classList.toggle('active', (i === 0 && tab === 'generate') || (i === 1 && tab === 'custom')));
     document.getElementById('tab-generate').classList.toggle('active', tab === 'generate');
     document.getElementById('tab-custom').classList.toggle('active', tab === 'custom');
   }
 
+  // ── Init ──────────────────────────────────────────
   (async function init() {
     try {
       const me = await apiGet('/users/me');
@@ -197,26 +453,47 @@
 
       if (me) {
         currentUsername = me.username;
+        myId = me.id;
         document.getElementById('navUsername').textContent = me.username;
         document.getElementById('profileUsername').textContent = me.username;
-        document.getElementById('profileId').textContent = `ID: ${me.id}`;
-
+        document.getElementById('profileId').textContent = `Member #${me.id}`;
         const avatarUrl = me.avatar_url || dicebearUrl('pixel-art', me.username);
         document.getElementById('currentAvatar').src = avatarUrl;
         const av = document.getElementById('navAvatar');
         av.src = avatarUrl; av.style.display = 'block';
-
-        // Pre-fill seed with username
         document.getElementById('seedInput').value = me.username;
         document.getElementById('generatePreview').src = dicebearUrl(selectedStyle, me.username);
       }
     } catch (err) {
       document.getElementById('loadingState').style.display = 'none';
       document.getElementById('profileContent').style.display = 'block';
-      showToast('Error loading profile: ' + err.message, 'error');
     }
 
     buildStyleGrid();
+
+    // Char count for comment input
+    document.getElementById('commentInput').addEventListener('input', function() {
+      document.getElementById('charCount').textContent = `${this.value.length} / 200`;
+    });
+
+    // Load badges, activity, comments, and populate rival dropdown in parallel
+    const [, users] = await Promise.allSettled([
+      apiGet(`/users/${encodeURIComponent(currentUsername)}/badges`).then(renderBadges).catch(() => {}),
+      apiGet('/users/all'),
+    ]);
+
+    if (users.status === 'fulfilled' && users.value) {
+      const sel = document.getElementById('rivalSelect');
+      users.value.forEach(u => {
+        if (u.username === currentUsername) return;
+        const opt = document.createElement('option');
+        opt.value = u.username; opt.textContent = u.username;
+        sel.appendChild(opt);
+      });
+    }
+
+    loadActivity();
+    loadComments();
   })();
 </script>
 </body>

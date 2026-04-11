@@ -152,3 +152,38 @@ class Friendship(Base):
 
     requester = relationship("User", foreign_keys=[requester_id], back_populates="sent_friend_requests")
     addressee = relationship("User", foreign_keys=[addressee_id], back_populates="received_friend_requests")
+
+
+class MatchResult(Base):
+    """
+    One row per completed match. Recorded when a winner is selected
+    in the bracket or Quick Match.
+    """
+    __tablename__ = "match_results"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    winner_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
+    winner_char  = Column(String, nullable=False)
+    loser_id     = Column(Integer, ForeignKey("users.id"), nullable=False)
+    loser_char   = Column(String, nullable=False)
+    bracket_id   = Column(Integer, ForeignKey("brackets.id"), nullable=True)
+    created_at   = Column(DateTime, default=datetime.utcnow)
+
+    winner  = relationship("User", foreign_keys=[winner_id])
+    loser   = relationship("User", foreign_keys=[loser_id])
+
+
+class ProfileComment(Base):
+    """
+    GG / comment left on a user's profile by another user.
+    """
+    __tablename__ = "profile_comments"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    author_id  = Column(Integer, ForeignKey("users.id"), nullable=False)
+    target_id  = Column(Integer, ForeignKey("users.id"), nullable=False)
+    content    = Column(String(200), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    author = relationship("User", foreign_keys=[author_id])
+    target = relationship("User", foreign_keys=[target_id])

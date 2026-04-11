@@ -913,10 +913,11 @@ async function recordMatchResult(winnerLabel, loserLabel) {
   if (!winner || !loser) return;
   if (winner.player === 'SYSTEM' || loser.player === 'SYSTEM') return;
   try {
-    await Promise.all([
-      apiPost('/characters/stats/record-for', { username: winner.player, character: winner.character, result: 'win' }),
-      apiPost('/characters/stats/record-for', { username: loser.player,  character: loser.character,  result: 'loss' }),
-    ]);
+    await apiPost('/matches/record', {
+      winner_username: winner.player, winner_char: winner.character,
+      loser_username:  loser.player,  loser_char:  loser.character,
+      bracket_id: liveTournamentId || null,
+    });
     // Bust the stats cache so next bracket build fetches fresh points
     delete allUserStats[winner.player];
     delete allUserStats[loser.player];

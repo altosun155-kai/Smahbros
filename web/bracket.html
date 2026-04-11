@@ -259,6 +259,20 @@
             On
           </label>
         </h2>
+        <div id="autoFillOptions" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;padding:10px;background:var(--card-bg2);border-radius:8px;border:1px solid var(--border);">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+            <input type="radio" name="fillMode" value="points" checked style="accent-color:var(--accent-blue);" />
+            <span>Best by <strong>Points</strong> (win/loss stats)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+            <input type="radio" name="fillMode" value="favorites" style="accent-color:var(--accent-blue);" />
+            <span>Best by <strong>Favorites</strong> (top 10 list)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+            <input type="radio" name="fillMode" value="tierlist" style="accent-color:var(--accent-blue);" />
+            <span>Best by <strong>Tier List</strong> (S→F ranking)</span>
+          </label>
+        </div>
 
         <h2>Players (one per line)</h2>
         <div class="form-group" style="margin-bottom:12px;">
@@ -330,7 +344,9 @@ let currentEntries = []; // [{player, character}]
 let currentBracket = []; // [{a, b}] first round pairs
 let roundWinners = {}; // match index -> label
 let myUsername = '';
-let allUserStats = {}; // username -> [{character, points}] sorted desc
+let allUserStats = {};     // username -> [{character, points}] sorted desc (points mode)
+let allUserFavs = {};      // username -> [character, ...] ordered (favorites mode)
+let allUserTiers = {};     // username -> {S:[...], A:[...], ...} (tier list mode)
 
 // ── Mode toggle ───────────────────────────────────
 function setMode(mode) {
@@ -379,26 +395,55 @@ async function buildEntryGrid() {
   const section = document.getElementById('entryGridSection');
   section.style.display = 'block';
 
-  // Fetch stats for all players we don't have yet (only if auto-fill is on)
   const autoFill = document.getElementById('autoFillToggle').checked;
+  const fillMode = document.querySelector('input[name="fillMode"]:checked')?.value || 'points';
+
   if (autoFill) {
-    const toFetch = players.filter(p => !allUserStats[p]);
-    await Promise.all(toFetch.map(async p => {
-      try {
-        const data = await apiGet(`/characters/stats/${encodeURIComponent(p)}`);
-        const sorted = (data.stats || []).filter(s => s.points > 0).sort((a,b) => b.points - a.points);
-        allUserStats[p] = sorted;
-      } catch (_) { allUserStats[p] = []; }
+    await Promise.all(players.map(async p => {
+      if (fillMode === 'points' && !allUserStats[p]) {
+        try {
+          const data = await apiGet(`/characters/stats/${encodeURIComponent(p)}`);
+          allUserStats[p] = (data.stats || []).filter(s => s.points > 0).sort((a,b) => b.points - a.points);
+        } catch (_) { allUserStats[p] = []; }
+      } else if (fillMode === 'favorites' && !allUserFavs[p]) {
+        try {
+          // Use own endpoint for self, stats endpoint for others
+          let chars = [];
+          if (p === myUsername) {
+            const d = await apiGet('/characters/favorites');
+            chars = d.characters || [];
+          } else {
+            // No public favorites endpoint — fall back to stats
+            const d = await apiGet(`/characters/stats/${encodeURIComponent(p)}`);
+            chars = (d.stats || []).filter(s => s.points > 0).sort((a,b) => b.points - a.points).map(s => s.character);
+          }
+          allUserFavs[p] = chars;
+        } catch (_) { allUserFavs[p] = []; }
+      } else if (fillMode === 'tierlist' && !allUserTiers[p]) {
+        try {
+          const d = await apiGet(`/characters/ranking/${encodeURIComponent(p)}`);
+          allUserTiers[p] = d.ranking || {};
+        } catch (_) { allUserTiers[p] = {}; }
+      }
     }));
   }
 
-  // Build entries: k rows per player, auto-fill top characters from stats if toggle is on
-  const autoFill = document.getElementById('autoFillToggle').checked;
+  // Build entries: k rows per player, auto-fill based on selected mode
   currentEntries = [];
   players.forEach(p => {
-    const topChars = autoFill ? (allUserStats[p] || []) : [];
+    let topChars = [];
+    if (autoFill) {
+      if (fillMode === 'points') {
+        topChars = (allUserStats[p] || []).map(s => s.character);
+      } else if (fillMode === 'favorites') {
+        topChars = allUserFavs[p] || [];
+      } else if (fillMode === 'tierlist') {
+        const tiers = allUserTiers[p] || {};
+        ['S','A','B','C','D','F'].forEach(t => { if (tiers[t]) topChars.push(...tiers[t]); });
+      }
+    }
     for (let i = 0; i < k; i++) {
-      currentEntries.push({ player: p, character: topChars[i]?.character || '' });
+      currentEntries.push({ player: p, character: topChars[i] || '' });
     }
   });
 
@@ -473,9 +518,27 @@ function generateBracket() {
 }
 
 function getEntryPoints(entry) {
-  const stats = allUserStats[entry.player] || [];
-  const match = stats.find(s => s.character === entry.character);
-  return match ? match.points : 0;
+  const fillMode = document.querySelector('input[name="fillMode"]:checked')?.value || 'points';
+
+  if (fillMode === 'points') {
+    const stats = allUserStats[entry.player] || [];
+    const match = stats.find(s => s.character === entry.character);
+    return match ? match.points : 0;
+
+  } else if (fillMode === 'favorites') {
+    const favs = allUserFavs[entry.player] || [];
+    const idx = favs.indexOf(entry.character);
+    return idx === -1 ? 0 : favs.length - idx; // higher position = more points
+
+  } else if (fillMode === 'tierlist') {
+    const tiers = allUserTiers[entry.player] || {};
+    const tierScores = { S: 6, A: 5, B: 4, C: 3, D: 2, F: 1 };
+    for (const [tier, score] of Object.entries(tierScores)) {
+      if ((tiers[tier] || []).includes(entry.character)) return score;
+    }
+    return 0;
+  }
+  return 0;
 }
 
 function generateBracketJS(base, teamMode, teamOf) {
@@ -670,12 +733,12 @@ async function saveBracket() {
   } catch (_) {}
 
   // Load friends for quick-add
+  const section = document.getElementById('friendsQuickAdd');
+  const chips = document.getElementById('friendChips');
+  section.style.display = 'block';
   try {
     const friends = await apiGet('/friends');
     if (friends && friends.length) {
-      const section = document.getElementById('friendsQuickAdd');
-      const chips = document.getElementById('friendChips');
-      section.style.display = 'block';
       friends.forEach(f => {
         const chip = document.createElement('div');
         chip.className = 'friend-chip';
@@ -689,9 +752,17 @@ async function saveBracket() {
         chip.addEventListener('click', () => addFriendToPlayers(f.username, chip));
         chips.appendChild(chip);
       });
+    } else {
+      chips.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">No friends yet — add some on the Friends page.</span>';
     }
-  } catch (_) {}
+  } catch (_) {
+    chips.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">No friends yet — add some on the Friends page.</span>';
+  }
 })();
+
+document.getElementById('autoFillToggle').addEventListener('change', function() {
+  document.getElementById('autoFillOptions').style.display = this.checked ? 'flex' : 'none';
+});
 
 function addFriendToPlayers(username, chip) {
   const textarea = document.getElementById('playersInput');

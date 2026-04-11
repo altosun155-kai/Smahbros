@@ -140,11 +140,11 @@
           : '';
         return `<tr class="${rowClass}">
           <td style="font-weight:800;">${rankLabel}</td>
-          <td style="display:flex;align-items:center;gap:8px;">
+          <td><div style="display:flex;align-items:center;gap:8px;">
             <img class="user-av" src="${av}" alt="${entry.username}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}'" />
             <span style="font-weight:600;">${entry.username}</span>
-          </td>
-          <td style="display:flex;align-items:center;gap:8px;">${charImg}<span>${entry.character}</span></td>
+          </div></td>
+          <td><div style="display:flex;align-items:center;gap:8px;">${charImg}<span>${entry.character}</span></div></td>
           <td style="font-weight:800;color:var(--accent-gold);">${entry.points}</td>
         </tr>`;
       }).join('');

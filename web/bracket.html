@@ -329,9 +329,7 @@
 
         <h2>Players (one per line)</h2>
         <div class="form-group" style="margin-bottom:12px;">
-          <textarea id="playersInput" rows="5" placeholder="You&#10;Friend1&#10;Friend2">You
-Friend1
-Friend2</textarea>
+          <textarea id="playersInput" rows="5" placeholder="You&#10;Friend1&#10;Friend2"></textarea>
         </div>
 
         <div id="teamsSection" style="display:none;">
@@ -959,6 +957,7 @@ async function saveBracket() {
     if (me) {
       myUsername = me.username;
       document.getElementById('navUsername').textContent = me.username;
+      document.getElementById('playersInput').value = me.username;
       const url = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
       const av = document.getElementById('navAvatar');
       av.src = url; av.style.display = 'block';

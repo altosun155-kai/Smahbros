@@ -348,6 +348,10 @@
             <input type="radio" name="bracketStyle" value="strongVsWeak" style="accent-color:var(--accent-blue);" />
             <span><strong>Strong vs Weak</strong> — best plays worst per slot</span>
           </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+            <input type="radio" name="bracketStyle" value="random" style="accent-color:var(--accent-blue);" />
+            <span><strong>Random</strong> — fully shuffled, no repeats until all used</span>
+          </label>
         </div>
 
         <h2>Players (one per line)</h2>
@@ -463,6 +467,13 @@ function renderTeamAssignments() {
   const players = getPlayers();
   const labels = getTeamLabels();
   const container = document.getElementById('teamAssignments');
+
+  // Save existing selections before wiping the DOM
+  const saved = {};
+  container.querySelectorAll('select').forEach(s => {
+    saved[s.id.replace('team_', '')] = s.value;
+  });
+
   container.innerHTML = '<h2 style="margin-top:8px;">Player Teams</h2>';
   players.forEach(p => {
     const row = document.createElement('div');
@@ -473,6 +484,8 @@ function renderTeamAssignments() {
     sel.id = `team_${p}`;
     sel.innerHTML = '<option value="">(none)</option>' + labels.map(l => `<option value="${l}">${l}</option>`).join('');
     sel.style.cssText = 'padding:5px 8px;font-size:0.82rem;background:#0f0f17;border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#e8edf3;';
+    // Restore previous selection if player was already assigned
+    if (saved[p]) sel.value = saved[p];
     row.appendChild(lbl);
     row.appendChild(sel);
     container.appendChild(row);
@@ -762,6 +775,14 @@ function getSeedPoints(entry) {
   return match ? match.points : 0;
 }
 
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 function generateBracketJS(base, teamMode, teamOf) {
   const BYE = { player: 'SYSTEM', character: 'BYE' };
   const style = document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong';
@@ -775,30 +796,36 @@ function generateBracketJS(base, teamMode, teamOf) {
   const players = Object.keys(playerGroups);
   const maxChars = Math.max(...Object.values(playerGroups).map(g => g.length));
 
-  // Step 2: For each slot, rank players by actual win/loss points on that slot's char,
-  // then pair according to the chosen bracket style.
+  // Step 2: For each slot, order players then pair them according to the chosen bracket style.
+  // Random mode: shuffle players each slot so matchups are fully random, but still no player
+  // repeats until every player has used their slot-N char (round-robin slot structure preserved).
   const pairs = [];
   for (let slot = 0; slot < maxChars; slot++) {
-    const ranked = [...players].sort((a, b) =>
-      getSeedPoints(playerGroups[b][slot]) - getSeedPoints(playerGroups[a][slot])
-    );
+    let ordered;
+    if (style === 'random') {
+      ordered = shuffle([...players]);
+    } else {
+      ordered = [...players].sort((a, b) =>
+        getSeedPoints(playerGroups[b][slot]) - getSeedPoints(playerGroups[a][slot])
+      );
+    }
 
-    if (style === 'strongVsStrong') {
-      // (rank1 vs rank2), (rank3 vs rank4), ...
-      for (let i = 0; i + 1 < ranked.length; i += 2) {
-        pairs.push([playerGroups[ranked[i]][slot] || BYE, playerGroups[ranked[i + 1]][slot] || BYE]);
+    if (style === 'strongVsStrong' || style === 'random') {
+      // pair sequentially: (0 vs 1), (2 vs 3), ...
+      for (let i = 0; i + 1 < ordered.length; i += 2) {
+        pairs.push([playerGroups[ordered[i]][slot] || BYE, playerGroups[ordered[i + 1]][slot] || BYE]);
       }
-      if (ranked.length % 2 === 1)
-        pairs.push([playerGroups[ranked[ranked.length - 1]][slot] || BYE, BYE]);
+      if (ordered.length % 2 === 1)
+        pairs.push([playerGroups[ordered[ordered.length - 1]][slot] || BYE, BYE]);
     } else {
       // strongVsWeak: (rank1 vs last), (rank2 vs 2nd-to-last), ...
-      let lo = 0, hi = ranked.length - 1;
+      let lo = 0, hi = ordered.length - 1;
       while (lo < hi) {
-        pairs.push([playerGroups[ranked[lo]][slot] || BYE, playerGroups[ranked[hi]][slot] || BYE]);
+        pairs.push([playerGroups[ordered[lo]][slot] || BYE, playerGroups[ordered[hi]][slot] || BYE]);
         lo++; hi--;
       }
       if (lo === hi)
-        pairs.push([playerGroups[ranked[lo]][slot] || BYE, BYE]);
+        pairs.push([playerGroups[ordered[lo]][slot] || BYE, BYE]);
     }
   }
 
@@ -908,7 +935,11 @@ function renderBracket() {
         const iconUrl = !isByeEntry && typeof charImgUrl === 'function' ? charImgUrl(entry.character) : null;
         const icon = iconUrl ? `<img class="match-char-icon" src="${iconUrl}" alt="${entry.character}" onerror="this.style.display='none'" />` : '';
         const wonClass = isWon ? ' winner-highlight' : '';
-        return `<div class="match-entry${isByeEntry?' bye':''}${swapClass}${wonClass}" data-pair="${mi}" data-slot="${slot}">${icon}<span>${label}</span></div>`;
+        const pts = getSeedPoints(entry);
+        const seedBadge = !isByeEntry
+          ? `<span style="margin-left:auto;font-size:0.68rem;font-weight:700;color:${pts > 0 ? 'var(--accent-gold)' : 'var(--text-muted)'};flex-shrink:0;">${pts > 0 ? pts + 'pts' : '—'}</span>`
+          : '';
+        return `<div class="match-entry${isByeEntry?' bye':''}${swapClass}${wonClass}" data-pair="${mi}" data-slot="${slot}">${icon}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span>${seedBadge}</div>`;
       }
 
       let html = entryHtml(a, la, swapClassA, 0);
@@ -1185,6 +1216,8 @@ function addFriendToPlayers(username, chip) {
     textarea.value = current.join('\n');
     chip.classList.add('added');
   }
+  // Keep team assignments in sync when in Teams mode
+  if (currentMode === 'teams') renderTeamAssignments();
 }
 
 // ── VS Modal ──────────────────────────────────────

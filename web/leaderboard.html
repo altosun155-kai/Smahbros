@@ -49,8 +49,9 @@
   </div>
 
   <div class="tabs" id="lbTabs">
-    <button class="tab-btn active" onclick="switchLBTab('chars')">Character Leaderboard</button>
-    <button class="tab-btn" onclick="switchLBTab('global')">Global Leaderboard</button>
+    <button class="tab-btn active" onclick="switchLBTab('chars')">By Points</button>
+    <button class="tab-btn" onclick="switchLBTab('kills')">By Kills</button>
+    <button class="tab-btn" onclick="switchLBTab('global')">Global</button>
   </div>
 
   <!-- Character tab -->
@@ -72,6 +73,30 @@
           </tr>
         </thead>
         <tbody id="charBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Kills tab -->
+  <div class="tab-panel" id="tab-kills">
+    <div id="killsLoading" class="loading-center">
+      <div class="spinner"></div><span>Loading kills leaderboard…</span>
+    </div>
+    <div id="killsEmpty" class="empty-state" style="display:none;">
+      <p>No kills recorded yet.</p>
+    </div>
+    <div style="overflow-x:auto;" id="killsTableWrap" style="display:none;">
+      <table class="data-table" id="killsTable">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Player</th>
+            <th>Character</th>
+            <th>Kills</th>
+            <th>Points</th>
+          </tr>
+        </thead>
+        <tbody id="killsBody"></tbody>
       </table>
     </div>
   </div>
@@ -110,11 +135,14 @@
   }
 
   function switchLBTab(tab) {
+    const tabs = ['chars', 'kills', 'global'];
     document.querySelectorAll('#lbTabs .tab-btn').forEach((b, i) => {
-      b.classList.toggle('active', (i === 0 && tab === 'chars') || (i === 1 && tab === 'global'));
+      b.classList.toggle('active', tabs[i] === tab);
     });
-    document.getElementById('tab-chars').classList.toggle('active', tab === 'chars');
-    document.getElementById('tab-global').classList.toggle('active', tab === 'global');
+    tabs.forEach(t => {
+      document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+    });
+    if (tab === 'kills') loadKillsLeaderboard();
     if (tab === 'global') loadGlobal();
   }
 
@@ -151,6 +179,49 @@
     } catch (err) {
       document.getElementById('charLoading').style.display = 'none';
       showToast('Error loading character leaderboard: ' + err.message, 'error');
+    }
+  }
+
+  async function loadKillsLeaderboard() {
+    const loading = document.getElementById('killsLoading');
+    const wrap    = document.getElementById('killsTableWrap');
+    const empty   = document.getElementById('killsEmpty');
+
+    if (loading.style.display === 'none') return; // already loaded
+
+    try {
+      const data = await apiGet('/characters/stats/leaderboard/kills');
+      loading.style.display = 'none';
+
+      if (!data || data.length === 0) {
+        empty.style.display = 'block';
+        return;
+      }
+
+      wrap.style.display = 'block';
+      const body = document.getElementById('killsBody');
+      body.innerHTML = data.map((entry, i) => {
+        const rankLabel = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}`;
+        const rowClass  = i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '';
+        const av = entry.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}`;
+        const imgUrl = charImgUrl(entry.character);
+        const charImg = imgUrl
+          ? `<img class="char-img-sm" src="${imgUrl}" alt="${entry.character}" onerror="this.style.display='none'" />`
+          : '';
+        return `<tr class="${rowClass}">
+          <td style="font-weight:800;">${rankLabel}</td>
+          <td><div style="display:flex;align-items:center;gap:8px;">
+            <img class="user-av" src="${av}" alt="${entry.username}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}'" />
+            <span style="font-weight:600;">${entry.username}</span>
+          </div></td>
+          <td><div style="display:flex;align-items:center;gap:8px;">${charImg}<span>${entry.character}</span></div></td>
+          <td style="font-weight:800;color:#e67e22;">${entry.kills}</td>
+          <td style="color:var(--text-muted);font-size:0.88rem;">${entry.points}</td>
+        </tr>`;
+      }).join('');
+    } catch (err) {
+      document.getElementById('killsLoading').style.display = 'none';
+      showToast('Error loading kills leaderboard: ' + err.message, 'error');
     }
   }
 

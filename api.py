@@ -538,6 +538,22 @@ def character_leaderboard(db: Session = Depends(get_db)):
     ]
 
 
+@app.get("/characters/stats/leaderboard/kills")
+def kills_leaderboard(db: Session = Depends(get_db)):
+    """Flat leaderboard: all user+character combos ranked by kills."""
+    rows = db.query(CharacterStats).filter(CharacterStats.kills > 0).order_by(CharacterStats.kills.desc()).all()
+    return [
+        {
+            "username": row.owner.username,
+            "avatar_url": row.owner.avatar_url,
+            "character": row.character,
+            "kills": row.kills or 0,
+            "points": row.points,
+        }
+        for row in rows
+    ]
+
+
 @app.get("/characters/stats/{username}")
 def get_stats_by_user(username: str, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == username).first()

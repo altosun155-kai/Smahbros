@@ -1262,8 +1262,9 @@ async function endTournament() {
       // Pre-load current user's stats for auto-fill
       try {
         const data = await apiGet(`/characters/stats`);
-        const sorted = (data || []).filter(s => s.points > 0).sort((a,b) => b.points - a.points);
-        allUserStats[me.username] = sorted;
+        const all = data || [];
+        allUserStats[me.username] = all.filter(s => s.points > 0).sort((a,b) => b.points - a.points);
+        allUserKills[me.username] = all.filter(s => s.kills > 0).sort((a,b) => b.kills - a.kills);
       } catch (_) {}
     }
   } catch (_) {}

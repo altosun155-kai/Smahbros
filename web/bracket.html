@@ -448,6 +448,7 @@ let allUserFavs = {};      // username -> [character, ...] ordered (favorites mo
 let allUserTiers = {};     // username -> {S:[...], A:[...], ...} (tier list mode)
 let allUserKills = {};     // username -> [{character, kills}] sorted desc (kills mode)
 let allUserAvatars = {};   // username -> avatar URL (fetched fresh each build)
+let currentTeamOf = {};    // username -> team label, snapshotted at bracket generation
 
 // ── Mode toggle ───────────────────────────────────
 function setMode(mode) {
@@ -732,6 +733,8 @@ function generateBracket() {
   if (currentMode === 'teams') {
     getPlayers().forEach(p => { teamOf[p] = getTeamOf(p); });
   }
+  // Snapshot team assignments so they're available when recording match results
+  currentTeamOf = { ...teamOf };
 
   const pairs = generateBracketJS(base, currentMode === 'teams', teamOf);
   if (!pairs.length) { showToast('Could not build a valid bracket with those constraints.', 'error'); return; }
@@ -1115,6 +1118,16 @@ function setWinner(key, val, winnerKills = 0, loserKills = 0) {
   const [a, b] = round[mi];
   const la = entryLabel(a), lb = entryLabel(b);
   const loserLabel = val === la ? lb : la;
+
+  // Skip stat recording for same-team matchups (fallback pairings that couldn't be avoided)
+  const winnerEntry = parseEntry(val);
+  const loserEntry  = parseEntry(loserLabel);
+  if (winnerEntry && loserEntry && currentMode === 'teams') {
+    const wt = currentTeamOf[winnerEntry.player] || '';
+    const lt = currentTeamOf[loserEntry.player]  || '';
+    if (wt && lt && wt === lt) return; // same team — no stat impact
+  }
+
   recordMatchResult(val, loserLabel, winnerKills, loserKills);
 }
 

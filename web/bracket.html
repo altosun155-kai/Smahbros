@@ -783,6 +783,44 @@ function shuffle(arr) {
   return arr;
 }
 
+// Pair an ordered player list ensuring different teams face each other.
+// For each unpaired player (in order), finds the first unpaired opponent
+// from a different team. Falls back to same team if no cross-team option exists.
+function pairCrossTeam(ordered, getEntry, teamOf) {
+  const BYE = { player: 'SYSTEM', character: 'BYE' };
+  const pairs = [];
+  const used = new Set();
+
+  for (let i = 0; i < ordered.length; i++) {
+    if (used.has(i)) continue;
+    used.add(i);
+    const pa = ordered[i];
+    const teamA = teamOf[pa] || '';
+
+    // Find nearest unpaired opponent from a different team
+    let found = -1;
+    for (let j = i + 1; j < ordered.length; j++) {
+      if (used.has(j)) continue;
+      const teamB = teamOf[ordered[j]] || '';
+      if (!teamA || !teamB || teamA !== teamB) { found = j; break; }
+    }
+    // Fallback: pair with next available regardless of team
+    if (found === -1) {
+      for (let j = i + 1; j < ordered.length; j++) {
+        if (!used.has(j)) { found = j; break; }
+      }
+    }
+
+    if (found === -1) {
+      pairs.push([getEntry(pa), BYE]);
+    } else {
+      used.add(found);
+      pairs.push([getEntry(pa), getEntry(ordered[found])]);
+    }
+  }
+  return pairs;
+}
+
 function generateBracketJS(base, teamMode, teamOf) {
   const BYE = { player: 'SYSTEM', character: 'BYE' };
   const style = document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong';
@@ -796,43 +834,65 @@ function generateBracketJS(base, teamMode, teamOf) {
   const players = Object.keys(playerGroups);
   const maxChars = Math.max(...Object.values(playerGroups).map(g => g.length));
 
-  // Step 2: For each slot, order players then pair them according to the chosen bracket style.
-  // Random mode: shuffle players each slot so matchups are fully random, but still no player
-  // repeats until every player has used their slot-N char (round-robin slot structure preserved).
-  const pairs = [];
-  for (let slot = 0; slot < maxChars; slot++) {
-    let ordered;
-    if (style === 'random') {
-      ordered = shuffle([...players]);
-    } else {
-      ordered = [...players].sort((a, b) =>
-        getSeedPoints(playerGroups[b][slot]) - getSeedPoints(playerGroups[a][slot])
-      );
+  // ── Random mode: fully random — break slot structure entirely ──
+  if (style === 'random') {
+    // Shuffle each player's own character list so char slot order is random
+    const shuffledGroups = {};
+    players.forEach(p => { shuffledGroups[p] = shuffle([...playerGroups[p]]); });
+
+    // Deal round-robin: one entry per player per slot, player order shuffled each round
+    const flat = [];
+    for (let slot = 0; slot < maxChars; slot++) {
+      shuffle([...players]).forEach(p => {
+        if (shuffledGroups[p][slot]) flat.push(shuffledGroups[p][slot]);
+      });
     }
 
-    if (style === 'strongVsStrong' || style === 'random') {
-      // pair sequentially: (0 vs 1), (2 vs 3), ...
-      for (let i = 0; i + 1 < ordered.length; i += 2) {
-        pairs.push([playerGroups[ordered[i]][slot] || BYE, playerGroups[ordered[i + 1]][slot] || BYE]);
-      }
-      if (ordered.length % 2 === 1)
-        pairs.push([playerGroups[ordered[ordered.length - 1]][slot] || BYE, BYE]);
+    let pairs;
+    if (teamMode) {
+      // Team-aware: use cross-team pairing on the shuffled flat list
+      pairs = pairCrossTeam(
+        flat.map((_, i) => i),          // indices as "players"
+        i => flat[i],
+        Object.fromEntries(flat.map((e, i) => [i, teamOf[e.player] || '']))
+      );
     } else {
-      // strongVsWeak: (rank1 vs last), (rank2 vs 2nd-to-last), ...
-      let lo = 0, hi = ordered.length - 1;
-      while (lo < hi) {
-        pairs.push([playerGroups[ordered[lo]][slot] || BYE, playerGroups[ordered[hi]][slot] || BYE]);
-        lo++; hi--;
+      if (flat.length % 2 === 1) flat.push(BYE);
+      pairs = [];
+      for (let i = 0; i + 1 < flat.length; i += 2) pairs.push([flat[i], flat[i + 1]]);
+    }
+
+    const target = nextPow2(pairs.length);
+    while (pairs.length < target) pairs.push([BYE, BYE]);
+    return pairs;
+  }
+
+  // Step 2: For each slot, rank players by seed points then pair by style.
+  const pairs = [];
+  for (let slot = 0; slot < maxChars; slot++) {
+    const ordered = [...players].sort((a, b) =>
+      getSeedPoints(playerGroups[b][slot]) - getSeedPoints(playerGroups[a][slot])
+    );
+    const getEntry = p => playerGroups[p][slot] || BYE;
+
+    if (teamMode) {
+      // Teams: always use cross-team pairing regardless of strong/weak style
+      pairs.push(...pairCrossTeam(ordered, getEntry, teamOf));
+    } else if (style === 'strongVsStrong') {
+      for (let i = 0; i + 1 < ordered.length; i += 2) {
+        pairs.push([getEntry(ordered[i]), getEntry(ordered[i + 1])]);
       }
-      if (lo === hi)
-        pairs.push([playerGroups[ordered[lo]][slot] || BYE, BYE]);
+      if (ordered.length % 2 === 1) pairs.push([getEntry(ordered[ordered.length - 1]), BYE]);
+    } else {
+      // strongVsWeak
+      let lo = 0, hi = ordered.length - 1;
+      while (lo < hi) { pairs.push([getEntry(ordered[lo++]), getEntry(ordered[hi--])]); }
+      if (lo === hi) pairs.push([getEntry(ordered[lo]), BYE]);
     }
   }
 
-  // Pad to next power-of-2
   const target = nextPow2(pairs.length);
   while (pairs.length < target) pairs.push([BYE, BYE]);
-
   return pairs;
 }
 

@@ -124,7 +124,7 @@ class FavoriteCharacters(Base):
 class CharacterStats(Base):
     """
     One row per (user, character). Points start at 0, +1 on win, -1 on loss
-    with a floor of 0.
+    with a floor of 0. Kills = total wins (never decremented).
     """
     __tablename__ = "character_stats"
 
@@ -132,6 +132,7 @@ class CharacterStats(Base):
     user_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
     character  = Column(String, nullable=False)
     points     = Column(Integer, default=0, nullable=False)
+    kills      = Column(Integer, default=0, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     owner = relationship("User", back_populates="character_stats")
@@ -164,8 +165,10 @@ class MatchResult(Base):
     id           = Column(Integer, primary_key=True, index=True)
     winner_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
     winner_char  = Column(String, nullable=False)
+    winner_kills = Column(Integer, default=0, nullable=False)
     loser_id     = Column(Integer, ForeignKey("users.id"), nullable=False)
     loser_char   = Column(String, nullable=False)
+    loser_kills  = Column(Integer, default=0, nullable=False)
     bracket_id   = Column(Integer, ForeignKey("brackets.id"), nullable=True)
     created_at   = Column(DateTime, default=datetime.utcnow)
 

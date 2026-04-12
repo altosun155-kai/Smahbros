@@ -219,7 +219,7 @@
       left: 50%;
       transform: translateX(-50%);
       display: flex;
-      gap: 16px;
+      gap: 20px;
       align-items: center;
       z-index: 3;
       white-space: nowrap;
@@ -336,6 +336,10 @@
             <input type="radio" name="fillMode" value="tierlist" style="accent-color:var(--accent-blue);" />
             <span>Best by <strong>Tier List</strong> (S→F ranking)</span>
           </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+            <input type="radio" name="fillMode" value="kills" style="accent-color:var(--accent-blue);" />
+            <span>Best by <strong>Kills</strong> (total match wins)</span>
+          </label>
         </div>
 
         <h2 style="margin-top:14px;">Bracket Style</h2>
@@ -439,9 +443,10 @@ let currentBracket = []; // [{a, b}] first round pairs
 let roundWinners = {}; // key r{ri}_m{mi} -> winner label
 let lastRenderedRounds = []; // all rounds from last renderBracket call
 let myUsername = '';
-let allUserStats = {};     // username -> [{character, points}] sorted desc (points mode)
+let allUserStats = {};     // username -> [{character, points, kills}] sorted desc (points mode)
 let allUserFavs = {};      // username -> [character, ...] ordered (favorites mode)
 let allUserTiers = {};     // username -> {S:[...], A:[...], ...} (tier list mode)
+let allUserKills = {};     // username -> [{character, kills}] sorted desc (kills mode)
 let allUserAvatars = {};   // username -> avatar URL (fetched fresh each build)
 
 // ── Mode toggle ───────────────────────────────────
@@ -509,13 +514,15 @@ async function buildEntryGrid() {
     allUsers.forEach(u => { allUserAvatars[u.username] = u.avatar_url || null; });
   } catch (_) {}
 
-  // Always load points stats for all players — used for seeding even when auto-fill is off
+  // Always load points+kills stats for all players — used for seeding even when auto-fill is off
   await Promise.all(players.map(async p => {
     if (!allUserStats[p]) {
       try {
         const data = await apiGet(`/characters/stats/${encodeURIComponent(p)}`);
-        allUserStats[p] = (data.stats || []).filter(s => s.points > 0).sort((a,b) => b.points - a.points);
-      } catch (_) { allUserStats[p] = []; }
+        const stats = data.stats || [];
+        allUserStats[p] = stats.filter(s => s.points > 0).sort((a,b) => b.points - a.points);
+        allUserKills[p] = stats.filter(s => s.kills > 0).sort((a,b) => b.kills - a.kills);
+      } catch (_) { allUserStats[p] = []; allUserKills[p] = []; }
     }
   }));
 
@@ -539,6 +546,7 @@ async function buildEntryGrid() {
           allUserTiers[p] = d.ranking || {};
         } catch (_) { allUserTiers[p] = {}; }
       }
+      // kills data is already loaded above from the stats endpoint
     }));
   }
 
@@ -549,6 +557,8 @@ async function buildEntryGrid() {
     if (autoFill) {
       if (fillMode === 'points') {
         topChars = (allUserStats[p] || []).map(s => s.character);
+      } else if (fillMode === 'kills') {
+        topChars = (allUserKills[p] || []).map(s => s.character);
       } else if (fillMode === 'favorites') {
         topChars = allUserFavs[p] || [];
       } else if (fillMode === 'tierlist') {
@@ -775,6 +785,21 @@ function getSeedPoints(entry) {
   return match ? match.points : 0;
 }
 
+// Returns total kills for a player/character pair
+function getSeedKills(entry) {
+  if (!entry || entry.player === 'SYSTEM') return -1;
+  const stats = allUserStats[entry.player] || [];
+  const match = stats.find(s => s.character === entry.character);
+  return match ? (match.kills || 0) : 0;
+}
+
+// Returns the seeding value based on current fill mode (used for non-random bracket ordering)
+function getSeedValue(entry) {
+  const fillMode = document.querySelector('input[name="fillMode"]:checked')?.value || 'points';
+  if (fillMode === 'kills') return getSeedKills(entry);
+  return getSeedPoints(entry);
+}
+
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -867,11 +892,11 @@ function generateBracketJS(base, teamMode, teamOf) {
     return pairs;
   }
 
-  // Step 2: For each slot, rank players by seed points then pair by style.
+  // Step 2: For each slot, rank players by seed value (points or kills) then pair by style.
   const pairs = [];
   for (let slot = 0; slot < maxChars; slot++) {
     const ordered = [...players].sort((a, b) =>
-      getSeedPoints(playerGroups[b][slot]) - getSeedPoints(playerGroups[a][slot])
+      getSeedValue(playerGroups[b][slot]) - getSeedValue(playerGroups[a][slot])
     );
     const getEntry = p => playerGroups[p][slot] || BYE;
 
@@ -995,9 +1020,12 @@ function renderBracket() {
         const iconUrl = !isByeEntry && typeof charImgUrl === 'function' ? charImgUrl(entry.character) : null;
         const icon = iconUrl ? `<img class="match-char-icon" src="${iconUrl}" alt="${entry.character}" onerror="this.style.display='none'" />` : '';
         const wonClass = isWon ? ' winner-highlight' : '';
-        const pts = getSeedPoints(entry);
+        const fillMode = document.querySelector('input[name="fillMode"]:checked')?.value || 'points';
+        const useKills = fillMode === 'kills';
+        const seedVal = useKills ? getSeedKills(entry) : getSeedPoints(entry);
+        const seedLabel = useKills ? (seedVal > 0 ? seedVal + 'k' : '—') : (seedVal > 0 ? seedVal + 'pts' : '—');
         const seedBadge = !isByeEntry
-          ? `<span style="margin-left:auto;font-size:0.68rem;font-weight:700;color:${pts > 0 ? 'var(--accent-gold)' : 'var(--text-muted)'};flex-shrink:0;">${pts > 0 ? pts + 'pts' : '—'}</span>`
+          ? `<span style="margin-left:auto;font-size:0.68rem;font-weight:700;color:${seedVal > 0 ? 'var(--accent-gold)' : 'var(--text-muted)'};flex-shrink:0;">${seedLabel}</span>`
           : '';
         return `<div class="match-entry${isByeEntry?' bye':''}${swapClass}${wonClass}" data-pair="${mi}" data-slot="${slot}">${icon}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span>${seedBadge}</div>`;
       }
@@ -1044,26 +1072,28 @@ function parseEntry(label) {
   return { player: label.slice(0, idx), character: label.slice(idx + 3) };
 }
 
-async function recordMatchResult(winnerLabel, loserLabel) {
+async function recordMatchResult(winnerLabel, loserLabel, winnerKills = 0, loserKills = 0) {
   const winner = parseEntry(winnerLabel);
   const loser  = parseEntry(loserLabel);
   if (!winner || !loser) return;
   if (winner.player === 'SYSTEM' || loser.player === 'SYSTEM') return;
   try {
     await apiPost('/matches/record', {
-      winner_username: winner.player, winner_char: winner.character,
-      loser_username:  loser.player,  loser_char:  loser.character,
+      winner_username: winner.player, winner_char: winner.character, winner_kills: winnerKills,
+      loser_username:  loser.player,  loser_char:  loser.character,  loser_kills:  loserKills,
       bracket_id: liveTournamentId || null,
     });
-    // Bust the stats cache so next bracket build fetches fresh points
+    // Bust the stats cache so next bracket build fetches fresh kills + points
     delete allUserStats[winner.player];
     delete allUserStats[loser.player];
+    delete allUserKills[winner.player];
+    delete allUserKills[loser.player];
   } catch (err) {
     showToast('Could not save match result: ' + err.message, 'error');
   }
 }
 
-function setWinner(key, val) {
+function setWinner(key, val, winnerKills = 0, loserKills = 0) {
   // Find the previous winner for this key — if already set to same value, skip re-recording
   const prev = roundWinners[key];
   roundWinners[key] = val;
@@ -1085,7 +1115,7 @@ function setWinner(key, val) {
   const [a, b] = round[mi];
   const la = entryLabel(a), lb = entryLabel(b);
   const loserLabel = val === la ? lb : la;
-  recordMatchResult(val, loserLabel);
+  recordMatchResult(val, loserLabel, winnerKills, loserKills);
 }
 
 function computeRounds(r1) {
@@ -1318,12 +1348,26 @@ function openVsModal(a, b, key) {
   if (url1) { charImg1.src = url1; charImg1.style.display = 'block'; } else { charImg1.style.display = 'none'; }
   if (url2) { charImg2.src = url2; charImg2.style.display = 'block'; } else { charImg2.style.display = 'none'; }
 
+  // Reset kill inputs for new match
+  document.getElementById('vsKills1').value = 0;
+  document.getElementById('vsKills2').value = 0;
+
   const btn1 = document.getElementById('vsWinBtn1');
   const btn2 = document.getElementById('vsWinBtn2');
   btn1.textContent = `${a.player} Wins`;
   btn2.textContent = `${b.player} Wins`;
-  btn1.onclick = () => { setWinner(vsCurrentKey, la); advanceVsModal(); };
-  btn2.onclick = () => { setWinner(vsCurrentKey, lb); advanceVsModal(); };
+  btn1.onclick = () => {
+    const wk = parseInt(document.getElementById('vsKills1').value) || 0;
+    const lk = parseInt(document.getElementById('vsKills2').value) || 0;
+    setWinner(vsCurrentKey, la, wk, lk);
+    advanceVsModal();
+  };
+  btn2.onclick = () => {
+    const wk = parseInt(document.getElementById('vsKills2').value) || 0;
+    const lk = parseInt(document.getElementById('vsKills1').value) || 0;
+    setWinner(vsCurrentKey, lb, wk, lk);
+    advanceVsModal();
+  };
 
   modal.classList.add('open');
 }
@@ -1409,10 +1453,22 @@ document.addEventListener('keydown', e => {
     </div>
   </div>
 
-  <!-- Winner buttons -->
+  <!-- Kill score inputs + winner buttons -->
   <div class="vs-winner-row">
-    <button class="vs-win-btn p1" id="vsWinBtn1">Player 1 Wins</button>
-    <button class="vs-win-btn p2" id="vsWinBtn2">Player 2 Wins</button>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+      <label style="font-size:0.7rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.5);">Kills</label>
+      <input id="vsKills1" type="number" min="0" max="99" value="0"
+        style="width:60px;text-align:center;font-size:1.3rem;font-weight:800;padding:6px;background:rgba(255,255,255,0.1);border:2px solid rgba(204,17,17,0.6);border-radius:8px;color:#ff8888;" />
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+      <button class="vs-win-btn p1" id="vsWinBtn1">Player 1 Wins</button>
+      <button class="vs-win-btn p2" id="vsWinBtn2">Player 2 Wins</button>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+      <label style="font-size:0.7rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.5);">Kills</label>
+      <input id="vsKills2" type="number" min="0" max="99" value="0"
+        style="width:60px;text-align:center;font-size:1.3rem;font-weight:800;padding:6px;background:rgba(255,255,255,0.1);border:2px solid rgba(17,85,204,0.6);border-radius:8px;color:#88aaff;" />
+    </div>
   </div>
 </div>
 

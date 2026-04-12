@@ -22,6 +22,9 @@ def _run_migrations():
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS bracket_style VARCHAR DEFAULT 'strongVsStrong'"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS is_live BOOLEAN DEFAULT FALSE"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS winner VARCHAR"))
+            conn.execute(text("ALTER TABLE character_stats ADD COLUMN IF NOT EXISTS kills INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE match_results ADD COLUMN IF NOT EXISTS winner_kills INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE match_results ADD COLUMN IF NOT EXISTS loser_kills INTEGER DEFAULT 0"))
         else:
             # SQLite: check pragma
             cols = {row[1] for row in conn.execute(text("PRAGMA table_info(brackets)"))}
@@ -33,6 +36,14 @@ def _run_migrations():
                 conn.execute(text("ALTER TABLE brackets ADD COLUMN is_live BOOLEAN DEFAULT 0"))
             if "winner" not in cols:
                 conn.execute(text("ALTER TABLE brackets ADD COLUMN winner VARCHAR"))
+            cs_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(character_stats)"))}
+            if "kills" not in cs_cols:
+                conn.execute(text("ALTER TABLE character_stats ADD COLUMN kills INTEGER DEFAULT 0"))
+            mr_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(match_results)"))}
+            if "winner_kills" not in mr_cols:
+                conn.execute(text("ALTER TABLE match_results ADD COLUMN winner_kills INTEGER DEFAULT 0"))
+            if "loser_kills" not in mr_cols:
+                conn.execute(text("ALTER TABLE match_results ADD COLUMN loser_kills INTEGER DEFAULT 0"))
         conn.commit()
 
 _run_migrations()
@@ -508,7 +519,7 @@ class StatRecord(BaseModel):
 @app.get("/characters/stats")
 def get_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     rows = db.query(CharacterStats).filter(CharacterStats.user_id == current_user.id).all()
-    return [{"character": r.character, "points": r.points} for r in rows]
+    return [{"character": r.character, "points": r.points, "kills": r.kills or 0} for r in rows]
 
 
 @app.get("/characters/stats/leaderboard")
@@ -521,6 +532,7 @@ def character_leaderboard(db: Session = Depends(get_db)):
             "avatar_url": row.owner.avatar_url,
             "character": row.character,
             "points": row.points,
+            "kills": row.kills or 0,
         }
         for row in rows
     ]
@@ -532,13 +544,14 @@ def get_stats_by_user(username: str, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     rows = db.query(CharacterStats).filter(CharacterStats.user_id == user.id).all()
-    return {"username": user.username, "stats": [{"character": r.character, "points": r.points} for r in rows]}
+    return {"username": user.username, "stats": [{"character": r.character, "points": r.points, "kills": r.kills or 0} for r in rows]}
 
 
 class BulkStatEntry(BaseModel):
     character: str
     wins: int
     losses: int
+    kills: int = 0
 
 class BulkStatsRequest(BaseModel):
     username: str
@@ -557,9 +570,11 @@ def bulk_set_stats(req: BulkStatsRequest, db: Session = Depends(get_db), current
             CharacterStats.character == entry.character,
         ).first()
         if row is None:
-            row = CharacterStats(user_id=target.id, character=entry.character, points=0)
+            row = CharacterStats(user_id=target.id, character=entry.character, points=0, kills=0)
             db.add(row)
         row.points = max(0, row.points + entry.wins - entry.losses)
+        if entry.kills > 0:
+            row.kills = (row.kills or 0) + entry.kills
     db.commit()
     return {"ok": True}
 
@@ -614,20 +629,24 @@ def record_stat(req: StatRecord, db: Session = Depends(get_db), current_user: Us
 class MatchRecord(BaseModel):
     winner_username: str
     winner_char: str
+    winner_kills: int = 0
     loser_username: str
     loser_char: str
+    loser_kills: int = 0
     bracket_id: int | None = None
 
 
-def _update_char_stat(db: Session, user_id: int, character: str, result: str):
+def _update_char_stat(db: Session, user_id: int, character: str, result: str, kill_count: int = 0):
     row = db.query(CharacterStats).filter_by(user_id=user_id, character=character).first()
     if row is None:
-        row = CharacterStats(user_id=user_id, character=character, points=0)
+        row = CharacterStats(user_id=user_id, character=character, points=0, kills=0)
         db.add(row)
     if result == "win":
         row.points += 1
     else:
         row.points = max(0, row.points - 1)
+    if kill_count > 0:
+        row.kills = (row.kills or 0) + kill_count
 
 
 @app.post("/matches/record")
@@ -637,11 +656,11 @@ def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: 
     loser  = db.query(User).filter(User.username == req.loser_username).first()
     if not winner or not loser:
         raise HTTPException(status_code=400, detail="Unknown username")
-    _update_char_stat(db, winner.id, req.winner_char, "win")
-    _update_char_stat(db, loser.id,  req.loser_char,  "loss")
+    _update_char_stat(db, winner.id, req.winner_char, "win",  req.winner_kills)
+    _update_char_stat(db, loser.id,  req.loser_char,  "loss", req.loser_kills)
     mr = MatchResult(
-        winner_id=winner.id, winner_char=req.winner_char,
-        loser_id=loser.id,   loser_char=req.loser_char,
+        winner_id=winner.id, winner_char=req.winner_char, winner_kills=req.winner_kills,
+        loser_id=loser.id,   loser_char=req.loser_char,   loser_kills=req.loser_kills,
         bracket_id=req.bracket_id,
     )
     db.add(mr)

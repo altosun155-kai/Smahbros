@@ -72,6 +72,7 @@
 </main>
 
 <script src="js/api.js"></script>
+<script src="js/nav.js"></script>
 <script>
   let brackets = [];
 
@@ -104,6 +105,12 @@
         </div>`
       ).join('');
 
+      const isLive = b.is_live;
+      const hasLineup = isLive && !(b.bracket_data && b.bracket_data.length);
+      const liveLabel = hasLineup ? '📋 Lineup' : '🔴 Live';
+      const liveBadge = isLive
+        ? `<a href="tournament.html?id=${b.id}" class="btn btn-sm" onclick="event.stopPropagation();" style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.5);color:#27ae60;font-size:0.75rem;">${liveLabel}</a>`
+        : '';
       return `
         <div class="bracket-item">
           <div class="bracket-header" onclick="toggleBracket(${b.id})">
@@ -116,6 +123,7 @@
               </div>
             </div>
             <div class="bracket-actions">
+              ${liveBadge}
               <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteBracket(${b.id},'${b.name.replace(/'/g,"\\'")}')" >Delete</button>
               <span class="expand-icon" id="icon_${b.id}">›</span>
             </div>

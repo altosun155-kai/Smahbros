@@ -9,10 +9,13 @@
   <script src="js/auth.js"></script>
   <style>
     .match-box { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; min-width: 180px; }
-    .match-entry { padding: 4px 0; font-size: 0.82rem; color: var(--text); border-bottom: 1px solid var(--border); }
+    .match-entry { padding: 4px 0; font-size: 0.82rem; color: var(--text); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
     .match-entry:last-child { border-bottom: none; }
     .match-entry.bye { color: var(--text-muted); font-style: italic; opacity: 0.6; }
     .match-entry.winner { color: #ffe066; font-weight: 700; }
+    .match-entry.mine { color: var(--accent-blue); }
+    .edit-char-btn { margin-left: auto; flex-shrink: 0; background: none; border: 1px solid var(--accent-blue); border-radius: 4px; color: var(--accent-blue); font-size: 0.7rem; padding: 1px 6px; cursor: pointer; opacity: 0.8; }
+    .edit-char-btn:hover { opacity: 1; background: rgba(0,119,200,0.15); }
     .round-col { min-width: 200px; flex-shrink: 0; }
     .round-title { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
     .bracket-rounds { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 12px; }
@@ -20,6 +23,17 @@
     .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #27ae60; animation: pulse 1.2s ease-in-out infinite; }
     @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
     .ended-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 0.8rem; color: var(--text-muted); font-weight: 700; }
+    /* Character picker modal */
+    #charPickerModal { display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; }
+    #charPickerModal.open { display:flex; }
+    .char-picker-box { background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:20px; width:320px; max-width:95vw; }
+    .char-picker-box h3 { font-size:0.95rem; font-weight:700; margin-bottom:12px; }
+    .char-picker-box input { width:100%; padding:8px 10px; background:var(--card-bg2); border:1px solid var(--border); border-radius:7px; color:var(--text); font-size:0.88rem; margin-bottom:8px; box-sizing:border-box; }
+    .char-picker-box input:focus { outline:none; border-color:var(--accent-blue); }
+    .char-list { max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:2px; }
+    .char-list-item { padding:7px 10px; border-radius:6px; cursor:pointer; font-size:0.85rem; }
+    .char-list-item:hover { background:rgba(0,119,200,0.2); color:var(--accent-blue); }
+    .char-picker-actions { display:flex; gap:8px; margin-top:12px; }
   </style>
 </head>
 <body>
@@ -64,12 +78,42 @@
       <div id="statusBadge"></div>
     </div>
 
-    <div id="playersSection" style="margin-bottom:24px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
-      <span style="font-size:0.85rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Players:</span>
-      <div id="playerChips"></div>
+    <!-- ── Lineup phase ── -->
+    <div id="lineupPhase" style="display:none;">
+
+      <!-- My character picks -->
+      <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;">
+        <h2 style="font-size:1rem;font-weight:700;margin-bottom:4px;">Pick Your Characters</h2>
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:16px;">Choose your characters then confirm your lineup.</p>
+        <div id="myCharSlots" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;"></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="confirmLineup()" id="confirmBtn">Confirm Lineup</button>
+          <span id="myConfirmStatus" style="font-size:0.85rem;color:var(--text-muted);"></span>
+        </div>
+      </div>
+
+      <!-- Player status -->
+      <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;">
+        <h2 style="font-size:1rem;font-weight:700;margin-bottom:14px;">Player Status</h2>
+        <div id="lineupStatusList" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+
+      <!-- Host only: generate bracket -->
+      <div id="hostGenerateSection" style="display:none;background:var(--card-bg);border:1px solid rgba(245,166,35,0.3);border-radius:var(--radius);padding:20px;">
+        <h2 style="font-size:1rem;font-weight:700;color:var(--accent-gold);margin-bottom:8px;">Ready to generate?</h2>
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:14px;">This locks all lineups and creates the matchups. Players who haven't confirmed will get a BYE.</p>
+        <button class="btn btn-gold" onclick="generateFromLineups()">🏆 Generate Bracket</button>
+      </div>
     </div>
 
-    <div class="bracket-rounds" id="bracketRounds"></div>
+    <!-- ── Bracket phase ── -->
+    <div id="bracketPhase" style="display:none;">
+      <div id="playersSection" style="margin-bottom:24px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+        <span style="font-size:0.85rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Players:</span>
+        <div id="playerChips"></div>
+      </div>
+      <div class="bracket-rounds" id="bracketRounds"></div>
+    </div>
 
     <p style="margin-top:20px;font-size:0.82rem;color:var(--text-muted);" id="refreshNote">Auto-refreshes every 5 seconds.</p>
   </div>
@@ -80,12 +124,71 @@
   </div>
 </main>
 
+<!-- Character picker modal -->
+<div id="charPickerModal">
+  <div class="char-picker-box">
+    <h3>Pick your character</h3>
+    <input type="text" id="charPickerSearch" placeholder="Search…" oninput="filterCharList()" autocomplete="off" />
+    <div class="char-list" id="charPickerList"></div>
+    <div class="char-picker-actions">
+      <button class="btn btn-outline btn-sm" onclick="closeCharPicker()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script src="js/api.js"></script>
+<script src="js/nav.js"></script>
 <script>
+const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];
+
 const params = new URLSearchParams(window.location.search);
 const tournamentId = params.get('id');
 let pollInterval = null;
 let lastRoundWinners = null;
+let myUsername = '';
+let currentBracketData = null; // latest bracket snapshot
+
+// ── Character picker ──────────────────────────────
+let pickerOldChar = null;
+
+function openCharPicker(oldChar) {
+  pickerOldChar = oldChar;
+  document.getElementById('charPickerSearch').value = '';
+  filterCharList();
+  document.getElementById('charPickerModal').classList.add('open');
+  document.getElementById('charPickerSearch').focus();
+}
+
+function closeCharPicker() {
+  document.getElementById('charPickerModal').classList.remove('open');
+  pickerOldChar = null;
+}
+
+function filterCharList() {
+  const q = document.getElementById('charPickerSearch').value.toLowerCase();
+  const list = document.getElementById('charPickerList');
+  list.innerHTML = ROSTER
+    .filter(c => !q || c.toLowerCase().includes(q))
+    .map(c => `<div class="char-list-item" onclick="selectChar('${c.replace(/'/g, "\\'")}')">${c}</div>`)
+    .join('');
+}
+
+async function selectChar(newChar) {
+  if (!pickerOldChar || !newChar) return;
+  closeCharPicker();
+  try {
+    await apiPatch(`/brackets/${tournamentId}/my-character`, { old_char: pickerOldChar, new_char: newChar });
+    showToast(`Character updated to ${newChar}!`, 'success');
+    await fetchAndRender();
+  } catch (err) {
+    showToast('Could not update character: ' + err.message, 'error');
+  }
+}
+
+// Close picker on backdrop click
+document.getElementById('charPickerModal').addEventListener('click', function(e) {
+  if (e.target === this) closeCharPicker();
+});
 
 function entryLabel(e) {
   if (!e) return 'TBD';
@@ -125,9 +228,29 @@ function getWinner(ri, mi, pairs, roundWinners) {
   return roundWinners[key] || null;
 }
 
+function entryHtml(label, roundWinners, is_live, roundIdx) {
+  if (!label || label === 'TBD') return `<div class="match-entry bye">— TBD —</div>`;
+  const isBye = label.toUpperCase() === 'BYE';
+  if (isBye) return `<div class="match-entry bye">BYE</div>`;
+
+  const isWinner = Object.values(roundWinners).includes(label);
+  const isMe = myUsername && label.startsWith(myUsername + ' — ');
+  const myChar = isMe ? label.slice(myUsername.length + 3) : null;
+
+  // Only show edit button in Round 1 (ri === 0) while tournament is live and match not yet decided
+  const canEdit = isMe && is_live && roundIdx === 0 && !isWinner;
+  const editBtn = canEdit
+    ? `<button class="edit-char-btn" onclick="openCharPicker('${myChar.replace(/'/g, "\\'")}')">✏️</button>`
+    : '';
+
+  const cls = `match-entry${isWinner ? ' winner' : ''}${isMe ? ' mine' : ''}`;
+  return `<div class="${cls}"><span style="flex:1">${label}</span>${editBtn}</div>`;
+}
+
 function renderBracket(data) {
   const { bracket_data, round_winners, is_live } = data;
   const roundWinners = round_winners || {};
+  currentBracketData = data;
 
   const rounds = computeRounds(bracket_data, roundWinners);
   const container = document.getElementById('bracketRounds');
@@ -146,13 +269,7 @@ function renderBracket(data) {
     round.forEach(([a, b]) => {
       const box = document.createElement('div');
       box.className = 'match-box';
-      const isBye = (a||'').toUpperCase() === 'BYE' || (b||'').toUpperCase() === 'BYE';
-      const pickedA = Object.values(roundWinners).includes(a);
-      const pickedB = Object.values(roundWinners).includes(b);
-      box.innerHTML = `
-        <div class="match-entry${(a||'') === 'TBD' || isBye ? ' bye' : ''}${pickedA && a !== 'TBD' ? ' winner' : ''}">${a || 'TBD'}</div>
-        <div class="match-entry${(b||'') === 'TBD' || isBye ? ' bye' : ''}${pickedB && b !== 'TBD' ? ' winner' : ''}">${b || 'TBD'}</div>
-      `;
+      box.innerHTML = entryHtml(a, roundWinners, is_live, ri) + entryHtml(b, roundWinners, is_live, ri);
       col.appendChild(box);
     });
     container.appendChild(col);
@@ -171,26 +288,259 @@ function renderBracket(data) {
   }
 }
 
+// ── Lineup phase ──────────────────────────────────
+let charsPerPlayer = 2;
+let isHost = false;
+let lineupSlotValues = []; // current values in my char slot inputs
+let lastLineupHash = ''; // prevent re-rendering slots while user is typing
+
+function buildMyCharSlots(k, confirmedLineups) {
+  charsPerPlayer = k;
+  const myConfirmed = (confirmedLineups || {})[myUsername] || [];
+  const container = document.getElementById('myCharSlots');
+  container.innerHTML = '';
+  lineupSlotValues = [];
+  for (let i = 0; i < k; i++) {
+    const val = myConfirmed[i] || '';
+    lineupSlotValues.push(val);
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;';
+    row.innerHTML = `
+      <span style="font-size:0.82rem;color:var(--text-muted);width:60px;flex-shrink:0;">Slot ${i+1}</span>
+      <div style="position:relative;flex:1;">
+        <input type="text" class="lineup-char-input" data-slot="${i}" value="${val}"
+          placeholder="— Search character —"
+          autocomplete="off"
+          style="width:100%;padding:7px 10px;background:var(--card-bg2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:0.88rem;box-sizing:border-box;" />
+        <div class="lineup-char-drop" data-slot="${i}"
+          style="display:none;position:absolute;top:100%;left:0;right:0;background:#1a1a2e;border:1px solid rgba(255,255,255,0.2);border-radius:6px;z-index:50;max-height:180px;overflow-y:auto;margin-top:2px;box-shadow:0 4px 16px rgba(0,0,0,0.5);"></div>
+      </div>`;
+    container.appendChild(row);
+    setupLineupInput(row.querySelector('.lineup-char-input'), row.querySelector('.lineup-char-drop'), i);
+  }
+}
+
+function setupLineupInput(input, drop, slotIdx) {
+  function buildDrop(q) {
+    const matches = ROSTER.filter(c => !q || c.toLowerCase().includes(q.toLowerCase()));
+    drop.innerHTML = matches.length
+      ? matches.map(c => `<div style="padding:7px 10px;cursor:pointer;font-size:0.85rem;color:#e8edf3;" onmousedown="event.preventDefault();selectLineupChar(${slotIdx},'${c.replace(/'/g,"\\'")}','${c.replace(/'/g,"\\'")}',this)">${c}</div>`).join('')
+      : '<div style="padding:8px 10px;font-size:0.82rem;color:var(--text-muted);">No match</div>';
+    drop.style.display = 'block';
+  }
+  input.addEventListener('focus', () => buildDrop(input.value));
+  input.addEventListener('input', () => buildDrop(input.value));
+  input.addEventListener('blur', () => setTimeout(() => { drop.style.display = 'none'; }, 150));
+}
+
+function selectLineupChar(slotIdx, charName, displayName, el) {
+  lineupSlotValues[slotIdx] = charName;
+  const inputs = document.querySelectorAll('.lineup-char-input');
+  if (inputs[slotIdx]) inputs[slotIdx].value = displayName;
+  const drops = document.querySelectorAll('.lineup-char-drop');
+  if (drops[slotIdx]) drops[slotIdx].style.display = 'none';
+}
+
+async function confirmLineup() {
+  // Sync values from inputs
+  document.querySelectorAll('.lineup-char-input').forEach((inp, i) => {
+    if (ROSTER.includes(inp.value)) lineupSlotValues[i] = inp.value;
+  });
+  const chars = lineupSlotValues.filter(c => c && ROSTER.includes(c));
+  if (!chars.length) { showToast('Pick at least one character.', 'warn'); return; }
+  try {
+    await apiPatch(`/brackets/${tournamentId}/confirm-lineup`, { characters: chars });
+    showToast('Lineup confirmed!', 'success');
+    document.getElementById('myConfirmStatus').textContent = '✅ Confirmed';
+    document.getElementById('confirmBtn').textContent = 'Update Lineup';
+    await fetchAndRender();
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+function renderLineupStatus(data) {
+  const confirmedLineups = data.confirmed_lineups || {};
+  const players = data.players || [];
+  const list = document.getElementById('lineupStatusList');
+  list.innerHTML = players.map(p => {
+    const chars = confirmedLineups[p];
+    const done = chars && chars.length > 0;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--card-bg2);border-radius:8px;border:1px solid ${done ? 'rgba(39,174,96,0.3)' : 'var(--border)'};">
+      <span style="font-size:1rem;">${done ? '✅' : '⏳'}</span>
+      <span style="font-weight:600;flex:1;">${p}</span>
+      <span style="font-size:0.82rem;color:var(--text-muted);">${done ? chars.join(', ') : 'Waiting…'}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Bracket generation (lineup → matchups) ────────
+function nextPow2(n) { if (n<=1) return 1; let p=1; while(p<n) p<<=1; return p; }
+
+function shuffleArr(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+async function generateFromLineups() {
+  const data = currentBracketData;
+  const confirmedLineups = data.confirmed_lineups || {};
+  const players = data.players || [];
+  const style = data.bracket_style || 'strongVsStrong';
+
+  // Fetch kills stats for seeding (used by strong/weak styles)
+  const playerStats = {};
+  await Promise.all(players.map(async p => {
+    try {
+      const d = await apiGet(`/characters/stats/${encodeURIComponent(p)}`);
+      playerStats[p] = d.stats || [];
+    } catch(_) { playerStats[p] = []; }
+  }));
+
+  const BYE = { player: 'SYSTEM', character: 'BYE' };
+  const playerGroups = {};
+  players.forEach(p => {
+    const chars = confirmedLineups[p] || [];
+    playerGroups[p] = chars.map(c => ({ player: p, character: c }));
+  });
+  const maxChars = Math.max(...players.map(p => (playerGroups[p] || []).length), 0);
+  if (maxChars === 0) { showToast('No confirmed lineups yet.', 'warn'); return; }
+
+  function getSeed(entry) {
+    if (!entry || entry.player === 'SYSTEM') return -1;
+    const stats = playerStats[entry.player] || [];
+    const s = stats.find(x => x.character === entry.character);
+    return s ? (s.kills || 0) : 0;
+  }
+
+  const pairs = [];
+
+  if (style === 'random') {
+    // Collect all entries across all slots, shuffle, pair sequentially
+    const all = [];
+    players.forEach(p => {
+      (playerGroups[p] || []).forEach(e => all.push(e));
+    });
+    shuffleArr(all);
+    for (let i = 0; i + 1 < all.length; i += 2) {
+      pairs.push({ a: `${all[i].player} — ${all[i].character}`,
+                   b: `${all[i+1].player} — ${all[i+1].character}` });
+    }
+    if (all.length % 2 === 1) {
+      const e = all[all.length - 1];
+      pairs.push({ a: `${e.player} — ${e.character}`, b: 'BYE' });
+    }
+  } else {
+    for (let slot = 0; slot < maxChars; slot++) {
+      const slotPlayers = [...players].filter(p => playerGroups[p][slot]);
+      // Sort descending by kills seed
+      slotPlayers.sort((a, b) => getSeed(playerGroups[b][slot]) - getSeed(playerGroups[a][slot]));
+      const getEntry = p => playerGroups[p][slot];
+
+      if (style === 'strongVsWeak') {
+        // Best vs worst: pair index 0 with last, 1 with second-to-last, etc.
+        let lo = 0, hi = slotPlayers.length - 1;
+        while (lo < hi) {
+          pairs.push({ a: `${slotPlayers[lo]} — ${getEntry(slotPlayers[lo]).character}`,
+                       b: `${slotPlayers[hi]} — ${getEntry(slotPlayers[hi]).character}` });
+          lo++; hi--;
+        }
+        if (lo === hi) {
+          pairs.push({ a: `${slotPlayers[lo]} — ${getEntry(slotPlayers[lo]).character}`, b: 'BYE' });
+        }
+      } else {
+        // strongVsStrong (default): best vs second-best, etc.
+        for (let i = 0; i + 1 < slotPlayers.length; i += 2) {
+          pairs.push({ a: `${slotPlayers[i]} — ${getEntry(slotPlayers[i]).character}`,
+                       b: `${slotPlayers[i+1]} — ${getEntry(slotPlayers[i+1]).character}` });
+        }
+        if (slotPlayers.length % 2 === 1) {
+          const p = slotPlayers[slotPlayers.length - 1];
+          pairs.push({ a: `${p} — ${getEntry(p).character}`, b: 'BYE' });
+        }
+      }
+    }
+  }
+
+  const target = nextPow2(pairs.length);
+  while (pairs.length < target) pairs.push({ a: 'BYE', b: 'BYE' });
+
+  const entries = [];
+  players.forEach(p => (confirmedLineups[p] || []).forEach(c => entries.push({ player: p, character: c })));
+
+  try {
+    await apiPost(`/brackets/${tournamentId}/generate-from-lineups`, { bracket_data: pairs, entries });
+    showToast('Bracket generated!', 'success');
+    await fetchAndRender();
+  } catch(err) {
+    showToast('Error generating bracket: ' + err.message, 'error');
+  }
+}
+
 async function fetchAndRender() {
   try {
     const data = await apiGet(`/brackets/${tournamentId}`);
+    currentBracketData = data;
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = 'block';
     document.getElementById('tournamentName').textContent = data.name;
     document.getElementById('tournamentHost').textContent = `Hosted by ${data.host}`;
+    isHost = (myUsername === data.host);
 
-    // Player chips
-    const chips = document.getElementById('playerChips');
-    if (chips.children.length === 0) {
-      (data.players || []).forEach(p => {
-        const chip = document.createElement('span');
-        chip.style.cssText = 'background:var(--card-bg2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:0.82rem;color:var(--text);';
-        chip.textContent = p;
-        chips.appendChild(chip);
-      });
+    const hasBracket = data.bracket_data && data.bracket_data.length > 0;
+
+    if (data.is_live && !hasBracket) {
+      // ── Lineup phase ──
+      document.getElementById('lineupPhase').style.display = 'block';
+      document.getElementById('bracketPhase').style.display = 'none';
+
+      // Only rebuild the char slot inputs when lineups actually changed
+      // (prevents wiping what the user is typing during a 5-second poll)
+      const lineupHash = JSON.stringify(data.confirmed_lineups);
+      if (lineupHash !== lastLineupHash) {
+        lastLineupHash = lineupHash;
+        buildMyCharSlots(data.chars_per_player || 2, data.confirmed_lineups);
+      }
+      renderLineupStatus(data);
+
+      const myConfirmed = (data.confirmed_lineups || {})[myUsername] || [];
+      if (myConfirmed.length > 0) {
+        document.getElementById('myConfirmStatus').textContent = '✅ Confirmed';
+        document.getElementById('confirmBtn').textContent = 'Update Lineup';
+      }
+
+      document.getElementById('hostGenerateSection').style.display = isHost ? 'block' : 'none';
+    } else {
+      // ── Bracket phase ──
+      document.getElementById('lineupPhase').style.display = 'none';
+      document.getElementById('bracketPhase').style.display = 'block';
+
+      const chips = document.getElementById('playerChips');
+      if (chips.children.length === 0) {
+        (data.players || []).forEach(p => {
+          const chip = document.createElement('span');
+          chip.style.cssText = 'background:var(--card-bg2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:0.82rem;color:var(--text);';
+          chip.textContent = p;
+          chips.appendChild(chip);
+        });
+      }
+      renderBracket(data);
     }
 
-    renderBracket(data);
+    // Status badge
+    const badge = document.getElementById('statusBadge');
+    badge.innerHTML = data.is_live
+      ? `<div class="live-badge"><span class="live-dot"></span>LIVE</div>`
+      : `<div class="ended-badge">Ended</div>`;
+
+    if (!data.is_live && pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
+      document.getElementById('refreshNote').textContent = 'Tournament has ended.';
+    }
   } catch (err) {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('errorState').style.display = 'block';
@@ -207,6 +557,7 @@ async function fetchAndRender() {
   try {
     const me = await apiGet('/users/me');
     if (me) {
+      myUsername = me.username;
       document.getElementById('navUsername').textContent = me.username;
       const av = document.getElementById('navAvatar');
       av.src = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;

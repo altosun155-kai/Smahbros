@@ -84,6 +84,7 @@
 </main>
 
 <script src="js/api.js"></script>
+<script src="js/nav.js"></script>
 <script>
   let selectedInvitee = null;
   let searchTimer = null;
@@ -127,7 +128,7 @@
               <div class="invite-meta">From <strong>${inv.inviter}</strong> · ${inv.created_at ? inv.created_at.slice(0,10) : ''}</div>
             </div>
             <div class="invite-actions">
-              <button class="btn btn-primary btn-sm" onclick="respondInvite(${inv.id}, 'accepted', ${inv.bracket_id})">Accept & Watch</button>
+              <button class="btn btn-primary btn-sm" onclick="respondInvite(${inv.id}, 'accepted', ${inv.bracket_id})">Accept & Join</button>
               <button class="btn btn-danger btn-sm" onclick="respondInvite(${inv.id}, 'declined', null)">Decline</button>
             </div>
           </div>

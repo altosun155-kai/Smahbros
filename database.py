@@ -48,11 +48,13 @@ class Bracket(Base):
     players      = Column(JSON, default=list)
     entries      = Column(JSON, default=list)
     bracket_data  = Column(JSON, default=list)
-    round_winners = Column(JSON, default=dict)   # {"r0_m0": "player — char", ...}
-    bracket_style = Column(String, default="strongVsStrong")
-    is_live       = Column(Boolean, default=False)
-    winner        = Column(String, nullable=True)
-    created_at    = Column(DateTime, default=datetime.utcnow)
+    round_winners      = Column(JSON, default=dict)   # {"r0_m0": "player — char", ...}
+    bracket_style      = Column(String, default="strongVsStrong")
+    is_live            = Column(Boolean, default=False)
+    winner             = Column(String, nullable=True)
+    chars_per_player   = Column(Integer, default=2)
+    confirmed_lineups  = Column(JSON, default=dict)   # {username: ["char1", ...]}
+    created_at         = Column(DateTime, default=datetime.utcnow)
 
     owner   = relationship("User", back_populates="brackets")
     invites = relationship("TournamentInvite", back_populates="bracket", cascade="all, delete-orphan")
@@ -124,7 +126,8 @@ class FavoriteCharacters(Base):
 class CharacterStats(Base):
     """
     One row per (user, character). Points start at 0, +1 on win, -1 on loss
-    with a floor of 0. Kills = total wins (never decremented).
+    with a floor of 0. Kills = stock kills (from match scores). Wins/losses
+    are raw counts (never decremented) for win-percentage calculation.
     """
     __tablename__ = "character_stats"
 
@@ -133,6 +136,8 @@ class CharacterStats(Base):
     character  = Column(String, nullable=False)
     points     = Column(Integer, default=0, nullable=False)
     kills      = Column(Integer, default=0, nullable=False)
+    wins       = Column(Integer, default=0, nullable=False)
+    losses     = Column(Integer, default=0, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     owner = relationship("User", back_populates="character_stats")

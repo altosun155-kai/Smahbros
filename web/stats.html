@@ -86,6 +86,8 @@
             <th>#</th>
             <th>Character</th>
             <th>Your Pts</th>
+            <th>W / L</th>
+            <th>Win%</th>
             <th>Kills</th>
             <th>Global Avg</th>
             <th>vs Avg</th>
@@ -181,7 +183,7 @@
     <div style="overflow-x:auto;">
       <table class="data-table" id="viewedStatsTable">
         <thead>
-          <tr><th>#</th><th>Character</th><th>Their Pts</th><th>Global Avg</th><th>vs Avg</th></tr>
+          <tr><th>#</th><th>Character</th><th>Their Pts</th><th>W / L</th><th>Win%</th><th>Kills</th><th>Global Avg</th><th>vs Avg</th></tr>
         </thead>
         <tbody id="viewedStatsBody"></tbody>
       </table>
@@ -190,6 +192,7 @@
 </main>
 
 <script src="js/api.js"></script>
+<script src="js/nav.js"></script>
 <script src="js/chars.js"></script>
 <script>
   const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];
@@ -307,11 +310,22 @@
       const killsStr = kills > 0
         ? `<span style="color:#e67e22;font-weight:700;">${kills}</span>`
         : `<span style="color:var(--text-muted);">—</span>`;
+      const wins   = s.wins   || 0;
+      const losses = s.losses || 0;
+      const wlStr  = (wins + losses) > 0
+        ? `<span style="color:#27ae60;font-weight:700;">${wins}</span><span style="color:var(--text-muted);font-size:0.8rem;"> / </span><span style="color:#e74c3c;font-weight:700;">${losses}</span>`
+        : `<span style="color:var(--text-muted);">—</span>`;
+      const winPct = s.win_pct;
+      const winPctStr = winPct !== null && winPct !== undefined
+        ? `<span style="font-weight:700;color:${winPct >= 60 ? '#27ae60' : winPct >= 40 ? 'var(--accent-gold)' : '#e74c3c'};">${winPct}%</span>`
+        : `<span style="color:var(--text-muted);">—</span>`;
       return `
       <tr>
         <td class="rank-cell">${i+1}</td>
         <td><div style="display:flex;align-items:center;gap:8px;">${img}<span style="font-weight:500;">${s.character}</span></div></td>
         <td class="points-cell">${s.points}</td>
+        <td>${wlStr}</td>
+        <td>${winPctStr}</td>
         <td>${killsStr}</td>
         <td style="color:var(--text-muted);font-size:0.88rem;">${avgStr}</td>
         <td>${diffStr}</td>

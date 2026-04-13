@@ -10,6 +10,7 @@ import os
 from database import engine, Base, User, Bracket, RoundRobinResult, CharacterRanking, TournamentInvite, FavoriteCharacters, CharacterStats, Friendship, MatchResult, ProfileComment
 from auth import get_db, get_current_user, hash_password, verify_password, make_token
 from sqlalchemy import or_, and_, text
+from sqlalchemy.orm.attributes import flag_modified
 
 Base.metadata.create_all(bind=engine)
 
@@ -23,8 +24,12 @@ def _run_migrations():
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS is_live BOOLEAN DEFAULT FALSE"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS winner VARCHAR"))
             conn.execute(text("ALTER TABLE character_stats ADD COLUMN IF NOT EXISTS kills INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE character_stats ADD COLUMN IF NOT EXISTS wins INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE character_stats ADD COLUMN IF NOT EXISTS losses INTEGER DEFAULT 0"))
             conn.execute(text("ALTER TABLE match_results ADD COLUMN IF NOT EXISTS winner_kills INTEGER DEFAULT 0"))
             conn.execute(text("ALTER TABLE match_results ADD COLUMN IF NOT EXISTS loser_kills INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS chars_per_player INTEGER DEFAULT 2"))
+            conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS confirmed_lineups JSONB DEFAULT '{}'"))
         else:
             # SQLite: check pragma
             cols = {row[1] for row in conn.execute(text("PRAGMA table_info(brackets)"))}
@@ -39,11 +44,20 @@ def _run_migrations():
             cs_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(character_stats)"))}
             if "kills" not in cs_cols:
                 conn.execute(text("ALTER TABLE character_stats ADD COLUMN kills INTEGER DEFAULT 0"))
+            if "wins" not in cs_cols:
+                conn.execute(text("ALTER TABLE character_stats ADD COLUMN wins INTEGER DEFAULT 0"))
+            if "losses" not in cs_cols:
+                conn.execute(text("ALTER TABLE character_stats ADD COLUMN losses INTEGER DEFAULT 0"))
             mr_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(match_results)"))}
             if "winner_kills" not in mr_cols:
                 conn.execute(text("ALTER TABLE match_results ADD COLUMN winner_kills INTEGER DEFAULT 0"))
             if "loser_kills" not in mr_cols:
                 conn.execute(text("ALTER TABLE match_results ADD COLUMN loser_kills INTEGER DEFAULT 0"))
+            b_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(brackets)"))}
+            if "chars_per_player" not in b_cols:
+                conn.execute(text("ALTER TABLE brackets ADD COLUMN chars_per_player INTEGER DEFAULT 2"))
+            if "confirmed_lineups" not in b_cols:
+                conn.execute(text("ALTER TABLE brackets ADD COLUMN confirmed_lineups TEXT DEFAULT '{}' "))
         conn.commit()
 
 _run_migrations()
@@ -122,6 +136,7 @@ class BracketCreate(BaseModel):
     bracket_style: str = "strongVsStrong"
     is_live: bool = False
     invite_usernames: list = []   # usernames to invite when going live
+    chars_per_player: int = 2
 
 
 def bracket_to_dict(b: Bracket, include_invites: bool = False):
@@ -138,6 +153,8 @@ def bracket_to_dict(b: Bracket, include_invites: bool = False):
         "winner": b.winner,
         "host": b.owner.username,
         "host_avatar": b.owner.avatar_url,
+        "chars_per_player": b.chars_per_player or 2,
+        "confirmed_lineups": b.confirmed_lineups or {},
         "created_at": b.created_at.isoformat(),
     }
     if include_invites:
@@ -171,6 +188,8 @@ def create_bracket(req: BracketCreate, db: Session = Depends(get_db), current_us
         round_winners={},
         bracket_style=req.bracket_style,
         is_live=req.is_live,
+        chars_per_player=req.chars_per_player,
+        confirmed_lineups={},
     )
     db.add(bracket)
     db.commit()
@@ -235,6 +254,80 @@ def set_bracket_winner(bracket_id: int, req: WinnerUpdate, db: Session = Depends
     rw = dict(b.round_winners or {})
     rw[req.key] = req.winner
     b.round_winners = rw
+    db.commit()
+    return {"ok": True}
+
+
+class EntryCharUpdate(BaseModel):
+    old_char: str   # character they currently have in this bracket
+    new_char: str   # character they want to switch to
+
+
+@app.patch("/brackets/{bracket_id}/my-character")
+def update_my_character(bracket_id: int, req: EntryCharUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Invited player updates their own character in a live bracket."""
+    b = db.query(Bracket).filter(Bracket.id == bracket_id, Bracket.is_live == True).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="Live bracket not found")
+
+    old_label = f"{current_user.username} — {req.old_char}"
+    new_label = f"{current_user.username} — {req.new_char}"
+
+    # Update entries list
+    entries = list(b.entries or [])
+    for e in entries:
+        if e.get("player") == current_user.username and e.get("character") == req.old_char:
+            e["character"] = req.new_char
+    b.entries = entries
+    flag_modified(b, "entries")
+
+    # Update bracket_data (replaces the label in all R1 pairs)
+    bracket_data = list(b.bracket_data or [])
+    for pair in bracket_data:
+        if pair.get("a") == old_label:
+            pair["a"] = new_label
+        if pair.get("b") == old_label:
+            pair["b"] = new_label
+    b.bracket_data = bracket_data
+    flag_modified(b, "bracket_data")
+
+    db.commit()
+    return {"ok": True, "new_label": new_label}
+
+
+class LineupConfirm(BaseModel):
+    characters: list[str]
+
+@app.patch("/brackets/{bracket_id}/confirm-lineup")
+def confirm_lineup(bracket_id: int, req: LineupConfirm, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Invited player (or host) submits their character choices for a lineup-phase tournament."""
+    b = db.query(Bracket).filter(Bracket.id == bracket_id, Bracket.is_live == True).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="Live bracket not found")
+    if current_user.username not in (b.players or []) and b.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You are not in this tournament")
+    lineups = dict(b.confirmed_lineups or {})
+    lineups[current_user.username] = [c for c in req.characters if c]
+    b.confirmed_lineups = lineups
+    flag_modified(b, "confirmed_lineups")
+    db.commit()
+    return {"ok": True}
+
+
+class GenerateBracketData(BaseModel):
+    bracket_data: list
+    entries: list = []
+
+@app.post("/brackets/{bracket_id}/generate-from-lineups")
+def generate_from_lineups(bracket_id: int, req: GenerateBracketData, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Host locks lineups and saves the generated bracket matchups."""
+    b = db.query(Bracket).filter(Bracket.id == bracket_id, Bracket.user_id == current_user.id, Bracket.is_live == True).first()
+    if not b:
+        raise HTTPException(status_code=403, detail="Only the host can generate the bracket")
+    b.bracket_data = req.bracket_data
+    b.entries = req.entries
+    flag_modified(b, "bracket_data")
+    flag_modified(b, "entries")
     db.commit()
     return {"ok": True}
 
@@ -516,10 +609,24 @@ class StatRecord(BaseModel):
     result: str  # "win" or "loss"
 
 
+def _stat_row(r):
+    w = r.wins or 0
+    l = r.losses or 0
+    total = w + l
+    win_pct = round(w / total * 100, 1) if total > 0 else None
+    return {
+        "character": r.character,
+        "points":    r.points,
+        "kills":     r.kills or 0,
+        "wins":      w,
+        "losses":    l,
+        "win_pct":   win_pct,
+    }
+
 @app.get("/characters/stats")
 def get_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     rows = db.query(CharacterStats).filter(CharacterStats.user_id == current_user.id).all()
-    return [{"character": r.character, "points": r.points, "kills": r.kills or 0} for r in rows]
+    return [_stat_row(r) for r in rows]
 
 
 @app.get("/characters/stats/leaderboard")
@@ -560,7 +667,7 @@ def get_stats_by_user(username: str, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     rows = db.query(CharacterStats).filter(CharacterStats.user_id == user.id).all()
-    return {"username": user.username, "stats": [{"character": r.character, "points": r.points, "kills": r.kills or 0} for r in rows]}
+    return {"username": user.username, "stats": [_stat_row(r) for r in rows]}
 
 
 class BulkStatEntry(BaseModel):
@@ -586,8 +693,10 @@ def bulk_set_stats(req: BulkStatsRequest, db: Session = Depends(get_db), current
             CharacterStats.character == entry.character,
         ).first()
         if row is None:
-            row = CharacterStats(user_id=target.id, character=entry.character, points=0, kills=0)
+            row = CharacterStats(user_id=target.id, character=entry.character, points=0, kills=0, wins=0, losses=0)
             db.add(row)
+        row.wins   = (row.wins   or 0) + entry.wins
+        row.losses = (row.losses or 0) + entry.losses
         row.points = max(0, row.points + entry.wins - entry.losses)
         if entry.kills > 0:
             row.kills = (row.kills or 0) + entry.kills
@@ -612,12 +721,14 @@ def record_stat_for(req: StatRecordFor, db: Session = Depends(get_db), current_u
         CharacterStats.character == req.character,
     ).first()
     if row is None:
-        row = CharacterStats(user_id=target.id, character=req.character, points=0)
+        row = CharacterStats(user_id=target.id, character=req.character, points=0, kills=0, wins=0, losses=0)
         db.add(row)
     if req.result == "win":
         row.points += 1
+        row.wins = (row.wins or 0) + 1
     else:
         row.points = max(0, row.points - 1)
+        row.losses = (row.losses or 0) + 1
     db.commit()
     return {"character": row.character, "points": row.points}
 
@@ -630,12 +741,14 @@ def record_stat(req: StatRecord, db: Session = Depends(get_db), current_user: Us
         CharacterStats.character == req.character,
     ).first()
     if row is None:
-        row = CharacterStats(user_id=current_user.id, character=req.character, points=0)
+        row = CharacterStats(user_id=current_user.id, character=req.character, points=0, kills=0, wins=0, losses=0)
         db.add(row)
     if req.result == "win":
         row.points += 1
+        row.wins = (row.wins or 0) + 1
     else:
         row.points = max(0, row.points - 1)
+        row.losses = (row.losses or 0) + 1
     db.commit()
     return {"character": row.character, "points": row.points}
 
@@ -655,12 +768,14 @@ class MatchRecord(BaseModel):
 def _update_char_stat(db: Session, user_id: int, character: str, result: str, kill_count: int = 0):
     row = db.query(CharacterStats).filter_by(user_id=user_id, character=character).first()
     if row is None:
-        row = CharacterStats(user_id=user_id, character=character, points=0, kills=0)
+        row = CharacterStats(user_id=user_id, character=character, points=0, kills=0, wins=0, losses=0)
         db.add(row)
     if result == "win":
         row.points += 1
+        row.wins = (row.wins or 0) + 1
     else:
         row.points = max(0, row.points - 1)
+        row.losses = (row.losses or 0) + 1
     if kill_count > 0:
         row.kills = (row.kills or 0) + kill_count
 

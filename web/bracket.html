@@ -1229,10 +1229,7 @@ async function startLineupPhase() {
       chars_per_player: k,
     });
     liveTournamentId = res.id;
-    showToast(`"${name}" lineup phase started! Invites sent to ${invitees.length} player(s).`, 'success');
-    document.getElementById('liveTournamentBanner').style.display = 'block';
-    document.getElementById('liveTournamentLink').innerHTML =
-      `<a href="tournament.html?id=${res.id}" target="_blank" style="color:#27ae60;text-decoration:underline;">Open lineup view ↗</a>`;
+    window.location.href = `tournament.html?id=${res.id}`;
   } catch (err) {
     showToast('Error starting lineup phase: ' + err.message, 'error');
   }

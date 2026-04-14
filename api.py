@@ -787,6 +787,9 @@ def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: 
     loser  = db.query(User).filter(User.username == req.loser_username).first()
     if not winner or not loser:
         raise HTTPException(status_code=400, detail="Unknown username")
+    # Skip stat updates for self-play (same player on both sides)
+    if winner.id == loser.id:
+        return {"ok": True, "skipped": "self-play"}
     _update_char_stat(db, winner.id, req.winner_char, "win",  req.winner_kills)
     _update_char_stat(db, loser.id,  req.loser_char,  "loss", req.loser_kills)
     mr = MatchResult(

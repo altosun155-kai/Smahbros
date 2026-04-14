@@ -76,6 +76,18 @@
     .dash-arrow { color: var(--text-muted); font-size: 1.1rem; align-self: center; margin-left: auto; flex-shrink: 0; }
   </style>
 
+  <!-- Live Tournament Banner -->
+  <div id="liveTournamentSection" style="display:none;margin-bottom:18px;">
+    <div style="background:linear-gradient(135deg,rgba(231,76,60,0.18),rgba(192,57,43,0.10));border:1.5px solid rgba(231,76,60,0.5);border-radius:var(--radius);padding:16px 20px;display:flex;align-items:center;gap:16px;">
+      <div style="font-size:1.6rem;flex-shrink:0;">🔴</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:rgba(231,76,60,0.9);margin-bottom:3px;">Live Tournament</div>
+        <div id="liveTournamentName" style="font-size:1rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+      </div>
+      <a id="liveTournamentLink" href="#" class="btn" style="flex-shrink:0;background:#e74c3c;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:0.85rem;text-decoration:none;white-space:nowrap;">Open →</a>
+    </div>
+  </div>
+
   <!-- Core Tools -->
   <div class="dash-section-label">Core Tools</div>
   <div class="dash-grid">
@@ -205,6 +217,18 @@
         const avatarUrl = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
         avatarEl.src = avatarUrl;
         avatarEl.style.display = 'block';
+      }
+    } catch (_) {}
+
+    // Check for live tournaments
+    try {
+      const brackets = await apiGet('/brackets');
+      const live = (brackets || []).filter(b => b.is_live);
+      if (live.length > 0) {
+        const t = live[0];
+        document.getElementById('liveTournamentName').textContent = t.name;
+        document.getElementById('liveTournamentLink').href = `tournament.html?id=${t.id}`;
+        document.getElementById('liveTournamentSection').style.display = 'block';
       }
     } catch (_) {}
 

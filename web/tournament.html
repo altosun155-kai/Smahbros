@@ -8,14 +8,25 @@
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/auth.js"></script>
   <style>
-    .match-box { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; min-width: 180px; }
-    .match-entry { padding: 4px 0; font-size: 0.82rem; color: var(--text); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
+    .match-box { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; min-width: 190px; }
+    .match-box.clickable { cursor: pointer; transition: border-color 0.15s; }
+    .match-box.clickable:hover { border-color: var(--accent-blue); }
+    .match-entry { padding: 5px 4px; font-size: 0.82rem; color: var(--text); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
     .match-entry:last-child { border-bottom: none; }
     .match-entry.bye { color: var(--text-muted); font-style: italic; opacity: 0.6; }
     .match-entry.winner { color: #ffe066; font-weight: 700; }
     .match-entry.mine { color: var(--accent-blue); }
+    .match-char-icon { width: 22px; height: 22px; object-fit: contain; border-radius: 3px; flex-shrink: 0; background: var(--card-bg); }
     .edit-char-btn { margin-left: auto; flex-shrink: 0; background: none; border: 1px solid var(--accent-blue); border-radius: 4px; color: var(--accent-blue); font-size: 0.7rem; padding: 1px 6px; cursor: pointer; opacity: 0.8; }
     .edit-char-btn:hover { opacity: 1; background: rgba(0,119,200,0.15); }
+    /* Score picker modal */
+    #scoreModal { display:none; position:fixed; inset:0; z-index:150; background:rgba(0,0,0,0.72); align-items:center; justify-content:center; }
+    #scoreModal.open { display:flex; }
+    .score-modal-box { background:var(--card-bg); border:1px solid var(--border); border-radius:14px; padding:24px 20px; width:380px; max-width:96vw; }
+    .score-preset-btn { padding: 9px 14px; font-size: 0.92rem; font-weight: 800; border: none; border-radius: 8px; cursor: pointer; transition: transform 0.1s, opacity 0.1s; letter-spacing: 0.5px; }
+    .score-preset-btn:hover { transform: scale(1.07); opacity: 0.9; }
+    .score-preset-btn.p1-btn { background: rgba(180,20,20,0.85); color: #fff; border: 2px solid rgba(255,120,120,0.4); }
+    .score-preset-btn.p2-btn { background: rgba(20,60,180,0.85); color: #fff; border: 2px solid rgba(100,150,255,0.4); }
     .round-col { min-width: 200px; flex-shrink: 0; }
     .round-title { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
     .bracket-rounds { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 12px; }
@@ -124,6 +135,44 @@
   </div>
 </main>
 
+<!-- Score picker modal (host only) -->
+<div id="scoreModal">
+  <div class="score-modal-box">
+    <div style="font-size:0.68rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);text-align:center;margin-bottom:16px;">Record Score</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px;">
+      <div style="text-align:center;flex:1;">
+        <div id="scoreP1Name" style="font-weight:700;color:#ff8888;font-size:0.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+        <div id="scoreP1Char" style="font-size:0.78rem;color:var(--accent-gold);margin-top:2px;"></div>
+      </div>
+      <div style="font-size:1.2rem;font-weight:900;color:rgba(255,255,255,0.25);">VS</div>
+      <div style="text-align:center;flex:1;">
+        <div id="scoreP2Name" style="font-weight:700;color:#88aaff;font-size:0.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+        <div id="scoreP2Char" style="font-size:0.78rem;color:var(--accent-gold);margin-top:2px;"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:14px;align-items:center;justify-content:center;margin-bottom:16px;">
+      <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
+        <div style="font-size:0.6rem;color:#ff8888;font-weight:700;text-transform:uppercase;" id="scoreLabel1">P1 Wins</div>
+        <div style="display:flex;gap:5px;">
+          <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,0)">3-0</button>
+          <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,1)">3-1</button>
+          <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,2)">3-2</button>
+        </div>
+      </div>
+      <div style="width:1px;height:36px;background:rgba(255,255,255,0.15);"></div>
+      <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
+        <div style="font-size:0.6rem;color:#88aaff;font-weight:700;text-transform:uppercase;" id="scoreLabel2">P2 Wins</div>
+        <div style="display:flex;gap:5px;">
+          <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(0,3)">0-3</button>
+          <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(1,3)">1-3</button>
+          <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(2,3)">2-3</button>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="closeScoreModal()" style="width:100%;">Cancel</button>
+  </div>
+</div>
+
 <!-- Character picker modal -->
 <div id="charPickerModal">
   <div class="char-picker-box">
@@ -138,6 +187,7 @@
 
 <script src="js/api.js"></script>
 <script src="js/nav.js"></script>
+<script src="js/chars.js"></script>
 <script>
 const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];
 
@@ -228,6 +278,12 @@ function getWinner(ri, mi, pairs, roundWinners) {
   return roundWinners[key] || null;
 }
 
+function parseLabel(label) {
+  const idx = label.indexOf(' — ');
+  if (idx === -1) return null;
+  return { player: label.slice(0, idx), character: label.slice(idx + 3) };
+}
+
 function entryHtml(label, roundWinners, is_live, roundIdx) {
   if (!label || label === 'TBD') return `<div class="match-entry bye">— TBD —</div>`;
   const isBye = label.toUpperCase() === 'BYE';
@@ -236,15 +292,19 @@ function entryHtml(label, roundWinners, is_live, roundIdx) {
   const isWinner = Object.values(roundWinners).includes(label);
   const isMe = myUsername && label.startsWith(myUsername + ' — ');
   const myChar = isMe ? label.slice(myUsername.length + 3) : null;
+  const parsed = parseLabel(label);
+  const charName = parsed ? parsed.character : '';
+  const iconUrl = charName && typeof charImgUrl === 'function' ? charImgUrl(charName) : null;
+  const icon = iconUrl ? `<img class="match-char-icon" src="${iconUrl}" alt="${charName}" onerror="this.style.display='none'" />` : '';
 
-  // Only show edit button in Round 1 (ri === 0) while tournament is live and match not yet decided
+  // Only show edit button in Round 1 while tournament is live and match not yet decided
   const canEdit = isMe && is_live && roundIdx === 0 && !isWinner;
   const editBtn = canEdit
     ? `<button class="edit-char-btn" onclick="openCharPicker('${myChar.replace(/'/g, "\\'")}')">✏️</button>`
     : '';
 
   const cls = `match-entry${isWinner ? ' winner' : ''}${isMe ? ' mine' : ''}`;
-  return `<div class="${cls}"><span style="flex:1">${label}</span>${editBtn}</div>`;
+  return `<div class="${cls}">${icon}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span>${editBtn}</div>`;
 }
 
 function renderBracket(data) {
@@ -266,10 +326,24 @@ function renderBracket(data) {
     else if (ri === rounds.length - 2 && rounds.length > 2) rname = 'Semifinals';
     col.innerHTML = `<div class="round-title">${rname}</div>`;
 
-    round.forEach(([a, b]) => {
+    round.forEach(([a, b], mi) => {
       const box = document.createElement('div');
       box.className = 'match-box';
       box.innerHTML = entryHtml(a, roundWinners, is_live, ri) + entryHtml(b, roundWinners, is_live, ri);
+
+      // Host can click undecided, ready matches to record a score
+      const key = `r${ri}_m${mi}`;
+      const alreadyDecided = !!roundWinners[key];
+      const ready = a && b && a !== 'TBD' && b !== 'TBD'
+        && a.toUpperCase() !== 'BYE' && b.toUpperCase() !== 'BYE'
+        && !alreadyDecided;
+      if (isHost && is_live && ready) {
+        box.classList.add('clickable');
+        box.addEventListener('click', e => {
+          if (e.target.closest('.edit-char-btn')) return;
+          openScoreModal(a, b, key);
+        });
+      }
       col.appendChild(box);
     });
     container.appendChild(col);
@@ -287,6 +361,60 @@ function renderBracket(data) {
     document.getElementById('refreshNote').textContent = 'Tournament has ended.';
   }
 }
+
+// ── Score picker (host) ───────────────────────────
+let scoreModalKey = null;
+let scoreModalA = null;
+let scoreModalB = null;
+
+function openScoreModal(a, b, key) {
+  scoreModalKey = key;
+  scoreModalA = parseLabel(a);
+  scoreModalB = parseLabel(b);
+  if (!scoreModalA || !scoreModalB) return;
+  document.getElementById('scoreP1Name').textContent = scoreModalA.player;
+  document.getElementById('scoreP1Char').textContent = scoreModalA.character;
+  document.getElementById('scoreP2Name').textContent = scoreModalB.player;
+  document.getElementById('scoreP2Char').textContent = scoreModalB.character;
+  document.getElementById('scoreLabel1').textContent = `${scoreModalA.player} Wins`;
+  document.getElementById('scoreLabel2').textContent = `${scoreModalB.player} Wins`;
+  document.getElementById('scoreModal').classList.add('open');
+}
+
+function closeScoreModal() {
+  document.getElementById('scoreModal').classList.remove('open');
+  scoreModalKey = null; scoreModalA = null; scoreModalB = null;
+}
+
+async function pickTournamentScore(p1Stocks, p2Stocks) {
+  const key = scoreModalKey, a = scoreModalA, b = scoreModalB;
+  if (!key || !a || !b) return;
+  closeScoreModal();
+
+  const winnerEntry = p1Stocks > p2Stocks ? a : b;
+  const loserEntry  = p1Stocks > p2Stocks ? b : a;
+  const winnerKills = Math.max(p1Stocks, p2Stocks);
+  const loserKills  = Math.min(p1Stocks, p2Stocks);
+  const winnerLabel = `${winnerEntry.player} — ${winnerEntry.character}`;
+
+  try {
+    await apiPatch(`/brackets/${tournamentId}/winner`, { key, winner: winnerLabel });
+    if (winnerEntry.player !== loserEntry.player) {
+      await apiPost('/matches/record', {
+        winner_username: winnerEntry.player, winner_char: winnerEntry.character, winner_kills: winnerKills,
+        loser_username:  loserEntry.player,  loser_char:  loserEntry.character,  loser_kills:  loserKills,
+        bracket_id: parseInt(tournamentId),
+      });
+    }
+    await fetchAndRender();
+  } catch (err) {
+    showToast('Error recording score: ' + err.message, 'error');
+  }
+}
+
+document.getElementById('scoreModal').addEventListener('click', function(e) {
+  if (e.target === this) closeScoreModal();
+});
 
 // ── Lineup phase ──────────────────────────────────
 let charsPerPlayer = 2;
@@ -419,12 +547,23 @@ async function generateFromLineups() {
   const pairs = [];
 
   if (style === 'random') {
-    // Collect all entries across all slots, shuffle, pair sequentially
+    // Collect all entries across all slots then shuffle, ensuring no same-player adjacent pairs
     const all = [];
     players.forEach(p => {
       (playerGroups[p] || []).forEach(e => all.push(e));
     });
     shuffleArr(all);
+    // Fix any same-player adjacent pairs by swapping with the nearest different-player entry
+    for (let i = 0; i < all.length - 1; i++) {
+      if (all[i].player === all[i + 1].player) {
+        for (let j = i + 2; j < all.length; j++) {
+          if (all[j].player !== all[i].player) {
+            [all[i + 1], all[j]] = [all[j], all[i + 1]];
+            break;
+          }
+        }
+      }
+    }
     for (let i = 0; i + 1 < all.length; i += 2) {
       pairs.push({ a: `${all[i].player} — ${all[i].character}`,
                    b: `${all[i+1].player} — ${all[i+1].character}` });

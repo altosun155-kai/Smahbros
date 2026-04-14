@@ -896,6 +896,17 @@ function generateBracketJS(base, teamMode, teamOf) {
         Object.fromEntries(flat.map((e, i) => [i, teamOf[e.player] || '']))
       );
     } else {
+      // Fix any same-player adjacent pairs before pairing
+      for (let i = 0; i < flat.length - 1; i++) {
+        if (flat[i].player !== 'SYSTEM' && flat[i].player === flat[i + 1].player) {
+          for (let j = i + 2; j < flat.length; j++) {
+            if (flat[j].player !== flat[i].player) {
+              [flat[i + 1], flat[j]] = [flat[j], flat[i + 1]];
+              break;
+            }
+          }
+        }
+      }
       if (flat.length % 2 === 1) flat.push(BYE);
       pairs = [];
       for (let i = 0; i + 1 < flat.length; i += 2) pairs.push([flat[i], flat[i + 1]]);
@@ -1123,9 +1134,13 @@ function setWinner(key, val, winnerKills = 0, loserKills = 0) {
   const la = entryLabel(a), lb = entryLabel(b);
   const loserLabel = val === la ? lb : la;
 
-  // Skip stat recording for same-team matchups (fallback pairings that couldn't be avoided)
   const winnerEntry = parseEntry(val);
   const loserEntry  = parseEntry(loserLabel);
+
+  // Skip stat recording for same-player matchups
+  if (winnerEntry && loserEntry && winnerEntry.player === loserEntry.player) return;
+
+  // Skip stat recording for same-team matchups (fallback pairings that couldn't be avoided)
   if (winnerEntry && loserEntry && currentMode === 'teams') {
     const wt = currentTeamOf[winnerEntry.player] || '';
     const lt = currentTeamOf[loserEntry.player]  || '';

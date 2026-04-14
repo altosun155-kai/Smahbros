@@ -249,6 +249,11 @@ let pollInterval = null;
 let lastRoundWinners = null;
 let myUsername = '';
 let currentBracketData = null; // latest bracket snapshot
+const allUserAvatars = {};
+
+function getPlayerAvatar(username) {
+  return allUserAvatars[username] || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(username)}`;
+}
 
 // ── Character picker ──────────────────────────────
 let pickerOldChar = null;
@@ -425,8 +430,6 @@ function openScoreModal(a, b, key) {
   scoreModalB = parseLabel(b);
   if (!scoreModalA || !scoreModalB) return;
 
-  const dicebear = u => `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}`;
-
   // Player names & chars
   document.getElementById('scoreP1Name').textContent = scoreModalA.player;
   document.getElementById('scoreP1Char').textContent = scoreModalA.character;
@@ -435,11 +438,13 @@ function openScoreModal(a, b, key) {
   document.getElementById('scoreLabel1').textContent = `${scoreModalA.player} Wins`;
   document.getElementById('scoreLabel2').textContent = `${scoreModalB.player} Wins`;
 
-  // Avatars
-  document.getElementById('scoreP1Avatar').src = dicebear(scoreModalA.player);
-  document.getElementById('scoreP2Avatar').src = dicebear(scoreModalB.player);
-  document.getElementById('scoreBgImgLeft').src = dicebear(scoreModalA.player);
-  document.getElementById('scoreBgImgRight').src = dicebear(scoreModalB.player);
+  // Avatars (use real profile avatars)
+  const av1 = getPlayerAvatar(scoreModalA.player);
+  const av2 = getPlayerAvatar(scoreModalB.player);
+  document.getElementById('scoreP1Avatar').src = av1;
+  document.getElementById('scoreP2Avatar').src = av2;
+  document.getElementById('scoreBgImgLeft').src = av1;
+  document.getElementById('scoreBgImgRight').src = av2;
 
   // Character images
   const p1Img = document.getElementById('scoreP1CharImg');
@@ -771,6 +776,12 @@ async function fetchAndRender() {
       av.src = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
       av.style.display = 'block';
     }
+  } catch (_) {}
+
+  // Pre-load all user avatars for the VS screen
+  try {
+    const allUsers = await apiGet('/users/all');
+    allUsers.forEach(u => { allUserAvatars[u.username] = u.avatar_url || null; });
   } catch (_) {}
 
   await fetchAndRender();

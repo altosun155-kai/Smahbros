@@ -19,14 +19,42 @@
     .match-char-icon { width: 22px; height: 22px; object-fit: contain; border-radius: 3px; flex-shrink: 0; background: var(--card-bg); }
     .edit-char-btn { margin-left: auto; flex-shrink: 0; background: none; border: 1px solid var(--accent-blue); border-radius: 4px; color: var(--accent-blue); font-size: 0.7rem; padding: 1px 6px; cursor: pointer; opacity: 0.8; }
     .edit-char-btn:hover { opacity: 1; background: rgba(0,119,200,0.15); }
-    /* Score picker modal */
-    #scoreModal { display:none; position:fixed; inset:0; z-index:150; background:rgba(0,0,0,0.72); align-items:center; justify-content:center; }
-    #scoreModal.open { display:flex; }
-    .score-modal-box { background:var(--card-bg); border:1px solid var(--border); border-radius:14px; padding:24px 20px; width:380px; max-width:96vw; }
-    .score-preset-btn { padding: 9px 14px; font-size: 0.92rem; font-weight: 800; border: none; border-radius: 8px; cursor: pointer; transition: transform 0.1s, opacity 0.1s; letter-spacing: 0.5px; }
-    .score-preset-btn:hover { transform: scale(1.07); opacity: 0.9; }
-    .score-preset-btn.p1-btn { background: rgba(180,20,20,0.85); color: #fff; border: 2px solid rgba(255,120,120,0.4); }
-    .score-preset-btn.p2-btn { background: rgba(20,60,180,0.85); color: #fff; border: 2px solid rgba(100,150,255,0.4); }
+    /* ── VS Screen Modal ── */
+    #scoreModal { display:none; position:fixed; inset:0; z-index:150; overflow:hidden; }
+    #scoreModal.open { display:flex; align-items:center; justify-content:center; }
+    .vs-bg { position:absolute; inset:0; display:flex; z-index:1; }
+    .vs-bg-left { flex:1; position:relative; overflow:hidden; background-color:#5a0000; }
+    .vs-bg-left::after { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(100,0,0,0.65) 0%,rgba(180,20,20,0.55) 100%); pointer-events:none; }
+    .vs-bg-right { flex:1; position:relative; overflow:hidden; background-color:#00004a; }
+    .vs-bg-right::after { content:''; position:absolute; inset:0; background:linear-gradient(225deg,rgba(0,0,80,0.65) 0%,rgba(20,60,180,0.55) 100%); pointer-events:none; }
+    .vs-bg-center { position:absolute; inset:0; background:radial-gradient(ellipse at center,rgba(255,255,255,0.06) 0%,transparent 60%); }
+    .vs-lightning { position:absolute; left:50%; top:0; bottom:0; width:3px; transform:translateX(-50%); background:linear-gradient(180deg,transparent,#fff 20%,#ffe066 50%,#fff 80%,transparent); opacity:0.6; filter:blur(2px); }
+    .vs-content { position:relative; z-index:2; width:100%; height:100%; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; }
+    .vs-player { display:flex; align-items:center; gap:32px; height:100%; }
+    .vs-player.p1-side { flex-direction:row; justify-content:flex-start; padding-left:0; }
+    .vs-player.p2-side { flex-direction:row-reverse; justify-content:flex-start; padding-right:0; }
+    .vs-char-img { width:clamp(160px,24vw,380px); height:clamp(160px,24vw,380px); object-fit:contain; filter:drop-shadow(0 0 24px rgba(255,255,255,0.25)); flex-shrink:0; }
+    .vs-player-info { display:flex; flex-direction:column; gap:10px; }
+    .vs-player.p1-side .vs-player-info { align-items:flex-start; }
+    .vs-player.p2-side .vs-player-info { align-items:flex-end; }
+    .vs-player-tag { font-size:0.75rem; font-weight:800; letter-spacing:2px; text-transform:uppercase; padding:4px 14px; border-radius:4px; }
+    .vs-player-tag.p1 { background:#cc1111; color:#fff; }
+    .vs-player-tag.p2 { background:#1155cc; color:#fff; }
+    .vs-avatar { width:80px; height:80px; border-radius:50%; border:3px solid rgba(255,255,255,0.3); object-fit:cover; box-shadow:0 0 20px rgba(255,255,255,0.12); }
+    .vs-name { font-size:2.2rem; font-weight:900; text-transform:uppercase; letter-spacing:2px; text-shadow:0 2px 12px rgba(0,0,0,0.8); }
+    .vs-name.p1 { color:#ff8888; }
+    .vs-name.p2 { color:#88aaff; }
+    .vs-char-name { font-size:1.1rem; font-weight:700; color:#ffe066; text-shadow:0 1px 6px rgba(0,0,0,0.8); }
+    .vs-middle { display:flex; flex-direction:column; align-items:center; gap:8px; padding:0 16px; flex-shrink:0; }
+    .vs-logo { font-size:0.6rem; font-weight:800; letter-spacing:3px; color:rgba(255,255,255,0.45); text-transform:uppercase; margin-bottom:4px; text-align:center; }
+    .vs-text { font-size:5rem; font-weight:900; color:#fff; text-shadow:0 0 30px rgba(255,220,0,0.8),0 0 60px rgba(255,220,0,0.4); letter-spacing:-2px; line-height:1; }
+    .vs-winner-row { position:absolute; bottom:36px; left:50%; transform:translateX(-50%); display:flex; gap:20px; align-items:center; z-index:3; white-space:nowrap; flex-direction:column; }
+    .vs-close { position:absolute; top:18px; right:22px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:#fff; border-radius:6px; padding:6px 14px; cursor:pointer; font-size:0.85rem; z-index:4; }
+    .vs-close:hover { background:rgba(255,255,255,0.2); }
+    .score-preset-btn { padding:9px 16px; font-size:0.92rem; font-weight:800; border:none; border-radius:8px; cursor:pointer; transition:transform 0.1s, opacity 0.1s; letter-spacing:0.5px; }
+    .score-preset-btn:hover { transform:scale(1.08); opacity:0.9; }
+    .score-preset-btn.p1-btn { background:rgba(180,20,20,0.85); color:#fff; border:2px solid rgba(255,120,120,0.4); }
+    .score-preset-btn.p2-btn { background:rgba(20,60,180,0.85); color:#fff; border:2px solid rgba(100,150,255,0.4); }
     .round-col { min-width: 200px; flex-shrink: 0; }
     .round-title { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
     .bracket-rounds { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 12px; }
@@ -135,41 +163,65 @@
   </div>
 </main>
 
-<!-- Score picker modal (host only) -->
+<!-- Score modal (host only) — full VS screen -->
 <div id="scoreModal">
-  <div class="score-modal-box">
-    <div style="font-size:0.68rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);text-align:center;margin-bottom:16px;">Record Score</div>
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px;">
-      <div style="text-align:center;flex:1;">
-        <div id="scoreP1Name" style="font-weight:700;color:#ff8888;font-size:0.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
-        <div id="scoreP1Char" style="font-size:0.78rem;color:var(--accent-gold);margin-top:2px;"></div>
-      </div>
-      <div style="font-size:1.2rem;font-weight:900;color:rgba(255,255,255,0.25);">VS</div>
-      <div style="text-align:center;flex:1;">
-        <div id="scoreP2Name" style="font-weight:700;color:#88aaff;font-size:0.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
-        <div id="scoreP2Char" style="font-size:0.78rem;color:var(--accent-gold);margin-top:2px;"></div>
+  <div class="vs-bg">
+    <div class="vs-bg-left"><img id="scoreBgImgLeft" src="" alt="" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;" /></div>
+    <div class="vs-bg-right"><img id="scoreBgImgRight" src="" alt="" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;" /></div>
+    <div class="vs-bg-center"></div>
+    <div class="vs-lightning"></div>
+  </div>
+
+  <button class="vs-close" onclick="closeScoreModal()">✕ Close</button>
+
+  <div class="vs-content">
+    <div class="vs-player p1-side">
+      <img class="vs-char-img" id="scoreP1CharImg" src="" alt="" style="display:none;" />
+      <div class="vs-player-info">
+        <div class="vs-player-tag p1">P1</div>
+        <img class="vs-avatar" id="scoreP1Avatar" src="" alt="P1" />
+        <div class="vs-name p1" id="scoreP1Name">Player 1</div>
+        <div class="vs-char-name" id="scoreP1Char"></div>
       </div>
     </div>
-    <div style="display:flex;gap:14px;align-items:center;justify-content:center;margin-bottom:16px;">
+
+    <div class="vs-middle">
+      <div class="vs-logo">Super Smash Bros. Ultimate</div>
+      <div class="vs-text">VS</div>
+    </div>
+
+    <div class="vs-player p2-side">
+      <img class="vs-char-img" id="scoreP2CharImg" src="" alt="" style="display:none;" />
+      <div class="vs-player-info">
+        <div class="vs-player-tag p2">P2</div>
+        <img class="vs-avatar" id="scoreP2Avatar" src="" alt="P2" />
+        <div class="vs-name p2" id="scoreP2Name">Player 2</div>
+        <div class="vs-char-name" id="scoreP2Char"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="vs-winner-row">
+    <div style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);">Pick Score (stocks)</div>
+    <div style="display:flex;gap:18px;align-items:center;">
       <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
-        <div style="font-size:0.6rem;color:#ff8888;font-weight:700;text-transform:uppercase;" id="scoreLabel1">P1 Wins</div>
-        <div style="display:flex;gap:5px;">
+        <div style="font-size:0.62rem;color:#ff8888;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;" id="scoreLabel1">P1 Wins</div>
+        <div style="display:flex;gap:6px;">
           <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,0)">3-0</button>
           <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,1)">3-1</button>
           <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,2)">3-2</button>
         </div>
       </div>
-      <div style="width:1px;height:36px;background:rgba(255,255,255,0.15);"></div>
+      <div style="width:1px;height:38px;background:rgba(255,255,255,0.15);"></div>
       <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
-        <div style="font-size:0.6rem;color:#88aaff;font-weight:700;text-transform:uppercase;" id="scoreLabel2">P2 Wins</div>
-        <div style="display:flex;gap:5px;">
+        <div style="font-size:0.62rem;color:#88aaff;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;" id="scoreLabel2">P2 Wins</div>
+        <div style="display:flex;gap:6px;">
           <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(0,3)">0-3</button>
           <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(1,3)">1-3</button>
           <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(2,3)">2-3</button>
         </div>
       </div>
     </div>
-    <button class="btn btn-outline btn-sm" onclick="closeScoreModal()" style="width:100%;">Cancel</button>
   </div>
 </div>
 
@@ -372,12 +424,31 @@ function openScoreModal(a, b, key) {
   scoreModalA = parseLabel(a);
   scoreModalB = parseLabel(b);
   if (!scoreModalA || !scoreModalB) return;
+
+  const dicebear = u => `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}`;
+
+  // Player names & chars
   document.getElementById('scoreP1Name').textContent = scoreModalA.player;
   document.getElementById('scoreP1Char').textContent = scoreModalA.character;
   document.getElementById('scoreP2Name').textContent = scoreModalB.player;
   document.getElementById('scoreP2Char').textContent = scoreModalB.character;
   document.getElementById('scoreLabel1').textContent = `${scoreModalA.player} Wins`;
   document.getElementById('scoreLabel2').textContent = `${scoreModalB.player} Wins`;
+
+  // Avatars
+  document.getElementById('scoreP1Avatar').src = dicebear(scoreModalA.player);
+  document.getElementById('scoreP2Avatar').src = dicebear(scoreModalB.player);
+  document.getElementById('scoreBgImgLeft').src = dicebear(scoreModalA.player);
+  document.getElementById('scoreBgImgRight').src = dicebear(scoreModalB.player);
+
+  // Character images
+  const p1Img = document.getElementById('scoreP1CharImg');
+  const p2Img = document.getElementById('scoreP2CharImg');
+  const p1Url = typeof charImgUrl === 'function' ? charImgUrl(scoreModalA.character) : '';
+  const p2Url = typeof charImgUrl === 'function' ? charImgUrl(scoreModalB.character) : '';
+  if (p1Url) { p1Img.src = p1Url; p1Img.style.display = ''; } else { p1Img.style.display = 'none'; }
+  if (p2Url) { p2Img.src = p2Url; p2Img.style.display = ''; } else { p2Img.style.display = 'none'; }
+
   document.getElementById('scoreModal').classList.add('open');
 }
 
@@ -412,9 +483,7 @@ async function pickTournamentScore(p1Stocks, p2Stocks) {
   }
 }
 
-document.getElementById('scoreModal').addEventListener('click', function(e) {
-  if (e.target === this) closeScoreModal();
-});
+// No click-outside for full-screen VS modal — use the Close button
 
 // ── Lineup phase ──────────────────────────────────
 let charsPerPlayer = 2;

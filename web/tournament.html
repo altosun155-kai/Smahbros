@@ -57,7 +57,14 @@
     .score-preset-btn.p2-btn { background:rgba(20,60,180,0.85); color:#fff; border:2px solid rgba(100,150,255,0.4); }
     .round-col { min-width: 200px; flex-shrink: 0; }
     .round-title { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
-    .bracket-rounds { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 12px; }
+    .bracket-rounds { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 12px; -webkit-overflow-scrolling: touch; }
+    @media (max-width: 600px) {
+      .bracket-rounds { flex-direction: column; gap: 14px; overflow-x: visible; }
+      .round-col { min-width: unset; width: 100%; }
+      .match-box { min-width: unset; }
+      .vs-name { font-size: 1.4rem; }
+      .vs-char-img { width: clamp(100px, 28vw, 200px); height: clamp(100px, 28vw, 200px); }
+    }
     .live-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(39,174,96,0.15); border: 1px solid rgba(39,174,96,0.4); border-radius: 20px; padding: 4px 12px; font-size: 0.8rem; color: #27ae60; font-weight: 700; }
     .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #27ae60; animation: pulse 1.2s ease-in-out infinite; }
     @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
@@ -155,7 +162,20 @@
       <div class="bracket-rounds" id="bracketRounds"></div>
     </div>
 
-    <p style="margin-top:20px;font-size:0.82rem;color:var(--text-muted);" id="refreshNote">Auto-refreshes every 5 seconds.</p>
+    <!-- Winner banner (shown when tournament has a champion) -->
+    <div id="winnerBanner" style="display:none;margin-top:20px;background:linear-gradient(135deg,rgba(255,215,0,0.15),rgba(255,165,0,0.08));border:1.5px solid rgba(255,215,0,0.5);border-radius:12px;padding:20px 24px;text-align:center;">
+      <div style="font-size:2rem;margin-bottom:6px;">🏆</div>
+      <div style="font-size:0.7rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,215,0,0.7);margin-bottom:4px;">Tournament Champion</div>
+      <div id="winnerBannerName" style="font-size:1.6rem;font-weight:900;color:#ffd700;text-transform:uppercase;letter-spacing:1px;"></div>
+    </div>
+
+    <!-- Undo last score (host only) -->
+    <div id="undoBar" style="display:none;margin-top:14px;display:none;align-items:center;gap:12px;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:10px 16px;">
+      <span style="font-size:0.82rem;color:var(--text-muted);flex:1;">Last score: <span id="undoLabel" style="color:var(--text);font-weight:600;"></span></span>
+      <button onclick="undoLastScore()" style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:6px;padding:5px 14px;font-size:0.82rem;font-weight:700;cursor:pointer;">Undo</button>
+    </div>
+
+    <p style="margin-top:12px;font-size:0.82rem;color:var(--text-muted);" id="refreshNote">Auto-refreshes every 5 seconds.</p>
   </div>
 
   <div id="errorState" style="display:none;" class="empty-state">
@@ -431,6 +451,15 @@ function renderBracket(data) {
     pollInterval = null;
     document.getElementById('refreshNote').textContent = 'Tournament has ended.';
   }
+
+  // Winner banner
+  const wb = document.getElementById('winnerBanner');
+  if (data.winner) {
+    document.getElementById('winnerBannerName').textContent = data.winner;
+    wb.style.display = 'block';
+  } else {
+    wb.style.display = 'none';
+  }
 }
 
 // ── Score picker (host) ───────────────────────────
@@ -494,8 +523,10 @@ async function pickTournamentScore(p1Stocks, p2Stocks) {
         winner_username: winnerEntry.player, winner_char: winnerEntry.character, winner_kills: winnerKills,
         loser_username:  loserEntry.player,  loser_char:  loserEntry.character,  loser_kills:  loserKills,
         bracket_id: parseInt(tournamentId),
+        match_key: key,
       });
     }
+    showUndoBtn(`${winnerEntry.player} (${winnerEntry.character})`);
     await fetchAndRender();
   } catch (err) {
     showToast('Error recording score: ' + err.message, 'error');
@@ -806,6 +837,24 @@ async function fetchAndRender() {
   // Poll every 5s for live updates
   pollInterval = setInterval(fetchAndRender, 5000);
 })();
+
+function showUndoBtn(label) {
+  if (!isHost) return;
+  const bar = document.getElementById('undoBar');
+  document.getElementById('undoLabel').textContent = label;
+  bar.style.display = 'flex';
+}
+
+async function undoLastScore() {
+  try {
+    const res = await apiDelete(`/brackets/${tournamentId}/last-result`);
+    showToast(`Undid: ${res.undone}`, 'success');
+    document.getElementById('undoBar').style.display = 'none';
+    await fetchAndRender();
+  } catch (err) {
+    showToast('Nothing to undo or error: ' + err.message, 'error');
+  }
+}
 
 function confirmEndTournament() {
   const modal = document.getElementById('endTournamentModal');

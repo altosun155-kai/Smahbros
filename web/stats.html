@@ -69,6 +69,40 @@
     <button class="btn btn-danger" onclick="recordResult('loss')">Loss −1</button>
   </div>
 
+  <!-- Summary cards -->
+  <div id="statsSummary" style="display:none;display:none;gap:12px;flex-wrap:wrap;margin-bottom:24px;">
+    <div class="card" style="padding:14px 18px;flex:1;min-width:140px;">
+      <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:6px;">Most Played</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <img id="summaryMostPlayedImg" src="" alt="" style="width:32px;height:32px;object-fit:contain;border-radius:3px;display:none;" />
+        <div>
+          <div id="summaryMostPlayed" style="font-weight:700;font-size:0.95rem;"></div>
+          <div id="summaryMostPlayedGames" style="font-size:0.75rem;color:var(--text-muted);"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="padding:14px 18px;flex:1;min-width:140px;">
+      <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:6px;">Best Win %</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <img id="summaryBestWinImg" src="" alt="" style="width:32px;height:32px;object-fit:contain;border-radius:3px;display:none;" />
+        <div>
+          <div id="summaryBestWin" style="font-weight:700;font-size:0.95rem;"></div>
+          <div id="summaryBestWinPct" style="font-size:0.75rem;color:#27ae60;font-weight:700;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="padding:14px 18px;flex:1;min-width:140px;">
+      <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:6px;">Most Kills</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <img id="summaryMostKillsImg" src="" alt="" style="width:32px;height:32px;object-fit:contain;border-radius:3px;display:none;" />
+        <div>
+          <div id="summaryMostKills" style="font-weight:700;font-size:0.95rem;"></div>
+          <div id="summaryMostKillsCount" style="font-size:0.75rem;color:#e67e22;font-weight:700;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="statsLoading" class="loading-center">
     <div class="spinner"></div><span>Loading stats…</span>
   </div>
@@ -89,6 +123,8 @@
             <th>W / L</th>
             <th>Win%</th>
             <th>Kills</th>
+            <th>Deaths</th>
+            <th>K/D</th>
             <th>Global Avg</th>
             <th>vs Avg</th>
           </tr>
@@ -144,7 +180,7 @@
 
   <div style="overflow-x:auto;max-height:500px;overflow-y:auto;">
     <table class="bulk-table" id="bulkTable">
-      <thead><tr><th>Character</th><th>Wins</th><th>Losses</th><th>Kills</th></tr></thead>
+      <thead><tr><th>Character</th><th>Wins</th><th>Losses</th><th>Kills</th><th>Deaths</th></tr></thead>
       <tbody id="bulkBody"></tbody>
     </table>
   </div>
@@ -183,7 +219,7 @@
     <div style="overflow-x:auto;">
       <table class="data-table" id="viewedStatsTable">
         <thead>
-          <tr><th>#</th><th>Character</th><th>Their Pts</th><th>W / L</th><th>Win%</th><th>Kills</th><th>Global Avg</th><th>vs Avg</th></tr>
+          <tr><th>#</th><th>Character</th><th>Their Pts</th><th>W / L</th><th>Win%</th><th>Kills</th><th>Deaths</th><th>K/D</th><th>Global Avg</th><th>vs Avg</th></tr>
         </thead>
         <tbody id="viewedStatsBody"></tbody>
       </table>
@@ -196,6 +232,42 @@
 <script src="js/chars.js"></script>
 <script>
   const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];
+
+  function renderSummaryCards(data) {
+    const all = data || [];
+    if (!all.length) return;
+
+    // Most played: highest (wins + losses)
+    const byGames = [...all].sort((a, b) => ((b.wins||0)+(b.losses||0)) - ((a.wins||0)+(a.losses||0)));
+    const mostPlayed = byGames[0];
+
+    // Best win %: highest win_pct with at least 1 game
+    const byWinPct = all.filter(s => (s.wins||0)+(s.losses||0) > 0)
+      .sort((a, b) => (b.win_pct||0) - (a.win_pct||0));
+    const bestWin = byWinPct[0];
+
+    // Most kills
+    const byKills = [...all].filter(s => (s.kills||0) > 0).sort((a, b) => (b.kills||0) - (a.kills||0));
+    const mostKills = byKills[0];
+
+    function setCard(nameId, imgId, extraId, char, extra) {
+      document.getElementById(nameId).textContent = char || '—';
+      const url = char && typeof charImgUrl === 'function' ? charImgUrl(char) : '';
+      const img = document.getElementById(imgId);
+      if (url) { img.src = url; img.style.display = 'block'; } else { img.style.display = 'none'; }
+      document.getElementById(extraId).textContent = extra || '';
+    }
+
+    const games = mostPlayed ? (mostPlayed.wins||0)+(mostPlayed.losses||0) : 0;
+    setCard('summaryMostPlayed', 'summaryMostPlayedImg', 'summaryMostPlayedGames',
+      mostPlayed?.character, games ? `${games} game${games !== 1 ? 's' : ''}` : '');
+    setCard('summaryBestWin', 'summaryBestWinImg', 'summaryBestWinPct',
+      bestWin?.character, bestWin ? `${bestWin.win_pct ?? 0}% win rate` : '');
+    setCard('summaryMostKills', 'summaryMostKillsImg', 'summaryMostKillsCount',
+      mostKills?.character, mostKills ? `${mostKills.kills} kills` : '');
+
+    document.getElementById('statsSummary').style.display = 'flex';
+  }
 
   let myStats = [];          // [{character, points}] for current user
   let globalCharMap = {};    // character -> total points across all players
@@ -306,10 +378,18 @@
       const avgStr = avg !== null
         ? `<span title="Best: ${best}">${avg}</span>`
         : '<span style="color:var(--text-muted);">—</span>';
-      const kills = s.kills || 0;
+      const kills  = s.kills  || 0;
+      const deaths = s.deaths || 0;
       const killsStr = kills > 0
         ? `<span style="color:#e67e22;font-weight:700;">${kills}</span>`
         : `<span style="color:var(--text-muted);">—</span>`;
+      const deathsStr = deaths > 0
+        ? `<span style="color:#e74c3c;font-weight:700;">${deaths}</span>`
+        : `<span style="color:var(--text-muted);">—</span>`;
+      const kdVal = s.kd;
+      const kdStr = kdVal !== null && kdVal !== undefined
+        ? `<span style="font-weight:700;color:${kdVal >= 2 ? '#27ae60' : kdVal >= 1 ? 'var(--accent-gold)' : '#e74c3c'};">${kdVal.toFixed(2)}</span>`
+        : kills > 0 ? `<span style="color:#27ae60;font-weight:700;">∞</span>` : `<span style="color:var(--text-muted);">—</span>`;
       const wins   = s.wins   || 0;
       const losses = s.losses || 0;
       const wlStr  = (wins + losses) > 0
@@ -327,6 +407,8 @@
         <td>${wlStr}</td>
         <td>${winPctStr}</td>
         <td>${killsStr}</td>
+        <td>${deathsStr}</td>
+        <td>${kdStr}</td>
         <td style="color:var(--text-muted);font-size:0.88rem;">${avgStr}</td>
         <td>${diffStr}</td>
       </tr>`;
@@ -343,6 +425,7 @@
       document.getElementById('statsLoading').style.display = 'none';
       document.getElementById('statsContent').style.display = 'block';
       renderStatsTable(data, 'statsBody', 'statsTable', 'statsEmpty');
+      renderSummaryCards(data);
       // Re-render counter-pick if opponent already selected
       if (document.getElementById('cpOpponentChar').value) renderCounterPick();
     } catch (err) {
@@ -412,6 +495,7 @@
         <td><input type="number" id="bw_${c}" min="0" value="0" /></td>
         <td><input type="number" id="bl_${c}" min="0" value="0" /></td>
         <td><input type="number" id="bk_${c}" min="0" value="0" /></td>
+        <td><input type="number" id="bd_${c}" min="0" value="0" /></td>
       </tr>
     `).join('');
   }
@@ -431,8 +515,9 @@
       const wins   = parseInt(document.getElementById(`bw_${c}`).value) || 0;
       const losses = parseInt(document.getElementById(`bl_${c}`).value) || 0;
       const kills  = parseInt(document.getElementById(`bk_${c}`).value) || 0;
-      if (wins > 0 || losses > 0 || kills > 0) {
-        entries.push({ character: c, wins, losses, kills });
+      const deaths = parseInt(document.getElementById(`bd_${c}`).value) || 0;
+      if (wins > 0 || losses > 0 || kills > 0 || deaths > 0) {
+        entries.push({ character: c, wins, losses, kills, deaths });
       }
     });
     if (!entries.length) { showToast('No data entered.', 'warn'); return; }
@@ -444,6 +529,7 @@
         document.getElementById(`bw_${c}`).value = 0;
         document.getElementById(`bl_${c}`).value = 0;
         document.getElementById(`bk_${c}`).value = 0;
+        document.getElementById(`bd_${c}`).value = 0;
       });
       loadStats();
     } catch (err) {

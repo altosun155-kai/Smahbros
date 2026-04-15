@@ -95,6 +95,8 @@
           <th>Character</th>
           <th class="sort-th desc" data-col="points" onclick="sortBy('points')">Points<span class="sort-arrow"></span></th>
           <th class="sort-th" data-col="kills" onclick="sortBy('kills')">Kills<span class="sort-arrow"></span></th>
+          <th class="sort-th" data-col="deaths" onclick="sortBy('deaths')">Deaths<span class="sort-arrow"></span></th>
+          <th class="sort-th" data-col="kd" onclick="sortBy('kd')">K/D<span class="sort-arrow"></span></th>
           <th class="sort-th" data-col="wins" onclick="sortBy('wins')">Wins<span class="sort-arrow"></span></th>
           <th class="sort-th" data-col="losses" onclick="sortBy('losses')">Losses<span class="sort-arrow"></span></th>
           <th class="sort-th" data-col="win_pct" onclick="sortBy('win_pct')">Win %<span class="sort-arrow"></span></th>
@@ -179,6 +181,10 @@
       const wlStr = total > 0
         ? `<span style="color:#27ae60;font-weight:700;">${entry.wins}</span> <span style="color:var(--text-muted);">/</span> <span style="color:#e74c3c;font-weight:700;">${entry.losses}</span>`
         : `<span style="color:var(--text-muted);">—</span>`;
+      const kdVal = entry.kd;
+      const kdStr = kdVal !== null && kdVal !== undefined
+        ? `<span style="font-weight:700;color:${kdVal >= 2 ? '#27ae60' : kdVal >= 1 ? '#ffe066' : '#e74c3c'};">${kdVal.toFixed(2)}</span>`
+        : (entry.kills > 0 ? `<span style="color:#27ae60;font-weight:700;">∞</span>` : '—');
 
       return `<tr class="${rowClass}">
         <td style="font-weight:800;">${rankLabel}</td>
@@ -189,6 +195,8 @@
         <td><div style="display:flex;align-items:center;gap:8px;">${charImg}<span>${entry.character}</span></div></td>
         <td style="font-weight:800;color:var(--accent-gold);">${entry.points}</td>
         <td style="font-weight:700;color:#e67e22;">${entry.kills}</td>
+        <td style="font-weight:700;color:#e74c3c;">${entry.deaths ?? '—'}</td>
+        <td>${kdStr}</td>
         <td style="font-weight:700;color:#27ae60;">${entry.wins}</td>
         <td style="font-weight:700;color:#e74c3c;">${entry.losses}</td>
         <td style="font-weight:800;color:${pctColor};">${pctStr}</td>

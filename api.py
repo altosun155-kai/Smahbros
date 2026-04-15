@@ -24,10 +24,12 @@ def _run_migrations():
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS is_live BOOLEAN DEFAULT FALSE"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS winner VARCHAR"))
             conn.execute(text("ALTER TABLE character_stats ADD COLUMN IF NOT EXISTS kills INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE character_stats ADD COLUMN IF NOT EXISTS deaths INTEGER DEFAULT 0"))
             conn.execute(text("ALTER TABLE character_stats ADD COLUMN IF NOT EXISTS wins INTEGER DEFAULT 0"))
             conn.execute(text("ALTER TABLE character_stats ADD COLUMN IF NOT EXISTS losses INTEGER DEFAULT 0"))
             conn.execute(text("ALTER TABLE match_results ADD COLUMN IF NOT EXISTS winner_kills INTEGER DEFAULT 0"))
             conn.execute(text("ALTER TABLE match_results ADD COLUMN IF NOT EXISTS loser_kills INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE match_results ADD COLUMN IF NOT EXISTS match_key VARCHAR"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS chars_per_player INTEGER DEFAULT 2"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS confirmed_lineups JSONB DEFAULT '{}'"))
         else:
@@ -44,6 +46,8 @@ def _run_migrations():
             cs_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(character_stats)"))}
             if "kills" not in cs_cols:
                 conn.execute(text("ALTER TABLE character_stats ADD COLUMN kills INTEGER DEFAULT 0"))
+            if "deaths" not in cs_cols:
+                conn.execute(text("ALTER TABLE character_stats ADD COLUMN deaths INTEGER DEFAULT 0"))
             if "wins" not in cs_cols:
                 conn.execute(text("ALTER TABLE character_stats ADD COLUMN wins INTEGER DEFAULT 0"))
             if "losses" not in cs_cols:
@@ -53,6 +57,8 @@ def _run_migrations():
                 conn.execute(text("ALTER TABLE match_results ADD COLUMN winner_kills INTEGER DEFAULT 0"))
             if "loser_kills" not in mr_cols:
                 conn.execute(text("ALTER TABLE match_results ADD COLUMN loser_kills INTEGER DEFAULT 0"))
+            if "match_key" not in mr_cols:
+                conn.execute(text("ALTER TABLE match_results ADD COLUMN match_key VARCHAR"))
             b_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(brackets)"))}
             if "chars_per_player" not in b_cols:
                 conn.execute(text("ALTER TABLE brackets ADD COLUMN chars_per_player INTEGER DEFAULT 2"))
@@ -614,10 +620,15 @@ def _stat_row(r):
     l = r.losses or 0
     total = w + l
     win_pct = round(w / total * 100, 1) if total > 0 else None
+    kills  = r.kills  or 0
+    deaths = r.deaths or 0
+    kd = round(kills / deaths, 2) if deaths > 0 else None
     return {
         "character": r.character,
         "points":    r.points,
-        "kills":     r.kills or 0,
+        "kills":     kills,
+        "deaths":    deaths,
+        "kd":        kd,
         "wins":      w,
         "losses":    l,
         "win_pct":   win_pct,
@@ -642,12 +653,17 @@ def character_leaderboard(db: Session = Depends(get_db)):
         if row.points == 0 and (row.kills or 0) == 0 and total == 0:
             continue
         win_pct = round(w / total * 100, 1) if total >= 3 else None
+        kills  = row.kills  or 0
+        deaths = row.deaths or 0
+        kd     = round(kills / deaths, 2) if deaths > 0 else None
         results.append({
             "username":   row.owner.username,
             "avatar_url": row.owner.avatar_url,
             "character":  row.character,
             "points":     row.points,
-            "kills":      row.kills or 0,
+            "kills":      kills,
+            "deaths":     deaths,
+            "kd":         kd,
             "wins":       w,
             "losses":     l,
             "win_pct":    win_pct,
@@ -711,6 +727,7 @@ class BulkStatEntry(BaseModel):
     wins: int
     losses: int
     kills: int = 0
+    deaths: int = 0
 
 class BulkStatsRequest(BaseModel):
     username: str
@@ -736,6 +753,8 @@ def bulk_set_stats(req: BulkStatsRequest, db: Session = Depends(get_db), current
         row.points = max(0, row.points + entry.wins - entry.losses)
         if entry.kills > 0:
             row.kills = (row.kills or 0) + entry.kills
+        if entry.deaths > 0:
+            row.deaths = (row.deaths or 0) + entry.deaths
     db.commit()
     return {"ok": True}
 
@@ -799,12 +818,13 @@ class MatchRecord(BaseModel):
     loser_char: str
     loser_kills: int = 0
     bracket_id: int | None = None
+    match_key: str | None = None
 
 
-def _update_char_stat(db: Session, user_id: int, character: str, result: str, kill_count: int = 0):
+def _update_char_stat(db: Session, user_id: int, character: str, result: str, kill_count: int = 0, death_count: int = 0):
     row = db.query(CharacterStats).filter_by(user_id=user_id, character=character).first()
     if row is None:
-        row = CharacterStats(user_id=user_id, character=character, points=0, kills=0, wins=0, losses=0)
+        row = CharacterStats(user_id=user_id, character=character, points=0, kills=0, deaths=0, wins=0, losses=0)
         db.add(row)
     if result == "win":
         row.points += 1
@@ -814,6 +834,8 @@ def _update_char_stat(db: Session, user_id: int, character: str, result: str, ki
         row.losses = (row.losses or 0) + 1
     if kill_count > 0:
         row.kills = (row.kills or 0) + kill_count
+    if death_count > 0:
+        row.deaths = (row.deaths or 0) + death_count
 
 
 @app.post("/matches/record")
@@ -826,16 +848,61 @@ def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: 
     # Skip stat updates for self-play (same player on both sides)
     if winner.id == loser.id:
         return {"ok": True, "skipped": "self-play"}
-    _update_char_stat(db, winner.id, req.winner_char, "win",  req.winner_kills)
-    _update_char_stat(db, loser.id,  req.loser_char,  "loss", req.loser_kills)
+    _update_char_stat(db, winner.id, req.winner_char, "win",  req.winner_kills, req.loser_kills)
+    _update_char_stat(db, loser.id,  req.loser_char,  "loss", req.loser_kills,  req.winner_kills)
     mr = MatchResult(
         winner_id=winner.id, winner_char=req.winner_char, winner_kills=req.winner_kills,
         loser_id=loser.id,   loser_char=req.loser_char,   loser_kills=req.loser_kills,
         bracket_id=req.bracket_id,
+        match_key=req.match_key,
     )
     db.add(mr)
     db.commit()
     return {"ok": True}
+
+
+@app.delete("/brackets/{bracket_id}/last-result")
+def undo_last_result(bracket_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Host undoes the most recent scored match in a bracket."""
+    b = db.query(Bracket).filter(Bracket.id == bracket_id, Bracket.user_id == current_user.id).first()
+    if not b:
+        raise HTTPException(status_code=403, detail="Only the host can undo")
+    mr = db.query(MatchResult).filter(MatchResult.bracket_id == bracket_id)\
+        .order_by(MatchResult.created_at.desc()).first()
+    if not mr:
+        raise HTTPException(status_code=404, detail="No recorded results to undo")
+
+    # Reverse winner char stat
+    ws = db.query(CharacterStats).filter(
+        CharacterStats.user_id == mr.winner_id, CharacterStats.character == mr.winner_char
+    ).first()
+    if ws:
+        ws.points = max(0, (ws.points or 0) - 1)
+        ws.wins   = max(0, (ws.wins   or 0) - 1)
+        ws.kills  = max(0, (ws.kills  or 0) - (mr.winner_kills or 0))
+        ws.deaths = max(0, (ws.deaths or 0) - (mr.loser_kills  or 0))
+
+    # Reverse loser char stat
+    ls = db.query(CharacterStats).filter(
+        CharacterStats.user_id == mr.loser_id, CharacterStats.character == mr.loser_char
+    ).first()
+    if ls:
+        ls.losses = max(0, (ls.losses or 0) - 1)
+        ls.kills  = max(0, (ls.kills  or 0) - (mr.loser_kills  or 0))
+        ls.deaths = max(0, (ls.deaths or 0) - (mr.winner_kills or 0))
+
+    # Remove the round_winner key from the bracket
+    if mr.match_key:
+        rw = dict(b.round_winners or {})
+        rw.pop(mr.match_key, None)
+        b.round_winners = rw
+        flag_modified(b, "round_winners")
+
+    winner_name = mr.winner.username
+    winner_char = mr.winner_char
+    db.delete(mr)
+    db.commit()
+    return {"ok": True, "undone": f"{winner_name} ({winner_char})"}
 
 
 @app.get("/users/{username}/h2h/{other}")

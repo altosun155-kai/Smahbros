@@ -272,6 +272,7 @@
 </div>
 
 <script src="js/api.js"></script>
+<script src="js/friends-sidebar.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/chars.js"></script>
 <script>
@@ -416,6 +417,7 @@ function renderBracket(data) {
   currentBracketData = data;
 
   const rounds = computeRounds(bracket_data, roundWinners);
+  lastRenderedRounds = rounds;
   const container = document.getElementById('bracketRounds');
   container.innerHTML = '';
 
@@ -476,6 +478,7 @@ function renderBracket(data) {
 }
 
 // ── Score picker (host) ───────────────────────────
+let lastRenderedRounds = [];
 let scoreModalKey = null;
 let scoreModalA = null;
 let scoreModalB = null;
@@ -518,9 +521,34 @@ function closeScoreModal() {
   scoreModalKey = null; scoreModalA = null; scoreModalB = null;
 }
 
+function advanceScoreModal(justFinishedKey) {
+  const match = justFinishedKey && justFinishedKey.match(/^r(\d+)_m(\d+)$/);
+  if (!match) { closeScoreModal(); return; }
+  const ri = parseInt(match[1]);
+  const mi = parseInt(match[2]);
+  const round = lastRenderedRounds[ri];
+  if (!round) { closeScoreModal(); return; }
+
+  // Find next undecided, ready match in this round
+  for (let next = mi + 1; next < round.length; next++) {
+    const [a, b] = round[next];
+    if (!a || !b) continue;
+    if (a === 'TBD' || b === 'TBD') continue;
+    if (a.toUpperCase() === 'BYE' || b.toUpperCase() === 'BYE') continue;
+    const data = currentBracketData;
+    const roundWinners = (data && data.round_winners) || {};
+    const nextKey = `r${ri}_m${next}`;
+    if (roundWinners[nextKey]) continue; // already decided
+    openScoreModal(a, b, nextKey);
+    return;
+  }
+  closeScoreModal();
+}
+
 async function pickTournamentScore(p1Stocks, p2Stocks) {
   const key = scoreModalKey, a = scoreModalA, b = scoreModalB;
   if (!key || !a || !b) return;
+  const finishedKey = key;
   closeScoreModal();
 
   const winnerEntry = p1Stocks > p2Stocks ? a : b;
@@ -542,6 +570,7 @@ async function pickTournamentScore(p1Stocks, p2Stocks) {
     }
     showUndoBtn(`${winnerEntry.player} (${winnerEntry.character})`);
     await fetchAndRender();
+    advanceScoreModal(finishedKey);
   } catch (err) {
     showToast('Error recording score: ' + err.message, 'error');
   }

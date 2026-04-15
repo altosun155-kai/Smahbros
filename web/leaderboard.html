@@ -13,6 +13,35 @@
     .global-row-gold td   { color: #ffd700; }
     .global-row-silver td { color: #c0c0c0; }
     .global-row-bronze td { color: #cd7f32; }
+
+    .sort-th {
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .sort-th:hover { color: var(--accent-blue); }
+    .sort-th .sort-arrow {
+      display: inline-block;
+      margin-left: 5px;
+      font-size: 0.7rem;
+      opacity: 0.4;
+      transition: opacity 0.1s;
+    }
+    .sort-th.asc  .sort-arrow,
+    .sort-th.desc .sort-arrow { opacity: 1; color: var(--accent-blue); }
+    .sort-th.asc  .sort-arrow::after { content: '▲'; }
+    .sort-th.desc .sort-arrow::after { content: '▼'; }
+    .sort-th:not(.asc):not(.desc) .sort-arrow::after { content: '⇅'; }
+
+    .section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin: 32px 0 10px;
+    }
+    .section-label:first-child { margin-top: 0; }
   </style>
 </head>
 <body>
@@ -31,6 +60,7 @@
     <li><a href="stats.html">Stats</a></li>
     <li><a href="leaderboard.html" class="active">Leaderboard</a></li>
     <li><a href="invites.html">Invites</a></li>
+    <li><a href="friends.html">Friends</a></li>
     <li><a href="profile.html">Profile</a></li>
   </ul>
   <div class="nav-right">
@@ -45,84 +75,56 @@
 <main class="page-container">
   <div class="page-header">
     <h1>🏆 Leaderboard</h1>
-    <p>See who's dominating — by character and overall.</p>
+    <p>Click any column header to sort. Win % requires 3+ games.</p>
   </div>
 
-  <div class="tabs" id="lbTabs">
-    <button class="tab-btn active" onclick="switchLBTab('chars')">By Points</button>
-    <button class="tab-btn" onclick="switchLBTab('kills')">By Kills</button>
-    <button class="tab-btn" onclick="switchLBTab('global')">Global</button>
+  <!-- Character stats leaderboard -->
+  <div class="section-label">Character Stats</div>
+  <div id="charLoading" class="loading-center">
+    <div class="spinner"></div><span>Loading leaderboard…</span>
+  </div>
+  <div id="charEmpty" class="empty-state" style="display:none;">
+    <p>No character stats recorded yet.</p>
+  </div>
+  <div style="overflow-x:auto;" id="charTableWrap" style="display:none;">
+    <table class="data-table" id="charTable">
+      <thead>
+        <tr>
+          <th style="width:48px;">Rank</th>
+          <th>Player</th>
+          <th>Character</th>
+          <th class="sort-th desc" data-col="points" onclick="sortBy('points')">Points<span class="sort-arrow"></span></th>
+          <th class="sort-th" data-col="kills" onclick="sortBy('kills')">Kills<span class="sort-arrow"></span></th>
+          <th class="sort-th" data-col="wins" onclick="sortBy('wins')">Wins<span class="sort-arrow"></span></th>
+          <th class="sort-th" data-col="losses" onclick="sortBy('losses')">Losses<span class="sort-arrow"></span></th>
+          <th class="sort-th" data-col="win_pct" onclick="sortBy('win_pct')">Win %<span class="sort-arrow"></span></th>
+        </tr>
+      </thead>
+      <tbody id="charBody"></tbody>
+    </table>
   </div>
 
-  <!-- Character tab -->
-  <div class="tab-panel active" id="tab-chars">
-    <div id="charLoading" class="loading-center">
-      <div class="spinner"></div><span>Loading character leaderboard…</span>
-    </div>
-    <div id="charEmpty" class="empty-state" style="display:none;">
-      <p>No character stats recorded yet.</p>
-    </div>
-    <div style="overflow-x:auto;" id="charTableWrap" style="display:none;">
-      <table class="data-table" id="charTable">
-        <thead>
-          <tr>
-            <th>Rank</th>
-            <th>Player</th>
-            <th>Character</th>
-            <th>Points</th>
-          </tr>
-        </thead>
-        <tbody id="charBody"></tbody>
-      </table>
-    </div>
+  <!-- Global (RR sessions) leaderboard -->
+  <div class="section-label" style="margin-top:40px;">Global (Round Robin)</div>
+  <div id="globalLoading" class="loading-center">
+    <div class="spinner"></div><span>Loading global leaderboard…</span>
   </div>
-
-  <!-- Kills tab -->
-  <div class="tab-panel" id="tab-kills">
-    <div id="killsLoading" class="loading-center">
-      <div class="spinner"></div><span>Loading kills leaderboard…</span>
-    </div>
-    <div id="killsEmpty" class="empty-state" style="display:none;">
-      <p>No kills recorded yet.</p>
-    </div>
-    <div style="overflow-x:auto;" id="killsTableWrap" style="display:none;">
-      <table class="data-table" id="killsTable">
-        <thead>
-          <tr>
-            <th>Rank</th>
-            <th>Player</th>
-            <th>Character</th>
-            <th>Kills</th>
-            <th>Points</th>
-          </tr>
-        </thead>
-        <tbody id="killsBody"></tbody>
-      </table>
-    </div>
+  <div id="globalEmpty" class="empty-state" style="display:none;">
+    <p>No global stats available yet.</p>
   </div>
-
-  <!-- Global tab -->
-  <div class="tab-panel" id="tab-global">
-    <div id="globalLoading" class="loading-center">
-      <div class="spinner"></div><span>Loading global leaderboard…</span>
-    </div>
-    <div id="globalEmpty" class="empty-state" style="display:none;">
-      <p>No global stats available yet.</p>
-    </div>
-    <div style="overflow-x:auto;" id="globalTableWrap" style="display:none;">
-      <table class="data-table" id="globalTable">
-        <thead>
-          <tr>
-            <th>Rank</th>
-            <th>Player</th>
-            <th>Wins</th>
-            <th>Losses</th>
-            <th>Sessions</th>
-          </tr>
-        </thead>
-        <tbody id="globalBody"></tbody>
-      </table>
-    </div>
+  <div style="overflow-x:auto;" id="globalTableWrap" style="display:none;">
+    <table class="data-table" id="globalTable">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Player</th>
+          <th>Wins</th>
+          <th>Losses</th>
+          <th>Sessions</th>
+        </tr>
+      </thead>
+      <tbody id="globalBody"></tbody>
+    </table>
   </div>
 </main>
 
@@ -130,21 +132,68 @@
 <script src="js/nav.js"></script>
 <script src="js/chars.js"></script>
 <script>
-  function userAvatarUrl(username, storedUrl) {
-    if (storedUrl) return storedUrl;
-    return `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(username)}`;
+  let allCharData = [];
+  let sortCol = 'points';
+  let sortDir = 'desc'; // 'asc' or 'desc'
+
+  function sortBy(col) {
+    if (sortCol === col) {
+      sortDir = sortDir === 'desc' ? 'asc' : 'desc';
+    } else {
+      sortCol = col;
+      // losses sorts asc by default (fewest is best), everything else desc
+      sortDir = col === 'losses' ? 'asc' : 'desc';
+    }
+    renderCharTable();
+    updateSortHeaders();
   }
 
-  function switchLBTab(tab) {
-    const tabs = ['chars', 'kills', 'global'];
-    document.querySelectorAll('#lbTabs .tab-btn').forEach((b, i) => {
-      b.classList.toggle('active', tabs[i] === tab);
+  function updateSortHeaders() {
+    document.querySelectorAll('.sort-th').forEach(th => {
+      th.classList.remove('asc', 'desc');
+      if (th.dataset.col === sortCol) th.classList.add(sortDir);
     });
-    tabs.forEach(t => {
-      document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+  }
+
+  function renderCharTable() {
+    const sorted = [...allCharData].sort((a, b) => {
+      const av = a[sortCol] ?? (sortDir === 'desc' ? -Infinity : Infinity);
+      const bv = b[sortCol] ?? (sortDir === 'desc' ? -Infinity : Infinity);
+      return sortDir === 'desc' ? bv - av : av - bv;
     });
-    if (tab === 'kills') loadKillsLeaderboard();
-    if (tab === 'global') loadGlobal();
+
+    const body = document.getElementById('charBody');
+    body.innerHTML = sorted.map((entry, i) => {
+      const rankLabel = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
+      const rowClass  = i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '';
+      const av = entry.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}`;
+      const imgUrl = charImgUrl(entry.character);
+      const charImg = imgUrl
+        ? `<img class="char-img-sm" src="${imgUrl}" alt="${entry.character}" onerror="this.style.display='none'" />`
+        : '';
+      const pctColor = entry.win_pct !== null
+        ? (entry.win_pct >= 60 ? '#27ae60' : entry.win_pct >= 40 ? '#ffe066' : '#e74c3c')
+        : 'var(--text-muted)';
+      const pctStr = entry.win_pct !== null ? `${entry.win_pct}%` : '—';
+      const total = (entry.wins || 0) + (entry.losses || 0);
+      const wlStr = total > 0
+        ? `<span style="color:#27ae60;font-weight:700;">${entry.wins}</span> <span style="color:var(--text-muted);">/</span> <span style="color:#e74c3c;font-weight:700;">${entry.losses}</span>`
+        : `<span style="color:var(--text-muted);">—</span>`;
+
+      return `<tr class="${rowClass}">
+        <td style="font-weight:800;">${rankLabel}</td>
+        <td><div style="display:flex;align-items:center;gap:8px;">
+          <img class="user-av" src="${av}" alt="${entry.username}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}'" />
+          <span style="font-weight:600;">${entry.username}</span>
+        </div></td>
+        <td><div style="display:flex;align-items:center;gap:8px;">${charImg}<span>${entry.character}</span></div></td>
+        <td style="font-weight:800;color:var(--accent-gold);">${entry.points}</td>
+        <td style="font-weight:700;color:#e67e22;">${entry.kills}</td>
+        <td style="font-weight:700;color:#27ae60;">${entry.wins}</td>
+        <td style="font-weight:700;color:#e74c3c;">${entry.losses}</td>
+        <td style="font-weight:800;color:${pctColor};">${pctStr}</td>
+      </tr>`;
+    }).join('');
   }
 
   async function loadCharLeaderboard() {
@@ -157,106 +206,40 @@
         return;
       }
 
+      allCharData = data;
       document.getElementById('charTableWrap').style.display = 'block';
-      const body = document.getElementById('charBody');
-      body.innerHTML = data.map((entry, i) => {
-        const rankLabel = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}`;
-        const rowClass = i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '';
-        const av = entry.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}`;
-        const imgUrl = charImgUrl(entry.character);
-        const charImg = imgUrl
-          ? `<img class="char-img-sm" src="${imgUrl}" alt="${entry.character}" onerror="this.style.display='none'" />`
-          : '';
-        return `<tr class="${rowClass}">
-          <td style="font-weight:800;">${rankLabel}</td>
-          <td><div style="display:flex;align-items:center;gap:8px;">
-            <img class="user-av" src="${av}" alt="${entry.username}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}'" />
-            <span style="font-weight:600;">${entry.username}</span>
-          </div></td>
-          <td><div style="display:flex;align-items:center;gap:8px;">${charImg}<span>${entry.character}</span></div></td>
-          <td style="font-weight:800;color:var(--accent-gold);">${entry.points}</td>
-        </tr>`;
-      }).join('');
+      renderCharTable();
     } catch (err) {
       document.getElementById('charLoading').style.display = 'none';
-      showToast('Error loading character leaderboard: ' + err.message, 'error');
-    }
-  }
-
-  async function loadKillsLeaderboard() {
-    const loading = document.getElementById('killsLoading');
-    const wrap    = document.getElementById('killsTableWrap');
-    const empty   = document.getElementById('killsEmpty');
-
-    if (loading.style.display === 'none') return; // already loaded
-
-    try {
-      const data = await apiGet('/characters/stats/leaderboard/kills');
-      loading.style.display = 'none';
-
-      if (!data || data.length === 0) {
-        empty.style.display = 'block';
-        return;
-      }
-
-      wrap.style.display = 'block';
-      const body = document.getElementById('killsBody');
-      body.innerHTML = data.map((entry, i) => {
-        const rankLabel = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}`;
-        const rowClass  = i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '';
-        const av = entry.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}`;
-        const imgUrl = charImgUrl(entry.character);
-        const charImg = imgUrl
-          ? `<img class="char-img-sm" src="${imgUrl}" alt="${entry.character}" onerror="this.style.display='none'" />`
-          : '';
-        return `<tr class="${rowClass}">
-          <td style="font-weight:800;">${rankLabel}</td>
-          <td><div style="display:flex;align-items:center;gap:8px;">
-            <img class="user-av" src="${av}" alt="${entry.username}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}'" />
-            <span style="font-weight:600;">${entry.username}</span>
-          </div></td>
-          <td><div style="display:flex;align-items:center;gap:8px;">${charImg}<span>${entry.character}</span></div></td>
-          <td style="font-weight:800;color:#e67e22;">${entry.kills}</td>
-          <td style="color:var(--text-muted);font-size:0.88rem;">${entry.points}</td>
-        </tr>`;
-      }).join('');
-    } catch (err) {
-      document.getElementById('killsLoading').style.display = 'none';
-      showToast('Error loading kills leaderboard: ' + err.message, 'error');
+      showToast('Error loading leaderboard: ' + err.message, 'error');
     }
   }
 
   async function loadGlobal() {
-    const loading = document.getElementById('globalLoading');
-    const wrap = document.getElementById('globalTableWrap');
-    const empty = document.getElementById('globalEmpty');
-
-    if (loading.style.display === 'none') return; // already loaded
-
     try {
       const data = await apiGet('/leaderboard');
-      loading.style.display = 'none';
+      document.getElementById('globalLoading').style.display = 'none';
 
       if (!data || data.length === 0) {
-        empty.style.display = 'block';
+        document.getElementById('globalEmpty').style.display = 'block';
         return;
       }
 
-      wrap.style.display = 'block';
+      document.getElementById('globalTableWrap').style.display = 'block';
       const body = document.getElementById('globalBody');
       body.innerHTML = data.map((u, i) => {
-        const rowClass = i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '';
-        const rankSymbol = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}`;
+        const rowClass   = i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '';
+        const rankSymbol = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
         return `<tr class="${rowClass}">
           <td style="font-weight:700;">${rankSymbol}</td>
           <td style="font-weight:600;">${u.username}</td>
-          <td style="color:#27ae60;">${u.wins || 0}</td>
-          <td style="color:#e74c3c;">${u.losses || 0}</td>
+          <td style="color:#27ae60;font-weight:700;">${u.wins || 0}</td>
+          <td style="color:#e74c3c;font-weight:700;">${u.losses || 0}</td>
           <td>${u.sessions || 0}</td>
         </tr>`;
       }).join('');
     } catch (err) {
-      loading.style.display = 'none';
+      document.getElementById('globalLoading').style.display = 'none';
       showToast('Error loading global leaderboard: ' + err.message, 'error');
     }
   }
@@ -273,11 +256,7 @@
     } catch (_) {}
 
     loadCharLeaderboard();
-
-    // Check URL hash for direct-link to global
-    if (window.location.hash === '#global') {
-      switchLBTab('global');
-    }
+    loadGlobal();
   })();
 </script>
 </body>

@@ -631,18 +631,29 @@ def get_stats(db: Session = Depends(get_db), current_user: User = Depends(get_cu
 
 @app.get("/characters/stats/leaderboard")
 def character_leaderboard(db: Session = Depends(get_db)):
-    """Flat leaderboard: all user+character combos ranked by points."""
-    rows = db.query(CharacterStats).filter(CharacterStats.points > 0).order_by(CharacterStats.points.desc()).all()
-    return [
-        {
-            "username": row.owner.username,
+    """Unified leaderboard: all user+character combos with every stat."""
+    rows = db.query(CharacterStats).all()
+    results = []
+    for row in rows:
+        w = row.wins or 0
+        l = row.losses or 0
+        total = w + l
+        # skip rows with zero activity
+        if row.points == 0 and (row.kills or 0) == 0 and total == 0:
+            continue
+        win_pct = round(w / total * 100, 1) if total > 0 else None
+        results.append({
+            "username":   row.owner.username,
             "avatar_url": row.owner.avatar_url,
-            "character": row.character,
-            "points": row.points,
-            "kills": row.kills or 0,
-        }
-        for row in rows
-    ]
+            "character":  row.character,
+            "points":     row.points,
+            "kills":      row.kills or 0,
+            "wins":       w,
+            "losses":     l,
+            "win_pct":    win_pct,
+        })
+    results.sort(key=lambda x: -x["points"])
+    return results
 
 
 @app.get("/characters/stats/leaderboard/kills")
@@ -659,6 +670,31 @@ def kills_leaderboard(db: Session = Depends(get_db)):
         }
         for row in rows
     ]
+
+
+@app.get("/characters/stats/leaderboard/winpct")
+def winpct_leaderboard(db: Session = Depends(get_db)):
+    """Flat leaderboard: all user+character combos ranked by win %, min 3 games."""
+    rows = db.query(CharacterStats).all()
+    results = []
+    for row in rows:
+        w = row.wins or 0
+        l = row.losses or 0
+        total = w + l
+        if total < 3:
+            continue
+        win_pct = round(w / total * 100, 1)
+        results.append({
+            "username":   row.owner.username,
+            "avatar_url": row.owner.avatar_url,
+            "character":  row.character,
+            "win_pct":    win_pct,
+            "wins":       w,
+            "losses":     l,
+            "points":     row.points,
+        })
+    results.sort(key=lambda x: (-x["win_pct"], -x["wins"]))
+    return results
 
 
 @app.get("/characters/stats/{username}")

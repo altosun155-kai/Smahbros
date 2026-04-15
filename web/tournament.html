@@ -115,6 +115,7 @@
         <p id="tournamentHost" style="color:var(--text-muted);font-size:0.9rem;"></p>
       </div>
       <div id="statusBadge"></div>
+      <button id="endTournamentBtn" onclick="confirmEndTournament()" style="display:none;margin-left:auto;background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:6px;padding:6px 14px;font-size:0.82rem;font-weight:700;cursor:pointer;">End Tournament</button>
     </div>
 
     <!-- ── Lineup phase ── -->
@@ -221,6 +222,19 @@
           <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(2,3)">2-3</button>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- End tournament confirmation modal -->
+<div id="endTournamentModal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;">
+  <div style="background:var(--card-bg);border:1px solid rgba(231,76,60,0.4);border-radius:14px;padding:28px 24px;width:360px;max-width:95vw;text-align:center;">
+    <div style="font-size:2rem;margin-bottom:12px;">⚠️</div>
+    <h2 style="font-size:1.05rem;font-weight:700;margin-bottom:8px;">End Tournament Early?</h2>
+    <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:24px;">The tournament will be marked as ended. All stats recorded so far (kills, wins, losses) are already saved and will not be affected.</p>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-outline btn-sm" onclick="closeEndModal()" style="flex:1;">Cancel</button>
+      <button onclick="endTournamentNow()" style="flex:1;background:#e74c3c;color:#fff;border:none;border-radius:7px;padding:9px;font-size:0.88rem;font-weight:700;cursor:pointer;">Yes, End It</button>
     </div>
   </div>
 </div>
@@ -703,6 +717,10 @@ async function fetchAndRender() {
     document.getElementById('tournamentHost').textContent = `Hosted by ${data.host}`;
     isHost = (myUsername === data.host);
 
+    // Show End Tournament button for host while tournament is live
+    const endBtn = document.getElementById('endTournamentBtn');
+    if (endBtn) endBtn.style.display = (isHost && data.is_live) ? 'block' : 'none';
+
     const hasBracket = data.bracket_data && data.bracket_data.length > 0;
 
     if (data.is_live && !hasBracket) {
@@ -788,6 +806,26 @@ async function fetchAndRender() {
   // Poll every 5s for live updates
   pollInterval = setInterval(fetchAndRender, 5000);
 })();
+
+function confirmEndTournament() {
+  const modal = document.getElementById('endTournamentModal');
+  modal.style.display = 'flex';
+}
+
+function closeEndModal() {
+  document.getElementById('endTournamentModal').style.display = 'none';
+}
+
+async function endTournamentNow() {
+  closeEndModal();
+  try {
+    await apiPatch(`/brackets/${tournamentId}/end`, {});
+    showToast('Tournament ended. All recorded stats are saved.', 'success');
+    await fetchAndRender();
+  } catch (err) {
+    showToast('Error ending tournament: ' + err.message, 'error');
+  }
+}
 </script>
 </body>
 </html>

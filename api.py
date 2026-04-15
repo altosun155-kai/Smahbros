@@ -641,7 +641,7 @@ def character_leaderboard(db: Session = Depends(get_db)):
         # skip rows with zero activity
         if row.points == 0 and (row.kills or 0) == 0 and total == 0:
             continue
-        win_pct = round(w / total * 100, 1) if total > 0 else None
+        win_pct = round(w / total * 100, 1) if total >= 3 else None
         results.append({
             "username":   row.owner.username,
             "avatar_url": row.owner.avatar_url,

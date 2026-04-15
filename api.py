@@ -20,6 +20,7 @@ def _run_migrations():
     with engine.connect() as conn:
         if is_pg:
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS round_winners JSONB DEFAULT '{}'"))
+            conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS round_scores JSONB DEFAULT '{}'"  ))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS bracket_style VARCHAR DEFAULT 'strongVsStrong'"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS is_live BOOLEAN DEFAULT FALSE"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS winner VARCHAR"))
@@ -37,6 +38,8 @@ def _run_migrations():
             cols = {row[1] for row in conn.execute(text("PRAGMA table_info(brackets)"))}
             if "round_winners" not in cols:
                 conn.execute(text("ALTER TABLE brackets ADD COLUMN round_winners TEXT DEFAULT '{}'"))
+            if "round_scores" not in cols:
+                conn.execute(text("ALTER TABLE brackets ADD COLUMN round_scores TEXT DEFAULT '{}'"))
             if "bracket_style" not in cols:
                 conn.execute(text("ALTER TABLE brackets ADD COLUMN bracket_style VARCHAR DEFAULT 'strongVsStrong'"))
             if "is_live" not in cols:
@@ -154,6 +157,7 @@ def bracket_to_dict(b: Bracket, include_invites: bool = False):
         "entries": b.entries,
         "bracket_data": b.bracket_data,
         "round_winners": b.round_winners or {},
+        "round_scores":  b.round_scores  or {},
         "bracket_style": b.bracket_style or "strongVsStrong",
         "is_live": b.is_live,
         "winner": b.winner,
@@ -249,6 +253,7 @@ def get_bracket(bracket_id: int, db: Session = Depends(get_db), current_user: Us
 class WinnerUpdate(BaseModel):
     key: str    # e.g. "r0_m3"
     winner: str # entry label
+    score: str | None = None  # e.g. "3-1" (winner stocks - loser stocks)
 
 
 @app.patch("/brackets/{bracket_id}/winner")
@@ -260,6 +265,11 @@ def set_bracket_winner(bracket_id: int, req: WinnerUpdate, db: Session = Depends
     rw = dict(b.round_winners or {})
     rw[req.key] = req.winner
     b.round_winners = rw
+    if req.score:
+        rs = dict(b.round_scores or {})
+        rs[req.key] = req.score
+        b.round_scores = rs
+        flag_modified(b, "round_scores")
     db.commit()
     return {"ok": True}
 
@@ -891,12 +901,16 @@ def undo_last_result(bracket_id: int, db: Session = Depends(get_db), current_use
         ls.kills  = max(0, (ls.kills  or 0) - (mr.loser_kills  or 0))
         ls.deaths = max(0, (ls.deaths or 0) - (mr.winner_kills or 0))
 
-    # Remove the round_winner key from the bracket
+    # Remove the round_winner + score key from the bracket
     if mr.match_key:
         rw = dict(b.round_winners or {})
         rw.pop(mr.match_key, None)
         b.round_winners = rw
         flag_modified(b, "round_winners")
+        rs = dict(b.round_scores or {})
+        rs.pop(mr.match_key, None)
+        b.round_scores = rs
+        flag_modified(b, "round_scores")
 
     winner_name = mr.winner.username
     winner_char = mr.winner_char

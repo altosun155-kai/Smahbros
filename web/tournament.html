@@ -375,12 +375,14 @@ function parseLabel(label) {
   return { player: label.slice(0, idx), character: label.slice(idx + 3) };
 }
 
-function entryHtml(label, roundWinners, is_live, roundIdx) {
+function entryHtml(label, roundWinners, roundScores, is_live, roundIdx, matchKey) {
   if (!label || label === 'TBD') return `<div class="match-entry bye">— TBD —</div>`;
   const isBye = label.toUpperCase() === 'BYE';
   if (isBye) return `<div class="match-entry bye">BYE</div>`;
 
-  const isWinner = Object.values(roundWinners).includes(label);
+  const winnerLabel = roundWinners[matchKey];
+  const isWinner = winnerLabel === label;
+  const isLoser  = winnerLabel && winnerLabel !== label;
   const isMe = myUsername && label.startsWith(myUsername + ' — ');
   const myChar = isMe ? label.slice(myUsername.length + 3) : null;
   const parsed = parseLabel(label);
@@ -388,19 +390,29 @@ function entryHtml(label, roundWinners, is_live, roundIdx) {
   const iconUrl = charName && typeof charImgUrl === 'function' ? charImgUrl(charName) : null;
   const icon = iconUrl ? `<img class="match-char-icon" src="${iconUrl}" alt="${charName}" onerror="this.style.display='none'" />` : '';
 
+  // Score badge on winner row
+  const score = roundScores[matchKey];
+  const scoreBadge = isWinner && score
+    ? `<span style="font-size:0.68rem;font-weight:800;color:#ffe066;background:rgba(255,224,102,0.12);border:1px solid rgba(255,224,102,0.3);border-radius:4px;padding:1px 5px;flex-shrink:0;">${score}</span>`
+    : '';
+
+  // Dim the loser
+  const loserStyle = isLoser ? 'opacity:0.45;' : '';
+
   // Only show edit button in Round 1 while tournament is live and match not yet decided
-  const canEdit = isMe && is_live && roundIdx === 0 && !isWinner;
+  const canEdit = isMe && is_live && roundIdx === 0 && !winnerLabel;
   const editBtn = canEdit
     ? `<button class="edit-char-btn" onclick="openCharPicker('${myChar.replace(/'/g, "\\'")}')">✏️</button>`
     : '';
 
   const cls = `match-entry${isWinner ? ' winner' : ''}${isMe ? ' mine' : ''}`;
-  return `<div class="${cls}">${icon}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span>${editBtn}</div>`;
+  return `<div class="${cls}" style="${loserStyle}">${icon}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span>${scoreBadge}${editBtn}</div>`;
 }
 
 function renderBracket(data) {
-  const { bracket_data, round_winners, is_live } = data;
+  const { bracket_data, round_winners, round_scores, is_live } = data;
   const roundWinners = round_winners || {};
+  const roundScores  = round_scores  || {};
   currentBracketData = data;
 
   const rounds = computeRounds(bracket_data, roundWinners);
@@ -420,10 +432,11 @@ function renderBracket(data) {
     round.forEach(([a, b], mi) => {
       const box = document.createElement('div');
       box.className = 'match-box';
-      box.innerHTML = entryHtml(a, roundWinners, is_live, ri) + entryHtml(b, roundWinners, is_live, ri);
+      const key = `r${ri}_m${mi}`;
+      box.innerHTML = entryHtml(a, roundWinners, roundScores, is_live, ri, key)
+                    + entryHtml(b, roundWinners, roundScores, is_live, ri, key);
 
       // Host can click undecided, ready matches to record a score
-      const key = `r${ri}_m${mi}`;
       const alreadyDecided = !!roundWinners[key];
       const ready = a && b && a !== 'TBD' && b !== 'TBD'
         && a.toUpperCase() !== 'BYE' && b.toUpperCase() !== 'BYE'
@@ -515,9 +528,10 @@ async function pickTournamentScore(p1Stocks, p2Stocks) {
   const winnerKills = Math.max(p1Stocks, p2Stocks);
   const loserKills  = Math.min(p1Stocks, p2Stocks);
   const winnerLabel = `${winnerEntry.player} — ${winnerEntry.character}`;
+  const scoreStr = `${Math.max(p1Stocks, p2Stocks)}-${Math.min(p1Stocks, p2Stocks)}`;
 
   try {
-    await apiPatch(`/brackets/${tournamentId}/winner`, { key, winner: winnerLabel });
+    await apiPatch(`/brackets/${tournamentId}/winner`, { key, winner: winnerLabel, score: scoreStr });
     if (winnerEntry.player !== loserEntry.player) {
       await apiPost('/matches/record', {
         winner_username: winnerEntry.player, winner_char: winnerEntry.character, winner_kills: winnerKills,

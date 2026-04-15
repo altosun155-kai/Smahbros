@@ -49,6 +49,7 @@ class Bracket(Base):
     entries      = Column(JSON, default=list)
     bracket_data  = Column(JSON, default=list)
     round_winners      = Column(JSON, default=dict)   # {"r0_m0": "player — char", ...}
+    round_scores       = Column(JSON, default=dict)   # {"r0_m0": "3-1", ...}
     bracket_style      = Column(String, default="strongVsStrong")
     is_live            = Column(Boolean, default=False)
     winner             = Column(String, nullable=True)

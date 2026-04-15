@@ -452,6 +452,7 @@ let currentMode = 'regular';
 let currentEntries = []; // [{player, character}]
 let currentBracket = []; // [{a, b}] first round pairs
 let roundWinners = {}; // key r{ri}_m{mi} -> winner label
+let roundScores  = {}; // key r{ri}_m{mi} -> "3-1"
 let lastRenderedRounds = []; // all rounds from last renderBracket call
 let myUsername = '';
 let allUserStats = {};     // username -> [{character, points, kills}] sorted desc (points mode)
@@ -751,7 +752,7 @@ function generateBracket() {
   if (!pairs.length) { showToast('Could not build a valid bracket with those constraints.', 'error'); return; }
 
   currentBracket = pairs;
-  roundWinners = {};
+  roundWinners = {}; roundScores = {};
   renderBracket();
 
   // Collapse entries list to give the bracket room
@@ -981,7 +982,7 @@ function handleEntryClick(pairIdx, slot) {
   currentBracket[pairIdx][slot] = currentBracket[pi2][sl2];
   currentBracket[pi2][sl2] = tmp;
   swapSelection = null;
-  roundWinners = {};
+  roundWinners = {}; roundScores = {};
   renderBracket();
 }
 
@@ -1041,11 +1042,18 @@ function renderBracket() {
           return `<div class="match-entry tbd" data-pair="${mi}" data-slot="${slot}">— TBD —</div>`;
         }
         const isByeEntry = entry.character.toUpperCase() === 'BYE';
-        const isWon = curWinner === label;
+        const isWon  = curWinner === label;
+        const isLost = curWinner && curWinner !== label;
         const iconUrl = !isByeEntry && typeof charImgUrl === 'function' ? charImgUrl(entry.character) : null;
         const icon = iconUrl ? `<img class="match-char-icon" src="${iconUrl}" alt="${entry.character}" onerror="this.style.display='none'" />` : '';
         const wonClass = isWon ? ' winner-highlight' : '';
-        return `<div class="match-entry${isByeEntry?' bye':''}${swapClass}${wonClass}" data-pair="${mi}" data-slot="${slot}">${icon}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span></div>`;
+        const key2 = `r${ri}_m${mi}`;
+        const sc = (roundScores || {})[key2];
+        const scoreBadge = isWon && sc
+          ? `<span style="font-size:0.68rem;font-weight:800;color:#ffe066;background:rgba(255,224,102,0.12);border:1px solid rgba(255,224,102,0.3);border-radius:4px;padding:1px 5px;flex-shrink:0;">${sc}</span>`
+          : '';
+        const loserStyle = isLost ? 'opacity:0.45;' : '';
+        return `<div class="match-entry${isByeEntry?' bye':''}${swapClass}${wonClass}" style="${loserStyle}" data-pair="${mi}" data-slot="${slot}">${icon}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span>${scoreBadge}</div>`;
       }
 
       let html = entryHtml(a, la, swapClassA, 0);
@@ -1115,13 +1123,17 @@ function setWinner(key, val, winnerKills = 0, loserKills = 0) {
   // Find the previous winner for this key — if already set to same value, skip re-recording
   const prev = roundWinners[key];
   roundWinners[key] = val;
+  if (winnerKills > 0 || loserKills > 0) {
+    roundScores[key] = `${winnerKills}-${loserKills}`;
+  }
   renderBracket();
 
   if (!val || val === prev) return; // no change, don't double-record
 
   // Sync to live tournament if active
   if (liveTournamentId) {
-    apiPatch(`/brackets/${liveTournamentId}/winner`, { key, winner: val }).catch(() => {});
+    const sc = roundScores[key];
+    apiPatch(`/brackets/${liveTournamentId}/winner`, { key, winner: val, score: sc || null }).catch(() => {});
   }
 
   // Determine the loser from the match entries
@@ -1186,7 +1198,7 @@ function getWinnerOf(ri, matchIdx, pairs) {
 
 function clearBracket() {
   currentBracket = [];
-  roundWinners = {};
+  roundWinners = {}; roundScores = {};
   swapMode = false;
   swapSelection = null;
   document.getElementById('bracketOutput').style.display = 'none';

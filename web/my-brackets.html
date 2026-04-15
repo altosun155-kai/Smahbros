@@ -108,8 +108,11 @@
       const isLive = b.is_live;
       const hasLineup = isLive && !(b.bracket_data && b.bracket_data.length);
       const liveLabel = hasLineup ? '📋 Lineup' : '🔴 Live';
-      const liveBadge = isLive
+      const viewBadge = isLive
         ? `<a href="tournament.html?id=${b.id}" class="btn btn-sm" onclick="event.stopPropagation();" style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.5);color:#27ae60;font-size:0.75rem;">${liveLabel}</a>`
+        : `<a href="tournament.html?id=${b.id}" class="btn btn-outline btn-sm" onclick="event.stopPropagation();" style="font-size:0.75rem;">View</a>`;
+      const winnerBadge = b.winner
+        ? `<span style="font-size:0.75rem;font-weight:700;color:#ffd700;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.3);border-radius:4px;padding:2px 8px;">🏆 ${b.winner}</span>`
         : '';
       return `
         <div class="bracket-item">
@@ -117,19 +120,19 @@
             <div>
               <div class="bracket-name">${b.name}</div>
               <div class="bracket-meta">
-                Mode: ${b.mode || 'regular'} ·
-                Players: ${(b.players || []).length} ·
+                ${b.mode || 'regular'} ·
                 ${b.created_at ? b.created_at.slice(0,10) : ''}
               </div>
             </div>
             <div class="bracket-actions">
-              ${liveBadge}
+              ${winnerBadge}
+              ${viewBadge}
               <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteBracket(${b.id},'${b.name.replace(/'/g,"\\'")}')" >Delete</button>
               <span class="expand-icon" id="icon_${b.id}">›</span>
             </div>
           </div>
           <div class="bracket-body" id="body_${b.id}">
-            ${(b.bracket_data||[]).length ? `<div class="match-list">${matches}</div>` : '<p style="color:var(--text-muted);font-size:0.85rem;margin-top:8px;">No match data stored.</p>'}
+            <a href="tournament.html?id=${b.id}" class="btn btn-outline btn-sm" style="margin-top:8px;display:inline-block;">Open Full Bracket View →</a>
           </div>
         </div>
       `;

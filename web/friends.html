@@ -118,29 +118,7 @@
 <script>requireAuth();</script>
 <div id="toast-container"></div>
 
-<nav class="navbar">
-  <a class="logo" href="index.html">Smash<span>Bros</span></a>
-  <ul class="nav-links">
-    <li><a href="index.html">Home</a></li>
-    <li><a href="bracket.html">Bracket</a></li>
-    <li><a href="roundrobin.html">Round Robin</a></li>
-    <li><a href="my-brackets.html">My Brackets</a></li>
-    <li><a href="tier-list.html">Tier List</a></li>
-    <li><a href="favorites.html">Favorites</a></li>
-    <li><a href="stats.html">Stats</a></li>
-    <li><a href="leaderboard.html">Leaderboard</a></li>
-    <li><a href="invites.html">Invites</a></li>
-    <li><a href="friends.html" class="active">Friends</a></li>
-    <li><a href="profile.html">Profile</a></li>
-  </ul>
-  <div class="nav-right">
-    <div class="nav-user">
-      <img class="nav-avatar" id="navAvatar" src="" alt="avatar" onerror="this.style.display='none'" />
-      <span id="navUsername"></span>
-    </div>
-    <button class="btn-signout" onclick="logout()">Sign Out</button>
-  </div>
-</nav>
+<nav class="navbar" id="main-nav"></nav>
 
 <main class="page-container">
   <div class="page-header">
@@ -172,6 +150,7 @@
 </main>
 
 <script src="js/api.js"></script>
+<script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
 <script>
   async function init() {

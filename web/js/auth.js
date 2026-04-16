@@ -4,24 +4,24 @@ const API_BASE = 'https://smash-bracket-api.onrender.com';
 
 // ── Token management ──────────────────────────────
 function getToken() {
-  return sessionStorage.getItem('authToken');
+  return localStorage.getItem('authToken');
 }
 
 function setToken(token) {
-  sessionStorage.setItem('authToken', token);
+  localStorage.setItem('authToken', token);
 }
 
 function getUsername() {
-  return sessionStorage.getItem('username');
+  return localStorage.getItem('username');
 }
 
 function setUsername(username) {
-  sessionStorage.setItem('username', username);
+  localStorage.setItem('username', username);
 }
 
 function clearToken() {
-  sessionStorage.removeItem('authToken');
-  sessionStorage.removeItem('username');
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('username');
 }
 
 function isLoggedIn() {

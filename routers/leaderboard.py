@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from database import User
+from database import User, RoundRobinResult
 from auth import get_db
 
 router = APIRouter(tags=["leaderboard"])
@@ -9,7 +9,12 @@ router = APIRouter(tags=["leaderboard"])
 
 @router.get("/leaderboard")
 def leaderboard(db: Session = Depends(get_db)):
-    users = db.query(User).all()
+    # Eager-load rr_sessions in a single query instead of N+1
+    users = (
+        db.query(User)
+        .options(joinedload(User.rr_sessions))
+        .all()
+    )
     result = []
     for u in users:
         sessions = len(u.rr_sessions)

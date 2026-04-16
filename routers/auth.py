@@ -20,6 +20,10 @@ class LoginRequest(BaseModel):
 
 @router.post("/register")
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
+    if len(req.username.strip()) < 3:
+        raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
+    if len(req.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     if db.query(User).filter(User.username == req.username).first():
         raise HTTPException(status_code=400, detail="Username already taken")
     user = User(username=req.username, hashed_password=hash_password(req.password))

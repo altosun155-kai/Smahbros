@@ -6,7 +6,9 @@ from sqlalchemy.orm import Session
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import SessionLocal, User
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key")
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY environment variable is not set")
 
 
 def get_db():

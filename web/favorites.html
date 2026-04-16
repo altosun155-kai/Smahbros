@@ -40,29 +40,7 @@
 <script>requireAuth();</script>
 <div id="toast-container"></div>
 
-<nav class="navbar">
-  <a class="logo" href="index.html">Smash<span>Bros</span></a>
-  <ul class="nav-links">
-    <li><a href="index.html">Home</a></li>
-    <li><a href="bracket.html">Bracket</a></li>
-    <li><a href="roundrobin.html">Round Robin</a></li>
-    <li><a href="my-brackets.html">My Brackets</a></li>
-    <li><a href="tier-list.html">Tier List</a></li>
-    <li><a href="favorites.html" class="active">Favorites</a></li>
-    <li><a href="stats.html">Stats</a></li>
-    <li><a href="leaderboard.html">Leaderboard</a></li>
-    <li><a href="invites.html">Invites</a></li>
-    <li><a href="friends.html">Friends</a></li>
-    <li><a href="profile.html">Profile</a></li>
-  </ul>
-  <div class="nav-right">
-    <div class="nav-user">
-      <img class="nav-avatar" id="navAvatar" src="" alt="" onerror="this.style.display='none'" />
-      <span id="navUsername"></span>
-    </div>
-    <button class="btn-signout" onclick="logout()">Sign Out</button>
-  </div>
-</nav>
+<nav class="navbar" id="main-nav"></nav>
 
 <main class="page-container">
   <div class="page-header">
@@ -93,6 +71,7 @@
 
 <script src="js/api.js"></script>
 <script src="js/friends-sidebar.js"></script>
+<script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
 <script>
   const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];

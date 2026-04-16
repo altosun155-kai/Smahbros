@@ -4,7 +4,7 @@ const SUPABASE_CHARS = 'https://oqtdlertvgmopnibrbiu.supabase.co/storage/v1/obje
 
 // Overrides for characters whose filename differs from their display name
 const CHAR_FILE_OVERRIDES = {
-  'Donkey Kong':      'Donky Kong.png',
+
   'Pokémon Trainer':  'Pokemon Trainer.png',
   'Rosalina & Luma':  'Rosalina and Luma.png',
   'Pac-Man':          'Pac Man.png',

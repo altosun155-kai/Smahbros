@@ -298,7 +298,7 @@
         const desc = won
           ? `<span style="color:var(--text);">${r.winner_char}</span> <span style="color:var(--text-muted);">beat</span> ${r.loser} <span style="color:var(--text-muted);">playing</span> ${r.loser_char}`
           : `<span style="color:var(--text);">${r.loser_char}</span> <span style="color:var(--text-muted);">lost to</span> ${r.winner} <span style="color:var(--text-muted);">playing</span> ${r.winner_char}`;
-        const date = r.created_at ? r.created_at.slice(0,10) : '';
+        const date = r.created_at ? new Date(r.created_at).toLocaleDateString() : '';
         return `<div class="feed-item">${tag}<span style="flex:1;">${desc}</span><span class="feed-date">${date}</span></div>`;
       }).join('');
     } catch (err) {
@@ -327,7 +327,7 @@
           <div class="comment-body">
             <div class="comment-author">${c.author}</div>
             <div class="comment-text">${escHtml(c.content)}</div>
-            <div class="comment-meta">${c.created_at ? c.created_at.slice(0,10) : ''}</div>
+            <div class="comment-meta">${c.created_at ? new Date(c.created_at).toLocaleDateString() : ''}</div>
           </div>
           ${canDelete ? `<button class="comment-delete" onclick="deleteComment(${c.id})" title="Delete">✕</button>` : ''}
         </div>`;

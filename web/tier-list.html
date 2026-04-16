@@ -396,7 +396,7 @@
         tierMap = rankingToTierMap(data.ranking);
         if (data.updated_at) {
           document.getElementById('lastSaved').textContent =
-            'Last saved: ' + data.updated_at.slice(0,16).replace('T',' ') + ' UTC';
+            'Last saved: ' + new Date(data.updated_at).toLocaleString();
         }
       }
     } catch (_) {}

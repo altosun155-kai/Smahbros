@@ -356,7 +356,7 @@ Friend2</textarea>
       list.innerHTML = data.map(s => `
         <div class="saved-session">
           <h3>${s.session_name || s.name || 'Session'}</h3>
-          <div class="meta">${s.created_at ? s.created_at.slice(0,10) : ''} · ${(s.players || []).length} players</div>
+          <div class="meta">${s.created_at ? new Date(s.created_at).toLocaleDateString() : ''} · ${(s.players || []).length} players</div>
         </div>
       `).join('');
     } catch (err) {

@@ -350,7 +350,7 @@
     const table = document.getElementById(tableId);
     const empty = emptyId ? document.getElementById(emptyId) : null;
 
-    const filtered = (data || []).filter(s => s.points > 0);
+    const filtered = (data || []).filter(s => (s.wins || 0) + (s.losses || 0) > 0 || (s.points || 0) > 0);
     filtered.sort((a,b) => b.points - a.points);
 
     if (!filtered.length) {

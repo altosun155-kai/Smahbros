@@ -25,14 +25,16 @@
   const navLinks = document.querySelector('.nav-links');
   if (!navbar || !navLinks) return;
 
-  // Build dropdown from existing nav links
+  // Build dropdown from existing nav links, auto-detecting active page from URL
+  const currentPage = window.location.pathname.split('/').pop() || 'index.html';
   const dropdown = document.createElement('div');
   dropdown.className = 'nav-dropdown';
   navLinks.querySelectorAll('a').forEach(a => {
     const link = document.createElement('a');
     link.href = a.href;
     link.textContent = a.textContent.trim();
-    if (a.classList.contains('active')) link.classList.add('active');
+    const linkPage = a.getAttribute('href').split('/').pop().split('?')[0];
+    if (linkPage === currentPage) link.classList.add('active');
     dropdown.appendChild(link);
   });
   // Also add Sign Out at the bottom

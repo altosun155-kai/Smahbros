@@ -191,8 +191,8 @@
       return `<tr class="${rowClass}">
         <td style="font-weight:800;">${rankLabel}</td>
         <td><div style="display:flex;align-items:center;gap:8px;">
-          <img class="user-av" src="${av}" alt="${entry.username}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}'" />
-          <span style="font-weight:600;">${entry.username}</span>
+          <img class="user-av" src="${av}" alt="${escHtml(entry.username)}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}'" />
+          <span style="font-weight:600;">${escHtml(entry.username)}</span>
         </div></td>
         <td><div style="display:flex;align-items:center;gap:8px;">${charImg}<span>${entry.character}</span></div></td>
         <td style="font-weight:800;color:var(--accent-gold);">${entry.points}</td>
@@ -242,7 +242,7 @@
         const rankSymbol = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
         return `<tr class="${rowClass}">
           <td style="font-weight:700;">${rankSymbol}</td>
-          <td style="font-weight:600;">${u.username}</td>
+          <td style="font-weight:600;">${escHtml(u.username)}</td>
           <td style="color:#27ae60;font-weight:700;">${u.wins || 0}</td>
           <td style="color:#e74c3c;font-weight:700;">${u.losses || 0}</td>
           <td style="color:#e67e22;font-weight:700;">${u.kills || 0}</td>

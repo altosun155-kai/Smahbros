@@ -138,3 +138,13 @@ async function apiDelete(path, auth = true) {
 function showToast(message, type = 'info', duration = 4000) {
   return _showToast(message, type, duration);
 }
+
+// ── HTML escape — use whenever injecting user data into innerHTML ──
+function escHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}

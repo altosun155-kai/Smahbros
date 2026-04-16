@@ -114,13 +114,13 @@
         ? `<a href="tournament.html?id=${b.id}" class="btn btn-sm" onclick="event.stopPropagation();" style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.5);color:#27ae60;font-size:0.75rem;">${liveLabel}</a>`
         : `<a href="tournament.html?id=${b.id}" class="btn btn-outline btn-sm" onclick="event.stopPropagation();" style="font-size:0.75rem;">View</a>`;
       const winnerBadge = b.winner
-        ? `<span style="font-size:0.75rem;font-weight:700;color:#ffd700;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.3);border-radius:4px;padding:2px 8px;">🏆 ${b.winner}</span>`
+        ? `<span style="font-size:0.75rem;font-weight:700;color:#ffd700;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.3);border-radius:4px;padding:2px 8px;">🏆 ${escHtml(b.winner)}</span>`
         : '';
       return `
         <div class="bracket-item">
           <div class="bracket-header" onclick="toggleBracket(${b.id})">
             <div>
-              <div class="bracket-name">${b.name}</div>
+              <div class="bracket-name">${escHtml(b.name)}</div>
               <div class="bracket-meta">
                 ${b.mode || 'regular'} ·
                 ${b.created_at ? new Date(b.created_at).toLocaleDateString() : ''}

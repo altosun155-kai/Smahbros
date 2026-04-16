@@ -126,8 +126,8 @@
         html += pending.map(inv => `
           <div class="invite-row">
             <div class="invite-info">
-              <div class="invite-bracket">${inv.bracket_name || 'Tournament'}</div>
-              <div class="invite-meta">From <strong>${inv.inviter}</strong> · ${inv.created_at ? new Date(inv.created_at).toLocaleDateString() : ''}</div>
+              <div class="invite-bracket">${escHtml(inv.bracket_name || 'Tournament')}</div>
+              <div class="invite-meta">From <strong>${escHtml(inv.inviter)}</strong> · ${inv.created_at ? new Date(inv.created_at).toLocaleDateString() : ''}</div>
             </div>
             <div class="invite-actions">
               <button class="btn btn-primary btn-sm" onclick="respondInvite(${inv.id}, 'accepted', ${inv.bracket_id})">Accept & Join</button>
@@ -141,8 +141,8 @@
         html += accepted.map(inv => `
           <div class="invite-row">
             <div class="invite-info">
-              <div class="invite-bracket">${inv.bracket_name || 'Tournament'}</div>
-              <div class="invite-meta">From <strong>${inv.inviter}</strong> · ${inv.created_at ? new Date(inv.created_at).toLocaleDateString() : ''}</div>
+              <div class="invite-bracket">${escHtml(inv.bracket_name || 'Tournament')}</div>
+              <div class="invite-meta">From <strong>${escHtml(inv.inviter)}</strong> · ${inv.created_at ? new Date(inv.created_at).toLocaleDateString() : ''}</div>
             </div>
             <div class="invite-actions">
               <span class="badge badge-accepted">Accepted</span>
@@ -156,8 +156,8 @@
         html += declined.map(inv => `
           <div class="invite-row">
             <div class="invite-info">
-              <div class="invite-bracket">${inv.bracket_name || 'Tournament'}</div>
-              <div class="invite-meta">From <strong>${inv.inviter}</strong> · ${inv.created_at ? new Date(inv.created_at).toLocaleDateString() : ''}</div>
+              <div class="invite-bracket">${escHtml(inv.bracket_name || 'Tournament')}</div>
+              <div class="invite-meta">From <strong>${escHtml(inv.inviter)}</strong> · ${inv.created_at ? new Date(inv.created_at).toLocaleDateString() : ''}</div>
             </div>
             <div><span class="badge badge-declined">Declined</span></div>
           </div>
@@ -215,8 +215,8 @@
         return `
           <div class="invite-row">
             <div class="invite-info">
-              <div class="invite-bracket">${inv.bracket_name || 'Bracket'}</div>
-              <div class="invite-meta">To <strong>${inv.invitee}</strong> · ${inv.created_at ? new Date(inv.created_at).toLocaleDateString() : ''}</div>
+              <div class="invite-bracket">${escHtml(inv.bracket_name || 'Bracket')}</div>
+              <div class="invite-meta">To <strong>${escHtml(inv.invitee)}</strong> · ${inv.created_at ? new Date(inv.created_at).toLocaleDateString() : ''}</div>
             </div>
             <div class="invite-actions">${badge}${cancelBtn}</div>
           </div>

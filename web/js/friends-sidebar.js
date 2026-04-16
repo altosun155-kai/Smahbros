@@ -201,10 +201,11 @@
       }
       el.innerHTML = friends.map(f => {
         const av = f.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(f.username)}`;
+        const name = escHtml(f.username);
         return `<div class="fsb-friend-row">
-          <img class="fsb-av" src="${av}" alt="${f.username}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(f.username)}'" />
+          <img class="fsb-av" src="${av}" alt="${name}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(f.username)}'" />
           <div style="flex:1;min-width:0;">
-            <div class="fsb-name">${f.username}</div>
+            <div class="fsb-name">${name}</div>
             <div class="fsb-status ${f.active ? 'fsb-online' : 'fsb-offline'}">${f.active ? '● Online' : '○ Offline'}</div>
           </div>
           <button class="fsb-remove" onclick="fsbRemove(${f.id})">✕</button>
@@ -239,9 +240,10 @@
       }
       el.innerHTML = reqs.map(r => {
         const av = r.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(r.username)}`;
+        const name = escHtml(r.username);
         return `<div class="fsb-req-row">
-          <img class="fsb-av" src="${av}" alt="${r.username}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(r.username)}'" />
-          <span class="fsb-name">${r.username}</span>
+          <img class="fsb-av" src="${av}" alt="${name}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(r.username)}'" />
+          <span class="fsb-name">${name}</span>
           <div class="fsb-req-btns">
             <button class="fsb-accept" onclick="fsbAccept(${r.id})">✓</button>
             <button class="fsb-decline" onclick="fsbDecline(${r.id})">✕</button>

@@ -1,0 +1,272 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from datetime import datetime
+
+from database import User, CharacterRanking, CharacterStats, FavoriteCharacters
+from auth import get_db, get_current_user
+
+router = APIRouter(tags=["characters"])
+
+
+class RankingUpdate(BaseModel):
+    ranking: dict
+
+
+class FavoritesUpdate(BaseModel):
+    characters: list
+
+
+class StatRecord(BaseModel):
+    character: str
+    result: str  # "win" or "loss"
+
+
+class StatRecordFor(BaseModel):
+    username: str
+    character: str
+    result: str  # "win" or "loss"
+
+
+class BulkStatEntry(BaseModel):
+    character: str
+    wins: int
+    losses: int
+    kills: int = 0
+    deaths: int = 0
+
+
+class BulkStatsRequest(BaseModel):
+    username: str
+    entries: list[BulkStatEntry]
+
+
+def _stat_row(r):
+    w = r.wins or 0
+    l = r.losses or 0
+    total = w + l
+    win_pct = round(w / total * 100, 1) if total > 0 else None
+    kills  = r.kills  or 0
+    deaths = r.deaths or 0
+    kd = round(kills / deaths, 2) if deaths > 0 else None
+    return {
+        "character": r.character,
+        "points":    r.points,
+        "kills":     kills,
+        "deaths":    deaths,
+        "kd":        kd,
+        "wins":      w,
+        "losses":    l,
+        "win_pct":   win_pct,
+    }
+
+
+# ── Tier list / ranking ───────────────────────────────────────────────────────
+
+@router.get("/characters/ranking")
+def get_ranking(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    cr = db.query(CharacterRanking).filter(CharacterRanking.owner_id == current_user.id).first()
+    if not cr:
+        return {"ranking": None, "updated_at": None}
+    return {"ranking": cr.ranking, "updated_at": cr.updated_at.isoformat()}
+
+
+@router.put("/characters/ranking")
+def save_ranking(req: RankingUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    cr = db.query(CharacterRanking).filter(CharacterRanking.owner_id == current_user.id).first()
+    if cr:
+        cr.ranking = req.ranking
+        cr.updated_at = datetime.utcnow()
+    else:
+        cr = CharacterRanking(owner_id=current_user.id, ranking=req.ranking)
+        db.add(cr)
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/characters/ranking/{username}")
+def get_ranking_by_user(username: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    cr = db.query(CharacterRanking).filter(CharacterRanking.owner_id == user.id).first()
+    if not cr:
+        raise HTTPException(status_code=404, detail="No tier list found for this user")
+    return {"username": user.username, "ranking": cr.ranking, "updated_at": cr.updated_at.isoformat()}
+
+
+# ── Favorites ─────────────────────────────────────────────────────────────────
+
+@router.get("/characters/favorites")
+def get_favorites(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    fav = db.query(FavoriteCharacters).filter(FavoriteCharacters.owner_id == current_user.id).first()
+    return {"characters": fav.characters if fav else []}
+
+
+@router.put("/characters/favorites")
+def save_favorites(req: FavoritesUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    fav = db.query(FavoriteCharacters).filter(FavoriteCharacters.owner_id == current_user.id).first()
+    if fav:
+        fav.characters = req.characters
+    else:
+        fav = FavoriteCharacters(owner_id=current_user.id, characters=req.characters)
+        db.add(fav)
+    db.commit()
+    return {"ok": True}
+
+
+# ── Stats ─────────────────────────────────────────────────────────────────────
+
+@router.get("/characters/stats")
+def get_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    rows = db.query(CharacterStats).filter(CharacterStats.user_id == current_user.id).all()
+    return [_stat_row(r) for r in rows]
+
+
+@router.get("/characters/stats/leaderboard")
+def character_leaderboard(db: Session = Depends(get_db)):
+    rows = db.query(CharacterStats).all()
+    results = []
+    for row in rows:
+        w = row.wins or 0
+        l = row.losses or 0
+        total = w + l
+        if row.points == 0 and (row.kills or 0) == 0 and total == 0:
+            continue
+        win_pct = round(w / total * 100, 1) if total >= 3 else None
+        kills  = row.kills  or 0
+        deaths = row.deaths or 0
+        kd     = round(kills / deaths, 2) if deaths > 0 else None
+        results.append({
+            "username":   row.owner.username,
+            "avatar_url": row.owner.avatar_url,
+            "character":  row.character,
+            "points":     row.points,
+            "kills":      kills,
+            "deaths":     deaths,
+            "kd":         kd,
+            "wins":       w,
+            "losses":     l,
+            "win_pct":    win_pct,
+        })
+    results.sort(key=lambda x: -x["points"])
+    return results
+
+
+@router.get("/characters/stats/leaderboard/kills")
+def kills_leaderboard(db: Session = Depends(get_db)):
+    rows = db.query(CharacterStats).filter(CharacterStats.kills > 0).order_by(CharacterStats.kills.desc()).all()
+    return [
+        {
+            "username": row.owner.username,
+            "avatar_url": row.owner.avatar_url,
+            "character": row.character,
+            "kills": row.kills or 0,
+            "points": row.points,
+        }
+        for row in rows
+    ]
+
+
+@router.get("/characters/stats/leaderboard/winpct")
+def winpct_leaderboard(db: Session = Depends(get_db)):
+    rows = db.query(CharacterStats).all()
+    results = []
+    for row in rows:
+        w = row.wins or 0
+        l = row.losses or 0
+        total = w + l
+        if total < 3:
+            continue
+        win_pct = round(w / total * 100, 1)
+        results.append({
+            "username":   row.owner.username,
+            "avatar_url": row.owner.avatar_url,
+            "character":  row.character,
+            "win_pct":    win_pct,
+            "wins":       w,
+            "losses":     l,
+            "points":     row.points,
+        })
+    results.sort(key=lambda x: (-x["win_pct"], -x["wins"]))
+    return results
+
+
+@router.get("/characters/stats/{username}")
+def get_stats_by_user(username: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    rows = db.query(CharacterStats).filter(CharacterStats.user_id == user.id).all()
+    return {"username": user.username, "stats": [_stat_row(r) for r in rows]}
+
+
+@router.post("/characters/stats/bulk")
+def bulk_set_stats(req: BulkStatsRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    target = db.query(User).filter(User.username == req.username).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    for entry in req.entries:
+        if not entry.character:
+            continue
+        row = db.query(CharacterStats).filter(
+            CharacterStats.user_id == target.id,
+            CharacterStats.character == entry.character,
+        ).first()
+        if row is None:
+            row = CharacterStats(user_id=target.id, character=entry.character, points=0, kills=0, wins=0, losses=0)
+            db.add(row)
+        row.wins   = (row.wins   or 0) + entry.wins
+        row.losses = (row.losses or 0) + entry.losses
+        row.points = max(0, row.points + entry.wins - entry.losses)
+        if entry.kills > 0:
+            row.kills = (row.kills or 0) + entry.kills
+        if entry.deaths > 0:
+            row.deaths = (row.deaths or 0) + entry.deaths
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/characters/stats/record-for")
+def record_stat_for(req: StatRecordFor, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if req.result not in ("win", "loss"):
+        raise HTTPException(status_code=400, detail="result must be 'win' or 'loss'")
+    target = db.query(User).filter(User.username == req.username).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    row = db.query(CharacterStats).filter(
+        CharacterStats.user_id == target.id,
+        CharacterStats.character == req.character,
+    ).first()
+    if row is None:
+        row = CharacterStats(user_id=target.id, character=req.character, points=0, kills=0, wins=0, losses=0)
+        db.add(row)
+    if req.result == "win":
+        row.points += 1
+        row.wins = (row.wins or 0) + 1
+    else:
+        row.points = max(0, row.points - 1)
+        row.losses = (row.losses or 0) + 1
+    db.commit()
+    return {"character": row.character, "points": row.points}
+
+
+@router.post("/characters/stats/record")
+def record_stat(req: StatRecord, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if req.result not in ("win", "loss"):
+        raise HTTPException(status_code=400, detail="result must be 'win' or 'loss'")
+    row = db.query(CharacterStats).filter(
+        CharacterStats.user_id == current_user.id,
+        CharacterStats.character == req.character,
+    ).first()
+    if row is None:
+        row = CharacterStats(user_id=current_user.id, character=req.character, points=0, kills=0, wins=0, losses=0)
+        db.add(row)
+    if req.result == "win":
+        row.points += 1
+        row.wins = (row.wins or 0) + 1
+    else:
+        row.points = max(0, row.points - 1)
+        row.losses = (row.losses or 0) + 1
+    db.commit()
+    return {"character": row.character, "points": row.points}

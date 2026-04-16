@@ -323,19 +323,15 @@
       const canDelete = c.author === currentUsername;
       return `
         <div class="comment-item" id="cmt-${c.id}">
-          <img class="comment-av" src="${av}" alt="${c.author}" onerror="this.src='${dicebearFallback(c.author)}'" />
+          <img class="comment-av" src="${av}" alt="${escHtml(c.author)}" onerror="this.src='${dicebearFallback(c.author)}'" />
           <div class="comment-body">
-            <div class="comment-author">${c.author}</div>
+            <div class="comment-author">${escHtml(c.author)}</div>
             <div class="comment-text">${escHtml(c.content)}</div>
             <div class="comment-meta">${c.created_at ? new Date(c.created_at).toLocaleDateString() : ''}</div>
           </div>
           ${canDelete ? `<button class="comment-delete" onclick="deleteComment(${c.id})" title="Delete">✕</button>` : ''}
         </div>`;
     }).join('');
-  }
-
-  function escHtml(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   async function loadComments() {

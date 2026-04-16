@@ -16,6 +16,7 @@
     .winner-btn.selected-a { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
     .winner-btn.selected-b { background: var(--accent-gold); border-color: var(--accent-gold); color: #111; }
     .winner-btn.selected-none { background: var(--card-bg2); color: var(--text-muted); }
+    .score-row-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 4px; margin-top: 8px; }
     .matches-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 12px; }
     .standings-table { width: 100%; }
     .saved-session { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; }
@@ -86,6 +87,7 @@ Friend2</textarea>
                 <th>Player</th>
                 <th>W</th>
                 <th>L</th>
+                <th>Kills</th>
                 <th>Win%</th>
               </tr>
             </thead>
@@ -175,37 +177,76 @@ Friend2</textarea>
     container.innerHTML = '';
     rrSchedule.forEach(([p1, p2], i) => {
       const mid = `${i}_${p1}_${p2}`;
-      const cur = rrResults[mid] || '';
+      const res = rrResults[mid] || null;
+      const w = res ? res.winner : '';
+      const p1k = res ? res.p1kills : null;
+      const p2k = res ? res.p2kills : null;
+
+      const p1e = p1.replace(/'/g, "\\'");
+      const p2e = p2.replace(/'/g, "\\'");
+
+      const scoresBtns = (winner, wk, lk, colorClass) => [
+        [3,0], [3,1], [3,2]
+      ].map(([wKills, lKills]) => {
+        const isWinner1 = winner === p1;
+        const sel = w === winner && (isWinner1 ? p1k === wKills && p2k === lKills : p2k === wKills && p1k === lKills);
+        const p1kills = isWinner1 ? wKills : lKills;
+        const p2kills = isWinner1 ? lKills : wKills;
+        return `<button class="winner-btn ${sel ? colorClass : ''}" onclick="rrPickScore(${i},'${p1e}','${p2e}','${winner.replace(/'/g,"\\'")}',${p1kills},${p2kills})">${wKills}-${lKills}</button>`;
+      }).join('');
+
       const card = document.createElement('div');
       card.className = 'match-card';
       card.id = `match_${i}`;
       card.innerHTML = `
         <div class="match-label">Match ${i + 1}: <strong>${p1}</strong> vs <strong>${p2}</strong></div>
-        <div class="winner-btns">
-          <button class="winner-btn ${cur===p1?'selected-a':''}" onclick="pickWinner(${i},'${p1}','${p2}','${p1}')">
-            ${p1}
-          </button>
-          <button class="winner-btn ${cur===p2?'selected-b':''}" onclick="pickWinner(${i},'${p1}','${p2}','${p2}')">
-            ${p2}
-          </button>
-          <button class="winner-btn ${cur===''?'selected-none':''}" onclick="pickWinner(${i},'${p1}','${p2}','')">
-            Undecided
-          </button>
+        <div class="score-row-label">${p1} wins</div>
+        <div class="winner-btns">${scoresBtns(p1, p1k, p2k, 'selected-a')}</div>
+        <div class="score-row-label">${p2} wins</div>
+        <div class="winner-btns">${scoresBtns(p2, p2k, p1k, 'selected-b')}</div>
+        <div style="margin-top:6px;">
+          <button class="winner-btn ${!w ? 'selected-none' : ''}" onclick="rrPickScore(${i},'${p1e}','${p2e}','',0,0)">Undecided</button>
         </div>
       `;
       container.appendChild(card);
     });
   }
 
-  function pickWinner(i, p1, p2, winner) {
+  function rrPickScore(i, p1, p2, winner, p1kills, p2kills) {
     const mid = `${i}_${p1}_${p2}`;
-    rrResults[mid] = winner;
-    // Update buttons
-    const card = document.getElementById(`match_${i}`);
-    const btns = card.querySelectorAll('.winner-btn');
-    btns[0].className = `winner-btn ${winner===p1?'selected-a':''}`;
-    btns[1].className = `winner-btn ${winner===p2?'selected-b':''}`;
-    btns[2].className = `winner-btn ${winner===''?'selected-none':''}`;
+    rrResults[mid] = winner ? { winner, p1kills, p2kills } : null;
+    // Re-render just this card
+    const oldCard = document.getElementById(`match_${i}`);
+    if (oldCard) {
+      const tmp = document.createElement('div');
+      const res = rrResults[mid];
+      const w = res ? res.winner : '';
+      const p1k = res ? res.p1kills : null;
+      const p2k = res ? res.p2kills : null;
+      const p1e = p1.replace(/'/g, "\\'");
+      const p2e = p2.replace(/'/g, "\\'");
+
+      const scoresBtns = (winnerName, colorClass) => [
+        [3,0], [3,1], [3,2]
+      ].map(([wKills, lKills]) => {
+        const isWinner1 = winnerName === p1;
+        const sel = w === winnerName && (isWinner1 ? p1k === wKills && p2k === lKills : p2k === wKills && p1k === lKills);
+        const ak = isWinner1 ? wKills : lKills;
+        const bk = isWinner1 ? lKills : wKills;
+        return `<button class="winner-btn ${sel ? colorClass : ''}" onclick="rrPickScore(${i},'${p1e}','${p2e}','${winnerName.replace(/'/g,"\\'")}',${ak},${bk})">${wKills}-${lKills}</button>`;
+      }).join('');
+
+      oldCard.innerHTML = `
+        <div class="match-label">Match ${i + 1}: <strong>${p1}</strong> vs <strong>${p2}</strong></div>
+        <div class="score-row-label">${p1} wins</div>
+        <div class="winner-btns">${scoresBtns(p1, 'selected-a')}</div>
+        <div class="score-row-label">${p2} wins</div>
+        <div class="winner-btns">${scoresBtns(p2, 'selected-b')}</div>
+        <div style="margin-top:6px;">
+          <button class="winner-btn ${!w ? 'selected-none' : ''}" onclick="rrPickScore(${i},'${p1e}','${p2e}','',0,0)">Undecided</button>
+        </div>
+      `;
+    }
     updateStandings();
   }
 
@@ -213,17 +254,24 @@ Friend2</textarea>
     if (!rrSchedule) return;
     const players = getPlayers();
     const records = {};
-    players.forEach(p => { records[p] = {wins: 0, losses: 0}; });
+    players.forEach(p => { records[p] = {wins: 0, losses: 0, kills: 0}; });
 
     rrSchedule.forEach(([p1, p2], i) => {
       const mid = `${i}_${p1}_${p2}`;
-      const w = rrResults[mid];
-      if (w === p1) { records[p1].wins++; records[p2].losses++; }
-      else if (w === p2) { records[p2].wins++; records[p1].losses++; }
+      const res = rrResults[mid];
+      if (!res || !res.winner) return;
+      if (res.winner === p1) {
+        records[p1].wins++; records[p2].losses++;
+      } else {
+        records[p2].wins++; records[p1].losses++;
+      }
+      records[p1].kills += res.p1kills || 0;
+      records[p2].kills += res.p2kills || 0;
     });
 
     const sorted = Object.entries(records).sort((a, b) => {
       if (b[1].wins !== a[1].wins) return b[1].wins - a[1].wins;
+      if (b[1].kills !== a[1].kills) return b[1].kills - a[1].kills;
       return a[1].losses - b[1].losses;
     });
 
@@ -236,6 +284,7 @@ Friend2</textarea>
         <td style="font-weight:600;">${p}</td>
         <td style="color:#27ae60;">${r.wins}</td>
         <td style="color:#e74c3c;">${r.losses}</td>
+        <td style="color:#e67e22;font-weight:700;">${r.kills}</td>
         <td>${pct}%</td>
       </tr>`;
     }).join('');
@@ -255,19 +304,22 @@ Friend2</textarea>
     if (!rrSchedule) { showToast('Generate a schedule first.', 'warn'); return; }
     const players = getPlayers();
     const records = {};
-    players.forEach(p => { records[p] = {wins: 0, losses: 0}; });
+    players.forEach(p => { records[p] = {wins: 0, losses: 0, kills: 0}; });
     rrSchedule.forEach(([p1, p2], i) => {
       const mid = `${i}_${p1}_${p2}`;
-      const w = rrResults[mid];
-      if (w === p1) { records[p1].wins++; records[p2].losses++; }
-      else if (w === p2) { records[p2].wins++; records[p1].losses++; }
+      const res = rrResults[mid];
+      if (!res || !res.winner) return;
+      if (res.winner === p1) { records[p1].wins++; records[p2].losses++; }
+      else { records[p2].wins++; records[p1].losses++; }
+      records[p1].kills += res.p1kills || 0;
+      records[p2].kills += res.p2kills || 0;
     });
     try {
       await apiPost('/roundrobin', {
-        session_name: name,
+        name,
         players,
+        results: rrResults,
         records,
-        schedule: rrSchedule.map(([p1,p2]) => ({p1, p2})),
       });
       showToast(`Saved "${name}"!`, 'success');
     } catch (err) {

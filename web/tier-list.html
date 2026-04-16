@@ -158,14 +158,48 @@
   // ── Drop zone setup (with positional insert) ─────
   let indicator = null;
 
-  function getInsertTarget(zone, clientX) {
-    // Returns the tile we should insert BEFORE, or null to append
+  function getInsertTarget(zone, clientX, clientY) {
+    // Returns the tile we should insert BEFORE, or null to append.
+    // Must handle multi-row wrap: first identify which visual row the cursor
+    // is closest to, then do the X-midpoint check only within that row.
     const tiles = [...zone.querySelectorAll('.char-tile:not(.dragging)')];
+    if (!tiles.length) return null;
+
+    // Group tiles into visual rows by their top-edge (allow 10px tolerance)
+    const rows = [];
     for (const tile of tiles) {
       const rect = tile.getBoundingClientRect();
+      const top = rect.top;
+      let placed = false;
+      for (const row of rows) {
+        if (Math.abs(row.top - top) <= 10) {
+          row.tiles.push({ tile, rect });
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) rows.push({ top, tiles: [{ tile, rect }] });
+    }
+
+    // Find the row whose vertical midpoint is closest to the cursor
+    let bestRow = rows[0];
+    let bestDist = Infinity;
+    for (const row of rows) {
+      const mid = row.tiles[0].rect.top + row.tiles[0].rect.height / 2;
+      const dist = Math.abs(clientY - mid);
+      if (dist < bestDist) { bestDist = dist; bestRow = row; }
+    }
+
+    // Within that row, find the first tile whose left-midpoint is right of the cursor
+    for (const { tile, rect } of bestRow.tiles) {
       if (clientX < rect.left + rect.width / 2) return tile;
     }
-    return null;
+
+    // Cursor is after all tiles in this row — insert before the first tile of the next row
+    const rowIdx = rows.indexOf(bestRow);
+    if (rowIdx < rows.length - 1) return rows[rowIdx + 1].tiles[0].tile;
+
+    return null; // append to very end
   }
 
   function showIndicator(zone, beforeEl) {
@@ -189,7 +223,7 @@
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
       zone.classList.add('drag-over');
-      showIndicator(zone, getInsertTarget(zone, e.clientX));
+      showIndicator(zone, getInsertTarget(zone, e.clientX, e.clientY));
     });
     zone.addEventListener('dragleave', e => {
       if (!zone.contains(e.relatedTarget)) {
@@ -206,7 +240,7 @@
       tierMap[draggedChar] = newTier;
       const tile = document.querySelector(`.char-tile[data-char="${CSS.escape(draggedChar)}"]`);
       if (!tile) return;
-      const before = getInsertTarget(zone, e.clientX);
+      const before = getInsertTarget(zone, e.clientX, e.clientY);
       if (before) zone.insertBefore(tile, before);
       else zone.appendChild(tile);
     });

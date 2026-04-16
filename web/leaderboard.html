@@ -122,6 +122,7 @@
           <th>Player</th>
           <th>Wins</th>
           <th>Losses</th>
+          <th>Kills</th>
           <th>Sessions</th>
         </tr>
       </thead>
@@ -244,6 +245,7 @@
           <td style="font-weight:600;">${u.username}</td>
           <td style="color:#27ae60;font-weight:700;">${u.wins || 0}</td>
           <td style="color:#e74c3c;font-weight:700;">${u.losses || 0}</td>
+          <td style="color:#e67e22;font-weight:700;">${u.kills || 0}</td>
           <td>${u.sessions || 0}</td>
         </tr>`;
       }).join('');

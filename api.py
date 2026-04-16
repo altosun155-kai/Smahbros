@@ -374,8 +374,8 @@ def delete_bracket(bracket_id: int, db: Session = Depends(get_db), current_user:
 class RRCreate(BaseModel):
     name: str
     players: list
-    results: dict
-    records: dict
+    results: dict = {}
+    records: dict = {}
 
 
 @app.get("/roundrobin")
@@ -584,12 +584,14 @@ def leaderboard(db: Session = Depends(get_db)):
             continue
         wins = 0
         losses = 0
+        kills = 0
         for rr in u.rr_sessions:
             for rec in (rr.records or {}).values():
                 if isinstance(rec, dict):
-                    wins += rec.get("Wins", 0)
-                    losses += rec.get("Losses", 0)
-        result.append({"username": u.username, "wins": wins, "losses": losses, "sessions": sessions})
+                    wins   += rec.get("wins",   rec.get("Wins",   0))
+                    losses += rec.get("losses", rec.get("Losses", 0))
+                    kills  += rec.get("kills",  0)
+        result.append({"username": u.username, "wins": wins, "losses": losses, "kills": kills, "sessions": sessions})
     result.sort(key=lambda x: (-x["wins"], x["losses"]))
     return result
 

@@ -521,8 +521,14 @@ async function pickTournamentScore(p1Stocks, p2Stocks) {
   const winnerLabel = `${winnerEntry.player} — ${winnerEntry.character}`;
   const scoreStr = `${Math.max(p1Stocks, p2Stocks)}-${Math.min(p1Stocks, p2Stocks)}`;
 
+  // Detect Grand Final: last round (index rounds.length-1), only match (m0)
+  const isGrandFinal = lastRenderedRounds.length > 1 &&
+    key === `r${lastRenderedRounds.length - 1}_m0`;
+
   try {
-    await apiPatch(`/brackets/${tournamentId}/winner`, { key, winner: winnerLabel, score: scoreStr });
+    const patchBody = { key, winner: winnerLabel, score: scoreStr };
+    if (isGrandFinal) patchBody.tournament_winner = winnerEntry.player;
+    await apiPatch(`/brackets/${tournamentId}/winner`, patchBody);
     if (winnerEntry.player !== loserEntry.player) {
       await apiPost('/matches/record', {
         winner_username: winnerEntry.player, winner_char: winnerEntry.character, winner_kills: winnerKills,

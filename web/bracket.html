@@ -934,7 +934,14 @@ function setWinner(key, val, winnerKills = 0, loserKills = 0) {
   // Sync to live tournament if active
   if (liveTournamentId) {
     const sc = roundScores[key];
-    apiPatch(`/brackets/${liveTournamentId}/winner`, { key, winner: val, score: sc || null }).catch(() => {});
+    const isGrandFinal = lastRenderedRounds && lastRenderedRounds.length > 1 &&
+      key === `r${lastRenderedRounds.length - 1}_m0`;
+    const patchBody = { key, winner: val, score: sc || null };
+    if (isGrandFinal) {
+      const we = parseEntry(val);
+      if (we) patchBody.tournament_winner = we.player;
+    }
+    apiPatch(`/brackets/${liveTournamentId}/winner`, patchBody).catch(() => {});
   }
 
   // Determine the loser from the match entries

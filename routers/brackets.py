@@ -25,6 +25,7 @@ class WinnerUpdate(BaseModel):
     key: str
     winner: str
     score: str | None = None
+    tournament_winner: str | None = None  # set when this is the Grand Final match
 
 
 class EntryCharUpdate(BaseModel):
@@ -41,6 +42,26 @@ class GenerateBracketData(BaseModel):
     entries: list = []
 
 
+def _infer_winner(b: Bracket) -> str | None:
+    """Derive the tournament champion from round_winners if b.winner is unset."""
+    if b.winner:
+        return b.winner
+    rw = b.round_winners or {}
+    if not rw:
+        return None
+    import re as _re
+    best_ri, gf_val = -1, None
+    for k, v in rw.items():
+        m = _re.match(r"r(\d+)_m(\d+)$", k)
+        if m:
+            ri = int(m.group(1))
+            if ri > best_ri:
+                best_ri, gf_val = ri, v
+    if gf_val and " — " in gf_val:
+        return gf_val.split(" — ")[0]
+    return None
+
+
 def bracket_to_dict(b: Bracket, include_invites: bool = False):
     d = {
         "id": b.id,
@@ -53,7 +74,7 @@ def bracket_to_dict(b: Bracket, include_invites: bool = False):
         "round_scores":  b.round_scores  or {},
         "bracket_style": b.bracket_style or "strongVsStrong",
         "is_live": b.is_live,
-        "winner": b.winner,
+        "winner": _infer_winner(b),
         "host": b.owner.username,
         "host_avatar": b.owner.avatar_url,
         "chars_per_player": b.chars_per_player or 2,
@@ -147,11 +168,14 @@ def set_bracket_winner(bracket_id: int, req: WinnerUpdate, db: Session = Depends
     rw = dict(b.round_winners or {})
     rw[req.key] = req.winner
     b.round_winners = rw
+    flag_modified(b, "round_winners")
     if req.score:
         rs = dict(b.round_scores or {})
         rs[req.key] = req.score
         b.round_scores = rs
         flag_modified(b, "round_scores")
+    if req.tournament_winner:
+        b.winner = req.tournament_winner
     db.commit()
     return {"ok": True}
 
@@ -219,6 +243,21 @@ def end_tournament(bracket_id: int, db: Session = Depends(get_db), current_user:
     if not b:
         raise HTTPException(status_code=403, detail="Only the host can end")
     b.is_live = False
+    # If winner wasn't set during play, infer it from the Grand Final result.
+    # Grand Final key has the highest round index: r{N-1}_m0 where N = number of rounds.
+    if not b.winner and b.round_winners:
+        rw = b.round_winners
+        # Find the key with the highest round index
+        import re as _re
+        best_ri, gf_val = -1, None
+        for k, v in rw.items():
+            m = _re.match(r"r(\d+)_m(\d+)$", k)
+            if m:
+                ri = int(m.group(1))
+                if ri > best_ri:
+                    best_ri, gf_val = ri, v
+        if gf_val and " — " in gf_val:
+            b.winner = gf_val.split(" — ")[0]
     db.commit()
     return {"ok": True}
 

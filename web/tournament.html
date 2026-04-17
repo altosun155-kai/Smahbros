@@ -686,7 +686,7 @@ async function previewMatchups() {
     if (!s) return 0;
     if (seedMode === 'winpct') {
       const total = (s.wins || 0) + (s.losses || 0);
-      return total > 0 ? (s.wins || 0) / total : 0;
+      return total >= 3 ? (s.wins || 0) / total : 0;
     }
     if (seedMode === 'kills') return s.kills || 0;
     return s.points || 0;

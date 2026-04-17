@@ -131,11 +131,11 @@
           </label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
             <input type="radio" name="fillMode" value="kills" style="accent-color:var(--accent-blue);" />
-            <span>Auto-fill by <strong>Kills</strong> (total match wins)</span>
+            <span>Auto-fill by <strong>Kills</strong> (total stocks taken)</span>
           </label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
             <input type="radio" name="fillMode" value="winpct" style="accent-color:var(--accent-blue);" />
-            <span>Auto-fill by <strong>Win %</strong> (win rate, min 1 game)</span>
+            <span>Auto-fill by <strong>Win %</strong> (win rate, min 3 games)</span>
           </label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
             <input type="radio" name="fillMode" value="favorites" style="accent-color:var(--accent-blue);" />
@@ -155,11 +155,11 @@
           </label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
             <input type="radio" name="seedMode" value="kills" style="accent-color:var(--accent-blue);" />
-            <span><strong>Kills</strong> — rank by total match wins</span>
+            <span><strong>Kills</strong> — rank by total stocks taken</span>
           </label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
             <input type="radio" name="seedMode" value="winpct" style="accent-color:var(--accent-blue);" />
-            <span><strong>Win %</strong> — rank by win rate (min 1 game)</span>
+            <span><strong>Win %</strong> — rank by win rate (min 3 games)</span>
           </label>
         </div>
 
@@ -393,7 +393,7 @@ async function buildEntryGrid() {
         topChars = (allUserKills[p] || []).map(s => s.character);
       } else if (fillMode === 'winpct') {
         topChars = (allUserStats[p] || [])
-          .filter(s => (s.wins || 0) + (s.losses || 0) > 0)
+          .filter(s => (s.wins || 0) + (s.losses || 0) >= 3)
           .sort((a, b) => {
             const pctA = a.wins / (a.wins + a.losses);
             const pctB = b.wins / (b.wins + b.losses);
@@ -642,7 +642,7 @@ function getSeedWinPct(entry) {
   const match = stats.find(s => s.character === entry.character);
   if (!match) return 0;
   const total = (match.wins || 0) + (match.losses || 0);
-  return total > 0 ? (match.wins || 0) / total : 0;
+  return total >= 3 ? (match.wins || 0) / total : 0;
 }
 
 // Returns the seeding value based on the Seeding (Rank By) selection

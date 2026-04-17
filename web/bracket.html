@@ -119,29 +119,47 @@
           <button class="mode-btn" id="btnTeams" onclick="setMode('teams')">Teams</button>
         </div>
 
-        <h2 style="display:flex;align-items:center;justify-content:space-between;">
-          Auto Character Fill
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.8rem;font-weight:400;color:var(--text-muted);">
-            <input type="checkbox" id="autoFillToggle" checked style="width:16px;height:16px;accent-color:var(--accent-blue);cursor:pointer;" />
-            On
-          </label>
-        </h2>
+        <h2 style="margin-top:14px;">Character Fill</h2>
         <div id="autoFillOptions" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;padding:10px;background:var(--card-bg2);border-radius:8px;border:1px solid var(--border);">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+            <input type="radio" name="fillMode" value="manual" style="accent-color:var(--accent-blue);" />
+            <span><strong>Manual</strong> — leave slots blank, choose yourself</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
             <input type="radio" name="fillMode" value="points" checked style="accent-color:var(--accent-blue);" />
-            <span>Best by <strong>Points</strong> (win/loss stats)</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
-            <input type="radio" name="fillMode" value="favorites" style="accent-color:var(--accent-blue);" />
-            <span>Best by <strong>Favorites</strong> (top 10 list)</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
-            <input type="radio" name="fillMode" value="tierlist" style="accent-color:var(--accent-blue);" />
-            <span>Best by <strong>Tier List</strong> (S→F ranking)</span>
+            <span>Auto-fill by <strong>Points</strong> (win/loss stats)</span>
           </label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
             <input type="radio" name="fillMode" value="kills" style="accent-color:var(--accent-blue);" />
-            <span>Best by <strong>Kills</strong> (total match wins)</span>
+            <span>Auto-fill by <strong>Kills</strong> (total match wins)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+            <input type="radio" name="fillMode" value="winpct" style="accent-color:var(--accent-blue);" />
+            <span>Auto-fill by <strong>Win %</strong> (win rate, min 1 game)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+            <input type="radio" name="fillMode" value="favorites" style="accent-color:var(--accent-blue);" />
+            <span>Auto-fill by <strong>Favorites</strong> (top 10 list)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+            <input type="radio" name="fillMode" value="tierlist" style="accent-color:var(--accent-blue);" />
+            <span>Auto-fill by <strong>Tier List</strong> (S→F ranking)</span>
+          </label>
+        </div>
+
+        <h2 style="margin-top:14px;">Seeding (Rank By)</h2>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;padding:10px;background:var(--card-bg2);border-radius:8px;border:1px solid var(--border);">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+            <input type="radio" name="seedMode" value="points" checked style="accent-color:var(--accent-blue);" />
+            <span><strong>Points</strong> — rank by net win/loss points</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+            <input type="radio" name="seedMode" value="kills" style="accent-color:var(--accent-blue);" />
+            <span><strong>Kills</strong> — rank by total match wins</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+            <input type="radio" name="seedMode" value="winpct" style="accent-color:var(--accent-blue);" />
+            <span><strong>Win %</strong> — rank by win rate (min 1 game)</span>
           </label>
         </div>
 
@@ -149,11 +167,11 @@
         <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;padding:10px;background:var(--card-bg2);border-radius:8px;border:1px solid var(--border);">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
             <input type="radio" name="bracketStyle" value="strongVsStrong" checked style="accent-color:var(--accent-blue);" />
-            <span><strong>Strong vs Strong</strong> — best plays best per slot</span>
+            <span><strong>Strong vs Strong</strong> — highest seed plays highest</span>
           </label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
             <input type="radio" name="bracketStyle" value="strongVsWeak" style="accent-color:var(--accent-blue);" />
-            <span><strong>Strong vs Weak</strong> — best plays worst per slot</span>
+            <span><strong>Strong vs Weak</strong> — highest seed plays lowest</span>
           </label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
             <input type="radio" name="bracketStyle" value="random" style="accent-color:var(--accent-blue);" />
@@ -319,8 +337,8 @@ async function buildEntryGrid() {
   const section = document.getElementById('entryGridSection');
   section.style.display = 'block';
 
-  const autoFill = document.getElementById('autoFillToggle').checked;
   const fillMode = document.querySelector('input[name="fillMode"]:checked')?.value || 'points';
+  const autoFill = fillMode !== 'manual';
 
   // Fetch fresh avatars for all users (always re-fetch so profile pic changes show immediately)
   try {
@@ -373,6 +391,15 @@ async function buildEntryGrid() {
         topChars = (allUserStats[p] || []).map(s => s.character);
       } else if (fillMode === 'kills') {
         topChars = (allUserKills[p] || []).map(s => s.character);
+      } else if (fillMode === 'winpct') {
+        topChars = (allUserStats[p] || [])
+          .filter(s => (s.wins || 0) + (s.losses || 0) > 0)
+          .sort((a, b) => {
+            const pctA = a.wins / (a.wins + a.losses);
+            const pctB = b.wins / (b.wins + b.losses);
+            return pctB - pctA || (b.wins + b.losses) - (a.wins + a.losses);
+          })
+          .map(s => s.character);
       } else if (fillMode === 'favorites') {
         topChars = allUserFavs[p] || [];
       } else if (fillMode === 'tierlist') {
@@ -609,10 +636,20 @@ function getSeedKills(entry) {
   return match ? (match.kills || 0) : 0;
 }
 
-// Returns the seeding value based on current fill mode (used for non-random bracket ordering)
+function getSeedWinPct(entry) {
+  if (!entry || entry.player === 'SYSTEM') return -1;
+  const stats = allUserStats[entry.player] || [];
+  const match = stats.find(s => s.character === entry.character);
+  if (!match) return 0;
+  const total = (match.wins || 0) + (match.losses || 0);
+  return total > 0 ? (match.wins || 0) / total : 0;
+}
+
+// Returns the seeding value based on the Seeding (Rank By) selection
 function getSeedValue(entry) {
-  const fillMode = document.querySelector('input[name="fillMode"]:checked')?.value || 'points';
-  if (fillMode === 'kills') return getSeedKills(entry);
+  const seedMode = document.querySelector('input[name="seedMode"]:checked')?.value || 'points';
+  if (seedMode === 'kills') return getSeedKills(entry);
+  if (seedMode === 'winpct') return getSeedWinPct(entry);
   return getSeedPoints(entry);
 }
 
@@ -719,7 +756,7 @@ function generateBracketJS(base, teamMode, teamOf) {
     return pairs;
   }
 
-  // Step 2: For each slot, rank players by seed value (points or kills) then pair by style.
+  // Step 2: For each slot, rank players by seed value (from Rank By selection) then pair by style.
   const pairs = [];
   for (let slot = 0; slot < maxChars; slot++) {
     const ordered = [...players].sort((a, b) =>
@@ -728,7 +765,6 @@ function generateBracketJS(base, teamMode, teamOf) {
     const getEntry = p => playerGroups[p][slot] || BYE;
 
     if (teamMode) {
-      // Teams: always use cross-team pairing regardless of strong/weak style
       pairs.push(...pairCrossTeam(ordered, getEntry, teamOf));
     } else if (style === 'strongVsStrong') {
       for (let i = 0; i + 1 < ordered.length; i += 2) {
@@ -1037,7 +1073,7 @@ function getBracketPayload(name, isLive, inviteUsernames) {
     players: getPlayers(),
     entries: currentEntries.filter(e => e.character),
     bracket_data: currentBracket.map(([a,b]) => ({a: entryLabel(a), b: entryLabel(b)})),
-    bracket_style: document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong',
+    bracket_style: (document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong') + '|' + (document.querySelector('input[name="seedMode"]:checked')?.value || 'points'),
     is_live: isLive,
     invite_usernames: inviteUsernames,
     chars_per_player: parseInt(document.getElementById('charsPerPlayer').value) || 2,
@@ -1058,7 +1094,7 @@ async function startLineupPhase() {
       players,
       entries: [],
       bracket_data: [],
-      bracket_style: document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong',
+      bracket_style: (document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong') + '|' + (document.querySelector('input[name="seedMode"]:checked')?.value || 'points'),
       is_live: true,
       invite_usernames: invitees,
       chars_per_player: k,
@@ -1169,9 +1205,6 @@ async function endTournament() {
   }
 })();
 
-document.getElementById('autoFillToggle').addEventListener('change', function() {
-  document.getElementById('autoFillOptions').style.display = this.checked ? 'flex' : 'none';
-});
 
 function adjustCPP(delta) {
   const inp = document.getElementById('charsPerPlayer');
@@ -1250,13 +1283,21 @@ function openVsModal(a, b, key) {
   if (url2) { charImg2.src = url2; charImg2.style.display = 'block'; } else { charImg2.style.display = 'none'; }
 
   // Seed info (shown in VS modal instead of bracket view)
-  const fillMode = document.querySelector('input[name="fillMode"]:checked')?.value || 'points';
-  const useKills = fillMode === 'kills';
-  const seedA = useKills ? getSeedKills(a) : getSeedPoints(a);
-  const seedB = useKills ? getSeedKills(b) : getSeedPoints(b);
-  const seedUnit = useKills ? 'kills' : 'pts';
-  document.getElementById('vsP1Seed').textContent = seedA > 0 ? `${seedA} ${seedUnit}` : '';
-  document.getElementById('vsP2Seed').textContent = seedB > 0 ? `${seedB} ${seedUnit}` : '';
+  const seedMode = document.querySelector('input[name="seedMode"]:checked')?.value || 'points';
+  let seedA, seedB;
+  if (seedMode === 'kills') {
+    seedA = getSeedKills(a); seedB = getSeedKills(b);
+    document.getElementById('vsP1Seed').textContent = seedA > 0 ? `${seedA} kills` : '';
+    document.getElementById('vsP2Seed').textContent = seedB > 0 ? `${seedB} kills` : '';
+  } else if (seedMode === 'winpct') {
+    seedA = getSeedWinPct(a); seedB = getSeedWinPct(b);
+    document.getElementById('vsP1Seed').textContent = seedA > 0 ? `${Math.round(seedA * 100)}%` : '';
+    document.getElementById('vsP2Seed').textContent = seedB > 0 ? `${Math.round(seedB * 100)}%` : '';
+  } else {
+    seedA = getSeedPoints(a); seedB = getSeedPoints(b);
+    document.getElementById('vsP1Seed').textContent = seedA > 0 ? `${seedA} pts` : '';
+    document.getElementById('vsP2Seed').textContent = seedB > 0 ? `${seedB} pts` : '';
+  }
 
   // Score label player names
   document.getElementById('vsScoreLabel1').textContent = `${a.player} Wins`;

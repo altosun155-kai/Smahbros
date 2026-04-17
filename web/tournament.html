@@ -654,7 +654,7 @@ async function previewMatchups() {
   const data = currentBracketData;
   const confirmedLineups = data.confirmed_lineups || {};
   const players = data.players || [];
-  const style = data.bracket_style || 'strongVsStrong';
+  const [style, seedMode = 'points'] = (data.bracket_style || 'strongVsStrong').split('|');
 
   document.getElementById('btnPreviewMatchups').textContent = '⏳ Computing…';
   document.getElementById('btnPreviewMatchups').disabled = true;
@@ -683,7 +683,13 @@ async function previewMatchups() {
     if (!entry || entry.player === 'SYSTEM') return -1;
     const stats = playerStats[entry.player] || [];
     const s = stats.find(x => x.character === entry.character);
-    return s ? (s.points || 0) : 0;
+    if (!s) return 0;
+    if (seedMode === 'winpct') {
+      const total = (s.wins || 0) + (s.losses || 0);
+      return total > 0 ? (s.wins || 0) / total : 0;
+    }
+    if (seedMode === 'kills') return s.kills || 0;
+    return s.points || 0;
   }
 
   const pairs = [];

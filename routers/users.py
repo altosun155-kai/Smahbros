@@ -110,6 +110,7 @@ def activity(username: str, db: Session = Depends(get_db), current_user: User = 
         "winner_char": r.winner_char,
         "loser": r.loser.username,
         "loser_char": r.loser_char,
+        "elo_delta": r.elo_delta or 0,
         "created_at": r.created_at.isoformat(),
     } for r in results]
 

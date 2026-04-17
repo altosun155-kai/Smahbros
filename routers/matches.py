@@ -7,6 +7,9 @@ from auth import get_db, get_current_user
 
 router = APIRouter(tags=["matches"])
 
+K_FACTOR = 32
+ELO_DEFAULT = 1000
+
 
 class MatchRecord(BaseModel):
     winner_username: str
@@ -19,21 +22,35 @@ class MatchRecord(BaseModel):
     match_key: str | None = None
 
 
-def _update_char_stat(db: Session, user_id: int, character: str, result: str, kill_count: int = 0, death_count: int = 0):
+def _mov_multiplier(winner_kills: int, loser_kills: int) -> float:
+    """Margin of victory multiplier based on stock difference."""
+    if winner_kills == 0 and loser_kills == 0:
+        return 1.0  # no score recorded — neutral
+    diff = winner_kills - loser_kills
+    if diff >= 3:
+        return 1.5   # 3-stock, dominant win
+    elif diff == 2:
+        return 1.0   # decisive
+    elif diff == 1:
+        return 0.8   # close match
+    else:
+        return 0.5   # extremely close / sudden death
+
+
+def _elo_change(winner_elo: int, loser_elo: int, winner_kills: int, loser_kills: int) -> int:
+    expected = 1 / (1 + 10 ** ((loser_elo - winner_elo) / 400))
+    mov = _mov_multiplier(winner_kills, loser_kills)
+    change = round(K_FACTOR * (1 - expected) * mov)
+    return max(1, change)  # always at least 1 point exchanged
+
+
+def _get_or_create_stat(db: Session, user_id: int, character: str) -> CharacterStats:
     row = db.query(CharacterStats).filter_by(user_id=user_id, character=character).first()
     if row is None:
-        row = CharacterStats(user_id=user_id, character=character, points=0, kills=0, deaths=0, wins=0, losses=0)
+        row = CharacterStats(user_id=user_id, character=character, points=0, elo=ELO_DEFAULT, kills=0, deaths=0, wins=0, losses=0)
         db.add(row)
-    if result == "win":
-        row.points += 1
-        row.wins = (row.wins or 0) + 1
-    else:
-        row.points = max(0, row.points - 1)
-        row.losses = (row.losses or 0) + 1
-    if kill_count > 0:
-        row.kills = (row.kills or 0) + kill_count
-    if death_count > 0:
-        row.deaths = (row.deaths or 0) + death_count
+        db.flush()
+    return row
 
 
 @router.post("/matches/record")
@@ -44,14 +61,36 @@ def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: 
         raise HTTPException(status_code=400, detail="Unknown username")
     if winner.id == loser.id:
         return {"ok": True, "skipped": "self-play"}
-    _update_char_stat(db, winner.id, req.winner_char, "win",  req.winner_kills, req.loser_kills)
-    _update_char_stat(db, loser.id,  req.loser_char,  "loss", req.loser_kills,  req.winner_kills)
+
+    ws = _get_or_create_stat(db, winner.id, req.winner_char)
+    ls = _get_or_create_stat(db, loser.id,  req.loser_char)
+
+    # Elo exchange
+    delta = _elo_change(ws.elo or ELO_DEFAULT, ls.elo or ELO_DEFAULT, req.winner_kills, req.loser_kills)
+    ws.elo = (ws.elo or ELO_DEFAULT) + delta
+    ls.elo = max(100, (ls.elo or ELO_DEFAULT) - delta)  # floor at 100
+
+    # Points (net wins, used for seeding — kept separate from Elo)
+    ws.points = (ws.points or 0) + 1
+    ls.points = max(0, (ls.points or 0) - 1)
+
+    ws.wins   = (ws.wins   or 0) + 1
+    ls.losses = (ls.losses or 0) + 1
+
+    if req.winner_kills > 0:
+        ws.kills  = (ws.kills  or 0) + req.winner_kills
+        ls.deaths = (ls.deaths or 0) + req.winner_kills
+    if req.loser_kills > 0:
+        ls.kills  = (ls.kills  or 0) + req.loser_kills
+        ws.deaths = (ws.deaths or 0) + req.loser_kills
+
     mr = MatchResult(
         winner_id=winner.id, winner_char=req.winner_char, winner_kills=req.winner_kills,
         loser_id=loser.id,   loser_char=req.loser_char,   loser_kills=req.loser_kills,
         bracket_id=req.bracket_id,
         match_key=req.match_key,
+        elo_delta=delta,
     )
     db.add(mr)
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "elo_delta": delta}

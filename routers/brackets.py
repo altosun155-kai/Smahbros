@@ -285,6 +285,12 @@ def undo_last_result(bracket_id: int, db: Session = Depends(get_db), current_use
     ws = db.query(CharacterStats).filter(
         CharacterStats.user_id == mr.winner_id, CharacterStats.character == mr.winner_char
     ).first()
+    from routers.matches import _elo_change, ELO_DEFAULT
+    if ws and ls:
+        delta = _elo_change(ws.elo or ELO_DEFAULT, ls.elo or ELO_DEFAULT, mr.winner_kills or 0, mr.loser_kills or 0)
+        ws.elo = max(100, (ws.elo or ELO_DEFAULT) - delta)
+        ls.elo = (ls.elo or ELO_DEFAULT) + delta
+
     if ws:
         ws.points = max(0, (ws.points or 0) - 1)
         ws.wins   = max(0, (ws.wins   or 0) - 1)

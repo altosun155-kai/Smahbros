@@ -142,6 +142,7 @@ class CharacterStats(Base):
     user_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
     character  = Column(String, nullable=False)
     points     = Column(Integer, default=0, nullable=False)
+    elo        = Column(Integer, default=1000, nullable=False)
     kills      = Column(Integer, default=0, nullable=False)
     deaths     = Column(Integer, default=0, nullable=False)
     wins       = Column(Integer, default=0, nullable=False)
@@ -184,6 +185,7 @@ class MatchResult(Base):
     loser_kills  = Column(Integer, default=0, nullable=False)
     bracket_id   = Column(Integer, ForeignKey("brackets.id"), nullable=True)
     match_key    = Column(String, nullable=True)
+    elo_delta    = Column(Integer, default=0, nullable=False)
     created_at   = Column(DateTime, default=datetime.utcnow)
 
     winner  = relationship("User", foreign_keys=[winner_id])

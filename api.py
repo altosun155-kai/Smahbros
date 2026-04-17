@@ -27,9 +27,11 @@ def _run_migrations():
             conn.execute(text("ALTER TABLE character_stats ADD COLUMN IF NOT EXISTS deaths INTEGER DEFAULT 0"))
             conn.execute(text("ALTER TABLE character_stats ADD COLUMN IF NOT EXISTS wins INTEGER DEFAULT 0"))
             conn.execute(text("ALTER TABLE character_stats ADD COLUMN IF NOT EXISTS losses INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE character_stats ADD COLUMN IF NOT EXISTS elo INTEGER DEFAULT 1000"))
             conn.execute(text("ALTER TABLE match_results ADD COLUMN IF NOT EXISTS winner_kills INTEGER DEFAULT 0"))
             conn.execute(text("ALTER TABLE match_results ADD COLUMN IF NOT EXISTS loser_kills INTEGER DEFAULT 0"))
             conn.execute(text("ALTER TABLE match_results ADD COLUMN IF NOT EXISTS match_key VARCHAR"))
+            conn.execute(text("ALTER TABLE match_results ADD COLUMN IF NOT EXISTS elo_delta INTEGER DEFAULT 0"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS chars_per_player INTEGER DEFAULT 2"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS confirmed_lineups JSONB DEFAULT '{}'"))
         else:
@@ -53,6 +55,8 @@ def _run_migrations():
                 conn.execute(text("ALTER TABLE character_stats ADD COLUMN wins INTEGER DEFAULT 0"))
             if "losses" not in cs_cols:
                 conn.execute(text("ALTER TABLE character_stats ADD COLUMN losses INTEGER DEFAULT 0"))
+            if "elo" not in cs_cols:
+                conn.execute(text("ALTER TABLE character_stats ADD COLUMN elo INTEGER DEFAULT 1000"))
             mr_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(match_results)"))}
             if "winner_kills" not in mr_cols:
                 conn.execute(text("ALTER TABLE match_results ADD COLUMN winner_kills INTEGER DEFAULT 0"))
@@ -60,6 +64,8 @@ def _run_migrations():
                 conn.execute(text("ALTER TABLE match_results ADD COLUMN loser_kills INTEGER DEFAULT 0"))
             if "match_key" not in mr_cols:
                 conn.execute(text("ALTER TABLE match_results ADD COLUMN match_key VARCHAR"))
+            if "elo_delta" not in mr_cols:
+                conn.execute(text("ALTER TABLE match_results ADD COLUMN elo_delta INTEGER DEFAULT 0"))
             b_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(brackets)"))}
             if "chars_per_player" not in b_cols:
                 conn.execute(text("ALTER TABLE brackets ADD COLUMN chars_per_player INTEGER DEFAULT 2"))

@@ -263,6 +263,14 @@
           <div id="h2hEmpty" style="display:none;font-size:0.84rem;color:var(--text-muted);margin-top:10px;">No matches recorded yet between these players.</div>
         </div>
 
+        <!-- Elo Ratings -->
+        <div class="prof-section">
+          <div class="prof-section-title">Elo Ratings</div>
+          <div id="eloLoading" style="font-size:0.84rem;color:var(--text-muted);">Loading…</div>
+          <div id="eloGrid" style="display:none;"></div>
+          <div id="eloEmpty" style="display:none;font-size:0.84rem;color:var(--text-muted);">No ranked matches yet.</div>
+        </div>
+
         <!-- Activity feed -->
         <div class="prof-section">
           <div class="prof-section-title">Recent Activity</div>
@@ -427,6 +435,32 @@
     }
   }
 
+  // ── Elo ratings ────────────────────────────────────
+  async function loadElo() {
+    try {
+      const data = await apiGet(`/characters/stats/${encodeURIComponent(currentUsername)}`);
+      document.getElementById('eloLoading').style.display = 'none';
+      const stats = (data.stats || []).filter(s => s.wins > 0 || s.losses > 0).sort((a, b) => (b.elo || 1000) - (a.elo || 1000));
+      if (!stats.length) { document.getElementById('eloEmpty').style.display = 'block'; return; }
+      const grid = document.getElementById('eloGrid');
+      grid.style.display = 'grid';
+      grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(130px, 1fr))';
+      grid.style.gap = '8px';
+      grid.innerHTML = stats.map(s => {
+        const elo = s.elo || 1000;
+        const eloColor = elo >= 1200 ? '#f5a623' : elo >= 1100 ? '#4caf50' : elo >= 1000 ? 'var(--text)' : '#e74c3c';
+        return `<div style="background:var(--card-bg2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:0.78rem;font-weight:600;color:var(--text);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.character}</div>
+          <div style="font-size:1.1rem;font-weight:800;color:${eloColor};">${elo}</div>
+          <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">${s.wins}W ${s.losses}L</div>
+        </div>`;
+      }).join('');
+    } catch (_) {
+      document.getElementById('eloLoading').style.display = 'none';
+      document.getElementById('eloEmpty').style.display = 'block';
+    }
+  }
+
   // ── Activity feed ─────────────────────────────────
   async function loadActivity() {
     try {
@@ -447,7 +481,13 @@
           ? `<span style="color:var(--text);">${r.winner_char}</span> <span style="color:var(--text-muted);">beat</span> ${r.loser} <span style="color:var(--text-muted);">playing</span> ${r.loser_char}`
           : `<span style="color:var(--text);">${r.loser_char}</span> <span style="color:var(--text-muted);">lost to</span> ${r.winner} <span style="color:var(--text-muted);">playing</span> ${r.winner_char}`;
         const date = r.created_at ? new Date(r.created_at).toLocaleDateString() : '';
-        return `<div class="feed-item">${tag}<span style="flex:1;">${desc}</span><span class="feed-date">${date}</span></div>`;
+        let eloBadge = '';
+        if (r.elo_delta) {
+          const gain = won ? r.elo_delta : -r.elo_delta;
+          const col = gain > 0 ? '#4caf50' : '#e74c3c';
+          eloBadge = `<span style="font-size:0.78rem;font-weight:700;color:${col};flex-shrink:0;">${gain > 0 ? '+' : ''}${gain}</span>`;
+        }
+        return `<div class="feed-item">${tag}<span style="flex:1;">${desc}</span>${eloBadge}<span class="feed-date">${date}</span></div>`;
       }).join('');
     } catch (err) {
       document.getElementById('activityLoading').style.display = 'none';
@@ -676,6 +716,7 @@
       }
     }
 
+    loadElo();
     loadActivity();
     loadComments();
   })();

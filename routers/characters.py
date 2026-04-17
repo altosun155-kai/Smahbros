@@ -52,6 +52,7 @@ def _stat_row(r):
     return {
         "character": r.character,
         "points":    r.points,
+        "elo":       r.elo if r.elo is not None else 1000,
         "kills":     kills,
         "deaths":    deaths,
         "kd":        kd,
@@ -192,6 +193,25 @@ def winpct_leaderboard(db: Session = Depends(get_db)):
     return results
 
 
+@router.get("/characters/stats/leaderboard/elo")
+def elo_leaderboard(db: Session = Depends(get_db)):
+    rows = db.query(CharacterStats).filter(
+        CharacterStats.wins > 0
+    ).order_by(CharacterStats.elo.desc()).all()
+    return [
+        {
+            "username":   row.owner.username,
+            "avatar_url": row.owner.avatar_url,
+            "character":  row.character,
+            "elo":        row.elo if row.elo is not None else 1000,
+            "wins":       row.wins or 0,
+            "losses":     row.losses or 0,
+            "points":     row.points or 0,
+        }
+        for row in rows
+    ]
+
+
 @router.get("/characters/stats/{username}")
 def get_stats_by_user(username: str, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == username).first()
@@ -214,7 +234,7 @@ def bulk_set_stats(req: BulkStatsRequest, db: Session = Depends(get_db), current
             CharacterStats.character == entry.character,
         ).first()
         if row is None:
-            row = CharacterStats(user_id=target.id, character=entry.character, points=0, kills=0, wins=0, losses=0)
+            row = CharacterStats(user_id=target.id, character=entry.character, points=0, elo=1000, kills=0, wins=0, losses=0)
             db.add(row)
         row.wins   = (row.wins   or 0) + entry.wins
         row.losses = (row.losses or 0) + entry.losses
@@ -239,7 +259,7 @@ def record_stat_for(req: StatRecordFor, db: Session = Depends(get_db), current_u
         CharacterStats.character == req.character,
     ).first()
     if row is None:
-        row = CharacterStats(user_id=target.id, character=req.character, points=0, kills=0, wins=0, losses=0)
+        row = CharacterStats(user_id=target.id, character=req.character, points=0, elo=1000, kills=0, wins=0, losses=0)
         db.add(row)
     if req.result == "win":
         row.points += 1
@@ -260,7 +280,7 @@ def record_stat(req: StatRecord, db: Session = Depends(get_db), current_user: Us
         CharacterStats.character == req.character,
     ).first()
     if row is None:
-        row = CharacterStats(user_id=current_user.id, character=req.character, points=0, kills=0, wins=0, losses=0)
+        row = CharacterStats(user_id=current_user.id, character=req.character, points=0, elo=1000, kills=0, wins=0, losses=0)
         db.add(row)
     if req.result == "win":
         row.points += 1

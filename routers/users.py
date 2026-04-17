@@ -67,14 +67,21 @@ def h2h(username: str, other: str, db: Session = Depends(get_db), current_user: 
     ).all()
 
     chars = {}
+    matchups = {}
     for r in wins_as_winner:
         c = r.winner_char
         chars.setdefault(c, {"wins": 0, "losses": 0})
         chars[c]["wins"] += 1
+        key = f"{r.winner_char} vs {r.loser_char}"
+        matchups.setdefault(key, {"user1_wins": 0, "user2_wins": 0, "user1_char": r.winner_char, "user2_char": r.loser_char})
+        matchups[key]["user1_wins"] += 1
     for r in wins_as_loser:
         c = r.loser_char
         chars.setdefault(c, {"wins": 0, "losses": 0})
         chars[c]["losses"] += 1
+        key = f"{r.loser_char} vs {r.winner_char}"
+        matchups.setdefault(key, {"user1_wins": 0, "user2_wins": 0, "user1_char": r.loser_char, "user2_char": r.winner_char})
+        matchups[key]["user2_wins"] += 1
 
     u1_wins = len(wins_as_winner)
     u2_wins = len(wins_as_loser)
@@ -85,6 +92,7 @@ def h2h(username: str, other: str, db: Session = Depends(get_db), current_user: 
         "user2": other,    "user2_wins": u2_wins,
         "total": total, "leader": leader,
         "chars": chars,
+        "matchups": matchups,
     }
 
 

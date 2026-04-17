@@ -241,6 +241,24 @@
               </thead>
               <tbody id="h2hCharBody"></tbody>
             </table>
+
+            <!-- Char-vs-char matchup breakdown -->
+            <div id="h2hMatchupSection" style="display:none;margin-top:16px;">
+              <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Character Matchups</div>
+              <table style="width:100%;border-collapse:collapse;">
+                <thead>
+                  <tr style="font-size:0.72rem;color:var(--text-muted);text-align:left;">
+                    <th style="padding:4px 8px;">Your Char</th>
+                    <th style="padding:4px 8px;text-align:center;"></th>
+                    <th style="padding:4px 8px;">Their Char</th>
+                    <th style="padding:4px 8px;text-align:center;">W</th>
+                    <th style="padding:4px 8px;text-align:center;">L</th>
+                    <th style="padding:4px 8px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="h2hMatchupBody"></tbody>
+              </table>
+            </div>
           </div>
           <div id="h2hEmpty" style="display:none;font-size:0.84rem;color:var(--text-muted);margin-top:10px;">No matches recorded yet between these players.</div>
         </div>
@@ -373,6 +391,35 @@
             </td>
           </tr>`;
       }).join('');
+
+      // Per-matchup breakdown (your char vs their char)
+      const matchups = d.matchups || {};
+      const muRows = Object.values(matchups)
+        .map(m => ({ ...m, total: m.user1_wins + m.user2_wins }))
+        .sort((a, b) => b.total - a.total);
+      const muBody = document.getElementById('h2hMatchupBody');
+      if (muRows.length) {
+        muBody.innerHTML = muRows.map(m => {
+          const winPct = m.total > 0 ? Math.round((m.user1_wins / m.total) * 100) : 0;
+          const barColor = winPct >= 50 ? '#4caf50' : '#e74c3c';
+          return `
+            <tr style="border-bottom:1px solid var(--border);font-size:0.84rem;">
+              <td style="padding:5px 8px;font-weight:600;">${m.user1_char}</td>
+              <td style="padding:5px 8px;text-align:center;color:var(--text-muted);">vs</td>
+              <td style="padding:5px 8px;font-weight:600;">${m.user2_char}</td>
+              <td style="padding:5px 8px;text-align:center;color:#4caf50;font-weight:700;">${m.user1_wins}W</td>
+              <td style="padding:5px 8px;text-align:center;color:#e74c3c;font-weight:700;">${m.user2_wins}L</td>
+              <td style="padding:5px 8px;width:70px;">
+                <div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden;">
+                  <div style="height:100%;width:${winPct}%;background:${barColor};border-radius:3px;"></div>
+                </div>
+              </td>
+            </tr>`;
+        }).join('');
+        document.getElementById('h2hMatchupSection').style.display = 'block';
+      } else {
+        document.getElementById('h2hMatchupSection').style.display = 'none';
+      }
 
       document.getElementById('h2hResult').style.display = 'block';
     } catch (err) {

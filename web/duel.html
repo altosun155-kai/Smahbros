@@ -399,13 +399,11 @@
   }
 
   function pickScore(wk, lk) {
-    selectedWinnerKills = wk > lk ? wk : lk;
-    selectedLoserKills  = wk > lk ? lk : wk;
-    const winnerIsP1 = wk > lk;
+    selectedWinnerKills = Math.max(wk, lk);
+    selectedLoserKills  = Math.min(wk, lk);
     document.querySelectorAll('.score-btn').forEach(b => b.classList.remove('selected'));
-    const group = winnerIsP1 ? document.getElementById('p1ScoreBtns') : document.getElementById('p2ScoreBtns');
-    const label = `${Math.max(wk, lk)}-${Math.min(wk, lk)}`;
-    [...group.querySelectorAll('.score-btn')].find(b => b.textContent === label)?.classList.add('selected');
+    const label = `${wk}-${lk}`;
+    [...document.querySelectorAll('.score-btn')].find(b => b.textContent === label)?.classList.add('selected');
   }
 
   function startSeries() {

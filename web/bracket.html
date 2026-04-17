@@ -122,10 +122,6 @@
         <h2 style="margin-top:14px;">Character Fill</h2>
         <div id="autoFillOptions" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;padding:10px;background:var(--card-bg2);border-radius:8px;border:1px solid var(--border);">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
-            <input type="radio" name="fillMode" value="manual" style="accent-color:var(--accent-blue);" />
-            <span><strong>Manual</strong> — leave slots blank, choose yourself</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
             <input type="radio" name="fillMode" value="points" checked style="accent-color:var(--accent-blue);" />
             <span>Auto-fill by <strong>Points</strong> (win/loss stats)</span>
           </label>
@@ -338,7 +334,7 @@ async function buildEntryGrid() {
   section.style.display = 'block';
 
   const fillMode = document.querySelector('input[name="fillMode"]:checked')?.value || 'points';
-  const autoFill = fillMode !== 'manual';
+  const autoFill = true;
 
   // Fetch fresh avatars for all users (always re-fetch so profile pic changes show immediately)
   try {

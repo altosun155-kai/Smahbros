@@ -96,6 +96,44 @@
       <div id="hostGenerateSection" style="display:none;background:var(--card-bg);border:1px solid rgba(245,166,35,0.3);border-radius:var(--radius);padding:20px;">
         <h2 style="font-size:1rem;font-weight:700;color:var(--accent-gold);margin-bottom:8px;">Ready to generate?</h2>
         <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:14px;">Players who haven't confirmed will get a BYE. You can edit matchups before locking in.</p>
+
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;">
+          <div style="flex:1;min-width:160px;">
+            <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Bracket Style</div>
+            <div style="display:flex;flex-direction:column;gap:5px;padding:10px;background:var(--card-bg2);border:1px solid var(--border);border-radius:8px;">
+              <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
+                <input type="radio" name="liveBracketStyle" value="strongVsStrong" checked style="accent-color:var(--accent-blue);" />
+                <span><strong>Strong vs Strong</strong></span>
+              </label>
+              <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
+                <input type="radio" name="liveBracketStyle" value="strongVsWeak" style="accent-color:var(--accent-blue);" />
+                <span><strong>Strong vs Weak</strong></span>
+              </label>
+              <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
+                <input type="radio" name="liveBracketStyle" value="random" style="accent-color:var(--accent-blue);" />
+                <span><strong>Random</strong></span>
+              </label>
+            </div>
+          </div>
+          <div style="flex:1;min-width:160px;">
+            <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Seeding (Rank By)</div>
+            <div style="display:flex;flex-direction:column;gap:5px;padding:10px;background:var(--card-bg2);border:1px solid var(--border);border-radius:8px;">
+              <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
+                <input type="radio" name="liveSeedMode" value="points" checked style="accent-color:var(--accent-blue);" />
+                <span><strong>Points</strong></span>
+              </label>
+              <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
+                <input type="radio" name="liveSeedMode" value="kills" style="accent-color:var(--accent-blue);" />
+                <span><strong>Kills</strong></span>
+              </label>
+              <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
+                <input type="radio" name="liveSeedMode" value="winpct" style="accent-color:var(--accent-blue);" />
+                <span><strong>Win %</strong> <span style="color:var(--text-muted);font-size:0.75rem;">(min 3 games)</span></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
         <button class="btn btn-gold" onclick="previewMatchups()" id="btnPreviewMatchups">👁 Preview Matchups</button>
       </div>
 
@@ -654,7 +692,9 @@ async function previewMatchups() {
   const data = currentBracketData;
   const confirmedLineups = data.confirmed_lineups || {};
   const players = data.players || [];
-  const [style, seedMode = 'points'] = (data.bracket_style || 'strongVsStrong').split('|');
+  const savedStyle = (data.bracket_style || 'strongVsStrong').split('|');
+  const style    = document.querySelector('input[name="liveBracketStyle"]:checked')?.value || savedStyle[0] || 'strongVsStrong';
+  const seedMode = document.querySelector('input[name="liveSeedMode"]:checked')?.value    || savedStyle[1] || 'points';
 
   document.getElementById('btnPreviewMatchups').textContent = '⏳ Computing…';
   document.getElementById('btnPreviewMatchups').disabled = true;
@@ -871,6 +911,13 @@ async function fetchAndRender() {
       }
 
       document.getElementById('hostGenerateSection').style.display = isHost ? 'block' : 'none';
+      if (isHost) {
+        const [savedBracketStyle, savedSeedMode = 'points'] = (data.bracket_style || 'strongVsStrong').split('|');
+        const bsEl = document.querySelector(`input[name="liveBracketStyle"][value="${savedBracketStyle}"]`);
+        if (bsEl) bsEl.checked = true;
+        const smEl = document.querySelector(`input[name="liveSeedMode"][value="${savedSeedMode}"]`);
+        if (smEl) smEl.checked = true;
+      }
     } else {
       // ── Bracket phase ──
       document.getElementById('lineupPhase').style.display = 'none';

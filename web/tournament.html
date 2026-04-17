@@ -95,8 +95,23 @@
       <!-- Host only: generate bracket -->
       <div id="hostGenerateSection" style="display:none;background:var(--card-bg);border:1px solid rgba(245,166,35,0.3);border-radius:var(--radius);padding:20px;">
         <h2 style="font-size:1rem;font-weight:700;color:var(--accent-gold);margin-bottom:8px;">Ready to generate?</h2>
-        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:14px;">This locks all lineups and creates the matchups. Players who haven't confirmed will get a BYE.</p>
-        <button class="btn btn-gold" onclick="generateFromLineups()">🏆 Generate Bracket</button>
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:14px;">Players who haven't confirmed will get a BYE. You can edit matchups before locking in.</p>
+        <button class="btn btn-gold" onclick="previewMatchups()" id="btnPreviewMatchups">👁 Preview Matchups</button>
+      </div>
+
+      <!-- Matchup preview + swap (host only, shown after Preview click) -->
+      <div id="matchupPreview" style="display:none;margin-top:16px;background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+          <h2 style="font-size:1rem;font-weight:700;margin:0;">Matchup Preview</h2>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-outline btn-sm" onclick="toggleMatchupSwap()" id="btnMatchupSwap">✏️ Edit Matchups</button>
+            <button class="btn btn-gold btn-sm" onclick="confirmMatchups()">✅ Confirm &amp; Generate</button>
+          </div>
+        </div>
+        <div id="swapBannerPreview" style="display:none;background:rgba(0,119,200,0.12);border:1px solid rgba(0,119,200,0.35);border-radius:8px;padding:10px 14px;font-size:0.85rem;color:var(--accent-blue);margin-bottom:12px;">
+          Swap mode ON — click any entry to select it, then click another to swap.
+        </div>
+        <div id="matchupPairs" style="display:flex;flex-direction:column;gap:8px;max-width:420px;"></div>
       </div>
     </div>
 
@@ -623,13 +638,22 @@ function shuffleArr(arr) {
   return arr;
 }
 
-async function generateFromLineups() {
+// ── Matchup preview + swap state ──────────────────
+let pendingPairs   = [];
+let pendingEntries = [];
+let previewSwapMode = false;
+let previewSwapSel  = null; // { pairIdx, slot }
+
+async function previewMatchups() {
   const data = currentBracketData;
   const confirmedLineups = data.confirmed_lineups || {};
   const players = data.players || [];
   const style = data.bracket_style || 'strongVsStrong';
 
-  // Fetch kills stats for seeding (used by strong/weak styles)
+  document.getElementById('btnPreviewMatchups').textContent = '⏳ Computing…';
+  document.getElementById('btnPreviewMatchups').disabled = true;
+
+  // Fetch kills stats for seeding
   const playerStats = {};
   await Promise.all(players.map(async p => {
     try {
@@ -638,7 +662,9 @@ async function generateFromLineups() {
     } catch(_) { playerStats[p] = []; }
   }));
 
-  const BYE = { player: 'SYSTEM', character: 'BYE' };
+  document.getElementById('btnPreviewMatchups').textContent = '👁 Preview Matchups';
+  document.getElementById('btnPreviewMatchups').disabled = false;
+
   const playerGroups = {};
   players.forEach(p => {
     const chars = confirmedLineups[p] || [];
@@ -651,60 +677,59 @@ async function generateFromLineups() {
     if (!entry || entry.player === 'SYSTEM') return -1;
     const stats = playerStats[entry.player] || [];
     const s = stats.find(x => x.character === entry.character);
-    return s ? (s.kills || 0) : 0;
+    return s ? (s.points || 0) : 0;
   }
 
   const pairs = [];
 
   if (style === 'random') {
-    // Collect all entries across all slots then shuffle, ensuring no same-player adjacent pairs
-    const all = [];
+    // Shuffle each player's own char list so char slot order is random
+    const shuffledGroups = {};
     players.forEach(p => {
-      (playerGroups[p] || []).forEach(e => all.push(e));
+      shuffledGroups[p] = [...(playerGroups[p] || [])];
+      shuffleArr(shuffledGroups[p]);
     });
-    shuffleArr(all);
-    // Fix any same-player adjacent pairs by swapping with the nearest different-player entry
-    for (let i = 0; i < all.length - 1; i++) {
-      if (all[i].player === all[i + 1].player) {
-        for (let j = i + 2; j < all.length; j++) {
-          if (all[j].player !== all[i].player) {
-            [all[i + 1], all[j]] = [all[j], all[i + 1]];
-            break;
-          }
+
+    // Deal round-robin by slot: slot-0 chars from all players first, then slot-1, etc.
+    // This puts each player's chars in different bracket halves, preventing R2 self-matchups.
+    const flat = [];
+    for (let slot = 0; slot < maxChars; slot++) {
+      const slotOrder = [...players].filter(p => shuffledGroups[p][slot]);
+      shuffleArr(slotOrder);
+      slotOrder.forEach(p => flat.push(shuffledGroups[p][slot]));
+    }
+
+    // Fix any adjacent same-player pairs (prevents R1 self-matchups)
+    for (let i = 0; i < flat.length - 1; i++) {
+      if (flat[i].player === flat[i + 1].player) {
+        for (let j = i + 2; j < flat.length; j++) {
+          if (flat[j].player !== flat[i].player) { [flat[i + 1], flat[j]] = [flat[j], flat[i + 1]]; break; }
         }
       }
     }
-    for (let i = 0; i + 1 < all.length; i += 2) {
-      pairs.push({ a: `${all[i].player} — ${all[i].character}`,
-                   b: `${all[i+1].player} — ${all[i+1].character}` });
+
+    for (let i = 0; i + 1 < flat.length; i += 2) {
+      pairs.push({ a: `${flat[i].player} — ${flat[i].character}`, b: `${flat[i+1].player} — ${flat[i+1].character}` });
     }
-    if (all.length % 2 === 1) {
-      const e = all[all.length - 1];
+    if (flat.length % 2 === 1) {
+      const e = flat[flat.length - 1];
       pairs.push({ a: `${e.player} — ${e.character}`, b: 'BYE' });
     }
   } else {
     for (let slot = 0; slot < maxChars; slot++) {
       const slotPlayers = [...players].filter(p => playerGroups[p][slot]);
-      // Sort descending by kills seed
       slotPlayers.sort((a, b) => getSeed(playerGroups[b][slot]) - getSeed(playerGroups[a][slot]));
       const getEntry = p => playerGroups[p][slot];
-
       if (style === 'strongVsWeak') {
-        // Best vs worst: pair index 0 with last, 1 with second-to-last, etc.
         let lo = 0, hi = slotPlayers.length - 1;
         while (lo < hi) {
-          pairs.push({ a: `${slotPlayers[lo]} — ${getEntry(slotPlayers[lo]).character}`,
-                       b: `${slotPlayers[hi]} — ${getEntry(slotPlayers[hi]).character}` });
+          pairs.push({ a: `${slotPlayers[lo]} — ${getEntry(slotPlayers[lo]).character}`, b: `${slotPlayers[hi]} — ${getEntry(slotPlayers[hi]).character}` });
           lo++; hi--;
         }
-        if (lo === hi) {
-          pairs.push({ a: `${slotPlayers[lo]} — ${getEntry(slotPlayers[lo]).character}`, b: 'BYE' });
-        }
+        if (lo === hi) pairs.push({ a: `${slotPlayers[lo]} — ${getEntry(slotPlayers[lo]).character}`, b: 'BYE' });
       } else {
-        // strongVsStrong (default): best vs second-best, etc.
         for (let i = 0; i + 1 < slotPlayers.length; i += 2) {
-          pairs.push({ a: `${slotPlayers[i]} — ${getEntry(slotPlayers[i]).character}`,
-                       b: `${slotPlayers[i+1]} — ${getEntry(slotPlayers[i+1]).character}` });
+          pairs.push({ a: `${slotPlayers[i]} — ${getEntry(slotPlayers[i]).character}`, b: `${slotPlayers[i+1]} — ${getEntry(slotPlayers[i+1]).character}` });
         }
         if (slotPlayers.length % 2 === 1) {
           const p = slotPlayers[slotPlayers.length - 1];
@@ -717,12 +742,80 @@ async function generateFromLineups() {
   const target = nextPow2(pairs.length);
   while (pairs.length < target) pairs.push({ a: 'BYE', b: 'BYE' });
 
-  const entries = [];
-  players.forEach(p => (confirmedLineups[p] || []).forEach(c => entries.push({ player: p, character: c })));
+  pendingEntries = [];
+  players.forEach(p => (confirmedLineups[p] || []).forEach(c => pendingEntries.push({ player: p, character: c })));
+  pendingPairs = pairs;
 
+  // Reset swap state and show preview
+  previewSwapMode = false;
+  previewSwapSel = null;
+  document.getElementById('btnMatchupSwap').textContent = '✏️ Edit Matchups';
+  document.getElementById('btnMatchupSwap').classList.remove('active');
+  document.getElementById('swapBannerPreview').style.display = 'none';
+  renderMatchupPreview();
+  const preview = document.getElementById('matchupPreview');
+  preview.style.display = 'block';
+  preview.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function toggleMatchupSwap() {
+  previewSwapMode = !previewSwapMode;
+  previewSwapSel  = null;
+  const btn = document.getElementById('btnMatchupSwap');
+  btn.textContent = previewSwapMode ? '✅ Done Editing' : '✏️ Edit Matchups';
+  btn.classList.toggle('active', previewSwapMode);
+  document.getElementById('swapBannerPreview').style.display = previewSwapMode ? 'block' : 'none';
+  renderMatchupPreview();
+}
+
+function handlePreviewSwap(pairIdx, slot) {
+  const val = slot === 0 ? pendingPairs[pairIdx].a : pendingPairs[pairIdx].b;
+  if (!val || val === 'BYE') return;
+
+  if (!previewSwapSel) {
+    previewSwapSel = { pairIdx, slot };
+    renderMatchupPreview();
+    return;
+  }
+
+  const { pairIdx: pi2, slot: sl2 } = previewSwapSel;
+  if (pi2 === pairIdx && sl2 === slot) { previewSwapSel = null; renderMatchupPreview(); return; }
+
+  const getVal = (pi, sl) => sl === 0 ? pendingPairs[pi].a : pendingPairs[pi].b;
+  const setVal = (pi, sl, v) => { if (sl === 0) pendingPairs[pi].a = v; else pendingPairs[pi].b = v; };
+  const tmp = getVal(pairIdx, slot);
+  setVal(pairIdx, slot, getVal(pi2, sl2));
+  setVal(pi2, sl2, tmp);
+  previewSwapSel = null;
+  renderMatchupPreview();
+}
+
+function renderMatchupPreview() {
+  const container = document.getElementById('matchupPairs');
+  container.innerHTML = pendingPairs.map((pair, pi) => {
+    const isSelA = previewSwapSel && previewSwapSel.pairIdx === pi && previewSwapSel.slot === 0;
+    const isSelB = previewSwapSel && previewSwapSel.pairIdx === pi && previewSwapSel.slot === 1;
+
+    function entryDiv(val, slot) {
+      const isBye = !val || val === 'BYE';
+      let cls = isBye ? ' bye' : '';
+      if (!isBye && previewSwapMode) cls += (slot === 0 ? isSelA : isSelB) ? ' swap-selected' : ' swap-hover';
+      const charName = val && val.includes(' — ') ? val.split(' — ')[1] : '';
+      const imgUrl = charName && typeof charImgUrl === 'function' ? charImgUrl(charName) : null;
+      const icon = imgUrl ? `<img class="match-char-icon" src="${imgUrl}" alt="" onerror="this.style.display='none'" />` : '';
+      const onclick = (!isBye && previewSwapMode) ? ` onclick="handlePreviewSwap(${pi},${slot})"` : '';
+      return `<div class="match-entry${cls}"${onclick}>${icon}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${isBye ? 'BYE' : escHtml(val)}</span></div>`;
+    }
+
+    return `<div class="match-box">${entryDiv(pair.a, 0)}${entryDiv(pair.b, 1)}</div>`;
+  }).join('');
+}
+
+async function confirmMatchups() {
   try {
-    await apiPost(`/brackets/${tournamentId}/generate-from-lineups`, { bracket_data: pairs, entries });
+    await apiPost(`/brackets/${tournamentId}/generate-from-lineups`, { bracket_data: pendingPairs, entries: pendingEntries });
     showToast('Bracket generated!', 'success');
+    document.getElementById('matchupPreview').style.display = 'none';
     await fetchAndRender();
   } catch(err) {
     showToast('Error generating bracket: ' + err.message, 'error');

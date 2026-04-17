@@ -612,6 +612,11 @@ a:hover {
   }
 }
 
+/* ── Swap mode (shared: bracket.html + tournament.html) ─────────────────── */
+.match-entry.swap-selected { background: rgba(0,119,200,0.25); border-radius: 4px; outline: 2px solid var(--accent-blue); cursor: pointer; }
+.match-entry.swap-hover { cursor: pointer; }
+.match-entry.swap-hover:hover { background: rgba(255,255,255,0.08); border-radius: 4px; }
+
 /* ── VS Screen (shared: bracket.html + tournament.html) ──────────────────── */
 .vs-bg {
   position: absolute;

@@ -112,6 +112,43 @@
       margin-bottom: 20px;
     }
     .winner-banner.show { display: block; }
+
+    /* Searchable character picker */
+    .char-picker { position: relative; }
+    .char-picker input {
+      width: 100%;
+      padding: 8px 10px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      font-size: 0.88rem;
+      box-sizing: border-box;
+    }
+    .char-picker input:focus { outline: none; border-color: var(--accent-blue); }
+    .char-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0; right: 0;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 200;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+    .char-dropdown.open { display: block; }
+    .char-option {
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .char-option:hover, .char-option.active { background: var(--accent-blue); color: #fff; }
+    .char-option.no-match { color: var(--text-muted); cursor: default; }
+    .char-option.no-match:hover { background: none; color: var(--text-muted); }
   </style>
 </head>
 <body>
@@ -134,9 +171,10 @@
         <select id="p1Select" class="char-select" onchange="onPlayerChange()">
           <option value="">Select player…</option>
         </select>
-        <select id="p1Char" class="char-select" onchange="onCharChange()">
-          <option value="">Select character…</option>
-        </select>
+        <div class="char-picker" id="picker-p1Char">
+          <input type="text" placeholder="Search character…" autocomplete="off" oninput="filterPicker('p1Char')" onfocus="openPicker('p1Char')" onblur="closePicker('p1Char')" onkeydown="pickerKey(event,'p1Char')" />
+          <div class="char-dropdown" id="drop-p1Char"></div>
+        </div>
       </div>
       <div class="duel-divider">VS</div>
       <div class="duel-side p2">
@@ -144,9 +182,10 @@
         <select id="p2Select" class="char-select" onchange="onPlayerChange()">
           <option value="">Select player…</option>
         </select>
-        <select id="p2Char" class="char-select" onchange="onCharChange()">
-          <option value="">Select character…</option>
-        </select>
+        <div class="char-picker" id="picker-p2Char">
+          <input type="text" placeholder="Search character…" autocomplete="off" oninput="filterPicker('p2Char')" onfocus="openPicker('p2Char')" onblur="closePicker('p2Char')" onkeydown="pickerKey(event,'p2Char')" />
+          <div class="char-dropdown" id="drop-p2Char"></div>
+        </div>
       </div>
     </div>
     <button class="btn btn-primary" onclick="startSeries()" style="width:100%;">Start Series</button>
@@ -212,11 +251,17 @@
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
           <div style="flex:1;min-width:120px;">
             <div class="player-label" style="color:var(--accent-blue);" id="gameP1Label">P1 Character</div>
-            <select id="gameP1Char" class="char-select"></select>
+            <div class="char-picker" id="picker-gameP1Char">
+              <input type="text" placeholder="Search character…" autocomplete="off" oninput="filterPicker('gameP1Char')" onfocus="openPicker('gameP1Char')" onblur="closePicker('gameP1Char')" onkeydown="pickerKey(event,'gameP1Char')" />
+              <div class="char-dropdown" id="drop-gameP1Char"></div>
+            </div>
           </div>
           <div style="flex:1;min-width:120px;">
             <div class="player-label" style="color:var(--accent-gold);" id="gameP2Label">P2 Character</div>
-            <select id="gameP2Char" class="char-select"></select>
+            <div class="char-picker" id="picker-gameP2Char">
+              <input type="text" placeholder="Search character…" autocomplete="off" oninput="filterPicker('gameP2Char')" onfocus="openPicker('gameP2Char')" onblur="closePicker('gameP2Char')" onkeydown="pickerKey(event,'gameP2Char')" />
+              <div class="char-dropdown" id="drop-gameP2Char"></div>
+            </div>
           </div>
         </div>
         <!-- Score preset -->
@@ -273,10 +318,79 @@
   let seriesWinner = null;
   let selectedWinnerKills = 0, selectedLoserKills = 0;
 
-  function populateCharSelect(sel, defaultChar) {
-    sel.innerHTML = '<option value="">Pick character…</option>' +
-      CHARS.map(c => `<option value="${c}"${c === defaultChar ? ' selected' : ''}>${c}</option>`).join('');
+  // ── Searchable character picker ───────────────────────────────────────────
+  const _pickerVal = {};
+
+  function _renderDrop(id, filter) {
+    const drop = document.getElementById(`drop-${id}`);
+    if (!drop) return;
+    const q = filter.toLowerCase();
+    const matches = CHARS.filter(c => !q || c.toLowerCase().includes(q));
+    drop.innerHTML = matches.length
+      ? matches.map(c => `<div class="char-option" onmousedown="selectPicker('${id}','${c.replace(/'/g,"\\'")}')"> ${c}</div>`).join('')
+      : '<div class="char-option no-match">No results</div>';
   }
+
+  function initPicker(id, defaultChar) {
+    _pickerVal[id] = defaultChar || '';
+    const input = document.querySelector(`#picker-${id} input`);
+    if (input) input.value = defaultChar || '';
+    _renderDrop(id, '');
+  }
+
+  function filterPicker(id) {
+    const input = document.querySelector(`#picker-${id} input`);
+    _renderDrop(id, input ? input.value : '');
+    document.getElementById(`drop-${id}`)?.classList.add('open');
+  }
+
+  function openPicker(id) {
+    const input = document.querySelector(`#picker-${id} input`);
+    _renderDrop(id, input ? input.value : '');
+    document.getElementById(`drop-${id}`)?.classList.add('open');
+  }
+
+  function closePicker(id) {
+    setTimeout(() => {
+      document.getElementById(`drop-${id}`)?.classList.remove('open');
+      const input = document.querySelector(`#picker-${id} input`);
+      if (input && !CHARS.includes(input.value)) input.value = _pickerVal[id] || '';
+    }, 160);
+  }
+
+  function selectPicker(id, char) {
+    _pickerVal[id] = char;
+    const input = document.querySelector(`#picker-${id} input`);
+    if (input) input.value = char;
+    document.getElementById(`drop-${id}`)?.classList.remove('open');
+    if (id === 'p1Char' || id === 'p2Char') onCharChange();
+  }
+
+  function pickerKey(e, id) {
+    const drop = document.getElementById(`drop-${id}`);
+    if (!drop?.classList.contains('open')) return;
+    const opts = [...drop.querySelectorAll('.char-option:not(.no-match)')];
+    let active = drop.querySelector('.char-option.active');
+    let idx = opts.indexOf(active);
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      active?.classList.remove('active');
+      opts[(idx + 1) % opts.length]?.classList.add('active');
+      drop.querySelector('.char-option.active')?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      active?.classList.remove('active');
+      opts[(idx - 1 + opts.length) % opts.length]?.classList.add('active');
+      drop.querySelector('.char-option.active')?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (active) selectPicker(id, active.textContent.trim());
+    } else if (e.key === 'Escape') {
+      drop.classList.remove('open');
+    }
+  }
+
+  function getPickerValue(id) { return _pickerVal[id] || ''; }
 
   async function init() {
     try {
@@ -285,8 +399,8 @@
       document.getElementById('p1Select').innerHTML = '<option value="">Select player…</option>' + opts;
       document.getElementById('p2Select').innerHTML = '<option value="">Select player…</option>' + opts;
     } catch (e) { showToast('Failed to load users', 'error'); }
-    populateCharSelect(document.getElementById('p1Char'), '');
-    populateCharSelect(document.getElementById('p2Char'), '');
+    initPicker('p1Char', '');
+    initPicker('p2Char', '');
   }
 
   let h2hCache = null;
@@ -367,8 +481,8 @@
   }
 
   function onCharChange() {
-    const c1 = document.getElementById('p1Char').value;
-    const c2 = document.getElementById('p2Char').value;
+    const c1 = getPickerValue('p1Char');
+    const c2 = getPickerValue('p2Char');
     const u1 = document.getElementById('p1Select').value;
     const u2 = document.getElementById('p2Select').value;
     const card = document.getElementById('matchupCard');
@@ -409,8 +523,8 @@
   function startSeries() {
     p1 = document.getElementById('p1Select').value;
     p2 = document.getElementById('p2Select').value;
-    p1CharCurrent = document.getElementById('p1Char').value;
-    p2CharCurrent = document.getElementById('p2Char').value;
+    p1CharCurrent = getPickerValue('p1Char');
+    p2CharCurrent = getPickerValue('p2Char');
     if (!p1 || !p2) { showToast('Select both players', 'warn'); return; }
     if (p1 === p2) { showToast('Players must be different', 'warn'); return; }
     if (!p1CharCurrent || !p2CharCurrent) { showToast('Select characters for both players', 'warn'); return; }
@@ -428,8 +542,8 @@
     document.getElementById('gameP1Label').textContent = `${p1}'s Character`;
     document.getElementById('gameP2Label').textContent = `${p2}'s Character`;
 
-    populateCharSelect(document.getElementById('gameP1Char'), p1CharCurrent);
-    populateCharSelect(document.getElementById('gameP2Char'), p2CharCurrent);
+    initPicker('gameP1Char', p1CharCurrent);
+    initPicker('gameP2Char', p2CharCurrent);
 
     renderScore();
     renderLog();
@@ -441,8 +555,8 @@
 
   async function recordGame(winner) {
     if (seriesWinner) { showToast('Series is over', 'warn'); return; }
-    const c1 = document.getElementById('gameP1Char').value;
-    const c2 = document.getElementById('gameP2Char').value;
+    const c1 = getPickerValue('gameP1Char');
+    const c2 = getPickerValue('gameP2Char');
     if (!c1 || !c2) { showToast('Select characters for this game', 'warn'); return; }
 
     const winnerPlayer = winner === 1 ? p1 : p2;
@@ -487,8 +601,8 @@
   function renderScore() {
     document.getElementById('scoreP1').textContent = p1Score;
     document.getElementById('scoreP2').textContent = p2Score;
-    document.getElementById('seriesP1Char').textContent = document.getElementById('gameP1Char').value || p1CharCurrent;
-    document.getElementById('seriesP2Char').textContent = document.getElementById('gameP2Char').value || p2CharCurrent;
+    document.getElementById('seriesP1Char').textContent = getPickerValue('gameP1Char') || p1CharCurrent;
+    document.getElementById('seriesP2Char').textContent = getPickerValue('gameP2Char') || p2CharCurrent;
   }
 
   function renderLog() {

@@ -134,7 +134,7 @@
         <select id="p1Select" class="char-select" onchange="onPlayerChange()">
           <option value="">Select player…</option>
         </select>
-        <select id="p1Char" class="char-select">
+        <select id="p1Char" class="char-select" onchange="onCharChange()">
           <option value="">Select character…</option>
         </select>
       </div>
@@ -144,12 +144,39 @@
         <select id="p2Select" class="char-select" onchange="onPlayerChange()">
           <option value="">Select player…</option>
         </select>
-        <select id="p2Char" class="char-select">
+        <select id="p2Char" class="char-select" onchange="onCharChange()">
           <option value="">Select character…</option>
         </select>
       </div>
     </div>
     <button class="btn btn-primary" onclick="startSeries()" style="width:100%;">Start Series</button>
+  </div>
+
+  <!-- Pre-series info panel -->
+  <div id="previewPanel" style="display:none;">
+    <!-- Overall H2H -->
+    <div class="duel-card" id="h2hCard">
+      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px;">Overall Record</div>
+      <div id="h2hContent"></div>
+    </div>
+
+    <!-- Specific matchup -->
+    <div class="duel-card" id="matchupCard" style="display:none;">
+      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px;" id="matchupTitle">Character Matchup</div>
+      <div id="matchupContent"></div>
+    </div>
+
+    <!-- Player char stats side by side -->
+    <div style="display:flex;gap:14px;flex-wrap:wrap;">
+      <div class="duel-card" style="flex:1;min-width:200px;">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--accent-blue);margin-bottom:10px;" id="p1StatsLabel">P1 Characters</div>
+        <div id="p1CharStats"></div>
+      </div>
+      <div class="duel-card" style="flex:1;min-width:200px;">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--accent-gold);margin-bottom:10px;" id="p2StatsLabel">P2 Characters</div>
+        <div id="p2CharStats"></div>
+      </div>
+    </div>
   </div>
 
   <!-- Active series -->
@@ -262,8 +289,113 @@
     populateCharSelect(document.getElementById('p2Char'), '');
   }
 
-  function onPlayerChange() {
-    // nothing needed — chars already populated
+  let h2hCache = null;
+  let p1StatsCache = null, p2StatsCache = null;
+
+  async function onPlayerChange() {
+    const u1 = document.getElementById('p1Select').value;
+    const u2 = document.getElementById('p2Select').value;
+    if (!u1 || !u2 || u1 === u2) {
+      document.getElementById('previewPanel').style.display = 'none';
+      return;
+    }
+
+    document.getElementById('previewPanel').style.display = 'block';
+    document.getElementById('h2hContent').innerHTML = '<span style="color:var(--text-muted);font-size:0.84rem;">Loading…</span>';
+    document.getElementById('p1CharStats').innerHTML = '<span style="color:var(--text-muted);font-size:0.84rem;">Loading…</span>';
+    document.getElementById('p2CharStats').innerHTML = '<span style="color:var(--text-muted);font-size:0.84rem;">Loading…</span>';
+    document.getElementById('p1StatsLabel').textContent = `${u1} — Characters`;
+    document.getElementById('p2StatsLabel').textContent = `${u2} — Characters`;
+
+    const [h2h, s1, s2] = await Promise.allSettled([
+      apiGet(`/users/${encodeURIComponent(u1)}/h2h/${encodeURIComponent(u2)}`),
+      apiGet(`/characters/stats/${encodeURIComponent(u1)}`),
+      apiGet(`/characters/stats/${encodeURIComponent(u2)}`),
+    ]);
+
+    h2hCache = h2h.status === 'fulfilled' ? h2h.value : null;
+    p1StatsCache = s1.status === 'fulfilled' ? (s1.value.stats || []) : [];
+    p2StatsCache = s2.status === 'fulfilled' ? (s2.value.stats || []) : [];
+
+    renderH2H(u1, u2);
+    renderPlayerStats('p1CharStats', p1StatsCache);
+    renderPlayerStats('p2CharStats', p2StatsCache);
+    onCharChange();
+  }
+
+  function renderH2H(u1, u2) {
+    const d = h2hCache;
+    const el = document.getElementById('h2hContent');
+    if (!d || d.total === 0) {
+      el.innerHTML = '<span style="color:var(--text-muted);font-size:0.84rem;">No matches recorded between these players yet.</span>';
+      return;
+    }
+    const pct1 = Math.round((d.user1_wins / d.total) * 100);
+    const leader = d.leader ? `<span style="font-size:0.82rem;color:var(--text-muted);">${d.leader} leads</span>` : `<span style="font-size:0.82rem;color:var(--text-muted);">Even</span>`;
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-weight:700;color:var(--accent-blue);">${u1} &nbsp;${d.user1_wins}</span>
+        ${leader}
+        <span style="font-weight:700;color:var(--accent-gold);">${d.user2_wins}&nbsp; ${u2}</span>
+      </div>
+      <div style="height:10px;border-radius:5px;overflow:hidden;background:var(--accent-gold);margin-bottom:6px;">
+        <div style="height:100%;width:${pct1}%;background:var(--accent-blue);border-radius:5px;transition:width 0.4s;"></div>
+      </div>
+      <div style="font-size:0.75rem;color:var(--text-muted);text-align:center;">${d.total} match${d.total !== 1 ? 'es' : ''} total</div>`;
+  }
+
+  function renderPlayerStats(elId, stats) {
+    const el = document.getElementById(elId);
+    const rows = (stats || [])
+      .filter(s => (s.wins || 0) + (s.losses || 0) > 0)
+      .sort((a, b) => (b.elo || 1000) - (a.elo || 1000))
+      .slice(0, 8);
+    if (!rows.length) { el.innerHTML = '<span style="color:var(--text-muted);font-size:0.84rem;">No data yet.</span>'; return; }
+    el.innerHTML = rows.map(s => {
+      const total = (s.wins || 0) + (s.losses || 0);
+      const pct = total > 0 ? Math.round(s.wins / total * 100) : 0;
+      const pctColor = pct >= 60 ? '#4caf50' : pct >= 40 ? '#ffe066' : '#e74c3c';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.82rem;">
+        <span style="font-weight:600;">${s.character}</span>
+        <span style="display:flex;gap:10px;align-items:center;">
+          <span style="color:var(--accent-gold);font-weight:700;">${s.elo || 1000}</span>
+          <span style="color:${pctColor};font-weight:600;">${pct}%</span>
+          <span style="color:var(--text-muted);">${s.wins}W ${s.losses}L</span>
+        </span>
+      </div>`;
+    }).join('');
+  }
+
+  function onCharChange() {
+    const c1 = document.getElementById('p1Char').value;
+    const c2 = document.getElementById('p2Char').value;
+    const u1 = document.getElementById('p1Select').value;
+    const u2 = document.getElementById('p2Select').value;
+    const card = document.getElementById('matchupCard');
+    if (!c1 || !c2 || !h2hCache) { card.style.display = 'none'; return; }
+
+    const key = `${c1} vs ${c2}`;
+    const matchups = h2hCache.matchups || {};
+    const mu = matchups[key];
+    document.getElementById('matchupTitle').textContent = `${c1} vs ${c2}`;
+    const el = document.getElementById('matchupContent');
+
+    if (!mu || (mu.user1_wins + mu.user2_wins) === 0) {
+      el.innerHTML = '<span style="color:var(--text-muted);font-size:0.84rem;">No history for this matchup yet.</span>';
+    } else {
+      const total = mu.user1_wins + mu.user2_wins;
+      const pct1 = Math.round((mu.user1_wins / total) * 100);
+      el.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-weight:700;color:var(--accent-blue);">${u1} (${c1}) &nbsp;${mu.user1_wins}</span>
+          <span style="font-size:0.78rem;color:var(--text-muted);">${total} game${total !== 1 ? 's' : ''}</span>
+          <span style="font-weight:700;color:var(--accent-gold);">${mu.user2_wins}&nbsp; ${u2} (${c2})</span>
+        </div>
+        <div style="height:8px;border-radius:4px;overflow:hidden;background:var(--accent-gold);">
+          <div style="height:100%;width:${pct1}%;background:var(--accent-blue);transition:width 0.4s;"></div>
+        </div>`;
+    }
+    card.style.display = 'block';
   }
 
   function pickScore(wk, lk) {

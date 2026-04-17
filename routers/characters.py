@@ -198,18 +198,27 @@ def elo_leaderboard(db: Session = Depends(get_db)):
     rows = db.query(CharacterStats).filter(
         CharacterStats.wins > 0
     ).order_by(CharacterStats.elo.desc()).all()
-    return [
-        {
+    results = []
+    for row in rows:
+        w = row.wins or 0
+        l = row.losses or 0
+        total = w + l
+        kills  = row.kills  or 0
+        deaths = row.deaths or 0
+        results.append({
             "username":   row.owner.username,
             "avatar_url": row.owner.avatar_url,
             "character":  row.character,
             "elo":        row.elo if row.elo is not None else 1000,
-            "wins":       row.wins or 0,
-            "losses":     row.losses or 0,
+            "wins":       w,
+            "losses":     l,
+            "kills":      kills,
+            "deaths":     deaths,
+            "kd":         round(kills / deaths, 2) if deaths > 0 else None,
+            "win_pct":    round(w / total * 100, 1) if total >= 3 else None,
             "points":     row.points or 0,
-        }
-        for row in rows
-    ]
+        })
+    return results
 
 
 @router.get("/characters/stats/{username}")

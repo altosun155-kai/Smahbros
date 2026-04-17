@@ -57,6 +57,83 @@
     .comment-input-row input { flex: 1; }
 
     @media (max-width: 700px) { .profile-layout { grid-template-columns: 1fr; } .profile-card { position: static; } }
+
+    /* ── Badge-themed backgrounds ─────────────────────
+       Applied to <body> after badges load. Highest-prestige badge wins. */
+
+    /* 👑 Tournament King — gold royal */
+    body.badge-tourney_king {
+      background: radial-gradient(ellipse 80% 40% at 50% -5%, rgba(255,224,102,0.18) 0%, transparent 70%),
+                  var(--bg);
+    }
+    body.badge-tourney_king .profile-card {
+      border-color: rgba(255,224,102,0.45);
+      box-shadow: 0 0 40px rgba(255,224,102,0.12), inset 0 0 20px rgba(255,224,102,0.04);
+    }
+    body.badge-tourney_king .profile-username { color: #ffe066; }
+
+    /* ⚡ The Finisher — electric cyan */
+    body.badge-finisher {
+      background: radial-gradient(ellipse 80% 40% at 50% -5%, rgba(0,188,212,0.16) 0%, transparent 70%),
+                  var(--bg);
+    }
+    body.badge-finisher .profile-card {
+      border-color: rgba(0,188,212,0.45);
+      box-shadow: 0 0 40px rgba(0,188,212,0.12), inset 0 0 20px rgba(0,188,212,0.04);
+    }
+    body.badge-finisher .profile-username { color: #00bcd4; }
+
+    /* 💀 Punching Bag — blood red */
+    body.badge-punching_bag {
+      background: radial-gradient(ellipse 80% 40% at 50% -5%, rgba(231,76,60,0.16) 0%, transparent 70%),
+                  var(--bg);
+    }
+    body.badge-punching_bag .profile-card {
+      border-color: rgba(231,76,60,0.45);
+      box-shadow: 0 0 40px rgba(231,76,60,0.12), inset 0 0 20px rgba(231,76,60,0.04);
+    }
+    body.badge-punching_bag .profile-username { color: #e74c3c; }
+
+    /* 🥇 Serial Champion — orange gold */
+    body.badge-serial_champ {
+      background: radial-gradient(ellipse 80% 40% at 50% -5%, rgba(245,166,35,0.15) 0%, transparent 70%),
+                  var(--bg);
+    }
+    body.badge-serial_champ .profile-card {
+      border-color: rgba(245,166,35,0.4);
+      box-shadow: 0 0 36px rgba(245,166,35,0.1), inset 0 0 16px rgba(245,166,35,0.04);
+    }
+    body.badge-serial_champ .profile-username { color: #f5a623; }
+
+    /* 🏆 Champion — crimson */
+    body.badge-champion {
+      background: radial-gradient(ellipse 80% 40% at 50% -5%, rgba(231,76,60,0.10) 0%, transparent 70%),
+                  var(--bg);
+    }
+    body.badge-champion .profile-card {
+      border-color: rgba(231,76,60,0.3);
+      box-shadow: 0 0 28px rgba(231,76,60,0.08);
+    }
+
+    /* 🌟 Top Performer — purple */
+    body.badge-top3 {
+      background: radial-gradient(ellipse 80% 40% at 50% -5%, rgba(155,89,182,0.14) 0%, transparent 70%),
+                  var(--bg);
+    }
+    body.badge-top3 .profile-card {
+      border-color: rgba(155,89,182,0.4);
+      box-shadow: 0 0 32px rgba(155,89,182,0.10);
+    }
+
+    /* 🎖️ Veteran — teal */
+    body.badge-veteran {
+      background: radial-gradient(ellipse 80% 40% at 50% -5%, rgba(26,188,156,0.13) 0%, transparent 70%),
+                  var(--bg);
+    }
+    body.badge-veteran .profile-card {
+      border-color: rgba(26,188,156,0.35);
+      box-shadow: 0 0 28px rgba(26,188,156,0.09);
+    }
   </style>
 </head>
 <body>
@@ -67,7 +144,7 @@
 
 <main class="page-container">
   <div class="page-header">
-    <h1>⚙️ Profile</h1>
+    <h1 id="pageTitle">⚙️ Profile</h1>
   </div>
 
   <div id="loadingState" class="loading-center">
@@ -83,6 +160,22 @@
         <div class="profile-username" id="profileUsername"></div>
         <div class="profile-id" id="profileId"></div>
         <div class="badges-row" id="badgesRow"></div>
+        <div id="profileStats" style="display:none;margin-bottom:14px;border-top:1px solid var(--border);padding-top:12px;">
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:0.82rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="color:var(--text-muted);">🏆 Tournament Wins</span>
+              <span id="statTourneyWins" style="font-weight:700;color:var(--text);">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="color:var(--text-muted);">⚡ 3-Stocks Given</span>
+              <span id="statGiven" style="font-weight:700;color:#00bcd4;">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="color:var(--text-muted);">💀 Times 3-Stocked</span>
+              <span id="statReceived" style="font-weight:700;color:#e74c3c;">—</span>
+            </div>
+          </div>
+        </div>
 
         <div class="tabs" id="profTabs" style="margin-bottom:14px;">
           <button class="tab-btn active" onclick="switchProfTab('generate')">Generate</button>
@@ -179,20 +272,47 @@
 </main>
 
 <script src="js/api.js"></script>
-<script src="js/friends-sidebar.js"></script>
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
+<script src="js/friends-sidebar.js"></script>
 <script>
   const DICEBEAR_STYLES = ['pixel-art','adventurer','bottts','fun-emoji','shapes','identicon'];
   let selectedStyle = 'pixel-art';
   let currentUsername = '';
   let myId = null;
+  let myUsername = '';
+
+  // If ?user=<username> is in the URL, we're viewing someone else's profile
+  const viewParam = new URLSearchParams(window.location.search).get('user');
+  const viewingOther = !!viewParam;
+  if (viewingOther) {
+    document.getElementById('pageTitle').textContent = `${viewParam}'s Profile`;
+    document.title = `Smash Bracket — ${viewParam}`;
+  }
 
   // ── Badge icons ───────────────────────────────────
   const BADGE_ICONS = {
     specialist: '⚔️', allrounder: '🌀', consistent: '📈',
-    champion: '🏆', top3: '🌟', veteran: '🎖️',
+    champion: '🏆', serial_champ: '🥇', tourney_king: '👑',
+    top3: '🌟', veteran: '🎖️',
+    finisher: '⚡', punching_bag: '💀',
   };
+
+  // Priority order: highest prestige first. First match wins.
+  const BADGE_THEME_PRIORITY = [
+    'tourney_king', 'finisher', 'punching_bag', 'serial_champ',
+    'champion', 'top3', 'veteran', 'specialist',
+  ];
+
+  function applyBadgeTheme(badges) {
+    if (!badges || !badges.length) return;
+    const ids = new Set(badges.map(b => b.id));
+    // Remove any previously set badge class
+    document.body.className = document.body.className
+      .replace(/\bbadge-\S+/g, '').trim();
+    const match = BADGE_THEME_PRIORITY.find(id => ids.has(id));
+    if (match) document.body.classList.add(`badge-${match}`);
+  }
 
   function renderBadges(badges) {
     const row = document.getElementById('badgesRow');
@@ -202,6 +322,7 @@
         <span class="badge-icon">${BADGE_ICONS[b.id] || '🏅'}</span>${b.label}
       </span>
     `).join('');
+    applyBadgeTheme(badges);
   }
 
   // ── H2H ──────────────────────────────────────────
@@ -424,40 +545,73 @@
 
   // ── Init ──────────────────────────────────────────
   (async function init() {
+    // Always fetch the logged-in user's info for the nav
+    let me = null;
     try {
-      const me = await apiGet('/users/me');
-      document.getElementById('loadingState').style.display = 'none';
-      document.getElementById('profileContent').style.display = 'block';
-
+      me = await apiGet('/users/me');
       if (me) {
-        currentUsername = me.username;
+        myUsername = me.username;
         myId = me.id;
         document.getElementById('navUsername').textContent = me.username;
-        document.getElementById('profileUsername').textContent = me.username;
-        document.getElementById('profileId').textContent = `Member #${me.id}`;
+        const av = document.getElementById('navAvatar');
+        av.src = me.avatar_url || dicebearUrl('pixel-art', me.username);
+        av.style.display = 'block';
+      }
+    } catch (_) {}
+
+    // Determine whose profile we're rendering
+    if (viewingOther) {
+      try {
+        const u = await apiGet(`/users/${encodeURIComponent(viewParam)}/profile`);
+        currentUsername = u.username;
+        document.getElementById('profileUsername').textContent = u.username;
+        document.getElementById('profileId').textContent = `Member #${u.id}`;
+        document.getElementById('currentAvatar').src = u.avatar_url || dicebearUrl('pixel-art', u.username);
+        // Hide avatar editor, show back link
+        document.getElementById('profTabs').style.display = 'none';
+        document.getElementById('tab-generate').style.display = 'none';
+        document.getElementById('tab-custom').style.display = 'none';
+        const backLink = document.createElement('a');
+        backLink.href = 'profile.html';
+        backLink.textContent = '← Your Profile';
+        backLink.style.cssText = 'font-size:0.82rem;color:var(--accent-blue);display:block;margin-top:10px;';
+        document.getElementById('currentAvatar').after(backLink);
+      } catch (_) {
+        document.getElementById('loadingState').textContent = 'User not found.';
+        return;
+      }
+    } else {
+      // Own profile — reuse already-fetched me
+      currentUsername = myUsername;
+      document.getElementById('profileUsername').textContent = myUsername;
+      document.getElementById('profileId').textContent = `Member #${myId}`;
+      if (me) {
         const avatarUrl = me.avatar_url || dicebearUrl('pixel-art', me.username);
         document.getElementById('currentAvatar').src = avatarUrl;
-        const av = document.getElementById('navAvatar');
-        av.src = avatarUrl; av.style.display = 'block';
         document.getElementById('seedInput').value = me.username;
         document.getElementById('generatePreview').src = dicebearUrl(selectedStyle, me.username);
       }
-    } catch (err) {
-      document.getElementById('loadingState').style.display = 'none';
-      document.getElementById('profileContent').style.display = 'block';
+      buildStyleGrid();
     }
 
-    buildStyleGrid();
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('profileContent').style.display = 'block';
 
     // Char count for comment input
     document.getElementById('commentInput').addEventListener('input', function() {
       document.getElementById('charCount').textContent = `${this.value.length} / 200`;
     });
 
-    // Load badges, activity, comments, and populate rival dropdown in parallel
+    // Load badges, stats, activity, comments, and populate rival dropdown in parallel
     const [, users] = await Promise.allSettled([
       apiGet(`/users/${encodeURIComponent(currentUsername)}/badges`).then(renderBadges).catch(() => {}),
       apiGet('/users/all'),
+      apiGet(`/users/${encodeURIComponent(currentUsername)}/stats`).then(s => {
+        document.getElementById('statTourneyWins').textContent = s.tournament_wins;
+        document.getElementById('statGiven').textContent = s.three_stocks_given;
+        document.getElementById('statReceived').textContent = s.three_stocked_received;
+        document.getElementById('profileStats').style.display = 'block';
+      }).catch(() => {}),
     ]);
 
     if (users.status === 'fulfilled' && users.value) {
@@ -468,6 +622,11 @@
         opt.value = u.username; opt.textContent = u.username;
         sel.appendChild(opt);
       });
+      // When viewing another user, auto-select the logged-in user as rival and load H2H
+      if (viewingOther && myUsername) {
+        sel.value = myUsername;
+        loadH2H();
+      }
     }
 
     loadActivity();

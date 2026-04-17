@@ -78,6 +78,7 @@
     .fsb-friend-row:last-child { border-bottom: none; }
     .fsb-av { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
     .fsb-name { font-size: 0.88rem; font-weight: 600; color: var(--text, #e8edf3); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    a.fsb-name:hover { color: var(--accent-blue, #0077c8); }
     .fsb-status { font-size: 0.72rem; }
     .fsb-online  { color: #4caf50; }
     .fsb-offline { color: var(--text-muted, #8892a4); }
@@ -202,10 +203,11 @@
       el.innerHTML = friends.map(f => {
         const av = f.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(f.username)}`;
         const name = escHtml(f.username);
+        const profileUrl = `profile.html?user=${encodeURIComponent(f.username)}`;
         return `<div class="fsb-friend-row">
           <img class="fsb-av" src="${av}" alt="${name}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(f.username)}'" />
           <div style="flex:1;min-width:0;">
-            <div class="fsb-name">${name}</div>
+            <a href="${profileUrl}" class="fsb-name" style="text-decoration:none;color:inherit;">${name}</a>
             <div class="fsb-status ${f.active ? 'fsb-online' : 'fsb-offline'}">${f.active ? '● Online' : '○ Offline'}</div>
           </div>
           <button class="fsb-remove" onclick="fsbRemove(${f.id})">✕</button>

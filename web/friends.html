@@ -47,6 +47,7 @@
       flex-shrink: 0;
     }
     .friend-remove:hover { border-color: #e74c3c; color: #e74c3c; }
+    .friend-card a:hover .friend-name { color: var(--accent-blue) !important; }
 
     .request-card {
       background: var(--card-bg);
@@ -204,13 +205,15 @@
       }
       grid.innerHTML = friends.map(f => `
         <div class="friend-card" id="friend-${f.id}">
-          <img class="friend-avatar" src="${f.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(f.username)}`}" alt="${f.username}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(f.username)}'" />
-          <div class="friend-info">
-            <div class="friend-name">${f.username}</div>
-            <div class="friend-status ${f.active ? 'status-active' : 'status-offline'}">
-              ${f.active ? '● Online' : '○ Offline'}
+          <a href="profile.html?user=${encodeURIComponent(f.username)}" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;text-decoration:none;color:inherit;">
+            <img class="friend-avatar" src="${f.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(f.username)}`}" alt="${f.username}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(f.username)}'" />
+            <div class="friend-info">
+              <div class="friend-name" style="color:var(--text);">${f.username}</div>
+              <div class="friend-status ${f.active ? 'status-active' : 'status-offline'}">
+                ${f.active ? '● Online' : '○ Offline'}
+              </div>
             </div>
-          </div>
+          </a>
           <button class="friend-remove" onclick="removeFriend(${f.id})">Remove</button>
         </div>
       `).join('');

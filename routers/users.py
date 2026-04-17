@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -42,6 +42,14 @@ def all_users(db: Session = Depends(get_db), current_user: User = Depends(get_cu
 def search_users(q: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     users = db.query(User).filter(User.username.ilike(f"%{q}%")).limit(10).all()
     return [{"id": u.id, "username": u.username} for u in users if u.id != current_user.id]
+
+
+@router.get("/users/{username}/profile")
+def get_user_profile(username: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"id": user.id, "username": user.username, "avatar_url": user.avatar_url}
 
 
 @router.get("/users/{username}/h2h/{other}")
@@ -139,6 +147,29 @@ def delete_comment(comment_id: int, db: Session = Depends(get_db), current_user:
     return {"ok": True}
 
 
+@router.get("/users/{username}/stats")
+def get_user_stats(username: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    tournament_wins = db.query(Bracket).filter(Bracket.winner == username).count()
+    three_stocks_given = db.query(MatchResult).filter(
+        MatchResult.winner_id == user.id,
+        MatchResult.winner_kills >= 3,
+        MatchResult.loser_kills == 0,
+    ).count()
+    three_stocked_received = db.query(MatchResult).filter(
+        MatchResult.loser_id == user.id,
+        MatchResult.winner_kills >= 3,
+        MatchResult.loser_kills == 0,
+    ).count()
+    return {
+        "tournament_wins": tournament_wins,
+        "three_stocks_given": three_stocks_given,
+        "three_stocked_received": three_stocked_received,
+    }
+
+
 @router.get("/users/{username}/badges")
 def get_badges(username: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     user = db.query(User).filter(User.username == username).first()
@@ -158,10 +189,27 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
         if len([s for s in stats if s.points >= 10]) >= 3:
             badges.append({"id": "consistent", "label": "Consistent",
                            "desc": "3+ characters at 10+ pts each", "color": "#3498db"})
-    champion = db.query(Bracket).filter(Bracket.winner == username).first()
-    if champion:
+    # ── Tournament wins ───────────────────────────────
+    tournament_wins = db.query(Bracket).filter(Bracket.winner == username).count()
+    if tournament_wins >= 1:
         badges.append({"id": "champion", "label": "Bracket Champion",
-                       "desc": f'Won "{champion.name}"', "color": "#e74c3c"})
+                       "desc": f"Won {tournament_wins} tournament{'s' if tournament_wins != 1 else ''}",
+                       "color": "#e74c3c"})
+    if tournament_wins >= 3:
+        badges.append({"id": "serial_champ", "label": "Serial Champion",
+                       "desc": f"Won {tournament_wins} tournaments", "color": "#f5a623"})
+    # Tournament King: most wins globally (at least 1)
+    top_winner = (
+        db.query(Bracket.winner, func.count(Bracket.id).label("cnt"))
+        .filter(Bracket.winner.isnot(None), Bracket.winner != "")
+        .group_by(Bracket.winner)
+        .order_by(func.count(Bracket.id).desc())
+        .first()
+    )
+    if top_winner and top_winner.winner == username and tournament_wins >= 1:
+        badges.append({"id": "tourney_king", "label": "Tournament King",
+                       "desc": f"Most tournament wins globally ({tournament_wins})", "color": "#ffe066"})
+
     top_rows = db.query(CharacterStats).filter(CharacterStats.points > 0)\
         .order_by(CharacterStats.points.desc()).limit(3).all()
     if any(r.owner.username == username for r in top_rows):
@@ -173,4 +221,41 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
     if match_count >= 20:
         badges.append({"id": "veteran", "label": "Veteran",
                        "desc": f"{match_count} matches played", "color": "#1abc9c"})
+
+    # ── 3-Stock badges ────────────────────────────────
+    three_stocks_given = db.query(MatchResult).filter(
+        MatchResult.winner_id == user.id,
+        MatchResult.winner_kills >= 3,
+        MatchResult.loser_kills == 0,
+    ).count()
+    three_stocked_received = db.query(MatchResult).filter(
+        MatchResult.loser_id == user.id,
+        MatchResult.winner_kills >= 3,
+        MatchResult.loser_kills == 0,
+    ).count()
+
+    # Finisher: most 3-stocks given globally (at least 3)
+    top_3stocker = (
+        db.query(MatchResult.winner_id, func.count(MatchResult.id).label("cnt"))
+        .filter(MatchResult.winner_kills >= 3, MatchResult.loser_kills == 0)
+        .group_by(MatchResult.winner_id)
+        .order_by(func.count(MatchResult.id).desc())
+        .first()
+    )
+    if top_3stocker and top_3stocker.winner_id == user.id and three_stocks_given >= 3:
+        badges.append({"id": "finisher", "label": "The Finisher",
+                       "desc": f"Most 3-stocks given globally ({three_stocks_given})", "color": "#00bcd4"})
+
+    # Punching Bag: most times 3-stocked globally (at least 3)
+    top_stocked = (
+        db.query(MatchResult.loser_id, func.count(MatchResult.id).label("cnt"))
+        .filter(MatchResult.winner_kills >= 3, MatchResult.loser_kills == 0)
+        .group_by(MatchResult.loser_id)
+        .order_by(func.count(MatchResult.id).desc())
+        .first()
+    )
+    if top_stocked and top_stocked.loser_id == user.id and three_stocked_received >= 3:
+        badges.append({"id": "punching_bag", "label": "Punching Bag",
+                       "desc": f"3-stocked the most globally ({three_stocked_received}x)", "color": "#e74c3c"})
+
     return badges

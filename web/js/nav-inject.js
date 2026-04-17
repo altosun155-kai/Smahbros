@@ -8,6 +8,7 @@
   const LINKS = [
     { href: 'index.html',       label: 'Home' },
     { href: 'bracket.html',     label: 'Bracket' },
+    { href: 'duel.html',        label: '1v1 Duel' },
     { href: 'roundrobin.html',  label: 'Round Robin' },
     { href: 'my-brackets.html', label: 'My Brackets' },
     { href: 'tier-list.html',   label: 'Tier List' },

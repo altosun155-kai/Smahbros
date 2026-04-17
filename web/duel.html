@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smash Bracket — 1v1 Duel</title>
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/auth.js"></script>
+  <style>
+    .duel-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .duel-vs {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      margin-bottom: 24px;
+    }
+    .duel-side {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 20px;
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .duel-side.p1 { border-color: rgba(0,119,200,0.4); }
+    .duel-side.p2 { border-color: rgba(245,166,35,0.4); }
+    .duel-divider {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      font-size: 1.4rem;
+      font-weight: 900;
+      color: var(--text-muted);
+    }
+    .score-display {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      margin: 20px 0;
+    }
+    .score-num {
+      font-size: 3rem;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .score-num.p1 { color: var(--accent-blue); }
+    .score-num.p2 { color: var(--accent-gold); }
+    .score-dash { font-size: 2rem; color: var(--text-muted); }
+    .game-log { display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto; }
+    .game-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: var(--card-bg2);
+      border-radius: 7px;
+      font-size: 0.85rem;
+      border: 1px solid var(--border);
+    }
+    .game-row .winner-tag { font-weight: 700; }
+    .game-row.p1-won .winner-tag { color: var(--accent-blue); }
+    .game-row.p2-won .winner-tag { color: var(--accent-gold); }
+    .score-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .score-btn {
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card-bg2);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 600;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .score-btn:hover { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+    .score-btn.selected { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+    .char-select {
+      width: 100%;
+      padding: 8px 10px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      font-size: 0.88rem;
+    }
+    .player-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .winner-banner {
+      display: none;
+      text-align: center;
+      padding: 20px;
+      background: linear-gradient(135deg, rgba(245,166,35,0.15), rgba(0,119,200,0.15));
+      border: 1px solid var(--accent-gold);
+      border-radius: var(--radius);
+      margin-bottom: 20px;
+    }
+    .winner-banner.show { display: block; }
+  </style>
+</head>
+<body>
+<script>requireAuth();</script>
+<div id="toast-container"></div>
+<nav class="navbar" id="main-nav"></nav>
+
+<main class="page-container" style="max-width:780px;">
+  <div class="page-header">
+    <h1>⚔️ 1v1 Duel</h1>
+    <p>Play a series between two players. Every game updates Elo and all stats.</p>
+  </div>
+
+  <!-- Setup -->
+  <div class="duel-card" id="setupCard">
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;">Setup</div>
+    <div class="duel-vs">
+      <div class="duel-side p1">
+        <div class="player-label" style="color:var(--accent-blue);">Player 1</div>
+        <select id="p1Select" class="char-select" onchange="onPlayerChange()">
+          <option value="">Select player…</option>
+        </select>
+        <select id="p1Char" class="char-select">
+          <option value="">Select character…</option>
+        </select>
+      </div>
+      <div class="duel-divider">VS</div>
+      <div class="duel-side p2">
+        <div class="player-label" style="color:var(--accent-gold);">Player 2</div>
+        <select id="p2Select" class="char-select" onchange="onPlayerChange()">
+          <option value="">Select player…</option>
+        </select>
+        <select id="p2Char" class="char-select">
+          <option value="">Select character…</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="startSeries()" style="width:100%;">Start Series</button>
+  </div>
+
+  <!-- Active series -->
+  <div id="seriesCard" style="display:none;">
+    <div class="winner-banner" id="winnerBanner">
+      <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:6px;">Series Winner</div>
+      <div id="winnerName" style="font-size:1.6rem;font-weight:900;color:var(--accent-gold);"></div>
+    </div>
+
+    <!-- Score -->
+    <div class="duel-card" style="text-align:center;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <div style="font-weight:700;font-size:1rem;color:var(--accent-blue);" id="seriesP1Name">—</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);" id="seriesTitle">Best of …</div>
+        <div style="font-weight:700;font-size:1rem;color:var(--accent-gold);" id="seriesP2Name">—</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;font-size:0.78rem;color:var(--text-muted);">
+        <span id="seriesP1Char">—</span>
+        <span id="seriesP2Char">—</span>
+      </div>
+      <div class="score-display">
+        <span class="score-num p1" id="scoreP1">0</span>
+        <span class="score-dash">—</span>
+        <span class="score-num p2" id="scoreP2">0</span>
+      </div>
+    </div>
+
+    <!-- Record a game -->
+    <div class="duel-card" id="recordGameCard">
+      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;">Record Game</div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <!-- Character swap per game -->
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+          <div style="flex:1;min-width:120px;">
+            <div class="player-label" style="color:var(--accent-blue);" id="gameP1Label">P1 Character</div>
+            <select id="gameP1Char" class="char-select"></select>
+          </div>
+          <div style="flex:1;min-width:120px;">
+            <div class="player-label" style="color:var(--accent-gold);" id="gameP2Label">P2 Character</div>
+            <select id="gameP2Char" class="char-select"></select>
+          </div>
+        </div>
+        <!-- Score preset -->
+        <div>
+          <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px;">Score (optional)</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <div>
+              <div style="font-size:0.7rem;color:var(--accent-blue);margin-bottom:4px;" id="scoreLabelP1">P1 Wins</div>
+              <div class="score-btns" id="p1ScoreBtns">
+                <button class="score-btn" onclick="pickScore(3,0)">3-0</button>
+                <button class="score-btn" onclick="pickScore(3,1)">3-1</button>
+                <button class="score-btn" onclick="pickScore(3,2)">3-2</button>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:0.7rem;color:var(--accent-gold);margin-bottom:4px;" id="scoreLabelP2">P2 Wins</div>
+              <div class="score-btns" id="p2ScoreBtns">
+                <button class="score-btn" onclick="pickScore(0,3)">0-3</button>
+                <button class="score-btn" onclick="pickScore(1,3)">1-3</button>
+                <button class="score-btn" onclick="pickScore(2,3)">2-3</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="recordGame(1)" style="flex:1;" id="btnP1Win">P1 Wins Game</button>
+          <button class="btn btn-outline" onclick="recordGame(2)" style="flex:1;" id="btnP2Win">P2 Wins Game</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game log -->
+    <div class="duel-card">
+      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px;">Game Log</div>
+      <div class="game-log" id="gameLog">
+        <div style="color:var(--text-muted);font-size:0.84rem;">No games played yet.</div>
+      </div>
+    </div>
+
+    <button class="btn btn-outline" onclick="resetSeries()" style="width:100%;margin-top:4px;">New Series</button>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script src="js/nav-inject.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/chars.js"></script>
+<script>
+  const CHARS = typeof SMASH_CHARACTERS !== 'undefined' ? SMASH_CHARACTERS : [];
+
+  let p1 = '', p2 = '', p1CharCurrent = '', p2CharCurrent = '';
+  let p1Score = 0, p2Score = 0;
+  let games = [];
+  let seriesWinner = null;
+  let selectedWinnerKills = 0, selectedLoserKills = 0;
+
+  function populateCharSelect(sel, defaultChar) {
+    sel.innerHTML = '<option value="">Pick character…</option>' +
+      CHARS.map(c => `<option value="${c}"${c === defaultChar ? ' selected' : ''}>${c}</option>`).join('');
+  }
+
+  async function init() {
+    try {
+      const users = await apiGet('/users/all');
+      const opts = users.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
+      document.getElementById('p1Select').innerHTML = '<option value="">Select player…</option>' + opts;
+      document.getElementById('p2Select').innerHTML = '<option value="">Select player…</option>' + opts;
+    } catch (e) { showToast('Failed to load users', 'error'); }
+    populateCharSelect(document.getElementById('p1Char'), '');
+    populateCharSelect(document.getElementById('p2Char'), '');
+  }
+
+  function onPlayerChange() {
+    // nothing needed — chars already populated
+  }
+
+  function pickScore(wk, lk) {
+    selectedWinnerKills = wk > lk ? wk : lk;
+    selectedLoserKills  = wk > lk ? lk : wk;
+    const winnerIsP1 = wk > lk;
+    document.querySelectorAll('.score-btn').forEach(b => b.classList.remove('selected'));
+    const group = winnerIsP1 ? document.getElementById('p1ScoreBtns') : document.getElementById('p2ScoreBtns');
+    const label = `${Math.max(wk, lk)}-${Math.min(wk, lk)}`;
+    [...group.querySelectorAll('.score-btn')].find(b => b.textContent === label)?.classList.add('selected');
+  }
+
+  function startSeries() {
+    p1 = document.getElementById('p1Select').value;
+    p2 = document.getElementById('p2Select').value;
+    p1CharCurrent = document.getElementById('p1Char').value;
+    p2CharCurrent = document.getElementById('p2Char').value;
+    if (!p1 || !p2) { showToast('Select both players', 'warn'); return; }
+    if (p1 === p2) { showToast('Players must be different', 'warn'); return; }
+    if (!p1CharCurrent || !p2CharCurrent) { showToast('Select characters for both players', 'warn'); return; }
+
+    p1Score = 0; p2Score = 0; games = []; seriesWinner = null;
+    selectedWinnerKills = 0; selectedLoserKills = 0;
+
+    document.getElementById('seriesP1Name').textContent = p1;
+    document.getElementById('seriesP2Name').textContent = p2;
+    document.getElementById('seriesTitle').textContent = 'Series';
+    document.getElementById('btnP1Win').textContent = `${p1} Wins Game`;
+    document.getElementById('btnP2Win').textContent = `${p2} Wins Game`;
+    document.getElementById('scoreLabelP1').textContent = `${p1} Wins`;
+    document.getElementById('scoreLabelP2').textContent = `${p2} Wins`;
+    document.getElementById('gameP1Label').textContent = `${p1}'s Character`;
+    document.getElementById('gameP2Label').textContent = `${p2}'s Character`;
+
+    populateCharSelect(document.getElementById('gameP1Char'), p1CharCurrent);
+    populateCharSelect(document.getElementById('gameP2Char'), p2CharCurrent);
+
+    renderScore();
+    renderLog();
+    document.getElementById('winnerBanner').classList.remove('show');
+    document.getElementById('recordGameCard').style.display = '';
+    document.getElementById('setupCard').style.display = 'none';
+    document.getElementById('seriesCard').style.display = 'block';
+  }
+
+  async function recordGame(winner) {
+    if (seriesWinner) { showToast('Series is over', 'warn'); return; }
+    const c1 = document.getElementById('gameP1Char').value;
+    const c2 = document.getElementById('gameP2Char').value;
+    if (!c1 || !c2) { showToast('Select characters for this game', 'warn'); return; }
+
+    const winnerPlayer = winner === 1 ? p1 : p2;
+    const loserPlayer  = winner === 1 ? p2 : p1;
+    const winnerChar   = winner === 1 ? c1 : c2;
+    const loserChar    = winner === 1 ? c2 : c1;
+
+    // Determine kills: if score was selected and matches winner
+    let wk = 0, lk = 0;
+    if (selectedWinnerKills > 0 || selectedLoserKills > 0) {
+      wk = selectedWinnerKills;
+      lk = selectedLoserKills;
+    }
+
+    try {
+      const res = await apiPost('/matches/record', {
+        winner_username: winnerPlayer,
+        winner_char: winnerChar,
+        winner_kills: wk,
+        loser_username: loserPlayer,
+        loser_char: loserChar,
+        loser_kills: lk,
+      });
+
+      const eloDelta = res.elo_delta || 0;
+      games.push({ winner, winnerPlayer, loserPlayer, winnerChar, loserChar, wk, lk, eloDelta });
+
+      if (winner === 1) p1Score++; else p2Score++;
+
+      // Reset score selection
+      selectedWinnerKills = 0; selectedLoserKills = 0;
+      document.querySelectorAll('.score-btn').forEach(b => b.classList.remove('selected'));
+
+      renderScore();
+      renderLog();
+      showToast(`Game recorded! Elo: ${winner === 1 ? p1 : p2} +${eloDelta}`, 'success');
+    } catch (e) {
+      showToast('Error recording game: ' + e.message, 'error');
+    }
+  }
+
+  function renderScore() {
+    document.getElementById('scoreP1').textContent = p1Score;
+    document.getElementById('scoreP2').textContent = p2Score;
+    document.getElementById('seriesP1Char').textContent = document.getElementById('gameP1Char').value || p1CharCurrent;
+    document.getElementById('seriesP2Char').textContent = document.getElementById('gameP2Char').value || p2CharCurrent;
+  }
+
+  function renderLog() {
+    const log = document.getElementById('gameLog');
+    if (!games.length) {
+      log.innerHTML = '<div style="color:var(--text-muted);font-size:0.84rem;">No games played yet.</div>';
+      return;
+    }
+    log.innerHTML = [...games].reverse().map((g, ri) => {
+      const num = games.length - ri;
+      const scoreStr = g.wk > 0 ? ` (${g.wk}-${g.lk})` : '';
+      const eloStr = g.eloDelta ? ` <span style="color:#4caf50;font-size:0.75rem;">+${g.eloDelta} elo</span>` : '';
+      return `<div class="game-row ${g.winner === 1 ? 'p1-won' : 'p2-won'}">
+        <span style="color:var(--text-muted);font-size:0.75rem;">G${num}</span>
+        <span class="winner-tag">${g.winnerPlayer} (${g.winnerChar})${scoreStr}</span>
+        <span style="color:var(--text-muted);font-size:0.78rem;">beat ${g.loserPlayer} (${g.loserChar})${eloStr}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function resetSeries() {
+    document.getElementById('setupCard').style.display = 'block';
+    document.getElementById('seriesCard').style.display = 'none';
+  }
+
+  init();
+</script>
+</body>
+</html>

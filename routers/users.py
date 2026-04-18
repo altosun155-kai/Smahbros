@@ -68,28 +68,48 @@ def h2h(username: str, other: str, db: Session = Depends(get_db), current_user: 
 
     chars = {}
     matchups = {}
+    u1_total_kills = 0
+    u2_total_kills = 0
+
     for r in wins_as_winner:
         c = r.winner_char
-        chars.setdefault(c, {"wins": 0, "losses": 0})
+        wk = r.winner_kills or 0
+        lk = r.loser_kills or 0
+        chars.setdefault(c, {"wins": 0, "losses": 0, "kills": 0, "deaths": 0})
         chars[c]["wins"] += 1
+        chars[c]["kills"] += wk
+        chars[c]["deaths"] += lk
+        u1_total_kills += wk
+        u2_total_kills += lk
         key = f"{r.winner_char} vs {r.loser_char}"
-        matchups.setdefault(key, {"user1_wins": 0, "user2_wins": 0, "user1_char": r.winner_char, "user2_char": r.loser_char})
+        matchups.setdefault(key, {"user1_wins": 0, "user2_wins": 0, "user1_char": r.winner_char, "user2_char": r.loser_char, "user1_kills": 0, "user2_kills": 0})
         matchups[key]["user1_wins"] += 1
+        matchups[key]["user1_kills"] += wk
+        matchups[key]["user2_kills"] += lk
+
     for r in wins_as_loser:
         c = r.loser_char
-        chars.setdefault(c, {"wins": 0, "losses": 0})
+        wk = r.winner_kills or 0
+        lk = r.loser_kills or 0
+        chars.setdefault(c, {"wins": 0, "losses": 0, "kills": 0, "deaths": 0})
         chars[c]["losses"] += 1
+        chars[c]["kills"] += lk
+        chars[c]["deaths"] += wk
+        u1_total_kills += lk
+        u2_total_kills += wk
         key = f"{r.loser_char} vs {r.winner_char}"
-        matchups.setdefault(key, {"user1_wins": 0, "user2_wins": 0, "user1_char": r.loser_char, "user2_char": r.winner_char})
+        matchups.setdefault(key, {"user1_wins": 0, "user2_wins": 0, "user1_char": r.loser_char, "user2_char": r.winner_char, "user1_kills": 0, "user2_kills": 0})
         matchups[key]["user2_wins"] += 1
+        matchups[key]["user1_kills"] += lk
+        matchups[key]["user2_kills"] += wk
 
     u1_wins = len(wins_as_winner)
     u2_wins = len(wins_as_loser)
     total   = u1_wins + u2_wins
     leader  = username if u1_wins > u2_wins else (other if u2_wins > u1_wins else None)
     return {
-        "user1": username, "user1_wins": u1_wins,
-        "user2": other,    "user2_wins": u2_wins,
+        "user1": username, "user1_wins": u1_wins, "user1_kills": u1_total_kills,
+        "user2": other,    "user2_wins": u2_wins, "user2_kills": u2_total_kills,
         "total": total, "leader": leader,
         "chars": chars,
         "matchups": matchups,

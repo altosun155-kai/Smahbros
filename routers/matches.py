@@ -28,19 +28,19 @@ def _mov_multiplier(winner_kills: int, loser_kills: int) -> float:
         return 1.0  # no score recorded — neutral
     diff = winner_kills - loser_kills
     if diff >= 3:
-        return 1.5   # 3-stock, dominant win
+        return 2   # 3-stock, dominant win
     elif diff == 2:
-        return 1.0   # decisive
+        return 1.5   # decisive
     elif diff == 1:
-        return 0.8   # close match
+        return 0.5   # close match
     else:
-        return 0.5   # extremely close / sudden death
+        return 0.5  # should not happen, but treat as close match if it does
 
 
-def _elo_change(winner_elo: int, loser_elo: int, winner_kills: int, loser_kills: int) -> int:
+def _elo_change(winner_elo: int, loser_elo: int, winner_kills: int, loser_kills: int, k: int = K_FACTOR) -> int:
     expected = 1 / (1 + 10 ** ((loser_elo - winner_elo) / 400))
     mov = _mov_multiplier(winner_kills, loser_kills)
-    change = round(K_FACTOR * (1 - expected) * mov)
+    change = round(k * (1 - expected) * mov)
     return max(1, change)  # always at least 1 point exchanged
 
 
@@ -65,8 +65,16 @@ def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: 
     ws = _get_or_create_stat(db, winner.id, req.winner_char)
     ls = _get_or_create_stat(db, loser.id,  req.loser_char)
 
+    # Dynamic K-factor: scale with tournament size if bracket_id is provided
+    k = K_FACTOR
+    if req.bracket_id:
+        from database import Bracket
+        b = db.query(Bracket).filter(Bracket.id == req.bracket_id).first()
+        if b and b.players:
+            k = max(K_FACTOR, len(b.players) * (b.chars_per_player or 2) * 2)
+
     # Elo exchange
-    delta = _elo_change(ws.elo or ELO_DEFAULT, ls.elo or ELO_DEFAULT, req.winner_kills, req.loser_kills)
+    delta = _elo_change(ws.elo or ELO_DEFAULT, ls.elo or ELO_DEFAULT, req.winner_kills, req.loser_kills, k)
     ws.elo = (ws.elo or ELO_DEFAULT) + delta
     ls.elo = max(100, (ls.elo or ELO_DEFAULT) - delta)  # floor at 100
 

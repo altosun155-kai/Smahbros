@@ -227,19 +227,37 @@
     <div style="display:flex;gap:18px;align-items:center;">
       <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
         <div style="font-size:0.62rem;color:#ff8888;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;" id="scoreLabel1">P1 Wins</div>
-        <div style="display:flex;gap:6px;">
-          <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,0)">3-0</button>
-          <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,1)">3-1</button>
-          <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,2)">3-2</button>
+        <div style="display:flex;gap:6px;align-items:flex-end;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span id="tElo_30" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
+            <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,0)">3-0</button>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span id="tElo_31" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
+            <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,1)">3-1</button>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span id="tElo_32" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
+            <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,2)">3-2</button>
+          </div>
         </div>
       </div>
-      <div style="width:1px;height:38px;background:rgba(255,255,255,0.15);"></div>
+      <div style="width:1px;height:50px;background:rgba(255,255,255,0.15);"></div>
       <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
         <div style="font-size:0.62rem;color:#88aaff;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;" id="scoreLabel2">P2 Wins</div>
-        <div style="display:flex;gap:6px;">
-          <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(0,3)">0-3</button>
-          <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(1,3)">1-3</button>
-          <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(2,3)">2-3</button>
+        <div style="display:flex;gap:6px;align-items:flex-end;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span id="tElo_03" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
+            <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(0,3)">0-3</button>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span id="tElo_13" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
+            <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(1,3)">1-3</button>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span id="tElo_23" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
+            <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(2,3)">2-3</button>
+          </div>
         </div>
       </div>
     </div>
@@ -282,6 +300,27 @@ const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby
 const params = new URLSearchParams(window.location.search);
 const tournamentId = params.get('id');
 let pollInterval = null;
+
+let tournamentK = 32;
+
+function previewEloGain(winnerElo, loserElo, wk, lk) {
+  const K = tournamentK;
+  const expected = 1 / (1 + Math.pow(10, (loserElo - winnerElo) / 400));
+  const diff = wk - lk;
+  const mov = diff >= 3 ? 2 : diff === 2 ? 1.5 : diff === 1 ? 0.5 : 0.5;
+  return Math.max(1, Math.round(K * (1 - expected) * mov));
+}
+
+const _eloCache = {}; // "username/character" -> elo
+async function getCharElo(username, character) {
+  const key = `${username}/${character}`;
+  if (_eloCache[key] != null) return _eloCache[key];
+  try {
+    const d = await apiGet(`/characters/stats/${encodeURIComponent(username)}`);
+    (d.stats || []).forEach(s => { _eloCache[`${username}/${s.character}`] = s.elo || 1000; });
+  } catch (_) {}
+  return _eloCache[key] || 1000;
+}
 let lastRoundWinners = null;
 let myUsername = '';
 let currentBracketData = null; // latest bracket snapshot
@@ -417,20 +456,32 @@ function renderBracket(data) {
   const roundWinners = round_winners || {};
   const roundScores  = round_scores  || {};
   currentBracketData = data;
+  tournamentK = Math.max(32, ((data.players || []).length) * (data.chars_per_player || 2) * 2);
 
   const rounds = computeRounds(bracket_data, roundWinners);
   lastRenderedRounds = rounds;
   const container = document.getElementById('bracketRounds');
   container.innerHTML = '';
 
-  const roundNames = ['Round 1','Quarterfinals','Semifinals','Finals','Grand Final'];
-
   rounds.forEach((round, ri) => {
     const col = document.createElement('div');
     col.className = 'round-col';
-    let rname = ri < roundNames.length ? roundNames[ri] : `Round ${ri + 1}`;
-    if (ri === rounds.length - 1 && rounds.length > 1) rname = rounds.length === 2 ? 'Finals' : 'Grand Final';
-    else if (ri === rounds.length - 2 && rounds.length > 2) rname = 'Semifinals';
+    let rname;
+    if (ri === rounds.length - 1 && rounds.length > 1) {
+      rname = rounds.length === 2 ? 'Finals' : 'Grand Final';
+    } else if (ri === rounds.length - 2 && rounds.length > 2) {
+      rname = 'Semifinals';
+    } else if (ri === rounds.length - 3 && rounds.length > 3) {
+      rname = 'Quarterfinals';
+    } else if (ri === rounds.length - 4 && rounds.length > 4) {
+      rname = 'Round of 16';
+    } else if (ri === rounds.length - 5 && rounds.length > 5) {
+      rname = 'Round of 32';
+    } else if (ri === rounds.length - 6 && rounds.length > 6) {
+      rname = 'Round of 64';
+    } else {
+      rname = `Round ${ri + 1}`;
+    }
     col.innerHTML = `<div class="round-title">${rname}</div>`;
 
     round.forEach(([a, b], mi) => {
@@ -515,7 +566,25 @@ function openScoreModal(a, b, key) {
   if (p1Url) { p1Img.src = p1Url; p1Img.style.display = ''; } else { p1Img.style.display = 'none'; }
   if (p2Url) { p2Img.src = p2Url; p2Img.style.display = ''; } else { p2Img.style.display = 'none'; }
 
+  // Clear elo labels while loading
+  ['tElo_30','tElo_31','tElo_32','tElo_03','tElo_13','tElo_23'].forEach(id => {
+    document.getElementById(id).textContent = '';
+  });
+
   document.getElementById('scoreModal').classList.add('open');
+
+  // Fetch elos and populate previews (async, updates after modal is already open)
+  Promise.all([
+    getCharElo(scoreModalA.player, scoreModalA.character),
+    getCharElo(scoreModalB.player, scoreModalB.character),
+  ]).then(([eloA, eloB]) => {
+    document.getElementById('tElo_30').textContent = `+${previewEloGain(eloA, eloB, 3, 0)}`;
+    document.getElementById('tElo_31').textContent = `+${previewEloGain(eloA, eloB, 3, 1)}`;
+    document.getElementById('tElo_32').textContent = `+${previewEloGain(eloA, eloB, 3, 2)}`;
+    document.getElementById('tElo_03').textContent = `+${previewEloGain(eloB, eloA, 3, 0)}`;
+    document.getElementById('tElo_13').textContent = `+${previewEloGain(eloB, eloA, 3, 1)}`;
+    document.getElementById('tElo_23').textContent = `+${previewEloGain(eloB, eloA, 3, 2)}`;
+  });
 }
 
 function closeScoreModal() {
@@ -575,6 +644,10 @@ async function pickTournamentScore(p1Stocks, p2Stocks) {
         bracket_id: parseInt(tournamentId),
         match_key: key,
       });
+      // Invalidate elo cache so next VS screen shows updated Elo
+      Object.keys(_eloCache)
+        .filter(k => k.startsWith(winnerEntry.player + '/') || k.startsWith(loserEntry.player + '/'))
+        .forEach(k => delete _eloCache[k]);
     }
     showUndoBtn(`${winnerEntry.player} (${winnerEntry.character})`);
     await fetchAndRender();
@@ -1014,8 +1087,14 @@ function closeEndModal() {
 async function endTournamentNow() {
   closeEndModal();
   try {
-    await apiPatch(`/brackets/${tournamentId}/end`, {});
-    showToast('Tournament ended. All recorded stats are saved.', 'success');
+    const result = await apiPatch(`/brackets/${tournamentId}/end`, {});
+    const bonuses = result.bonuses || [];
+    if (bonuses.length > 0) {
+      const lines = bonuses.map(b => `${b.place}: ${b.player} (${b.char}) +${b.bonus} Elo`).join(' · ');
+      showToast(`Tournament ended! Placement bonuses — ${lines}`, 'success');
+    } else {
+      showToast('Tournament ended. All recorded stats are saved.', 'success');
+    }
     await fetchAndRender();
   } catch (err) {
     showToast('Error ending tournament: ' + err.message, 'error');

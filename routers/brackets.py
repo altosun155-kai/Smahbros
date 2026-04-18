@@ -1,3 +1,4 @@
+import re as _re
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
@@ -5,6 +6,37 @@ from pydantic import BaseModel
 
 from database import User, Bracket, TournamentInvite, CharacterStats, MatchResult
 from auth import get_db, get_current_user
+
+
+def _parse_label(val: str):
+    """Return (player, character) from 'player — character' label, or (None, None)."""
+    if val and " — " in val:
+        parts = val.split(" — ", 1)
+        return parts[0].strip(), parts[1].strip()
+    return None, None
+
+
+def _compute_round_participants(bracket_data: list, round_winners: dict) -> dict:
+    """Return {ri: {mi: (a_label, b_label)}} reconstructing all rounds from bracket_data."""
+    if not bracket_data:
+        return {}
+    result = {0: {mi: (p.get("a", ""), p.get("b", "")) for mi, p in enumerate(bracket_data)}}
+    ri = 0
+    while len(result[ri]) > 1:
+        prev = result[ri]
+        next_round = {}
+        sorted_mis = sorted(prev.keys())
+        for j in range(0, len(sorted_mis), 2):
+            if j + 1 >= len(sorted_mis):
+                break
+            ma, mb = sorted_mis[j], sorted_mis[j + 1]
+            next_round[j // 2] = (
+                round_winners.get(f"r{ri}_m{ma}", ""),
+                round_winners.get(f"r{ri}_m{mb}", ""),
+            )
+        result[ri + 1] = next_round
+        ri += 1
+    return result
 
 router = APIRouter(tags=["brackets"])
 
@@ -242,24 +274,85 @@ def end_tournament(bracket_id: int, db: Session = Depends(get_db), current_user:
     b = db.query(Bracket).filter(Bracket.id == bracket_id, Bracket.user_id == current_user.id).first()
     if not b:
         raise HTTPException(status_code=403, detail="Only the host can end")
+
+    already_ended = not b.is_live
     b.is_live = False
-    # If winner wasn't set during play, infer it from the Grand Final result.
-    # Grand Final key has the highest round index: r{N-1}_m0 where N = number of rounds.
+
+    # Infer winner from Grand Final if not set
     if not b.winner and b.round_winners:
-        rw = b.round_winners
-        # Find the key with the highest round index
-        import re as _re
         best_ri, gf_val = -1, None
-        for k, v in rw.items():
-            m = _re.match(r"r(\d+)_m(\d+)$", k)
+        for key, v in b.round_winners.items():
+            m = _re.match(r"r(\d+)_m(\d+)$", key)
             if m:
                 ri = int(m.group(1))
                 if ri > best_ri:
                     best_ri, gf_val = ri, v
         if gf_val and " — " in gf_val:
             b.winner = gf_val.split(" — ")[0]
+
+    # Award placement bonuses only once (skip if already ended)
+    bonuses = []
+    if not already_ended and b.round_winners and b.bracket_data:
+        from routers.matches import _get_or_create_stat, ELO_DEFAULT, K_FACTOR
+        num_players = len(b.players or [])
+        chars_per = b.chars_per_player or 2
+        k = max(K_FACTOR, num_players * chars_per * 2)
+
+        rw = b.round_winners
+        max_ri = -1
+        for key in rw:
+            m = _re.match(r"r(\d+)_m(\d+)$", key)
+            if m:
+                max_ri = max(max_ri, int(m.group(1)))
+
+        if max_ri >= 0:
+            participants = _compute_round_participants(b.bracket_data, rw)
+
+            # 1st place: Grand Final winner
+            gf_winner_label = rw.get(f"r{max_ri}_m0", "")
+            gf_winner_player, gf_winner_char = _parse_label(gf_winner_label)
+            if gf_winner_player:
+                bonuses.append((gf_winner_player, gf_winner_char, round(k * 1.0), "1st"))
+
+            # 2nd place: Grand Final loser
+            gf_a_label, gf_b_label = participants.get(max_ri, {}).get(0, ("", ""))
+            gf_a_player, gf_a_char = _parse_label(gf_a_label)
+            gf_b_player, gf_b_char = _parse_label(gf_b_label)
+            if gf_winner_player:
+                if gf_a_player and gf_a_player != gf_winner_player:
+                    bonuses.append((gf_a_player, gf_a_char, round(k * 0.5), "2nd"))
+                elif gf_b_player and gf_b_player != gf_winner_player:
+                    bonuses.append((gf_b_player, gf_b_char, round(k * 0.5), "2nd"))
+
+            # 3rd place: Semifinal losers (only if there was a semifinal round)
+            if max_ri > 0:
+                sf_matches = participants.get(max_ri - 1, {})
+                for sf_mi, (sf_a_label, sf_b_label) in sf_matches.items():
+                    sf_winner_label = rw.get(f"r{max_ri-1}_m{sf_mi}", "")
+                    sf_winner_player, _ = _parse_label(sf_winner_label)
+                    sf_a_player, sf_a_char = _parse_label(sf_a_label)
+                    sf_b_player, sf_b_char = _parse_label(sf_b_label)
+                    if sf_winner_player:
+                        if sf_a_player and sf_a_player != sf_winner_player:
+                            bonuses.append((sf_a_player, sf_a_char, round(k * 0.25), "3rd"))
+                        elif sf_b_player and sf_b_player != sf_winner_player:
+                            bonuses.append((sf_b_player, sf_b_char, round(k * 0.25), "3rd"))
+
+            # Apply bonuses to character Elo
+            for (player, char, bonus, _) in bonuses:
+                if not player or not char:
+                    continue
+                user = db.query(User).filter(User.username == player).first()
+                if not user:
+                    continue
+                stat = _get_or_create_stat(db, user.id, char)
+                stat.elo = (stat.elo or ELO_DEFAULT) + bonus
+
     db.commit()
-    return {"ok": True}
+    return {
+        "ok": True,
+        "bonuses": [{"player": p, "char": c, "bonus": b, "place": pl} for p, c, b, pl in bonuses],
+    }
 
 
 @router.delete("/brackets/{bracket_id}")
@@ -285,22 +378,19 @@ def undo_last_result(bracket_id: int, db: Session = Depends(get_db), current_use
     ws = db.query(CharacterStats).filter(
         CharacterStats.user_id == mr.winner_id, CharacterStats.character == mr.winner_char
     ).first()
-    from routers.matches import _elo_change, ELO_DEFAULT
-    if ws and ls:
-        delta = _elo_change(ws.elo or ELO_DEFAULT, ls.elo or ELO_DEFAULT, mr.winner_kills or 0, mr.loser_kills or 0)
-        ws.elo = max(100, (ws.elo or ELO_DEFAULT) - delta)
-        ls.elo = (ls.elo or ELO_DEFAULT) + delta
-
+    ls = db.query(CharacterStats).filter(
+        CharacterStats.user_id == mr.loser_id, CharacterStats.character == mr.loser_char
+    ).first()
+    from routers.matches import ELO_DEFAULT
+    delta = mr.elo_delta or 0
     if ws:
+        ws.elo    = max(100, (ws.elo or ELO_DEFAULT) - delta)
         ws.points = max(0, (ws.points or 0) - 1)
         ws.wins   = max(0, (ws.wins   or 0) - 1)
         ws.kills  = max(0, (ws.kills  or 0) - (mr.winner_kills or 0))
         ws.deaths = max(0, (ws.deaths or 0) - (mr.loser_kills  or 0))
-
-    ls = db.query(CharacterStats).filter(
-        CharacterStats.user_id == mr.loser_id, CharacterStats.character == mr.loser_char
-    ).first()
     if ls:
+        ls.elo    = (ls.elo or ELO_DEFAULT) + delta
         ls.losses = max(0, (ls.losses or 0) - 1)
         ls.kills  = max(0, (ls.kills  or 0) - (mr.loser_kills  or 0))
         ls.deaths = max(0, (ls.deaths or 0) - (mr.winner_kills or 0))

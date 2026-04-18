@@ -236,6 +236,9 @@
                   <th style="padding:4px 8px;text-align:center;">W</th>
                   <th style="padding:4px 8px;text-align:center;">L</th>
                   <th style="padding:4px 8px;text-align:center;">Win %</th>
+                  <th style="padding:4px 8px;text-align:center;">Kills</th>
+                  <th style="padding:4px 8px;text-align:center;">Deaths</th>
+                  <th style="padding:4px 8px;text-align:center;">K/D</th>
                   <th style="padding:4px 8px;"></th>
                 </tr>
               </thead>
@@ -253,6 +256,8 @@
                     <th style="padding:4px 8px;">Their Char</th>
                     <th style="padding:4px 8px;text-align:center;">W</th>
                     <th style="padding:4px 8px;text-align:center;">L</th>
+                    <th style="padding:4px 8px;text-align:center;">Kills</th>
+                    <th style="padding:4px 8px;text-align:center;">Deaths</th>
                     <th style="padding:4px 8px;"></th>
                   </tr>
                 </thead>
@@ -372,27 +377,37 @@
       document.getElementById('h2hTotal').textContent = `${d.total} matches`;
       document.getElementById('h2hBarLeft').style.width = pct1 + '%';
       document.getElementById('h2hBarRight').style.width = pct2 + '%';
-      document.getElementById('h2hVerdict').textContent = d.leader
-        ? `${d.leader} leads the rivalry.` : "It's dead even.";
+      const totalKills = (d.user1_kills || 0) + (d.user2_kills || 0);
+      const killsLine = totalKills > 0
+        ? ` · ${d.user1} ${d.user1_kills || 0}–${d.user2_kills || 0} ${d.user2} kills`
+        : '';
+      document.getElementById('h2hVerdict').textContent = (d.leader
+        ? `${d.leader} leads the rivalry.` : "It's dead even.") + killsLine;
       document.getElementById('h2hRivalName').textContent = rival;
 
       // Per-character table (sorted by total games desc)
       const chars = d.chars || {};
       const rows = Object.entries(chars)
-        .map(([char, s]) => ({ char, wins: s.wins, losses: s.losses, total: s.wins + s.losses }))
+        .map(([char, s]) => ({ char, wins: s.wins, losses: s.losses, total: s.wins + s.losses, kills: s.kills || 0, deaths: s.deaths || 0 }))
         .sort((a, b) => b.total - a.total);
 
       const tbody = document.getElementById('h2hCharBody');
       tbody.innerHTML = rows.map(r => {
         const winPct = r.total > 0 ? Math.round((r.wins / r.total) * 100) : 0;
         const barColor = winPct >= 50 ? '#4caf50' : '#e74c3c';
+        const kd = r.deaths > 0 ? (r.kills / r.deaths).toFixed(2) : (r.kills > 0 ? '∞' : '—');
+        const kdColor = r.deaths === 0 ? (r.kills > 0 ? '#4caf50' : 'var(--text-muted)')
+          : (r.kills / r.deaths >= 1 ? '#4caf50' : '#e74c3c');
         return `
           <tr style="border-bottom:1px solid var(--border);font-size:0.84rem;">
             <td style="padding:5px 8px;font-weight:600;">${r.char}</td>
             <td style="padding:5px 8px;text-align:center;color:#4caf50;font-weight:700;">${r.wins}</td>
             <td style="padding:5px 8px;text-align:center;color:#e74c3c;font-weight:700;">${r.losses}</td>
             <td style="padding:5px 8px;text-align:center;font-weight:700;color:${barColor};">${winPct}%</td>
-            <td style="padding:5px 8px;width:80px;">
+            <td style="padding:5px 8px;text-align:center;color:#e67e22;font-weight:700;">${r.kills || '—'}</td>
+            <td style="padding:5px 8px;text-align:center;color:#e74c3c;font-weight:700;">${r.deaths || '—'}</td>
+            <td style="padding:5px 8px;text-align:center;font-weight:700;color:${kdColor};">${kd}</td>
+            <td style="padding:5px 8px;width:70px;">
               <div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden;">
                 <div style="height:100%;width:${winPct}%;background:${barColor};border-radius:3px;"></div>
               </div>
@@ -410,6 +425,11 @@
         muBody.innerHTML = muRows.map(m => {
           const winPct = m.total > 0 ? Math.round((m.user1_wins / m.total) * 100) : 0;
           const barColor = winPct >= 50 ? '#4caf50' : '#e74c3c';
+          const u1k = m.user1_kills || 0;
+          const u2k = m.user2_kills || 0;
+          const killsStr = (u1k + u2k) > 0
+            ? `<td style="padding:5px 8px;text-align:center;color:#e67e22;font-weight:700;font-size:0.78rem;" colspan="2">${u1k}–${u2k} kills</td>`
+            : `<td colspan="2"></td>`;
           return `
             <tr style="border-bottom:1px solid var(--border);font-size:0.84rem;">
               <td style="padding:5px 8px;font-weight:600;">${m.user1_char}</td>
@@ -417,7 +437,8 @@
               <td style="padding:5px 8px;font-weight:600;">${m.user2_char}</td>
               <td style="padding:5px 8px;text-align:center;color:#4caf50;font-weight:700;">${m.user1_wins}W</td>
               <td style="padding:5px 8px;text-align:center;color:#e74c3c;font-weight:700;">${m.user2_wins}L</td>
-              <td style="padding:5px 8px;width:70px;">
+              ${killsStr}
+              <td style="padding:5px 8px;width:60px;">
                 <div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden;">
                   <div style="height:100%;width:${winPct}%;background:${barColor};border-radius:3px;"></div>
                 </div>

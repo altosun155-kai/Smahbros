@@ -577,6 +577,7 @@ function generateBracket() {
 
   currentBracket = pairs;
   roundWinners = {}; roundScores = {};
+  bracketK = Math.max(32, getPlayers().length * (parseInt(document.getElementById('charsPerPlayer').value) || 2) * 2);
   renderBracket();
 
   // Collapse entries list to give the bracket room
@@ -950,11 +951,15 @@ async function recordMatchResult(winnerLabel, loserLabel, winnerKills = 0, loser
       loser_username:  loser.player,  loser_char:  loser.character,  loser_kills:  loserKills,
       bracket_id: liveTournamentId || null,
     });
-    // Bust the stats cache so next bracket build fetches fresh kills + points
-    delete allUserStats[winner.player];
-    delete allUserStats[loser.player];
-    delete allUserKills[winner.player];
-    delete allUserKills[loser.player];
+    // Re-fetch both players' stats so Elo previews are live for subsequent matches
+    await Promise.all([winner.player, loser.player].map(async p => {
+      try {
+        const d = await apiGet(`/characters/stats/${encodeURIComponent(p)}`);
+        const stats = d.stats || [];
+        allUserStats[p] = stats.filter(s => (s.wins||0) + (s.losses||0) > 0).sort((a,b) => (b.elo||1000) - (a.elo||1000));
+        allUserKills[p] = stats.filter(s => s.kills > 0).sort((a,b) => b.kills - a.kills);
+      } catch (_) {}
+    }));
   } catch (err) {
     showToast('Could not save match result: ' + err.message, 'error');
   }
@@ -1144,10 +1149,16 @@ async function startLiveTournament() {
 async function endTournament() {
   if (!liveTournamentId) return;
   try {
-    await apiPatch(`/brackets/${liveTournamentId}/end`, {});
+    const result = await apiPatch(`/brackets/${liveTournamentId}/end`, {});
     liveTournamentId = null;
     document.getElementById('liveTournamentBanner').style.display = 'none';
-    showToast('Tournament ended.', 'info');
+    const bonuses = result.bonuses || [];
+    if (bonuses.length > 0) {
+      const lines = bonuses.map(b => `${b.place}: ${b.player} (${b.char}) +${b.bonus} Elo`).join(' · ');
+      showToast(`Tournament ended! Placement bonuses — ${lines}`, 'success');
+    } else {
+      showToast('Tournament ended.', 'info');
+    }
   } catch (err) {
     showToast('Error ending tournament: ' + err.message, 'error');
   }
@@ -1235,6 +1246,16 @@ function addFriendToPlayers(username, chip) {
   if (currentMode === 'teams') renderTeamAssignments();
 }
 
+let bracketK = 32;
+
+function previewEloGain(winnerElo, loserElo, wk, lk) {
+  const K = bracketK;
+  const expected = 1 / (1 + Math.pow(10, (loserElo - winnerElo) / 400));
+  const diff = wk - lk;
+  const mov = diff >= 3 ? 2 : diff === 2 ? 1.5 : diff === 1 ? 0.5 : 0.5;
+  return Math.max(1, Math.round(K * (1 - expected) * mov));
+}
+
 // ── VS Modal ──────────────────────────────────────
 let vsCurrentKey = null;
 let vsCurrentLabelA = '';
@@ -1310,6 +1331,16 @@ function openVsModal(a, b, key) {
   // Score label player names
   document.getElementById('vsScoreLabel1').textContent = `${a.player} Wins`;
   document.getElementById('vsScoreLabel2').textContent = `${b.player} Wins`;
+
+  // Elo gain previews above each score button
+  const eloA = getSeedElo(a);
+  const eloB = getSeedElo(b);
+  document.getElementById('vsElo_30').textContent = `+${previewEloGain(eloA, eloB, 3, 0)}`;
+  document.getElementById('vsElo_31').textContent = `+${previewEloGain(eloA, eloB, 3, 1)}`;
+  document.getElementById('vsElo_32').textContent = `+${previewEloGain(eloA, eloB, 3, 2)}`;
+  document.getElementById('vsElo_03').textContent = `+${previewEloGain(eloB, eloA, 3, 0)}`;
+  document.getElementById('vsElo_13').textContent = `+${previewEloGain(eloB, eloA, 3, 1)}`;
+  document.getElementById('vsElo_23').textContent = `+${previewEloGain(eloB, eloA, 3, 2)}`;
 
   modal.classList.add('open');
 }
@@ -1403,19 +1434,37 @@ document.addEventListener('keydown', e => {
     <div style="display:flex;gap:18px;align-items:center;">
       <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
         <div style="font-size:0.62rem;color:#ff8888;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;" id="vsScoreLabel1">P1 Wins</div>
-        <div style="display:flex;gap:6px;">
-          <button class="score-preset-btn p1-btn" onclick="pickScore(3,0)">3-0</button>
-          <button class="score-preset-btn p1-btn" onclick="pickScore(3,1)">3-1</button>
-          <button class="score-preset-btn p1-btn" onclick="pickScore(3,2)">3-2</button>
+        <div style="display:flex;gap:6px;align-items:flex-end;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span id="vsElo_30" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
+            <button class="score-preset-btn p1-btn" onclick="pickScore(3,0)">3-0</button>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span id="vsElo_31" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
+            <button class="score-preset-btn p1-btn" onclick="pickScore(3,1)">3-1</button>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span id="vsElo_32" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
+            <button class="score-preset-btn p1-btn" onclick="pickScore(3,2)">3-2</button>
+          </div>
         </div>
       </div>
-      <div style="width:1px;height:38px;background:rgba(255,255,255,0.15);"></div>
+      <div style="width:1px;height:50px;background:rgba(255,255,255,0.15);"></div>
       <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
         <div style="font-size:0.62rem;color:#88aaff;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;" id="vsScoreLabel2">P2 Wins</div>
-        <div style="display:flex;gap:6px;">
-          <button class="score-preset-btn p2-btn" onclick="pickScore(0,3)">0-3</button>
-          <button class="score-preset-btn p2-btn" onclick="pickScore(1,3)">1-3</button>
-          <button class="score-preset-btn p2-btn" onclick="pickScore(2,3)">2-3</button>
+        <div style="display:flex;gap:6px;align-items:flex-end;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span id="vsElo_03" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
+            <button class="score-preset-btn p2-btn" onclick="pickScore(0,3)">0-3</button>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span id="vsElo_13" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
+            <button class="score-preset-btn p2-btn" onclick="pickScore(1,3)">1-3</button>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span id="vsElo_23" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
+            <button class="score-preset-btn p2-btn" onclick="pickScore(2,3)">2-3</button>
+          </div>
         </div>
       </div>
     </div>

@@ -122,8 +122,8 @@
         <h2 style="margin-top:14px;">Character Fill</h2>
         <div id="autoFillOptions" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;padding:10px;background:var(--card-bg2);border-radius:8px;border:1px solid var(--border);">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
-            <input type="radio" name="fillMode" value="points" checked style="accent-color:var(--accent-blue);" />
-            <span>Auto-fill by <strong>Points</strong> (win/loss stats)</span>
+            <input type="radio" name="fillMode" value="elo" checked style="accent-color:var(--accent-blue);" />
+            <span>Auto-fill by <strong>Elo</strong> (highest rated characters)</span>
           </label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
             <input type="radio" name="fillMode" value="kills" style="accent-color:var(--accent-blue);" />
@@ -148,10 +148,6 @@
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
             <input type="radio" name="seedMode" value="elo" checked style="accent-color:var(--accent-blue);" />
             <span><strong>Elo</strong> — rank by Elo rating</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
-            <input type="radio" name="seedMode" value="points" style="accent-color:var(--accent-blue);" />
-            <span><strong>Points</strong> — rank by net win/loss points</span>
           </label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
             <input type="radio" name="seedMode" value="kills" style="accent-color:var(--accent-blue);" />
@@ -352,7 +348,7 @@ async function buildEntryGrid() {
       try {
         const data = await apiGet(`/characters/stats/${encodeURIComponent(p)}`);
         const stats = data.stats || [];
-        allUserStats[p] = stats.filter(s => s.points > 0).sort((a,b) => b.points - a.points);
+        allUserStats[p] = stats.filter(s => (s.wins||0) + (s.losses||0) > 0).sort((a,b) => (b.elo||1000) - (a.elo||1000));
         allUserKills[p] = stats.filter(s => s.kills > 0).sort((a,b) => b.kills - a.kills);
       } catch (_) { allUserStats[p] = []; allUserKills[p] = []; }
     }
@@ -368,7 +364,7 @@ async function buildEntryGrid() {
             chars = d.characters || [];
           } else {
             const d = await apiGet(`/characters/stats/${encodeURIComponent(p)}`);
-            chars = (d.stats || []).filter(s => s.points > 0).sort((a,b) => b.points - a.points).map(s => s.character);
+            chars = (d.stats || []).filter(s => (s.wins||0) + (s.losses||0) > 0).sort((a,b) => (b.elo||1000) - (a.elo||1000)).map(s => s.character);
           }
           allUserFavs[p] = chars;
         } catch (_) { allUserFavs[p] = []; }
@@ -387,7 +383,7 @@ async function buildEntryGrid() {
   players.forEach(p => {
     let topChars = [];
     if (autoFill) {
-      if (fillMode === 'points') {
+      if (fillMode === 'elo') {
         topChars = (allUserStats[p] || []).map(s => s.character);
       } else if (fillMode === 'kills') {
         topChars = (allUserKills[p] || []).map(s => s.character);
@@ -597,12 +593,12 @@ function generateBracket() {
 }
 
 function getEntryPoints(entry) {
-  const fillMode = document.querySelector('input[name="fillMode"]:checked')?.value || 'points';
+  const fillMode = document.querySelector('input[name="fillMode"]:checked')?.value || 'elo';
 
-  if (fillMode === 'points') {
+  if (fillMode === 'elo') {
     const stats = allUserStats[entry.player] || [];
     const match = stats.find(s => s.character === entry.character);
-    return match ? match.points : 0;
+    return match ? (match.elo || 1000) : 1000;
 
   } else if (fillMode === 'favorites') {
     const favs = allUserFavs[entry.player] || [];
@@ -1081,7 +1077,7 @@ function getBracketPayload(name, isLive, inviteUsernames) {
     players: getPlayers(),
     entries: currentEntries.filter(e => e.character),
     bracket_data: currentBracket.map(([a,b]) => ({a: entryLabel(a), b: entryLabel(b)})),
-    bracket_style: (document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong') + '|' + (document.querySelector('input[name="seedMode"]:checked')?.value || 'points'),
+    bracket_style: (document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong') + '|' + (document.querySelector('input[name="seedMode"]:checked')?.value || 'elo'),
     is_live: isLive,
     invite_usernames: inviteUsernames,
     chars_per_player: parseInt(document.getElementById('charsPerPlayer').value) || 2,
@@ -1102,7 +1098,7 @@ async function startLineupPhase() {
       players,
       entries: [],
       bracket_data: [],
-      bracket_style: (document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong') + '|' + (document.querySelector('input[name="seedMode"]:checked')?.value || 'points'),
+      bracket_style: (document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong') + '|' + (document.querySelector('input[name="seedMode"]:checked')?.value || 'elo'),
       is_live: true,
       invite_usernames: invitees,
       chars_per_player: k,
@@ -1173,7 +1169,7 @@ async function endTournament() {
       try {
         const data = await apiGet(`/characters/stats`);
         const all = data || [];
-        allUserStats[me.username] = all.filter(s => s.points > 0).sort((a,b) => b.points - a.points);
+        allUserStats[me.username] = all.filter(s => (s.wins||0) + (s.losses||0) > 0).sort((a,b) => (b.elo||1000) - (a.elo||1000));
         allUserKills[me.username] = all.filter(s => s.kills > 0).sort((a,b) => b.kills - a.kills);
       } catch (_) {}
     }

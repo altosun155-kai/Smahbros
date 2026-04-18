@@ -123,10 +123,6 @@
                 <span><strong>Elo</strong></span>
               </label>
               <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
-                <input type="radio" name="liveSeedMode" value="points" style="accent-color:var(--accent-blue);" />
-                <span><strong>Points</strong></span>
-              </label>
-              <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
                 <input type="radio" name="liveSeedMode" value="kills" style="accent-color:var(--accent-blue);" />
                 <span><strong>Kills</strong></span>
               </label>
@@ -699,7 +695,7 @@ async function previewMatchups() {
   const players = data.players || [];
   const savedStyle = (data.bracket_style || 'strongVsStrong').split('|');
   const style    = document.querySelector('input[name="liveBracketStyle"]:checked')?.value || savedStyle[0] || 'strongVsStrong';
-  const seedMode = document.querySelector('input[name="liveSeedMode"]:checked')?.value    || savedStyle[1] || 'points';
+  const seedMode = document.querySelector('input[name="liveSeedMode"]:checked')?.value    || savedStyle[1] || 'elo';
 
   document.getElementById('btnPreviewMatchups').textContent = '⏳ Computing…';
   document.getElementById('btnPreviewMatchups').disabled = true;
@@ -735,7 +731,7 @@ async function previewMatchups() {
     }
     if (seedMode === 'kills') return s.kills || 0;
     if (seedMode === 'elo') return s.elo || 1000;
-    return s.points || 0;
+    return s.elo || 1000;
   }
 
   const pairs = [];
@@ -919,7 +915,7 @@ async function fetchAndRender() {
       document.getElementById('hostGenerateSection').style.display = isHost ? 'block' : 'none';
       if (isHost && !liveControlsSet) {
         liveControlsSet = true;
-        const [savedBracketStyle, savedSeedMode = 'points'] = (data.bracket_style || 'strongVsStrong').split('|');
+        const [savedBracketStyle, savedSeedMode = 'elo'] = (data.bracket_style || 'strongVsStrong').split('|');
         const bsEl = document.querySelector(`input[name="liveBracketStyle"][value="${savedBracketStyle}"]`);
         if (bsEl) bsEl.checked = true;
         const smEl = document.querySelector(`input[name="liveSeedMode"][value="${savedSeedMode}"]`);

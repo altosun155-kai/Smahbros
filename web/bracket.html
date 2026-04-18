@@ -1224,7 +1224,7 @@ async function endTournament() {
 function adjustCPP(delta) {
   const inp = document.getElementById('charsPerPlayer');
   const disp = document.getElementById('charsPerPlayerDisplay');
-  const val = Math.max(1, Math.min(6, (parseInt(inp.value) || 2) + delta));
+  const val = Math.max(1, Math.min(20, (parseInt(inp.value) || 2) + delta));
   inp.value = val;
   disp.textContent = val;
 }

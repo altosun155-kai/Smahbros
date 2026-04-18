@@ -64,24 +64,40 @@
   <div id="charEmpty" class="empty-state" style="display:none;">
     <p>No character stats recorded yet.</p>
   </div>
-  <div style="overflow-x:auto;" id="charTableWrap" style="display:none;">
-    <table class="data-table" id="charTable">
-      <thead>
-        <tr>
-          <th style="width:48px;">Rank</th>
-          <th>Player</th>
-          <th>Character</th>
-          <th class="sort-th desc" data-col="elo" onclick="sortBy('elo')">Elo<span class="sort-arrow"></span></th>
-          <th class="sort-th" data-col="kills" onclick="sortBy('kills')">Kills<span class="sort-arrow"></span></th>
-          <th class="sort-th" data-col="deaths" onclick="sortBy('deaths')">Deaths<span class="sort-arrow"></span></th>
-          <th class="sort-th" data-col="kd" onclick="sortBy('kd')">K/D<span class="sort-arrow"></span></th>
-          <th class="sort-th" data-col="wins" onclick="sortBy('wins')">Wins<span class="sort-arrow"></span></th>
-          <th class="sort-th" data-col="losses" onclick="sortBy('losses')">Losses<span class="sort-arrow"></span></th>
-          <th class="sort-th" data-col="win_pct" onclick="sortBy('win_pct')">Win %<span class="sort-arrow"></span></th>
-        </tr>
-      </thead>
-      <tbody id="charBody"></tbody>
-    </table>
+  <div id="charTableWrap" style="display:none;">
+    <!-- Filters -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
+      <input id="filterPlayer" type="text" placeholder="Filter by player…" oninput="onFilterChange()"
+        style="background:var(--card-bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 12px;font-size:0.85rem;width:180px;" />
+      <input id="filterChar" type="text" placeholder="Filter by character…" oninput="onFilterChange()"
+        style="background:var(--card-bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 12px;font-size:0.85rem;width:200px;" />
+      <span id="filterCount" style="font-size:0.8rem;color:var(--text-muted);"></span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="data-table" id="charTable">
+        <thead>
+          <tr>
+            <th style="width:48px;">Rank</th>
+            <th>Player</th>
+            <th>Character</th>
+            <th class="sort-th desc" data-col="elo" onclick="sortBy('elo')">Elo<span class="sort-arrow"></span></th>
+            <th class="sort-th" data-col="kills" onclick="sortBy('kills')">Kills<span class="sort-arrow"></span></th>
+            <th class="sort-th" data-col="deaths" onclick="sortBy('deaths')">Deaths<span class="sort-arrow"></span></th>
+            <th class="sort-th" data-col="kd" onclick="sortBy('kd')">K/D<span class="sort-arrow"></span></th>
+            <th class="sort-th" data-col="wins" onclick="sortBy('wins')">Wins<span class="sort-arrow"></span></th>
+            <th class="sort-th" data-col="losses" onclick="sortBy('losses')">Losses<span class="sort-arrow"></span></th>
+            <th class="sort-th" data-col="win_pct" onclick="sortBy('win_pct')">Win %<span class="sort-arrow"></span></th>
+          </tr>
+        </thead>
+        <tbody id="charBody"></tbody>
+      </table>
+    </div>
+    <!-- Pagination -->
+    <div id="charPager" style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:14px;font-size:0.85rem;">
+      <button id="prevBtn" onclick="changePage(-1)" style="background:var(--card-bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 14px;cursor:pointer;font-size:0.82rem;">← Prev</button>
+      <span id="pageInfo" style="color:var(--text-muted);"></span>
+      <button id="nextBtn" onclick="changePage(1)" style="background:var(--card-bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 14px;cursor:pointer;font-size:0.82rem;">Next →</button>
+    </div>
   </div>
 
   <!-- Global (RR sessions) leaderboard -->
@@ -115,18 +131,22 @@
 <script src="js/nav.js"></script>
 <script src="js/chars.js"></script>
 <script>
-  let allCharData = [];
+  const PAGE_SIZE = 25;
+  let allCharData = [];    // raw data from server
+  let rankedData  = [];    // sorted with global rank assigned
+  let currentPage = 1;
   let sortCol = 'elo';
-  let sortDir = 'desc'; // 'asc' or 'desc'
+  let sortDir = 'desc';
 
   function sortBy(col) {
     if (sortCol === col) {
       sortDir = sortDir === 'desc' ? 'asc' : 'desc';
     } else {
       sortCol = col;
-      // losses sorts asc by default (fewest is best), everything else desc
       sortDir = col === 'losses' ? 'asc' : 'desc';
     }
+    currentPage = 1;
+    rebuildRankedData();
     renderCharTable();
     updateSortHeaders();
   }
@@ -138,16 +158,65 @@
     });
   }
 
-  function renderCharTable() {
+  function rebuildRankedData() {
+    // Sort full dataset and assign permanent global ranks
     const sorted = [...allCharData].sort((a, b) => {
       const av = a[sortCol] ?? (sortDir === 'desc' ? -Infinity : Infinity);
       const bv = b[sortCol] ?? (sortDir === 'desc' ? -Infinity : Infinity);
       return sortDir === 'desc' ? bv - av : av - bv;
     });
+    rankedData = sorted.map((entry, i) => ({ ...entry, globalRank: i + 1 }));
+  }
+
+  function onFilterChange() {
+    currentPage = 1;
+    renderCharTable();
+  }
+
+  function changePage(delta) {
+    const filtered = getFiltered();
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    currentPage = Math.min(totalPages, Math.max(1, currentPage + delta));
+    renderCharTable();
+  }
+
+  function getFiltered() {
+    const pf = (document.getElementById('filterPlayer')?.value || '').toLowerCase().trim();
+    const cf = (document.getElementById('filterChar')?.value || '').toLowerCase().trim();
+    return rankedData.filter(e =>
+      (!pf || e.username.toLowerCase().includes(pf)) &&
+      (!cf || e.character.toLowerCase().includes(cf))
+    );
+  }
+
+  function renderCharTable() {
+    const filtered = getFiltered();
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    currentPage = Math.min(currentPage, totalPages);
+    const page = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+    // Update filter count
+    const countEl = document.getElementById('filterCount');
+    if (countEl) {
+      const pf = document.getElementById('filterPlayer')?.value.trim();
+      const cf = document.getElementById('filterChar')?.value.trim();
+      countEl.textContent = (pf || cf) ? `${filtered.length} of ${rankedData.length} entries` : `${rankedData.length} entries`;
+    }
+
+    // Pagination controls
+    const pager = document.getElementById('charPager');
+    if (pager) pager.style.display = totalPages > 1 ? 'flex' : 'none';
+    const pageInfo = document.getElementById('pageInfo');
+    if (pageInfo) pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    if (prevBtn) prevBtn.disabled = currentPage <= 1;
+    if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
 
     const body = document.getElementById('charBody');
-    body.innerHTML = sorted.map((entry, i) => {
-      const rankLabel = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
+    body.innerHTML = page.map(entry => {
+      const i = entry.globalRank - 1;
+      const rankLabel = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${entry.globalRank}`;
       const rowClass  = i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '';
       const av = entry.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}`;
       const imgUrl = charImgUrl(entry.character);
@@ -158,10 +227,6 @@
         ? (entry.win_pct >= 60 ? '#27ae60' : entry.win_pct >= 40 ? '#ffe066' : '#e74c3c')
         : 'var(--text-muted)';
       const pctStr = entry.win_pct != null ? `${entry.win_pct}%` : '—';
-      const total = (entry.wins || 0) + (entry.losses || 0);
-      const wlStr = total > 0
-        ? `<span style="color:#27ae60;font-weight:700;">${entry.wins}</span> <span style="color:var(--text-muted);">/</span> <span style="color:#e74c3c;font-weight:700;">${entry.losses}</span>`
-        : `<span style="color:var(--text-muted);">—</span>`;
       const kdVal = entry.kd;
       const kdStr = kdVal !== null && kdVal !== undefined
         ? `<span style="font-weight:700;color:${kdVal >= 2 ? '#27ae60' : kdVal >= 1 ? '#ffe066' : '#e74c3c'};">${kdVal.toFixed(2)}</span>`
@@ -196,8 +261,10 @@
       }
 
       allCharData = data;
+      rebuildRankedData();
       document.getElementById('charTableWrap').style.display = 'block';
       renderCharTable();
+      updateSortHeaders();
     } catch (err) {
       document.getElementById('charLoading').style.display = 'none';
       showToast('Error loading leaderboard: ' + err.message, 'error');

@@ -111,6 +111,7 @@ def bracket_to_dict(b: Bracket, include_invites: bool = False):
         "host_avatar": b.owner.avatar_url,
         "chars_per_player": b.chars_per_player or 2,
         "confirmed_lineups": b.confirmed_lineups or {},
+        "placements": b.placements or {},
         "created_at": b.created_at.isoformat(),
     }
     if include_invites:
@@ -337,6 +338,19 @@ def end_tournament(bracket_id: int, db: Session = Depends(get_db), current_user:
                             bonuses.append((sf_a_player, sf_a_char, round(k * 0.25), "3rd"))
                         elif sf_b_player and sf_b_player != sf_winner_player:
                             bonuses.append((sf_b_player, sf_b_char, round(k * 0.25), "3rd"))
+
+            # Save placements to the bracket record (player + character)
+            placement_map = {"1st": None, "2nd": None, "3rd": []}
+            for (player, char, bonus, place) in bonuses:
+                entry = {"player": player, "char": char, "elo_bonus": bonus}
+                if place == "1st":
+                    placement_map["1st"] = entry
+                elif place == "2nd":
+                    placement_map["2nd"] = entry
+                elif place == "3rd":
+                    placement_map["3rd"].append(entry)
+            b.placements = placement_map
+            flag_modified(b, "placements")
 
             # Apply bonuses to character Elo
             for (player, char, bonus, _) in bonuses:

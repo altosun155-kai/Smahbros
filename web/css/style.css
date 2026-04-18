@@ -74,9 +74,14 @@ a:hover {
   list-style: none;
   flex: 1;
   flex-wrap: nowrap;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   gap: 2px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+  min-width: 0;
 }
+.nav-links::-webkit-scrollbar { display: none; }
 
 .nav-links a {
   display: block;
@@ -591,20 +596,27 @@ a:hover {
   }
 
   .navbar {
-    padding: 0 16px;
+    padding: 0 10px;
     position: relative;
+    gap: 4px;
   }
 
   .nav-links {
-    display: none;
-  }
-
-  .hamburger-btn {
     display: flex;
   }
 
-  .nav-right {
+  .nav-links a {
+    padding: 6px 8px;
+    font-size: 0.78rem;
+  }
+
+  .hamburger-btn {
     display: none;
+  }
+
+  .nav-right {
+    display: flex;
+    flex-shrink: 0;
   }
 
   .page-header h1 {

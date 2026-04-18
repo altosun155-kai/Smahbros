@@ -146,7 +146,11 @@
         <h2 style="margin-top:14px;">Seeding (Rank By)</h2>
         <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;padding:10px;background:var(--card-bg2);border-radius:8px;border:1px solid var(--border);">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
-            <input type="radio" name="seedMode" value="points" checked style="accent-color:var(--accent-blue);" />
+            <input type="radio" name="seedMode" value="elo" checked style="accent-color:var(--accent-blue);" />
+            <span><strong>Elo</strong> — rank by Elo rating</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+            <input type="radio" name="seedMode" value="points" style="accent-color:var(--accent-blue);" />
             <span><strong>Points</strong> — rank by net win/loss points</span>
           </label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
@@ -641,11 +645,19 @@ function getSeedWinPct(entry) {
   return total >= 3 ? (match.wins || 0) / total : 0;
 }
 
+function getSeedElo(entry) {
+  if (!entry || entry.player === 'SYSTEM') return -1;
+  const stats = allUserStats[entry.player] || [];
+  const match = stats.find(s => s.character === entry.character);
+  return match ? (match.elo || 1000) : 1000;
+}
+
 // Returns the seeding value based on the Seeding (Rank By) selection
 function getSeedValue(entry) {
-  const seedMode = document.querySelector('input[name="seedMode"]:checked')?.value || 'points';
+  const seedMode = document.querySelector('input[name="seedMode"]:checked')?.value || 'elo';
   if (seedMode === 'kills') return getSeedKills(entry);
   if (seedMode === 'winpct') return getSeedWinPct(entry);
+  if (seedMode === 'elo') return getSeedElo(entry);
   return getSeedPoints(entry);
 }
 
@@ -1279,7 +1291,7 @@ function openVsModal(a, b, key) {
   if (url2) { charImg2.src = url2; charImg2.style.display = 'block'; } else { charImg2.style.display = 'none'; }
 
   // Seed info (shown in VS modal instead of bracket view)
-  const seedMode = document.querySelector('input[name="seedMode"]:checked')?.value || 'points';
+  const seedMode = document.querySelector('input[name="seedMode"]:checked')?.value || 'elo';
   let seedA, seedB;
   if (seedMode === 'kills') {
     seedA = getSeedKills(a); seedB = getSeedKills(b);
@@ -1289,6 +1301,10 @@ function openVsModal(a, b, key) {
     seedA = getSeedWinPct(a); seedB = getSeedWinPct(b);
     document.getElementById('vsP1Seed').textContent = seedA > 0 ? `${Math.round(seedA * 100)}%` : '';
     document.getElementById('vsP2Seed').textContent = seedB > 0 ? `${Math.round(seedB * 100)}%` : '';
+  } else if (seedMode === 'elo') {
+    seedA = getSeedElo(a); seedB = getSeedElo(b);
+    document.getElementById('vsP1Seed').textContent = `${seedA} elo`;
+    document.getElementById('vsP2Seed').textContent = `${seedB} elo`;
   } else {
     seedA = getSeedPoints(a); seedB = getSeedPoints(b);
     document.getElementById('vsP1Seed').textContent = seedA > 0 ? `${seedA} pts` : '';

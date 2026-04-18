@@ -244,6 +244,9 @@
         Configure players and click "Generate Bracket" to get started.
       </div>
 
+      <!-- Placement Elo rewards -->
+      <div id="bracketEloRewards" style="display:none;background:rgba(255,224,102,0.07);border:1px solid rgba(255,224,102,0.2);border-radius:8px;padding:7px 14px;font-size:0.75rem;font-weight:700;color:rgba(255,255,255,0.7);display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px;"></div>
+
       <!-- Sticky action bar -->
       <div class="sticky-bar">
         <button class="btn btn-gold" onclick="generateBracket()">Generate Bracket</button>
@@ -579,6 +582,16 @@ function generateBracket() {
   roundWinners = {}; roundScores = {};
   bracketK = Math.max(32, getPlayers().length * (parseInt(document.getElementById('charsPerPlayer').value) || 2) * 2);
   renderBracket();
+
+  const rewardsEl = document.getElementById('bracketEloRewards');
+  if (rewardsEl) {
+    rewardsEl.style.display = 'flex';
+    rewardsEl.innerHTML =
+      `<span style="color:rgba(255,255,255,0.45);font-size:0.68rem;text-transform:uppercase;letter-spacing:1px;">Elo Rewards</span>` +
+      `<span>🥇 <span style="color:#ffe066;">+${bracketK}</span></span>` +
+      `<span>🥈 <span style="color:#c0c0c0;">+${Math.round(bracketK * 0.5)}</span></span>` +
+      `<span>🥉 <span style="color:#cd7f32;">+${Math.round(bracketK * 0.25)}</span></span>`;
+  }
 
   // Collapse entries list to give the bracket room
   const entrySection = document.getElementById('entryGridSection');

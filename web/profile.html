@@ -461,7 +461,7 @@
     try {
       const data = await apiGet(`/characters/stats/${encodeURIComponent(currentUsername)}`);
       document.getElementById('eloLoading').style.display = 'none';
-      const stats = (data.stats || []).filter(s => s.wins > 0 || s.losses > 0).sort((a, b) => (b.elo || 1000) - (a.elo || 1000));
+      const stats = (data.stats || []).filter(s => s.wins > 0 || s.losses > 0).sort((a, b) => (b.elo||1000) - (a.elo||1000) || (b.points||0) - (a.points||0) || ((b.wins||0)+(b.losses||0)) - ((a.wins||0)+(a.losses||0)));
       if (!stats.length) { document.getElementById('eloEmpty').style.display = 'block'; return; }
       const grid = document.getElementById('eloGrid');
       grid.style.display = 'grid';

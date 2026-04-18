@@ -351,7 +351,7 @@ async function buildEntryGrid() {
       try {
         const data = await apiGet(`/characters/stats/${encodeURIComponent(p)}`);
         const stats = data.stats || [];
-        allUserStats[p] = stats.filter(s => (s.wins||0) + (s.losses||0) > 0).sort((a,b) => (b.elo||1000) - (a.elo||1000) || (b.points||0) - (a.points||0) || ((b.wins||0)+(b.losses||0)) - ((a.wins||0)+(a.losses||0)));
+        allUserStats[p] = stats.filter(s => (s.wins||0) + (s.losses||0) > 0).sort((a,b) => (b.elo||1000) - (a.elo||1000) || (b.kills||0) - (a.kills||0) || (b.points||0) - (a.points||0));
         allUserKills[p] = stats.filter(s => s.kills > 0).sort((a,b) => b.kills - a.kills);
       } catch (_) { allUserStats[p] = []; allUserKills[p] = []; }
     }
@@ -367,7 +367,7 @@ async function buildEntryGrid() {
             chars = d.characters || [];
           } else {
             const d = await apiGet(`/characters/stats/${encodeURIComponent(p)}`);
-            chars = (d.stats || []).filter(s => (s.wins||0) + (s.losses||0) > 0).sort((a,b) => (b.elo||1000) - (a.elo||1000) || (b.points||0) - (a.points||0) || ((b.wins||0)+(b.losses||0)) - ((a.wins||0)+(a.losses||0))).map(s => s.character);
+            chars = (d.stats || []).filter(s => (s.wins||0) + (s.losses||0) > 0).sort((a,b) => (b.elo||1000) - (a.elo||1000) || (b.kills||0) - (a.kills||0) || (b.points||0) - (a.points||0)).map(s => s.character);
           }
           allUserFavs[p] = chars;
         } catch (_) { allUserFavs[p] = []; }
@@ -969,7 +969,7 @@ async function recordMatchResult(winnerLabel, loserLabel, winnerKills = 0, loser
       try {
         const d = await apiGet(`/characters/stats/${encodeURIComponent(p)}`);
         const stats = d.stats || [];
-        allUserStats[p] = stats.filter(s => (s.wins||0) + (s.losses||0) > 0).sort((a,b) => (b.elo||1000) - (a.elo||1000) || (b.points||0) - (a.points||0) || ((b.wins||0)+(b.losses||0)) - ((a.wins||0)+(a.losses||0)));
+        allUserStats[p] = stats.filter(s => (s.wins||0) + (s.losses||0) > 0).sort((a,b) => (b.elo||1000) - (a.elo||1000) || (b.kills||0) - (a.kills||0) || (b.points||0) - (a.points||0));
         allUserKills[p] = stats.filter(s => s.kills > 0).sort((a,b) => b.kills - a.kills);
       } catch (_) {}
     }));
@@ -1193,7 +1193,7 @@ async function endTournament() {
       try {
         const data = await apiGet(`/characters/stats`);
         const all = data || [];
-        allUserStats[me.username] = all.filter(s => (s.wins||0) + (s.losses||0) > 0).sort((a,b) => (b.elo||1000) - (a.elo||1000) || (b.points||0) - (a.points||0) || ((b.wins||0)+(b.losses||0)) - ((a.wins||0)+(a.losses||0)));
+        allUserStats[me.username] = all.filter(s => (s.wins||0) + (s.losses||0) > 0).sort((a,b) => (b.elo||1000) - (a.elo||1000) || (b.kills||0) - (a.kills||0) || (b.points||0) - (a.points||0));
         allUserKills[me.username] = all.filter(s => s.kills > 0).sort((a,b) => b.kills - a.kills);
       } catch (_) {}
     }

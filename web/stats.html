@@ -276,7 +276,7 @@
     // Your top 5 (excluding opponent's character)
     const yourTop = [...myStats]
       .filter(s => ((s.wins||0) + (s.losses||0)) > 0 && s.character !== opponent)
-      .sort((a, b) => (b.elo||1000) - (a.elo||1000) || (b.points||0) - (a.points||0) || ((b.wins||0)+(b.losses||0)) - ((a.wins||0)+(a.losses||0)))
+      .sort((a, b) => (b.elo||1000) - (a.elo||1000) || (b.kills||0) - (a.kills||0) || (b.points||0) - (a.points||0))
       .slice(0, 5);
 
     // Global top 5 (excluding opponent's character, rank by highest Elo)
@@ -330,7 +330,7 @@
     const empty = emptyId ? document.getElementById(emptyId) : null;
 
     const filtered = (data || []).filter(s => (s.wins || 0) + (s.losses || 0) > 0);
-    filtered.sort((a,b) => (b.elo||1000) - (a.elo||1000) || (b.points||0) - (a.points||0) || ((b.wins||0)+(b.losses||0)) - ((a.wins||0)+(a.losses||0)));
+    filtered.sort((a,b) => (b.elo||1000) - (a.elo||1000) || (b.kills||0) - (a.kills||0) || (b.points||0) - (a.points||0));
 
     if (!filtered.length) {
       if (table) table.style.display = 'none';

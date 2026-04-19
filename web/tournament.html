@@ -226,7 +226,7 @@
   <div class="vs-winner-row">
     <div id="scorePickLabel" style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);margin-bottom:8px;">Pick Score (stocks)</div>
     <div id="viewOnlyNote" style="display:none;font-size:0.75rem;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.5px;margin-bottom:8px;">Only the host can record results</div>
-    <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;">
+    <div id="desktopScoreGrid" style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;">
       <!-- P1 wins -->
       <div>
         <div style="font-size:0.62rem;color:#ff8888;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:3px;" id="scoreLabel1">P1 Wins</div>
@@ -272,6 +272,26 @@
           <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(0,3)">0-3</button>
           <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(1,3)">1-3</button>
           <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(2,3)">2-3</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile winner-first picker (portrait only, toggled via CSS) -->
+    <div id="mobileScorePicker" style="display:none;">
+      <div style="display:flex;gap:10px;margin-bottom:18px;">
+        <button id="mWinBtn1" class="m-win-btn m-win-p1" onclick="selectMobileWinner('p1')">
+          <span id="mWinName1">P1 WON</span>
+        </button>
+        <button id="mWinBtn2" class="m-win-btn m-win-p2" onclick="selectMobileWinner('p2')">
+          <span id="mWinName2">P2 WON</span>
+        </button>
+      </div>
+      <div id="mobileScoreOptions" style="display:none;">
+        <div style="font-size:0.65rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:12px;">Pick score</div>
+        <div style="display:flex;gap:10px;">
+          <button class="m-score-card" id="mScoreCard0"></button>
+          <button class="m-score-card" id="mScoreCard1"></button>
+          <button class="m-score-card" id="mScoreCard2"></button>
         </div>
       </div>
     </div>
@@ -562,6 +582,36 @@ let lastRenderedRounds = [];
 let scoreModalKey = null;
 let scoreModalA = null;
 let scoreModalB = null;
+let _mobileWinner = null; // 'p1' | 'p2' | null
+
+function selectMobileWinner(side) {
+  _mobileWinner = side;
+  document.getElementById('mWinBtn1').classList.toggle('active', side === 'p1');
+  document.getElementById('mWinBtn2').classList.toggle('active', side === 'p2');
+
+  const isP1 = side === 'p1';
+  const ids    = isP1 ? ['30','31','32'] : ['03','13','23'];
+  const labels = isP1 ? ['3-0','3-1','3-2'] : ['0-3','1-3','2-3'];
+  const picks  = isP1 ? [[3,0],[3,1],[3,2]] : [[0,3],[1,3],[2,3]];
+
+  ids.forEach((id, i) => {
+    const elo   = document.getElementById(`tElo_${id}`)?.textContent  || '';
+    const rankW = document.getElementById(`tRankW_${id}`)?.textContent || '';
+    const rankL = document.getElementById(`tRankL_${id}`)?.textContent || '';
+    const card  = document.getElementById(`mScoreCard${i}`);
+    card.innerHTML =
+      `<div class="m-score-name">${labels[i]}</div>` +
+      (rankW || rankL ? `<div class="m-rank-row"><span style="color:#4caf50;">${rankW}</span><span style="color:#e74c3c;">${rankL}</span></div>` : '') +
+      (elo ? `<div class="m-elo-val">${elo}</div>` : '');
+    if (isHost) {
+      card.onclick = () => pickTournamentScore(picks[i][0], picks[i][1]);
+    } else {
+      card.onclick = null;
+      card.style.cursor = 'default';
+    }
+  });
+  document.getElementById('mobileScoreOptions').style.display = 'block';
+}
 
 function openScoreModal(a, b, key) {
   scoreModalKey = key;
@@ -576,6 +626,19 @@ function openScoreModal(a, b, key) {
   document.getElementById('scoreP2Char').textContent = scoreModalB.character;
   document.getElementById('scoreLabel1').textContent = `${scoreModalA.player} Wins`;
   document.getElementById('scoreLabel2').textContent = `${scoreModalB.player} Wins`;
+
+  // Mobile winner-first UI — reset state
+  _mobileWinner = null;
+  document.getElementById('mWinName1').textContent = `${scoreModalA.player} Won`;
+  document.getElementById('mWinName2').textContent = `${scoreModalB.player} Won`;
+  document.getElementById('mWinBtn1').classList.remove('active');
+  document.getElementById('mWinBtn2').classList.remove('active');
+  document.getElementById('mobileScoreOptions').style.display = 'none';
+  // Non-hosts: disable score cards but can still view elo by tapping winner
+  if (!isHost) {
+    document.getElementById('mWinBtn1').style.opacity = '0.85';
+    document.getElementById('mWinBtn2').style.opacity = '0.85';
+  }
 
   // Avatars (use real profile avatars)
   const av1 = getPlayerAvatar(scoreModalA.player);
@@ -647,6 +710,8 @@ function openScoreModal(a, b, key) {
       if (el1) el1.innerHTML = `${scoreModalA.character} <span style="color:rgba(255,224,102,0.65);font-size:0.63rem;">${eloA} elo</span>`;
       if (el2) el2.innerHTML = `${scoreModalB.character} <span style="color:rgba(255,224,102,0.65);font-size:0.63rem;">${eloB} elo</span>`;
     }
+    // Refresh mobile cards if a winner was already tapped before elo loaded
+    if (_mobileWinner) selectMobileWinner(_mobileWinner);
   });
 }
 

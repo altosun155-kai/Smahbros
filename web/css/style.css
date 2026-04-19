@@ -840,3 +840,61 @@ a:hover {
 .score-preset-btn:hover { transform: scale(1.08); opacity: 0.9; }
 .score-preset-btn.p1-btn { background: rgba(180,20,20,0.85); color: #fff; border: 2px solid rgba(255,120,120,0.4); }
 .score-preset-btn.p2-btn { background: rgba(20,60,180,0.85); color: #fff; border: 2px solid rgba(100,150,255,0.4); }
+
+/* ── Mobile winner-first picker ───────────────────────── */
+.m-win-btn {
+  flex: 1;
+  padding: 16px 12px;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.1s, opacity 0.15s, border-color 0.15s;
+  opacity: 0.65;
+}
+.m-win-btn.active { opacity: 1; transform: scale(1.03); }
+.m-win-p1 { background: rgba(180,20,20,0.8); color: #fff; border-color: rgba(255,120,120,0.3); }
+.m-win-p1.active { border-color: rgba(255,150,150,0.8); }
+.m-win-p2 { background: rgba(20,60,180,0.8); color: #fff; border-color: rgba(100,150,255,0.3); }
+.m-win-p2.active { border-color: rgba(130,170,255,0.8); }
+
+.m-score-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 6px;
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s, transform 0.1s;
+  color: #fff;
+}
+.m-score-card:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.25); transform: scale(1.04); }
+.m-score-name { font-size: 1.1rem; font-weight: 900; color: #fff; }
+.m-rank-row { font-size: 0.62rem; font-weight: 700; display: flex; gap: 4px; }
+.m-elo-val { font-size: 1rem; font-weight: 800; color: #4caf50; }
+
+/* Show/hide based on portrait mobile */
+@media (max-width: 600px) and (orientation: portrait) {
+  #desktopScoreGrid { display: none !important; }
+  #mobileScorePicker { display: block !important; }
+  #scorePickLabel { display: none !important; }
+
+  .vs-winner-row {
+    position: relative;
+    bottom: auto; left: auto; transform: none;
+    white-space: normal;
+    background: rgba(10,10,20,0.97);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    width: 100%;
+    padding: 18px 16px 40px;
+    z-index: 3;
+  }
+  .vs-close { position: fixed; top: 10px; right: 12px; z-index: 10; }
+}

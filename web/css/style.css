@@ -596,27 +596,22 @@ a:hover {
   }
 
   .navbar {
-    padding: 0 10px;
+    padding: 0 16px;
     position: relative;
-    gap: 4px;
   }
 
   .nav-links {
-    display: flex;
-  }
-
-  .nav-links a {
-    padding: 6px 8px;
-    font-size: 0.78rem;
+    display: none;
   }
 
   .hamburger-btn {
-    display: none;
+    display: flex;
   }
 
   .nav-right {
     display: flex;
     flex-shrink: 0;
+    margin-left: auto;
   }
 
   .page-header h1 {

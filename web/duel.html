@@ -245,7 +245,7 @@
 
     <!-- Record a game -->
     <div class="duel-card" id="recordGameCard">
-      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;display:flex;align-items:center;gap:5px;">Record Game<span class="tip" data-tip="Elo gained = K × (1 − expected) × stock multiplier. K = 32 in duels (fixed). Expected = how likely you were to win based on elos (0–1). Stock multiplier: 3-0 = 2×, 3-1 = 1.5×, 3-2 = 0.5×. Upset a stronger player → expected is low → (1 − expected) is high → bigger gain.">?</span></div>
+      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;display:flex;align-items:center;gap:5px;">Record Game<span class="tip" data-tip="Elo gained = K × (1 − expected) × stock multiplier. K = 32 (fixed). Expected = how likely you were to win based on elos (0–1). Stock multiplier: 3-0 = 2×, 3-1 = 1.5×, 3-2 = 1×. Upset a stronger player → expected is low → (1 − expected) is high → bigger gain.">?</span></div>
       <div style="display:flex;flex-direction:column;gap:14px;">
         <!-- Character swap per game -->
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
@@ -533,7 +533,7 @@
   function _duelEloGain(winnerElo, loserElo, wk, lk) {
     const expected = 1 / (1 + Math.pow(10, (loserElo - winnerElo) / 400));
     const diff = wk - lk;
-    const mov = diff >= 3 ? 2 : diff === 2 ? 1.5 : 0.5;
+    const mov = diff >= 3 ? 2.0 : diff === 2 ? 1.5 : 1.0;
     return Math.max(1, Math.round(32 * (1 - expected) * mov));
   }
 

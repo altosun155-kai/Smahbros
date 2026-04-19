@@ -28,13 +28,11 @@ def _mov_multiplier(winner_kills: int, loser_kills: int) -> float:
         return 1.0  # no score recorded — neutral
     diff = winner_kills - loser_kills
     if diff >= 3:
-        return 2   # 3-stock, dominant win
+        return 2.0   # 3-0, dominant
     elif diff == 2:
-        return 1.5   # decisive
-    elif diff == 1:
-        return 0.5   # close match
+        return 1.5  # 3-1, comfortable
     else:
-        return 0.5  # should not happen, but treat as close match if it does
+        return 1.0   # 3-2, close but a win is a win
 
 
 def _elo_change(winner_elo: int, loser_elo: int, winner_kills: int, loser_kills: int, k: int = K_FACTOR) -> int:

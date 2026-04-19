@@ -224,7 +224,7 @@
   </div>
 
   <div class="vs-winner-row">
-    <div id="scorePickLabel" style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);display:flex;align-items:center;gap:5px;">Pick Score (stocks)<span class="tip" data-tip="Elo gained = K × (1 − expected) × stock multiplier. K = 32 (fixed for all matches). Expected = how likely you were to win based on elos (0–1). Stock multiplier: 3-0 = 2×, 3-1 = 1.5×, 3-2 = 0.5×. Upset a stronger player → expected is low → (1 − expected) is high → bigger gain.">?</span></div>
+    <div id="scorePickLabel" style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);display:flex;align-items:center;gap:5px;">Pick Score (stocks)<span class="tip" data-tip="Elo gained = K × (1 − expected) × stock multiplier. K = 32 (fixed). Expected = how likely you were to win based on elos (0–1). Stock multiplier: 3-0 = 2×, 3-1 = 1.5×, 3-2 = 1×. Upset a stronger player → expected is low → (1 − expected) is high → bigger gain.">?</span></div>
     <div id="viewOnlyNote" style="display:none;font-size:0.75rem;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.5px;">Only the host can record results</div>
     <div style="display:flex;gap:18px;align-items:center;">
       <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
@@ -309,7 +309,7 @@ function previewEloGain(winnerElo, loserElo, wk, lk) {
   const K = tournamentK;
   const expected = 1 / (1 + Math.pow(10, (loserElo - winnerElo) / 400));
   const diff = wk - lk;
-  const mov = diff >= 3 ? 2 : diff === 2 ? 1.5 : diff === 1 ? 0.5 : 0.5;
+  const mov = diff >= 3 ? 2.0 : diff === 2 ? 1.5 : 1.0;
   return Math.max(1, Math.round(K * (1 - expected) * mov));
 }
 

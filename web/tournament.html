@@ -492,12 +492,11 @@ function renderBracket(data) {
       box.innerHTML = entryHtml(a, roundWinners, roundScores, is_live, ri, key)
                     + entryHtml(b, roundWinners, roundScores, is_live, ri, key);
 
-      // Host can click undecided, ready matches to record a score
+      // Host can click any valid match (decided or not) to record/edit a score
       const alreadyDecided = !!roundWinners[key];
-      const ready = a && b && a !== 'TBD' && b !== 'TBD'
-        && a.toUpperCase() !== 'BYE' && b.toUpperCase() !== 'BYE'
-        && !alreadyDecided;
-      if (isHost && is_live && ready) {
+      const validMatch = a && b && a !== 'TBD' && b !== 'TBD'
+        && a.toUpperCase() !== 'BYE' && b.toUpperCase() !== 'BYE';
+      if (isHost && is_live && validMatch) {
         box.classList.add('clickable');
         box.addEventListener('click', e => {
           if (e.target.closest('.edit-char-btn')) return;
@@ -621,6 +620,7 @@ async function pickTournamentScore(p1Stocks, p2Stocks) {
   const key = scoreModalKey, a = scoreModalA, b = scoreModalB;
   if (!key || !a || !b) return;
   const finishedKey = key;
+  const wasDecided = !!(currentBracketData && currentBracketData.round_winners && currentBracketData.round_winners[key]);
   closeScoreModal();
 
   const winnerEntry = p1Stocks > p2Stocks ? a : b;
@@ -630,11 +630,15 @@ async function pickTournamentScore(p1Stocks, p2Stocks) {
   const winnerLabel = `${winnerEntry.player} — ${winnerEntry.character}`;
   const scoreStr = `${Math.max(p1Stocks, p2Stocks)}-${Math.min(p1Stocks, p2Stocks)}`;
 
-  // Detect Grand Final: last round (index rounds.length-1), only match (m0)
   const isGrandFinal = lastRenderedRounds.length > 1 &&
     key === `r${lastRenderedRounds.length - 1}_m0`;
 
   try {
+    // If editing an already-decided match, undo the previous result first
+    if (wasDecided) {
+      await apiDelete(`/brackets/${tournamentId}/result/${key}`);
+    }
+
     const patchBody = { key, winner: winnerLabel, score: scoreStr };
     if (isGrandFinal) patchBody.tournament_winner = winnerEntry.player;
     await apiPatch(`/brackets/${tournamentId}/winner`, patchBody);
@@ -645,14 +649,13 @@ async function pickTournamentScore(p1Stocks, p2Stocks) {
         bracket_id: parseInt(tournamentId),
         match_key: key,
       });
-      // Invalidate elo cache so next VS screen shows updated Elo
       Object.keys(_eloCache)
         .filter(k => k.startsWith(winnerEntry.player + '/') || k.startsWith(loserEntry.player + '/'))
         .forEach(k => delete _eloCache[k]);
     }
     showUndoBtn(`${winnerEntry.player} (${winnerEntry.character})`);
     await fetchAndRender();
-    advanceScoreModal(finishedKey);
+    if (!wasDecided) advanceScoreModal(finishedKey);
   } catch (err) {
     showToast('Error recording score: ' + err.message, 'error');
   }

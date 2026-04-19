@@ -379,6 +379,52 @@ def delete_bracket(bracket_id: int, db: Session = Depends(get_db), current_user:
     return {"ok": True}
 
 
+@router.delete("/brackets/{bracket_id}/result/{match_key:path}")
+def undo_result_by_key(bracket_id: int, match_key: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    b = db.query(Bracket).filter(Bracket.id == bracket_id, Bracket.user_id == current_user.id).first()
+    if not b:
+        raise HTTPException(status_code=403, detail="Only the host can undo")
+    mr = db.query(MatchResult).filter(
+        MatchResult.bracket_id == bracket_id,
+        MatchResult.match_key == match_key,
+    ).order_by(MatchResult.created_at.desc()).first()
+    if not mr:
+        return {"ok": True, "skipped": "no result for this match key"}
+
+    ws = db.query(CharacterStats).filter(
+        CharacterStats.user_id == mr.winner_id, CharacterStats.character == mr.winner_char
+    ).first()
+    ls = db.query(CharacterStats).filter(
+        CharacterStats.user_id == mr.loser_id, CharacterStats.character == mr.loser_char
+    ).first()
+    from routers.matches import ELO_DEFAULT
+    delta = mr.elo_delta or 0
+    if ws:
+        ws.elo    = max(100, (ws.elo or ELO_DEFAULT) - delta)
+        ws.points = max(0, (ws.points or 0) - 1)
+        ws.wins   = max(0, (ws.wins   or 0) - 1)
+        ws.kills  = max(0, (ws.kills  or 0) - (mr.winner_kills or 0))
+        ws.deaths = max(0, (ws.deaths or 0) - (mr.loser_kills  or 0))
+    if ls:
+        ls.elo    = (ls.elo or ELO_DEFAULT) + delta
+        ls.losses = max(0, (ls.losses or 0) - 1)
+        ls.kills  = max(0, (ls.kills  or 0) - (mr.loser_kills  or 0))
+        ls.deaths = max(0, (ls.deaths or 0) - (mr.winner_kills or 0))
+
+    rw = dict(b.round_winners or {})
+    rw.pop(match_key, None)
+    b.round_winners = rw
+    flag_modified(b, "round_winners")
+    rs = dict(b.round_scores or {})
+    rs.pop(match_key, None)
+    b.round_scores = rs
+    flag_modified(b, "round_scores")
+
+    db.delete(mr)
+    db.commit()
+    return {"ok": True, "undone": f"{mr.winner.username} ({mr.winner_char})"}
+
+
 @router.delete("/brackets/{bracket_id}/last-result")
 def undo_last_result(bracket_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     b = db.query(Bracket).filter(Bracket.id == bracket_id, Bracket.user_id == current_user.id).first()

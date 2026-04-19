@@ -245,7 +245,7 @@
 
     <!-- Record a game -->
     <div class="duel-card" id="recordGameCard">
-      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;">Record Game</div>
+      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;display:flex;align-items:center;gap:5px;">Record Game<span class="tip" data-tip="Elo gained = K × (1 − expected) × stock multiplier. K = 32 in duels (fixed). Expected = how likely you were to win based on elos (0–1). Stock multiplier: 3-0 = 2×, 3-1 = 1.5×, 3-2 = 0.5×. Upset a stronger player → expected is low → (1 − expected) is high → bigger gain.">?</span></div>
       <div style="display:flex;flex-direction:column;gap:14px;">
         <!-- Character swap per game -->
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
@@ -269,17 +269,35 @@
           <div>
             <div style="font-size:0.7rem;color:var(--accent-blue);margin-bottom:6px;font-weight:700;" id="scoreLabelP1">P1 Wins</div>
             <div class="score-btns" id="p1ScoreBtns">
-              <button class="score-btn" onclick="recordGame(1,3,0)">3-0</button>
-              <button class="score-btn" onclick="recordGame(1,3,1)">3-1</button>
-              <button class="score-btn" onclick="recordGame(1,3,2)">3-2</button>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+                <span id="dElo_30" style="font-size:0.6rem;color:#4caf50;font-weight:700;min-height:12px;"></span>
+                <button class="score-btn" onclick="recordGame(1,3,0)">3-0</button>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+                <span id="dElo_31" style="font-size:0.6rem;color:#4caf50;font-weight:700;min-height:12px;"></span>
+                <button class="score-btn" onclick="recordGame(1,3,1)">3-1</button>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+                <span id="dElo_32" style="font-size:0.6rem;color:#4caf50;font-weight:700;min-height:12px;"></span>
+                <button class="score-btn" onclick="recordGame(1,3,2)">3-2</button>
+              </div>
             </div>
           </div>
           <div>
             <div style="font-size:0.7rem;color:var(--accent-gold);margin-bottom:6px;font-weight:700;" id="scoreLabelP2">P2 Wins</div>
             <div class="score-btns" id="p2ScoreBtns">
-              <button class="score-btn" onclick="recordGame(2,3,0)">3-0</button>
-              <button class="score-btn" onclick="recordGame(2,3,1)">3-1</button>
-              <button class="score-btn" onclick="recordGame(2,3,2)">3-2</button>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+                <span id="dElo_03" style="font-size:0.6rem;color:#4caf50;font-weight:700;min-height:12px;"></span>
+                <button class="score-btn" onclick="recordGame(2,3,0)">3-0</button>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+                <span id="dElo_13" style="font-size:0.6rem;color:#4caf50;font-weight:700;min-height:12px;"></span>
+                <button class="score-btn" onclick="recordGame(2,3,1)">3-1</button>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+                <span id="dElo_23" style="font-size:0.6rem;color:#4caf50;font-weight:700;min-height:12px;"></span>
+                <button class="score-btn" onclick="recordGame(2,3,2)">3-2</button>
+              </div>
             </div>
           </div>
         </div>
@@ -357,6 +375,7 @@
     if (input) input.value = char;
     document.getElementById(`drop-${id}`)?.classList.remove('open');
     if (id === 'p1Char' || id === 'p2Char') onCharChange();
+    if (id === 'gameP1Char' || id === 'gameP2Char') updateDuelEloPreviews();
   }
 
   function pickerKey(e, id) {
@@ -511,6 +530,32 @@
     card.style.display = 'block';
   }
 
+  function _duelEloGain(winnerElo, loserElo, wk, lk) {
+    const expected = 1 / (1 + Math.pow(10, (loserElo - winnerElo) / 400));
+    const diff = wk - lk;
+    const mov = diff >= 3 ? 2 : diff === 2 ? 1.5 : 0.5;
+    return Math.max(1, Math.round(32 * (1 - expected) * mov));
+  }
+
+  function _getEloFromCache(username, character) {
+    const stats = username === p1 ? p1StatsCache : p2StatsCache;
+    const row = (stats || []).find(s => s.character === character);
+    return (row && row.elo) ? row.elo : 1000;
+  }
+
+  function updateDuelEloPreviews() {
+    const c1 = getPickerValue('gameP1Char') || p1CharCurrent;
+    const c2 = getPickerValue('gameP2Char') || p2CharCurrent;
+    if (!c1 || !c2 || !p1 || !p2) return;
+    const e1 = _getEloFromCache(p1, c1);
+    const e2 = _getEloFromCache(p2, c2);
+    document.getElementById('dElo_30').textContent = `+${_duelEloGain(e1, e2, 3, 0)}`;
+    document.getElementById('dElo_31').textContent = `+${_duelEloGain(e1, e2, 3, 1)}`;
+    document.getElementById('dElo_32').textContent = `+${_duelEloGain(e1, e2, 3, 2)}`;
+    document.getElementById('dElo_03').textContent = `+${_duelEloGain(e2, e1, 3, 0)}`;
+    document.getElementById('dElo_13').textContent = `+${_duelEloGain(e2, e1, 3, 1)}`;
+    document.getElementById('dElo_23').textContent = `+${_duelEloGain(e2, e1, 3, 2)}`;
+  }
 
   function startSeries() {
     p1 = document.getElementById('p1Select').value;
@@ -534,6 +579,7 @@
 
     initPicker('gameP1Char', p1CharCurrent);
     initPicker('gameP2Char', p2CharCurrent);
+    updateDuelEloPreviews();
 
     renderScore();
     renderLog();

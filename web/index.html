@@ -18,7 +18,7 @@
 <main class="page-container">
   <div class="page-header">
     <h1 id="welcomeHeading">Dashboard</h1>
-    <p>Welcome back! What would you like to do today?</p>
+    <p id="welcomeSub">Welcome back!</p>
   </div>
 
   <style>
@@ -28,13 +28,12 @@
       letter-spacing: 0.8px;
       text-transform: uppercase;
       color: var(--text-muted);
-      margin: 24px 0 10px;
+      margin: 28px 0 10px;
     }
-    .dash-section-label:first-child { margin-top: 0; }
     .dash-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-      gap: 14px;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 12px;
     }
     .dash-card {
       display: flex;
@@ -48,48 +47,124 @@
       transition: border-color 0.15s, background 0.15s;
     }
     .dash-card:hover { background: var(--card-bg2); border-color: rgba(255,255,255,0.18); }
-    .dash-card .dash-icon { font-size: 1.7rem; flex-shrink: 0; }
-    .dash-card h3 { font-size: 0.95rem; font-weight: 700; color: var(--text); margin-bottom: 3px; }
-    .dash-card p { font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; margin: 0; }
-    .dash-arrow { color: var(--text-muted); font-size: 1.1rem; align-self: center; margin-left: auto; flex-shrink: 0; }
+    .dash-card .dash-icon { font-size: 1.6rem; flex-shrink: 0; line-height: 1; margin-top: 2px; }
+    .dash-card h3 { font-size: 0.93rem; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+    .dash-card p { font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; margin: 0; }
+    .dash-arrow { color: var(--text-muted); font-size: 1.1rem; align-self: center; margin-left: auto; flex-shrink: 0; padding-left: 8px; }
+    .dash-card.featured {
+      border-color: rgba(0,119,200,0.45);
+      background: linear-gradient(135deg, rgba(0,119,200,0.12), rgba(0,60,120,0.06));
+    }
+    .dash-card.featured:hover { border-color: rgba(0,119,200,0.75); background: rgba(0,119,200,0.15); }
+
+    /* Quick stats strip */
+    .stat-strip {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+    .stat-pill {
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 100px;
+    }
+    .stat-pill .pill-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.7px; text-transform: uppercase; color: var(--text-muted); }
+    .stat-pill .pill-val { font-size: 1.1rem; font-weight: 800; color: var(--text); }
+    .stat-pill .pill-sub { font-size: 0.7rem; color: var(--text-muted); }
   </style>
 
   <!-- Live Tournament Banner -->
-  <div id="liveTournamentSection" style="display:none;margin-bottom:18px;">
+  <div id="liveTournamentSection" style="display:none;margin-bottom:12px;">
     <div style="background:linear-gradient(135deg,rgba(231,76,60,0.18),rgba(192,57,43,0.10));border:1.5px solid rgba(231,76,60,0.5);border-radius:var(--radius);padding:16px 20px;display:flex;align-items:center;gap:16px;">
       <div style="font-size:1.6rem;flex-shrink:0;">🔴</div>
       <div style="flex:1;min-width:0;">
-        <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:rgba(231,76,60,0.9);margin-bottom:3px;">Live Tournament</div>
+        <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:rgba(231,76,60,0.9);margin-bottom:3px;">Live Tournament</div>
         <div id="liveTournamentName" style="font-size:1rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
       </div>
-      <a id="liveTournamentLink" href="#" class="btn" style="flex-shrink:0;background:#e74c3c;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:0.85rem;text-decoration:none;white-space:nowrap;">Open →</a>
+      <a id="liveTournamentLink" href="#" style="flex-shrink:0;background:#e74c3c;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:0.85rem;text-decoration:none;white-space:nowrap;">Open →</a>
     </div>
   </div>
 
-  <!-- Core Tools -->
-  <div class="dash-section-label">Core Tools</div>
+  <!-- Pending Tournament Invites -->
+  <div id="inviteSection" style="display:none;margin-bottom:18px;">
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Tournament Invites</div>
+    <div id="inviteCards" style="display:flex;flex-direction:column;gap:10px;"></div>
+  </div>
+
+  <!-- Quick Stats -->
+  <div class="dash-section-label">Your Stats</div>
+  <div id="statStrip" class="stat-strip">
+    <div class="stat-pill"><span class="pill-label">Top Elo</span><span class="pill-val" id="statTopElo">—</span><span class="pill-sub" id="statTopChar">—</span></div>
+    <div class="stat-pill"><span class="pill-label">Best Rank</span><span class="pill-val" id="statBestRank">—</span><span class="pill-sub" id="statBestRankChar">—</span></div>
+    <div class="stat-pill"><span class="pill-label">Total Wins</span><span class="pill-val" id="statWins">—</span><span class="pill-sub">all characters</span></div>
+    <div class="stat-pill"><span class="pill-label">Win Rate</span><span class="pill-val" id="statWinPct">—</span><span class="pill-sub" id="statWinPctMin">min 3 games</span></div>
+  </div>
+  <a href="stats.html" style="font-size:0.75rem;color:var(--accent-blue);text-decoration:none;display:inline-block;margin-top:4px;margin-bottom:4px;">View full stats →</a>
+
+  <!-- Play -->
+  <div class="dash-section-label">Play</div>
   <div class="dash-grid">
-    <a href="bracket.html" class="dash-card">
-      <div class="dash-icon">🎮</div>
+    <a href="duel.html" class="dash-card featured">
+      <div class="dash-icon">⚔️</div>
       <div>
-        <h3>Bracket Generator</h3>
-        <p>Create single-elimination brackets for regular or team play.</p>
+        <h3>1v1 Duel</h3>
+        <p>Head-to-head series with live elo tracking, rank previews, and stock-based multipliers.</p>
       </div>
       <span class="dash-arrow">›</span>
     </a>
-    <a href="roundrobin.html" class="dash-card">
+    <a href="bracket.html" class="dash-card featured">
+      <div class="dash-icon">🏆</div>
+      <div>
+        <h3>Tournament Bracket</h3>
+        <p>Single-elimination brackets with elo rewards that scale with tournament size.</p>
+      </div>
+      <span class="dash-arrow">›</span>
+    </a>
+    <a href="roundrobin.html" class="dash-card featured">
       <div class="dash-icon">🔄</div>
       <div>
         <h3>Round Robin</h3>
-        <p>Schedule everyone vs everyone and track standings live.</p>
+        <p>Everyone plays everyone — track live standings across all matchups.</p>
       </div>
       <span class="dash-arrow">›</span>
     </a>
+  </div>
+
+  <!-- Rankings -->
+  <div class="dash-section-label">Rankings</div>
+  <div class="dash-grid">
+    <a href="leaderboard.html" class="dash-card">
+      <div class="dash-icon">📈</div>
+      <div>
+        <h3>Elo Leaderboard</h3>
+        <p>Character-level elo rankings. Requires 3+ games played. Beat stronger players to climb faster.</p>
+      </div>
+      <span class="dash-arrow">›</span>
+    </a>
+    <a href="leaderboard.html#global" class="dash-card">
+      <div class="dash-icon">🌍</div>
+      <div>
+        <h3>Global Leaderboard</h3>
+        <p>Overall player rankings by wins, kills, and sessions across all modes.</p>
+      </div>
+      <span class="dash-arrow">›</span>
+    </a>
+  </div>
+
+  <!-- History -->
+  <div class="dash-section-label">History</div>
+  <div class="dash-grid">
     <a href="my-brackets.html" class="dash-card">
       <div class="dash-icon">📁</div>
       <div>
         <h3>My Brackets</h3>
-        <p>View and manage your saved single-elimination brackets.</p>
+        <p>View, replay, and manage all your saved single-elimination tournaments.</p>
       </div>
       <span class="dash-arrow">›</span>
     </a>
@@ -97,23 +172,23 @@
       <div class="dash-icon">📋</div>
       <div>
         <h3>My RR Sessions</h3>
-        <p>Browse your saved round-robin session results.</p>
+        <p>Browse your saved round-robin session results and standings.</p>
+      </div>
+      <span class="dash-arrow">›</span>
+    </a>
+    <a href="stats.html" class="dash-card">
+      <div class="dash-icon">📊</div>
+      <div>
+        <h3>Character Stats</h3>
+        <p>Per-character elo, win %, K/D, kills, and deaths across all matches.</p>
       </div>
       <span class="dash-arrow">›</span>
     </a>
   </div>
 
-  <!-- Personal Stats -->
-  <div class="dash-section-label">Personal Stats</div>
+  <!-- Customize -->
+  <div class="dash-section-label">Customize</div>
   <div class="dash-grid">
-    <a href="stats.html" class="dash-card">
-      <div class="dash-icon">📊</div>
-      <div>
-        <h3>Character Stats</h3>
-        <p>Track win/loss points per character. Win = +1, Loss = −1.</p>
-      </div>
-      <span class="dash-arrow">›</span>
-    </a>
     <a href="tier-list.html" class="dash-card">
       <div class="dash-icon">🎖️</div>
       <div>
@@ -126,7 +201,7 @@
       <div class="dash-icon">⭐</div>
       <div>
         <h3>Top 10 Favorites</h3>
-        <p>Pick your top 10 favorite fighters from the full roster.</p>
+        <p>Pick your 10 favorite fighters — used for auto-fill in brackets.</p>
       </div>
       <span class="dash-arrow">›</span>
     </a>
@@ -135,17 +210,6 @@
   <!-- Social -->
   <div class="dash-section-label">Social</div>
   <div class="dash-grid">
-    <a href="invites.html" class="dash-card">
-      <div class="dash-icon">📬</div>
-      <div>
-        <h3>Invites</h3>
-        <p>Manage tournament invitations from your friends.</p>
-        <div id="pendingBadge" style="display:none;margin-top:6px;">
-          <span class="badge badge-pending" id="pendingCount"></span>
-        </div>
-      </div>
-      <span class="dash-arrow">›</span>
-    </a>
     <a href="friends.html" class="dash-card">
       <div class="dash-icon">👥</div>
       <div>
@@ -154,19 +218,14 @@
       </div>
       <span class="dash-arrow">›</span>
     </a>
-    <a href="leaderboard.html" class="dash-card">
-      <div class="dash-icon">🏆</div>
+    <a href="invites.html" class="dash-card">
+      <div class="dash-icon">📬</div>
       <div>
-        <h3>Character Leaderboard</h3>
-        <p>See which characters are dominating across all players.</p>
-      </div>
-      <span class="dash-arrow">›</span>
-    </a>
-    <a href="leaderboard.html#global" class="dash-card">
-      <div class="dash-icon">🌍</div>
-      <div>
-        <h3>Global Leaderboard</h3>
-        <p>Overall rankings by wins, losses, and sessions played.</p>
+        <h3>Tournament Invites</h3>
+        <p>Accept or decline tournament invitations from friends.</p>
+        <div id="pendingBadge" style="display:none;margin-top:6px;">
+          <span class="badge badge-pending" id="pendingCount"></span>
+        </div>
       </div>
       <span class="dash-arrow">›</span>
     </a>
@@ -186,13 +245,19 @@
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
 <script>
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
   (async function init() {
-    // Load user info for navbar
+    // User info
+    let me = null;
     try {
-      const me = await apiGet('/users/me');
+      me = await apiGet('/users/me');
       if (me) {
         document.getElementById('navUsername').textContent = me.username;
         document.getElementById('welcomeHeading').textContent = `Hey, ${me.username} 👋`;
+        document.getElementById('welcomeSub').textContent = 'Here\'s where everything lives.';
         const avatarEl = document.getElementById('navAvatar');
         const avatarUrl = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
         avatarEl.src = avatarUrl;
@@ -200,7 +265,57 @@
       }
     } catch (_) {}
 
-    // Check for live tournaments
+    // Quick stats — load character stats for the logged-in user
+    if (me) {
+      try {
+        const stats = await apiGet(`/characters/stats/${encodeURIComponent(me.username)}`);
+        if (stats && stats.length) {
+          // Top elo
+          const byElo = [...stats].sort((a, b) => (b.elo || 1000) - (a.elo || 1000));
+          const top = byElo[0];
+          document.getElementById('statTopElo').textContent = top.elo || 1000;
+          document.getElementById('statTopChar').textContent = top.character;
+
+          // Best rank — need leaderboard
+          try {
+            const lb = await apiGet('/characters/stats/leaderboard/elo');
+            if (lb && lb.length) {
+              let bestRank = Infinity, bestRankChar = '';
+              for (const s of stats) {
+                let rank = 1;
+                for (const e of lb) {
+                  if (e.username === me.username && e.character === s.character) continue;
+                  if ((e.elo || 1000) > (s.elo || 1000)) rank++;
+                }
+                if (rank < bestRank) { bestRank = rank; bestRankChar = s.character; }
+              }
+              if (bestRank !== Infinity) {
+                document.getElementById('statBestRank').textContent = `#${bestRank}`;
+                document.getElementById('statBestRankChar').textContent = bestRankChar;
+              }
+            }
+          } catch (_) {}
+
+          // Total wins + best win %
+          const totalWins = stats.reduce((s, r) => s + (r.wins || 0), 0);
+          document.getElementById('statWins').textContent = totalWins;
+
+          const qualified = stats.filter(s => (s.wins || 0) + (s.losses || 0) >= 3);
+          if (qualified.length) {
+            const best = qualified.sort((a, b) => {
+              const pa = (a.wins || 0) / ((a.wins || 0) + (a.losses || 0));
+              const pb = (b.wins || 0) / ((b.wins || 0) + (b.losses || 0));
+              return pb - pa;
+            })[0];
+            const pct = Math.round((best.wins / (best.wins + best.losses)) * 100);
+            document.getElementById('statWinPct').textContent = `${pct}%`;
+            document.getElementById('statWinPctMin').textContent = best.character;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Live tournaments (hosted by you)
     try {
       const brackets = await apiGet('/brackets');
       const live = (brackets || []).filter(b => b.is_live);
@@ -212,19 +327,43 @@
       }
     } catch (_) {}
 
-    // Check pending invites
+    // Pending invites — cards on homepage + badge
     try {
       const invites = await apiGet('/invites/received');
       if (invites) {
-        const pending = invites.filter(i => i.status === 'pending').length;
-        if (pending > 0) {
-          const badge = document.getElementById('pendingBadge');
-          document.getElementById('pendingCount').textContent = `${pending} pending`;
-          badge.style.display = 'block';
+        const pending = invites.filter(i => i.status === 'pending');
+        if (pending.length > 0) {
+          document.getElementById('pendingCount').textContent = `${pending.length} pending`;
+          document.getElementById('pendingBadge').style.display = 'block';
+
+          document.getElementById('inviteSection').style.display = 'block';
+          document.getElementById('inviteCards').innerHTML = pending.map(inv => `
+            <div style="background:linear-gradient(135deg,rgba(0,119,200,0.15),rgba(0,80,160,0.08));border:1.5px solid rgba(0,119,200,0.4);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;gap:14px;" id="invCard_${inv.id}">
+              <div style="font-size:1.4rem;flex-shrink:0;">📬</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;color:rgba(0,180,255,0.8);margin-bottom:2px;">Invited by ${escHtml(inv.inviter)}</div>
+                <div style="font-size:0.97rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(inv.bracket_name)}</div>
+              </div>
+              <div style="display:flex;gap:8px;flex-shrink:0;">
+                <a href="tournament.html?id=${inv.bracket_id}" style="background:#0077c8;color:#fff;border:none;padding:7px 14px;border-radius:6px;font-weight:700;font-size:0.82rem;text-decoration:none;white-space:nowrap;">View →</a>
+                <button onclick="declineInvite(${inv.id})" style="background:transparent;color:var(--text-muted);border:1px solid var(--border);padding:7px 12px;border-radius:6px;font-size:0.82rem;cursor:pointer;">✕</button>
+              </div>
+            </div>
+          `).join('');
         }
       }
     } catch (_) {}
   })();
+
+  async function declineInvite(id) {
+    try {
+      await apiPatch(`/invites/${id}`, { status: 'declined' });
+      const card = document.getElementById(`invCard_${id}`);
+      if (card) card.remove();
+      const cards = document.getElementById('inviteCards');
+      if (cards && !cards.children.length) document.getElementById('inviteSection').style.display = 'none';
+    } catch (_) {}
+  }
 </script>
 </body>
 </html>

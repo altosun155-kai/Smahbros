@@ -245,7 +245,7 @@
 
     <!-- Record a game -->
     <div class="duel-card" id="recordGameCard">
-      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;display:flex;align-items:center;gap:5px;">Record Game<span class="tip" data-tip="Elo gained = K × (1 − expected) × stock multiplier. K = 32 (fixed). Expected = how likely you were to win based on elos (0–1). Stock multiplier: 3-0 = 2×, 3-1 = 1.5×, 3-2 = 1×. Upset a stronger player → expected is low → (1 − expected) is high → bigger gain.">?</span></div>
+      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;">Record Game</div>
       <div style="display:flex;gap:20px;justify-content:space-between;flex-wrap:wrap;">
         <!-- Left: P1 -->
         <div style="flex:1;min-width:160px;">
@@ -257,6 +257,10 @@
           <div id="dCurrentRankP1" style="font-size:0.72rem;color:var(--text-muted);margin:8px 0 10px;"></div>
           <div style="font-size:0.7rem;color:var(--accent-blue);margin-bottom:8px;font-weight:700;" id="scoreLabelP1">P1 Wins</div>
           <div style="display:grid;grid-template-columns:auto repeat(3,1fr);gap:4px 10px;align-items:center;">
+            <span></span>
+            <div style="text-align:center;font-size:0.6rem;color:var(--text-muted);font-weight:700;">3-0</div>
+            <div style="text-align:center;font-size:0.6rem;color:var(--text-muted);font-weight:700;">3-1</div>
+            <div style="text-align:center;font-size:0.6rem;color:var(--text-muted);font-weight:700;">3-2</div>
             <span style="font-size:0.58rem;color:var(--text-muted);font-weight:600;white-space:nowrap;">Rank</span>
             <div style="text-align:center;"><span id="dRankW_30" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="dRankL_30" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
             <div style="text-align:center;"><span id="dRankW_31" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="dRankL_31" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
@@ -281,6 +285,10 @@
           <div id="dCurrentRankP2" style="font-size:0.72rem;color:var(--text-muted);margin:8px 0 10px;text-align:right;"></div>
           <div style="font-size:0.7rem;color:var(--accent-gold);margin-bottom:8px;font-weight:700;text-align:right;" id="scoreLabelP2">P2 Wins</div>
           <div style="display:grid;grid-template-columns:auto repeat(3,1fr);gap:4px 10px;align-items:center;">
+            <span></span>
+            <div style="text-align:center;font-size:0.6rem;color:var(--text-muted);font-weight:700;">3-0</div>
+            <div style="text-align:center;font-size:0.6rem;color:var(--text-muted);font-weight:700;">3-1</div>
+            <div style="text-align:center;font-size:0.6rem;color:var(--text-muted);font-weight:700;">3-2</div>
             <span style="font-size:0.58rem;color:var(--text-muted);font-weight:600;white-space:nowrap;">Rank</span>
             <div style="text-align:center;"><span id="dRankW_03" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="dRankL_03" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
             <div style="text-align:center;"><span id="dRankW_13" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="dRankL_13" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
@@ -582,8 +590,8 @@
     const cur2 = _rankAfter(lb, p2, c2, e2);
     const el1 = document.getElementById('dCurrentRankP1');
     const el2 = document.getElementById('dCurrentRankP2');
-    if (el1) el1.innerHTML = `<span style="color:var(--text);">${c1}</span> <span style="color:var(--accent-blue);font-weight:700;">#${cur1}</span>`;
-    if (el2) el2.innerHTML = `<span style="color:var(--text);">${c2}</span> <span style="color:var(--accent-gold);font-weight:700;">#${cur2}</span>`;
+    if (el1) el1.innerHTML = `<span style="color:var(--text);">${c1}</span> <span style="color:var(--accent-blue);font-weight:700;">#${cur1}</span> <span style="color:var(--accent-gold);font-size:0.68rem;">${e1} elo</span>`;
+    if (el2) el2.innerHTML = `<span style="color:var(--text);">${c2}</span> <span style="color:var(--accent-gold);font-weight:700;">#${cur2}</span> <span style="color:var(--accent-gold);font-size:0.68rem;">${e2} elo</span>`;
 
     for (const s of scenarios) {
       const wUser = s.p1wins ? p1 : p2, wChar = s.p1wins ? c1 : c2;

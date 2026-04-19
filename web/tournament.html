@@ -224,14 +224,18 @@
   </div>
 
   <div class="vs-winner-row">
-    <div id="tCurrentRanks" style="font-size:0.72rem;color:rgba(255,255,255,0.55);margin-bottom:6px;"></div>
-    <div id="scorePickLabel" style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);display:flex;align-items:center;gap:5px;">Pick Score (stocks)<span class="tip" data-tip="Elo gained = K × (1 − expected) × stock multiplier. K = 32 (fixed). Expected = how likely you were to win based on elos (0–1). Stock multiplier: 3-0 = 2×, 3-1 = 1.5×, 3-2 = 1×. Upset a stronger player → expected is low → (1 − expected) is high → bigger gain.">?</span></div>
-    <div id="viewOnlyNote" style="display:none;font-size:0.75rem;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.5px;">Only the host can record results</div>
+    <div id="scorePickLabel" style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);margin-bottom:8px;">Pick Score (stocks)</div>
+    <div id="viewOnlyNote" style="display:none;font-size:0.75rem;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.5px;margin-bottom:8px;">Only the host can record results</div>
     <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;">
       <!-- P1 wins -->
       <div>
-        <div style="font-size:0.62rem;color:#ff8888;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;" id="scoreLabel1">P1 Wins</div>
+        <div style="font-size:0.62rem;color:#ff8888;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:3px;" id="scoreLabel1">P1 Wins</div>
+        <div id="tCurrentRankP1" style="font-size:0.68rem;color:rgba(255,255,255,0.5);margin-bottom:8px;"></div>
         <div style="display:grid;grid-template-columns:auto repeat(3,1fr);gap:4px 12px;align-items:center;">
+          <span></span>
+          <div style="text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.55);font-weight:700;">3-0</div>
+          <div style="text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.55);font-weight:700;">3-1</div>
+          <div style="text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.55);font-weight:700;">3-2</div>
           <span style="font-size:0.55rem;color:rgba(255,255,255,0.4);font-weight:600;white-space:nowrap;">Rank</span>
           <div style="text-align:center;"><span id="tRankW_30" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_30" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
           <div style="text-align:center;"><span id="tRankW_31" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_31" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
@@ -249,8 +253,13 @@
       <div style="width:1px;align-self:stretch;background:rgba(255,255,255,0.15);"></div>
       <!-- P2 wins -->
       <div>
-        <div style="font-size:0.62rem;color:#88aaff;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;" id="scoreLabel2">P2 Wins</div>
+        <div style="font-size:0.62rem;color:#88aaff;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:3px;" id="scoreLabel2">P2 Wins</div>
+        <div id="tCurrentRankP2" style="font-size:0.68rem;color:rgba(255,255,255,0.5);margin-bottom:8px;"></div>
         <div style="display:grid;grid-template-columns:auto repeat(3,1fr);gap:4px 12px;align-items:center;">
+          <span></span>
+          <div style="text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.55);font-weight:700;">0-3</div>
+          <div style="text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.55);font-weight:700;">1-3</div>
+          <div style="text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.55);font-weight:700;">2-3</div>
           <span style="font-size:0.55rem;color:rgba(255,255,255,0.4);font-weight:600;white-space:nowrap;">Rank</span>
           <div style="text-align:center;"><span id="tRankW_03" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_03" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
           <div style="text-align:center;"><span id="tRankW_13" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_13" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
@@ -588,7 +597,8 @@ function openScoreModal(a, b, key) {
   ['tElo_30','tElo_31','tElo_32','tElo_03','tElo_13','tElo_23',
    'tRankW_30','tRankW_31','tRankW_32','tRankW_03','tRankW_13','tRankW_23',
    'tRankL_30','tRankL_31','tRankL_32','tRankL_03','tRankL_13','tRankL_23',
-  ].forEach(id => { document.getElementById(id).textContent = ''; });
+   'tCurrentRankP1','tCurrentRankP2',
+  ].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
 
   // Show score buttons for host only; spectators see elo previews but can't pick
   const scoreButtons = document.querySelectorAll('.score-preset-btn');
@@ -626,14 +636,16 @@ function openScoreModal(a, b, key) {
       }
     }
 
+    const el1 = document.getElementById('tCurrentRankP1');
+    const el2 = document.getElementById('tCurrentRankP2');
     if (lb && lb.length) {
       const cur1 = _tRankAfter(lb, scoreModalA.player, scoreModalA.character, eloA);
       const cur2 = _tRankAfter(lb, scoreModalB.player, scoreModalB.character, eloB);
-      const el = document.getElementById('tCurrentRanks');
-      if (el) el.innerHTML =
-        `<span style="color:#ff8888;font-weight:700;">${scoreModalA.player}</span> ${scoreModalA.character} <span style="color:#ffe066;font-weight:700;">#${cur1}</span>` +
-        `<span style="opacity:0.4;margin:0 8px;">·</span>` +
-        `<span style="color:#88aaff;font-weight:700;">${scoreModalB.player}</span> ${scoreModalB.character} <span style="color:#ffe066;font-weight:700;">#${cur2}</span>`;
+      if (el1) el1.innerHTML = `${scoreModalA.character} <span style="color:#ffe066;font-weight:700;">#${cur1}</span> <span style="color:rgba(255,224,102,0.65);font-size:0.63rem;">${eloA} elo</span>`;
+      if (el2) el2.innerHTML = `${scoreModalB.character} <span style="color:#ffe066;font-weight:700;">#${cur2}</span> <span style="color:rgba(255,224,102,0.65);font-size:0.63rem;">${eloB} elo</span>`;
+    } else {
+      if (el1) el1.innerHTML = `${scoreModalA.character} <span style="color:rgba(255,224,102,0.65);font-size:0.63rem;">${eloA} elo</span>`;
+      if (el2) el2.innerHTML = `${scoreModalB.character} <span style="color:rgba(255,224,102,0.65);font-size:0.63rem;">${eloB} elo</span>`;
     }
   });
 }

@@ -841,9 +841,9 @@ a:hover {
 .score-preset-btn.p1-btn { background: rgba(180,20,20,0.85); color: #fff; border: 2px solid rgba(255,120,120,0.4); }
 .score-preset-btn.p2-btn { background: rgba(20,60,180,0.85); color: #fff; border: 2px solid rgba(100,150,255,0.4); }
 
-/* ── VS Modal — mobile overrides ─────────────────────── */
-@media (max-width: 600px) {
-  /* Modal becomes a top-to-bottom scrollable column */
+/* ── VS Modal — mobile portrait overrides ─────────────── */
+@media (max-width: 600px) and (orientation: portrait) {
+  /* Modal scrolls top-to-bottom as a column */
   #scoreModal.open {
     flex-direction: column;
     justify-content: flex-start;
@@ -851,32 +851,68 @@ a:hover {
     overflow-y: auto;
   }
 
-  /* VS art section: compact fixed-height header */
+  /* Background: top half red (P1), bottom half blue (P2) */
+  .vs-bg { flex-direction: column; }
+
+  /* VS art section: stacked P1 top / P2 bottom */
   .vs-content {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: unset;
     flex-shrink: 0;
-    height: 36vw;
-    min-height: 130px;
-    max-height: 200px;
-    padding: 44px 8px 6px;
+    height: auto;
+    min-height: 260px;
+    max-height: 46vh;
+    padding: 44px 16px 10px;
+    justify-content: space-between;
+    gap: 0;
+    position: relative;
+  }
+
+  /* Each player fills half the VS area */
+  .vs-player {
+    height: auto !important;
+    flex: 1;
+    gap: 12px;
+    padding: 6px 0;
+    align-items: center;
+  }
+  /* P1: char left, info right */
+  .vs-player.p1-side {
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+  }
+  /* P2: info left, char right (mirrored) */
+  .vs-player.p2-side {
+    flex-direction: row-reverse !important;
+    justify-content: flex-start !important;
+  }
+
+  /* VS badge pinned to center between the two players */
+  .vs-middle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    padding: 0;
     gap: 0;
   }
+  .vs-text { font-size: 2.2rem; }
+  .vs-logo { display: none; }
 
-  /* Shrink character art so it doesn't eat the screen */
+  /* Smaller character art */
   .vs-char-img {
-    width: clamp(70px, 20vw, 110px) !important;
-    height: clamp(70px, 20vw, 110px) !important;
+    width: clamp(70px, 18vw, 110px) !important;
+    height: clamp(70px, 18vw, 110px) !important;
   }
 
-  .vs-avatar { width: 38px; height: 38px; border-width: 2px; }
-  .vs-name { font-size: 1.1rem; letter-spacing: 1px; }
+  .vs-avatar { width: 40px; height: 40px; border-width: 2px; }
+  .vs-name { font-size: 1.2rem; letter-spacing: 1px; }
   .vs-char-name { font-size: 0.72rem; }
   .vs-player-info { gap: 4px; }
-  .vs-player { gap: 10px; }
-  .vs-text { font-size: 2.6rem; }
-  .vs-logo { display: none; }
-  .vs-middle { padding: 0 6px; gap: 4px; }
 
-  /* Score picker: full-width dark panel that scrolls naturally */
+  /* Score picker: full-width dark panel below VS art */
   .vs-winner-row {
     position: relative;
     bottom: auto;
@@ -886,20 +922,19 @@ a:hover {
     background: rgba(10, 10, 20, 0.97);
     border-top: 1px solid rgba(255,255,255,0.1);
     width: 100%;
-    padding: 16px 14px 32px;
+    padding: 16px 14px 40px;
     z-index: 3;
     flex-shrink: 0;
     gap: 16px;
   }
 
-  /* Buttons fill width better on small screens */
   .score-preset-btn {
     padding: 12px 8px;
     font-size: 0.85rem;
     border-radius: 7px;
   }
 
-  /* Close button stays in corner above VS content */
+  /* Close button stays fixed in top-right */
   .vs-close {
     position: fixed;
     top: 10px;

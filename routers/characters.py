@@ -196,7 +196,7 @@ def winpct_leaderboard(db: Session = Depends(get_db)):
 @router.get("/characters/stats/leaderboard/elo")
 def elo_leaderboard(db: Session = Depends(get_db)):
     rows = db.query(CharacterStats).filter(
-        (CharacterStats.wins > 0) | (CharacterStats.losses > 0)
+        (CharacterStats.wins + CharacterStats.losses) >= 3
     ).order_by(CharacterStats.elo.desc()).all()
     results = []
     for row in rows:

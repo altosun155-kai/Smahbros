@@ -224,7 +224,8 @@
   </div>
 
   <div class="vs-winner-row">
-    <div style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);">Pick Score (stocks)</div>
+    <div id="scorePickLabel" style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);">Pick Score (stocks)</div>
+    <div id="viewOnlyNote" style="display:none;font-size:0.75rem;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.5px;">Only the host can record results</div>
     <div style="display:flex;gap:18px;align-items:center;">
       <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
         <div style="font-size:0.62rem;color:#ff8888;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;" id="scoreLabel1">P1 Wins</div>
@@ -492,11 +493,10 @@ function renderBracket(data) {
       box.innerHTML = entryHtml(a, roundWinners, roundScores, is_live, ri, key)
                     + entryHtml(b, roundWinners, roundScores, is_live, ri, key);
 
-      // Host can click any valid match (decided or not) to record/edit a score
-      const alreadyDecided = !!roundWinners[key];
+      // Anyone can click valid matches to see elo previews; host can also record
       const validMatch = a && b && a !== 'TBD' && b !== 'TBD'
         && a.toUpperCase() !== 'BYE' && b.toUpperCase() !== 'BYE';
-      if (isHost && is_live && validMatch) {
+      if (is_live && validMatch) {
         box.classList.add('clickable');
         box.addEventListener('click', e => {
           if (e.target.closest('.edit-char-btn')) return;
@@ -570,6 +570,12 @@ function openScoreModal(a, b, key) {
   ['tElo_30','tElo_31','tElo_32','tElo_03','tElo_13','tElo_23'].forEach(id => {
     document.getElementById(id).textContent = '';
   });
+
+  // Show score buttons for host only; spectators see elo previews but can't pick
+  const scoreButtons = document.querySelectorAll('.score-preset-btn');
+  scoreButtons.forEach(btn => btn.style.display = isHost ? '' : 'none');
+  document.getElementById('scorePickLabel').style.display = isHost ? '' : 'none';
+  document.getElementById('viewOnlyNote').style.display = isHost ? 'none' : '';
 
   document.getElementById('scoreModal').classList.add('open');
 

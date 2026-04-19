@@ -265,18 +265,18 @@
       }
     } catch (_) {}
 
-    // Quick stats — load character stats for the logged-in user
+    // Quick stats — /characters/stats returns a plain array for the current authed user
     if (me) {
       try {
-        const stats = await apiGet(`/characters/stats/${encodeURIComponent(me.username)}`);
-        if (stats && stats.length) {
+        const stats = await apiGet('/characters/stats');
+        if (Array.isArray(stats) && stats.length) {
           // Top elo
           const byElo = [...stats].sort((a, b) => (b.elo || 1000) - (a.elo || 1000));
           const top = byElo[0];
           document.getElementById('statTopElo').textContent = top.elo || 1000;
           document.getElementById('statTopChar').textContent = top.character;
 
-          // Best rank — need leaderboard
+          // Best rank — use full elo leaderboard (includes all players with 3+ games)
           try {
             const lb = await apiGet('/characters/stats/leaderboard/elo');
             if (lb && lb.length) {
@@ -296,8 +296,8 @@
             }
           } catch (_) {}
 
-          // Total wins + best win %
-          const totalWins = stats.reduce((s, r) => s + (r.wins || 0), 0);
+          // Total wins + best win % (min 3 games)
+          const totalWins = stats.reduce((acc, r) => acc + (r.wins || 0), 0);
           document.getElementById('statWins').textContent = totalWins;
 
           const qualified = stats.filter(s => (s.wins || 0) + (s.losses || 0) >= 3);

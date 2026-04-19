@@ -296,8 +296,7 @@ def end_tournament(bracket_id: int, db: Session = Depends(get_db), current_user:
     if not already_ended and b.round_winners and b.bracket_data:
         from routers.matches import _get_or_create_stat, ELO_DEFAULT, K_FACTOR
         num_players = len(b.players or [])
-        chars_per = b.chars_per_player or 2
-        k = max(K_FACTOR, num_players * chars_per * 2)
+        k = num_players * 4  # 4p=16, 8p=32, 16p=64
 
         rw = b.round_winners
         max_ri = -1

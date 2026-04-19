@@ -1068,8 +1068,7 @@ async function fetchAndRender() {
 
       // Show placement Elo rewards based on tournament size
       const numPlayers = (data.players || []).length;
-      const cpp = data.chars_per_player || 2;
-      const tK = Math.max(32, numPlayers * cpp * 2);
+      const tK = numPlayers * 4;  // 4p=16, 8p=32, 16p=64
       const rewardsEl = document.getElementById('eloRewards');
       if (rewardsEl) {
         rewardsEl.style.display = 'flex';

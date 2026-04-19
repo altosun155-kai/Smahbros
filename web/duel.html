@@ -383,7 +383,13 @@
     }
   }
 
-  function getPickerValue(id) { return _pickerVal[id] || ''; }
+  function getPickerValue(id) {
+    if (_pickerVal[id]) return _pickerVal[id];
+    const input = document.querySelector(`#picker-${id} input`);
+    const val = input?.value?.trim() || '';
+    if (CHARS.includes(val)) { _pickerVal[id] = val; return val; }
+    return '';
+  }
 
   async function init() {
     try {
@@ -521,8 +527,6 @@
     document.getElementById('seriesP1Name').textContent = p1;
     document.getElementById('seriesP2Name').textContent = p2;
     document.getElementById('seriesTitle').textContent = 'Series';
-    document.getElementById('btnP1Win').textContent = `${p1} Wins Game`;
-    document.getElementById('btnP2Win').textContent = `${p2} Wins Game`;
     document.getElementById('scoreLabelP1').textContent = `${p1} Wins`;
     document.getElementById('scoreLabelP2').textContent = `${p2} Wins`;
     document.getElementById('gameP1Label').textContent = `${p1}'s Character`;

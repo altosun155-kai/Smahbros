@@ -224,42 +224,45 @@
   </div>
 
   <div class="vs-winner-row">
+    <div id="tCurrentRanks" style="font-size:0.72rem;color:rgba(255,255,255,0.55);margin-bottom:6px;"></div>
     <div id="scorePickLabel" style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);display:flex;align-items:center;gap:5px;">Pick Score (stocks)<span class="tip" data-tip="Elo gained = K × (1 − expected) × stock multiplier. K = 32 (fixed). Expected = how likely you were to win based on elos (0–1). Stock multiplier: 3-0 = 2×, 3-1 = 1.5×, 3-2 = 1×. Upset a stronger player → expected is low → (1 − expected) is high → bigger gain.">?</span></div>
     <div id="viewOnlyNote" style="display:none;font-size:0.75rem;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.5px;">Only the host can record results</div>
-    <div style="display:flex;gap:18px;align-items:center;">
-      <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
-        <div style="font-size:0.62rem;color:#ff8888;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;" id="scoreLabel1">P1 Wins</div>
-        <div style="display:flex;gap:6px;align-items:flex-end;">
-          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            <span id="tElo_30" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
-            <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,0)">3-0</button>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            <span id="tElo_31" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
-            <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,1)">3-1</button>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            <span id="tElo_32" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
-            <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,2)">3-2</button>
-          </div>
+    <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;">
+      <!-- P1 wins -->
+      <div>
+        <div style="font-size:0.62rem;color:#ff8888;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;" id="scoreLabel1">P1 Wins</div>
+        <div style="display:grid;grid-template-columns:auto repeat(3,1fr);gap:4px 12px;align-items:center;">
+          <span style="font-size:0.55rem;color:rgba(255,255,255,0.4);font-weight:600;white-space:nowrap;">Rank</span>
+          <div style="text-align:center;"><span id="tRankW_30" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_30" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
+          <div style="text-align:center;"><span id="tRankW_31" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_31" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
+          <div style="text-align:center;"><span id="tRankW_32" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_32" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
+          <span style="font-size:0.55rem;color:rgba(255,255,255,0.4);font-weight:600;">Elo</span>
+          <div style="text-align:center;"><span id="tElo_30" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
+          <div style="text-align:center;"><span id="tElo_31" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
+          <div style="text-align:center;"><span id="tElo_32" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
+          <span></span>
+          <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,0)">3-0</button>
+          <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,1)">3-1</button>
+          <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,2)">3-2</button>
         </div>
       </div>
-      <div style="width:1px;height:50px;background:rgba(255,255,255,0.15);"></div>
-      <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
-        <div style="font-size:0.62rem;color:#88aaff;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;" id="scoreLabel2">P2 Wins</div>
-        <div style="display:flex;gap:6px;align-items:flex-end;">
-          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            <span id="tElo_03" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
-            <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(0,3)">0-3</button>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            <span id="tElo_13" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
-            <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(1,3)">1-3</button>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            <span id="tElo_23" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
-            <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(2,3)">2-3</button>
-          </div>
+      <div style="width:1px;align-self:stretch;background:rgba(255,255,255,0.15);"></div>
+      <!-- P2 wins -->
+      <div>
+        <div style="font-size:0.62rem;color:#88aaff;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;" id="scoreLabel2">P2 Wins</div>
+        <div style="display:grid;grid-template-columns:auto repeat(3,1fr);gap:4px 12px;align-items:center;">
+          <span style="font-size:0.55rem;color:rgba(255,255,255,0.4);font-weight:600;white-space:nowrap;">Rank</span>
+          <div style="text-align:center;"><span id="tRankW_03" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_03" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
+          <div style="text-align:center;"><span id="tRankW_13" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_13" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
+          <div style="text-align:center;"><span id="tRankW_23" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_23" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
+          <span style="font-size:0.55rem;color:rgba(255,255,255,0.4);font-weight:600;">Elo</span>
+          <div style="text-align:center;"><span id="tElo_03" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
+          <div style="text-align:center;"><span id="tElo_13" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
+          <div style="text-align:center;"><span id="tElo_23" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
+          <span></span>
+          <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(0,3)">0-3</button>
+          <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(1,3)">1-3</button>
+          <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(2,3)">2-3</button>
         </div>
       </div>
     </div>
@@ -323,6 +326,21 @@ async function getCharElo(username, character) {
   } catch (_) {}
   return _eloCache[key] || 1000;
 }
+let _tLbCache = null;
+async function _getTLb() {
+  if (_tLbCache !== null) return _tLbCache;
+  try { _tLbCache = await apiGet('/characters/stats/leaderboard/elo'); } catch(_) { _tLbCache = []; }
+  return _tLbCache;
+}
+function _tRankAfter(lb, username, character, newElo) {
+  let rank = 1;
+  for (const e of lb) {
+    if (e.username === username && e.character === character) continue;
+    if ((e.elo || 1000) > newElo) rank++;
+  }
+  return rank;
+}
+
 let lastRoundWinners = null;
 let myUsername = '';
 let currentBracketData = null; // latest bracket snapshot
@@ -566,10 +584,11 @@ function openScoreModal(a, b, key) {
   if (p1Url) { p1Img.src = p1Url; p1Img.style.display = ''; } else { p1Img.style.display = 'none'; }
   if (p2Url) { p2Img.src = p2Url; p2Img.style.display = ''; } else { p2Img.style.display = 'none'; }
 
-  // Clear elo labels while loading
-  ['tElo_30','tElo_31','tElo_32','tElo_03','tElo_13','tElo_23'].forEach(id => {
-    document.getElementById(id).textContent = '';
-  });
+  // Clear elo/rank labels while loading
+  ['tElo_30','tElo_31','tElo_32','tElo_03','tElo_13','tElo_23',
+   'tRankW_30','tRankW_31','tRankW_32','tRankW_03','tRankW_13','tRankW_23',
+   'tRankL_30','tRankL_31','tRankL_32','tRankL_03','tRankL_13','tRankL_23',
+  ].forEach(id => { document.getElementById(id).textContent = ''; });
 
   // Show score buttons for host only; spectators see elo previews but can't pick
   const scoreButtons = document.querySelectorAll('.score-preset-btn');
@@ -579,17 +598,43 @@ function openScoreModal(a, b, key) {
 
   document.getElementById('scoreModal').classList.add('open');
 
-  // Fetch elos and populate previews (async, updates after modal is already open)
+  // Fetch elos + leaderboard, then populate previews and rank changes
   Promise.all([
     getCharElo(scoreModalA.player, scoreModalA.character),
     getCharElo(scoreModalB.player, scoreModalB.character),
-  ]).then(([eloA, eloB]) => {
-    document.getElementById('tElo_30').textContent = `+${previewEloGain(eloA, eloB, 3, 0)}`;
-    document.getElementById('tElo_31').textContent = `+${previewEloGain(eloA, eloB, 3, 1)}`;
-    document.getElementById('tElo_32').textContent = `+${previewEloGain(eloA, eloB, 3, 2)}`;
-    document.getElementById('tElo_03').textContent = `+${previewEloGain(eloB, eloA, 3, 0)}`;
-    document.getElementById('tElo_13').textContent = `+${previewEloGain(eloB, eloA, 3, 1)}`;
-    document.getElementById('tElo_23').textContent = `+${previewEloGain(eloB, eloA, 3, 2)}`;
+    _getTLb(),
+  ]).then(([eloA, eloB, lb]) => {
+    const scenarios = [
+      { id: '30', aWins: true,  wk: 3, lk: 0 },
+      { id: '31', aWins: true,  wk: 3, lk: 1 },
+      { id: '32', aWins: true,  wk: 3, lk: 2 },
+      { id: '03', aWins: false, wk: 3, lk: 0 },
+      { id: '13', aWins: false, wk: 3, lk: 1 },
+      { id: '23', aWins: false, wk: 3, lk: 2 },
+    ];
+    for (const s of scenarios) {
+      const we = s.aWins ? eloA : eloB, le = s.aWins ? eloB : eloA;
+      const wEntry = s.aWins ? scoreModalA : scoreModalB;
+      const lEntry = s.aWins ? scoreModalB : scoreModalA;
+      const delta = previewEloGain(we, le, s.wk, s.lk);
+      document.getElementById(`tElo_${s.id}`).textContent = `+${delta}`;
+      if (lb && lb.length) {
+        const wRank = _tRankAfter(lb, wEntry.player, wEntry.character, we + delta);
+        const lRank = _tRankAfter(lb, lEntry.player, lEntry.character, Math.max(100, le - delta));
+        document.getElementById(`tRankW_${s.id}`).textContent = `↑#${wRank}`;
+        document.getElementById(`tRankL_${s.id}`).textContent = `↓#${lRank}`;
+      }
+    }
+
+    if (lb && lb.length) {
+      const cur1 = _tRankAfter(lb, scoreModalA.player, scoreModalA.character, eloA);
+      const cur2 = _tRankAfter(lb, scoreModalB.player, scoreModalB.character, eloB);
+      const el = document.getElementById('tCurrentRanks');
+      if (el) el.innerHTML =
+        `<span style="color:#ff8888;font-weight:700;">${scoreModalA.player}</span> ${scoreModalA.character} <span style="color:#ffe066;font-weight:700;">#${cur1}</span>` +
+        `<span style="opacity:0.4;margin:0 8px;">·</span>` +
+        `<span style="color:#88aaff;font-weight:700;">${scoreModalB.player}</span> ${scoreModalB.character} <span style="color:#ffe066;font-weight:700;">#${cur2}</span>`;
+    }
   });
 }
 
@@ -658,6 +703,7 @@ async function pickTournamentScore(p1Stocks, p2Stocks) {
       Object.keys(_eloCache)
         .filter(k => k.startsWith(winnerEntry.player + '/') || k.startsWith(loserEntry.player + '/'))
         .forEach(k => delete _eloCache[k]);
+      _tLbCache = null; // invalidate rank cache after each match
     }
     showUndoBtn(`${winnerEntry.player} (${winnerEntry.character})`);
     await fetchAndRender();

@@ -246,59 +246,53 @@
     <!-- Record a game -->
     <div class="duel-card" id="recordGameCard">
       <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;display:flex;align-items:center;gap:5px;">Record Game<span class="tip" data-tip="Elo gained = K × (1 − expected) × stock multiplier. K = 32 (fixed). Expected = how likely you were to win based on elos (0–1). Stock multiplier: 3-0 = 2×, 3-1 = 1.5×, 3-2 = 1×. Upset a stronger player → expected is low → (1 − expected) is high → bigger gain.">?</span></div>
-      <div style="display:flex;flex-direction:column;gap:14px;">
-        <!-- Character swap per game -->
-        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
-          <div style="flex:1;min-width:120px;">
-            <div class="player-label" style="color:var(--accent-blue);" id="gameP1Label">P1 Character</div>
-            <div class="char-picker" id="picker-gameP1Char">
-              <input type="text" placeholder="Search character…" autocomplete="off" oninput="filterPicker('gameP1Char')" onfocus="openPicker('gameP1Char')" onblur="closePicker('gameP1Char')" onkeydown="pickerKey(event,'gameP1Char')" />
-              <div class="char-dropdown" id="drop-gameP1Char"></div>
-            </div>
+      <div style="display:flex;gap:20px;justify-content:space-between;flex-wrap:wrap;">
+        <!-- Left: P1 -->
+        <div style="flex:1;min-width:160px;">
+          <div class="player-label" style="color:var(--accent-blue);margin-bottom:6px;" id="gameP1Label">P1 Character</div>
+          <div class="char-picker" id="picker-gameP1Char">
+            <input type="text" placeholder="Search character…" autocomplete="off" oninput="filterPicker('gameP1Char')" onfocus="openPicker('gameP1Char')" onblur="closePicker('gameP1Char')" onkeydown="pickerKey(event,'gameP1Char')" />
+            <div class="char-dropdown" id="drop-gameP1Char"></div>
           </div>
-          <div style="flex:1;min-width:120px;">
-            <div class="player-label" style="color:var(--accent-gold);" id="gameP2Label">P2 Character</div>
-            <div class="char-picker" id="picker-gameP2Char">
-              <input type="text" placeholder="Search character…" autocomplete="off" oninput="filterPicker('gameP2Char')" onfocus="openPicker('gameP2Char')" onblur="closePicker('gameP2Char')" onkeydown="pickerKey(event,'gameP2Char')" />
-              <div class="char-dropdown" id="drop-gameP2Char"></div>
-            </div>
+          <div id="dCurrentRankP1" style="font-size:0.72rem;color:var(--text-muted);margin:8px 0 10px;"></div>
+          <div style="font-size:0.7rem;color:var(--accent-blue);margin-bottom:8px;font-weight:700;" id="scoreLabelP1">P1 Wins</div>
+          <div style="display:grid;grid-template-columns:auto repeat(3,1fr);gap:4px 10px;align-items:center;">
+            <span style="font-size:0.58rem;color:var(--text-muted);font-weight:600;white-space:nowrap;">Rank</span>
+            <div style="text-align:center;"><span id="dRankW_30" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="dRankL_30" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
+            <div style="text-align:center;"><span id="dRankW_31" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="dRankL_31" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
+            <div style="text-align:center;"><span id="dRankW_32" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="dRankL_32" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
+            <span style="font-size:0.58rem;color:var(--text-muted);font-weight:600;">Elo</span>
+            <div style="text-align:center;"><span id="dElo_30" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
+            <div style="text-align:center;"><span id="dElo_31" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
+            <div style="text-align:center;"><span id="dElo_32" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
+            <span></span>
+            <button class="score-btn" onclick="recordGame(1,3,0)">3-0</button>
+            <button class="score-btn" onclick="recordGame(1,3,1)">3-1</button>
+            <button class="score-btn" onclick="recordGame(1,3,2)">3-2</button>
           </div>
         </div>
-        <!-- Score buttons — clicking records the game immediately -->
-        <div style="display:flex;gap:14px;flex-wrap:wrap;">
-          <div>
-            <div style="font-size:0.7rem;color:var(--accent-blue);margin-bottom:6px;font-weight:700;" id="scoreLabelP1">P1 Wins</div>
-            <div class="score-btns" id="p1ScoreBtns">
-              <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-                <span id="dElo_30" style="font-size:0.6rem;color:#4caf50;font-weight:700;min-height:12px;"></span>
-                <button class="score-btn" onclick="recordGame(1,3,0)">3-0</button>
-              </div>
-              <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-                <span id="dElo_31" style="font-size:0.6rem;color:#4caf50;font-weight:700;min-height:12px;"></span>
-                <button class="score-btn" onclick="recordGame(1,3,1)">3-1</button>
-              </div>
-              <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-                <span id="dElo_32" style="font-size:0.6rem;color:#4caf50;font-weight:700;min-height:12px;"></span>
-                <button class="score-btn" onclick="recordGame(1,3,2)">3-2</button>
-              </div>
-            </div>
+        <!-- Right: P2 -->
+        <div style="flex:1;min-width:160px;display:flex;flex-direction:column;align-items:flex-end;">
+          <div class="player-label" style="color:var(--accent-gold);margin-bottom:6px;text-align:right;" id="gameP2Label">P2 Character</div>
+          <div class="char-picker" id="picker-gameP2Char" style="width:100%;">
+            <input type="text" placeholder="Search character…" autocomplete="off" oninput="filterPicker('gameP2Char')" onfocus="openPicker('gameP2Char')" onblur="closePicker('gameP2Char')" onkeydown="pickerKey(event,'gameP2Char')" />
+            <div class="char-dropdown" id="drop-gameP2Char"></div>
           </div>
-          <div>
-            <div style="font-size:0.7rem;color:var(--accent-gold);margin-bottom:6px;font-weight:700;" id="scoreLabelP2">P2 Wins</div>
-            <div class="score-btns" id="p2ScoreBtns">
-              <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-                <span id="dElo_03" style="font-size:0.6rem;color:#4caf50;font-weight:700;min-height:12px;"></span>
-                <button class="score-btn" onclick="recordGame(2,3,0)">3-0</button>
-              </div>
-              <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-                <span id="dElo_13" style="font-size:0.6rem;color:#4caf50;font-weight:700;min-height:12px;"></span>
-                <button class="score-btn" onclick="recordGame(2,3,1)">3-1</button>
-              </div>
-              <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-                <span id="dElo_23" style="font-size:0.6rem;color:#4caf50;font-weight:700;min-height:12px;"></span>
-                <button class="score-btn" onclick="recordGame(2,3,2)">3-2</button>
-              </div>
-            </div>
+          <div id="dCurrentRankP2" style="font-size:0.72rem;color:var(--text-muted);margin:8px 0 10px;text-align:right;"></div>
+          <div style="font-size:0.7rem;color:var(--accent-gold);margin-bottom:8px;font-weight:700;text-align:right;" id="scoreLabelP2">P2 Wins</div>
+          <div style="display:grid;grid-template-columns:auto repeat(3,1fr);gap:4px 10px;align-items:center;">
+            <span style="font-size:0.58rem;color:var(--text-muted);font-weight:600;white-space:nowrap;">Rank</span>
+            <div style="text-align:center;"><span id="dRankW_03" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="dRankL_03" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
+            <div style="text-align:center;"><span id="dRankW_13" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="dRankL_13" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
+            <div style="text-align:center;"><span id="dRankW_23" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="dRankL_23" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
+            <span style="font-size:0.58rem;color:var(--text-muted);font-weight:600;">Elo</span>
+            <div style="text-align:center;"><span id="dElo_03" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
+            <div style="text-align:center;"><span id="dElo_13" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
+            <div style="text-align:center;"><span id="dElo_23" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
+            <span></span>
+            <button class="score-btn" onclick="recordGame(2,3,0)">3-0</button>
+            <button class="score-btn" onclick="recordGame(2,3,1)">3-1</button>
+            <button class="score-btn" onclick="recordGame(2,3,2)">3-2</button>
           </div>
         </div>
       </div>
@@ -543,18 +537,64 @@
     return (row && row.elo) ? row.elo : 1000;
   }
 
-  function updateDuelEloPreviews() {
+  let _lbCache = null;
+  async function _fetchLb() {
+    if (_lbCache !== null) return _lbCache;
+    try { _lbCache = await apiGet('/characters/stats/leaderboard/elo'); } catch(_) { _lbCache = []; }
+    return _lbCache;
+  }
+
+  function _rankAfter(lb, username, character, newElo) {
+    let rank = 1;
+    for (const e of lb) {
+      if (e.username === username && e.character === character) continue;
+      if ((e.elo || 1000) > newElo) rank++;
+    }
+    return rank;
+  }
+
+  async function updateDuelEloPreviews() {
     const c1 = getPickerValue('gameP1Char') || p1CharCurrent;
     const c2 = getPickerValue('gameP2Char') || p2CharCurrent;
     if (!c1 || !c2 || !p1 || !p2) return;
     const e1 = _getEloFromCache(p1, c1);
     const e2 = _getEloFromCache(p2, c2);
-    document.getElementById('dElo_30').textContent = `+${_duelEloGain(e1, e2, 3, 0)}`;
-    document.getElementById('dElo_31').textContent = `+${_duelEloGain(e1, e2, 3, 1)}`;
-    document.getElementById('dElo_32').textContent = `+${_duelEloGain(e1, e2, 3, 2)}`;
-    document.getElementById('dElo_03').textContent = `+${_duelEloGain(e2, e1, 3, 0)}`;
-    document.getElementById('dElo_13').textContent = `+${_duelEloGain(e2, e1, 3, 1)}`;
-    document.getElementById('dElo_23').textContent = `+${_duelEloGain(e2, e1, 3, 2)}`;
+
+    const scenarios = [
+      { id: '30', p1wins: true,  wk: 3, lk: 0 },
+      { id: '31', p1wins: true,  wk: 3, lk: 1 },
+      { id: '32', p1wins: true,  wk: 3, lk: 2 },
+      { id: '03', p1wins: false, wk: 3, lk: 0 },
+      { id: '13', p1wins: false, wk: 3, lk: 1 },
+      { id: '23', p1wins: false, wk: 3, lk: 2 },
+    ];
+
+    for (const s of scenarios) {
+      const we = s.p1wins ? e1 : e2, le = s.p1wins ? e2 : e1;
+      const delta = _duelEloGain(we, le, s.wk, s.lk);
+      document.getElementById(`dElo_${s.id}`).textContent = `+${delta}`;
+    }
+
+    const lb = await _fetchLb();
+    if (!lb || !lb.length) return;
+
+    const cur1 = _rankAfter(lb, p1, c1, e1);
+    const cur2 = _rankAfter(lb, p2, c2, e2);
+    const el1 = document.getElementById('dCurrentRankP1');
+    const el2 = document.getElementById('dCurrentRankP2');
+    if (el1) el1.innerHTML = `<span style="color:var(--text);">${c1}</span> <span style="color:var(--accent-blue);font-weight:700;">#${cur1}</span>`;
+    if (el2) el2.innerHTML = `<span style="color:var(--text);">${c2}</span> <span style="color:var(--accent-gold);font-weight:700;">#${cur2}</span>`;
+
+    for (const s of scenarios) {
+      const wUser = s.p1wins ? p1 : p2, wChar = s.p1wins ? c1 : c2;
+      const lUser = s.p1wins ? p2 : p1, lChar = s.p1wins ? c2 : c1;
+      const we = s.p1wins ? e1 : e2, le = s.p1wins ? e2 : e1;
+      const delta = _duelEloGain(we, le, s.wk, s.lk);
+      const wRank = _rankAfter(lb, wUser, wChar, we + delta);
+      const lRank = _rankAfter(lb, lUser, lChar, Math.max(100, le - delta));
+      document.getElementById(`dRankW_${s.id}`).textContent = `↑#${wRank}`;
+      document.getElementById(`dRankL_${s.id}`).textContent = `↓#${lRank}`;
+    }
   }
 
   function startSeries() {
@@ -614,6 +654,7 @@
       });
 
       const eloDelta = res.elo_delta || 0;
+      _lbCache = null; // invalidate so next preview fetches fresh ranks
       games.push({ winner, winnerPlayer, loserPlayer, winnerChar, loserChar, wk, lk, eloDelta });
 
       if (winner === 1) p1Score++; else p2Score++;

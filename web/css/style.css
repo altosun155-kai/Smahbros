@@ -880,21 +880,44 @@ a:hover {
 .m-rank-row { font-size: 0.62rem; font-weight: 700; display: flex; gap: 4px; }
 .m-elo-val { font-size: 1rem; font-weight: 800; color: #4caf50; }
 
-/* Show/hide based on portrait mobile */
+/* Show/hide + layout for portrait mobile */
 @media (max-width: 600px) and (orientation: portrait) {
-  #desktopScoreGrid { display: none !important; }
-  #mobileScorePicker { display: block !important; }
-  #scorePickLabel { display: none !important; }
+  /* Modal becomes a scrollable column */
+  #scoreModal.open {
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    overflow-y: auto;
+  }
 
+  /* VS art: fixed-height top section */
+  .vs-content {
+    flex-shrink: 0;
+    height: 52vw;
+    min-height: 200px;
+    max-height: 260px;
+    width: 100%;
+    padding: 44px 12px 8px;
+  }
+
+  /* Score picker: dark panel flowing below VS art, not absolute */
   .vs-winner-row {
-    position: relative;
-    bottom: auto; left: auto; transform: none;
+    position: relative !important;
+    bottom: auto !important;
+    left: auto !important;
+    transform: none !important;
     white-space: normal;
     background: rgba(10,10,20,0.97);
     border-top: 1px solid rgba(255,255,255,0.1);
     width: 100%;
-    padding: 18px 16px 40px;
+    padding: 18px 16px 48px;
     z-index: 3;
+    flex-shrink: 0;
   }
+
+  #desktopScoreGrid { display: none !important; }
+  #mobileScorePicker { display: block !important; }
+  #scorePickLabel { display: none !important; }
+
   .vs-close { position: fixed; top: 10px; right: 12px; z-index: 10; }
 }

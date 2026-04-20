@@ -168,7 +168,7 @@ def find_alt_files(root: Path) -> list[tuple[Path, str, int]]:
 # ── Supabase upload ───────────────────────────────────────────────────────────
 
 def upload_file(path: Path, dest_name: str, service_key: str, dry_run: bool) -> bool:
-    url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_BUCKET}/{requests.utils.quote(dest_name)}"
+    url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_BUCKET}/{requests.utils.quote(dest_name, safe='')}"
     if dry_run:
         print(f"  [DRY] would upload → {dest_name}")
         return True
@@ -240,8 +240,9 @@ def main():
 
     ok = fail = skip = 0
     for path, display, alt in files:
-        # Strip diacritics so Supabase accepts the key (e.g. "Pokémon" → "Pokemon")
+        # Strip diacritics and replace / so filenames are URL-safe
         safe = unicodedata.normalize('NFKD', display).encode('ascii', 'ignore').decode('ascii')
+        safe = safe.replace('/', ' ')  # "Pyra/Mythra" → "Pyra Mythra"
         dest = f"{safe}_{alt}.png"
         if args.skip_existing and dest in existing:
             skip += 1

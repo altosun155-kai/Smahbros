@@ -58,6 +58,18 @@
 
     @media (max-width: 700px) { .profile-layout { grid-template-columns: 1fr; } .profile-card { position: static; } }
 
+    /* ── Character showcase ── */
+    .showcase-strip { display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch; }
+    .showcase-strip::-webkit-scrollbar { height:3px; }
+    .showcase-strip::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+    .showcase-card { flex:1; min-width:88px; max-width:130px; background:var(--card-bg2); border:1.5px solid var(--border); border-radius:10px; overflow:hidden; cursor:pointer; transition:border-color 0.15s,transform 0.1s; text-align:center; user-select:none; }
+    .showcase-card:hover { border-color:var(--accent-blue); transform:translateY(-2px); }
+    .showcase-card.active { border-color:var(--accent-blue); background:rgba(0,119,200,0.1); }
+    .showcase-art { width:100%; aspect-ratio:1; background-size:80%; background-position:center; background-repeat:no-repeat; background-color:var(--card-bg); }
+    .showcase-name { font-size:0.68rem; font-weight:600; padding:4px 5px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .showcase-elo { font-size:1.05rem; font-weight:800; padding:1px 0; }
+    .showcase-record { font-size:0.63rem; color:var(--text-muted); padding-bottom:7px; }
+
     /* ── Badge-themed backgrounds ─────────────────────
        Applied to <body> after badges load. Highest-prestige badge wins. */
 
@@ -268,12 +280,24 @@
           <div id="h2hEmpty" style="display:none;font-size:0.84rem;color:var(--text-muted);margin-top:10px;">No matches recorded yet between these players.</div>
         </div>
 
-        <!-- Elo Ratings -->
+        <!-- Top Characters + Elo Chart -->
         <div class="prof-section">
-          <div class="prof-section-title">Elo Ratings</div>
-          <div id="eloLoading" style="font-size:0.84rem;color:var(--text-muted);">Loading…</div>
-          <div id="eloGrid" style="display:none;"></div>
-          <div id="eloEmpty" style="display:none;font-size:0.84rem;color:var(--text-muted);">No ranked matches yet.</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+            <div class="prof-section-title" style="margin:0;">Top Characters</div>
+            <div id="showcaseRankNote" style="font-size:0.72rem;color:var(--text-muted);"></div>
+          </div>
+          <div id="showcaseLoading" style="font-size:0.84rem;color:var(--text-muted);">Loading…</div>
+          <div id="showcaseContent" style="display:none;">
+            <div class="showcase-strip" id="showcaseCards"></div>
+            <div style="margin-top:20px;">
+              <div class="prof-section-title" id="chartCharLabel" style="margin-bottom:8px;">Elo Development</div>
+              <div style="background:var(--card-bg2);border:1px solid var(--border);border-radius:8px;padding:12px 8px 6px;overflow:hidden;">
+                <svg id="eloChartSvg" width="100%" style="display:block;overflow:visible;"></svg>
+              </div>
+              <div id="chartStats" style="display:flex;gap:16px;margin-top:8px;font-size:0.75rem;flex-wrap:wrap;color:var(--text-muted);"></div>
+            </div>
+          </div>
+          <div id="showcaseEmpty" style="display:none;font-size:0.84rem;color:var(--text-muted);">No ranked matches yet. Play some games!</div>
         </div>
 
         <!-- Activity feed -->
@@ -303,6 +327,7 @@
 </main>
 
 <script src="js/api.js"></script>
+<script src="js/chars.js"></script>
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/friends-sidebar.js"></script>
@@ -456,31 +481,160 @@
     }
   }
 
-  // ── Elo ratings ────────────────────────────────────
-  async function loadElo() {
+  // ── Character showcase + elo chart ────────────────
+  let showcaseStats = [];
+  let currentChartChar = null;
+  let currentChartPoints = null;
+  let currentChartElo = 1000;
+
+  async function loadShowcase() {
     try {
       const data = await apiGet(`/characters/stats/${encodeURIComponent(currentUsername)}`);
-      document.getElementById('eloLoading').style.display = 'none';
-      const stats = (data.stats || []).filter(s => s.wins > 0 || s.losses > 0).sort((a, b) => (b.elo||1000) - (a.elo||1000) || (b.kills||0) - (a.kills||0) || (b.points||0) - (a.points||0));
-      if (!stats.length) { document.getElementById('eloEmpty').style.display = 'block'; return; }
-      const grid = document.getElementById('eloGrid');
-      grid.style.display = 'grid';
-      grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(130px, 1fr))';
-      grid.style.gap = '8px';
-      grid.innerHTML = stats.map(s => {
+      document.getElementById('showcaseLoading').style.display = 'none';
+      showcaseStats = (data.stats || [])
+        .filter(s => (s.wins || 0) + (s.losses || 0) >= 1)
+        .sort((a, b) => (b.elo || 1000) - (a.elo || 1000))
+        .slice(0, 5);
+      if (!showcaseStats.length) { document.getElementById('showcaseEmpty').style.display = 'block'; return; }
+
+      const strip = document.getElementById('showcaseCards');
+      strip.innerHTML = showcaseStats.map((s, i) => {
         const elo = s.elo || 1000;
-        const eloColor = elo >= 1200 ? '#f5a623' : elo >= 1100 ? '#4caf50' : elo >= 1000 ? 'var(--text)' : '#e74c3c';
-        return `<div style="background:var(--card-bg2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;">
-          <div style="font-size:0.78rem;font-weight:600;color:var(--text);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.character}</div>
-          <div style="font-size:1.1rem;font-weight:800;color:${eloColor};">${elo}</div>
-          <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">${s.wins}W ${s.losses}L</div>
+        const games = (s.wins || 0) + (s.losses || 0);
+        const winPct = games > 0 ? Math.round(s.wins / games * 100) : 0;
+        const eloColor = elo >= 1200 ? '#f5a623' : elo >= 1100 ? '#4caf50' : elo < 900 ? '#e74c3c' : 'var(--text)';
+        const img = typeof charImgUrl === 'function' ? charImgUrl(s.character) : '';
+        return `<div class="showcase-card${i === 0 ? ' active' : ''}" data-char="${escHtml(s.character)}" onclick="selectShowcaseChar(this)">
+          <div class="showcase-art" style="background-image:url('${img}')"></div>
+          <div class="showcase-name" title="${escHtml(s.character)}">${escHtml(s.character)}</div>
+          <div class="showcase-elo" style="color:${eloColor};">${elo}</div>
+          <div class="showcase-record">${winPct}%&nbsp; ${s.wins}W ${s.losses}L</div>
         </div>`;
       }).join('');
+
+      document.getElementById('showcaseContent').style.display = 'block';
+      selectShowcaseChar(document.querySelector('.showcase-card'));
     } catch (_) {
-      document.getElementById('eloLoading').style.display = 'none';
-      document.getElementById('eloEmpty').style.display = 'block';
+      document.getElementById('showcaseLoading').style.display = 'none';
+      document.getElementById('showcaseEmpty').style.display = 'block';
     }
   }
+
+  function selectShowcaseChar(el) {
+    document.querySelectorAll('.showcase-card').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    const char = el.dataset.char;
+    const stat = showcaseStats.find(s => s.character === char);
+    currentChartChar = char;
+    currentChartElo = stat ? (stat.elo || 1000) : 1000;
+    loadEloChart(char, currentChartElo);
+  }
+
+  async function loadEloChart(character, currentElo) {
+    document.getElementById('chartCharLabel').textContent = `${character} — Elo History`;
+    const svg = document.getElementById('eloChartSvg');
+    svg.setAttribute('height', '160');
+    svg.innerHTML = `<text x="50%" y="80" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="13">Loading…</text>`;
+    document.getElementById('chartStats').innerHTML = '';
+    try {
+      const history = await apiGet(`/matches/history?username=${encodeURIComponent(currentUsername)}&character=${encodeURIComponent(character)}&limit=30`);
+      if (!history || history.length < 2) {
+        svg.innerHTML = `<text x="50%" y="80" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="13">${history && history.length === 1 ? 'Need more matches for a chart' : 'No match history yet'}</text>`;
+        return;
+      }
+      // Reconstruct elo timeline (history newest-first, elo_delta signed)
+      const pts = [{ elo: currentElo, label: 'Now' }];
+      let elo = currentElo;
+      for (const h of history) {
+        elo = Math.round(elo - h.elo_delta);
+        pts.push({ elo, label: h.created_at ? h.created_at.slice(0, 10) : '' });
+      }
+      pts.reverse(); // oldest → newest
+      currentChartPoints = pts;
+      requestAnimationFrame(() => drawEloSvg(svg, pts, currentElo));
+
+      const peak = Math.max(...pts.map(p => p.elo));
+      const low  = Math.min(...pts.map(p => p.elo));
+      const wins = history.filter(h => h.elo_delta > 0).length;
+      document.getElementById('chartStats').innerHTML =
+        `<span>Showing <strong style="color:var(--text);">${history.length}</strong> matches</span>` +
+        `<span style="color:#4caf50;">Peak <strong>${peak}</strong></span>` +
+        `<span style="color:#e74c3c;">Low <strong>${low}</strong></span>` +
+        `<span>${wins}W ${history.length - wins}L in window</span>`;
+    } catch (_) {
+      svg.innerHTML = `<text x="50%" y="80" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="13">No match history</text>`;
+    }
+  }
+
+  function drawEloSvg(svg, points, currentElo) {
+    const W = svg.getBoundingClientRect().width || svg.clientWidth || 500;
+    const H = 160;
+    svg.setAttribute('height', H);
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const pad = { top: 18, right: 44, bottom: 28, left: 42 };
+    const iW = W - pad.left - pad.right;
+    const iH = H - pad.top - pad.bottom;
+
+    const elos = points.map(p => p.elo);
+    const minE = Math.min(...elos), maxE = Math.max(...elos);
+    const span = maxE - minE || 50;
+    const yMin = minE - span * 0.2, yMax = maxE + span * 0.2;
+
+    const xOf = i => pad.left + (points.length < 2 ? iW / 2 : (i / (points.length - 1)) * iW);
+    const yOf = v => pad.top + (1 - (v - yMin) / (yMax - yMin)) * iH;
+
+    const trend = elos[elos.length - 1] - elos[0];
+    const col = trend >= 0 ? '#4caf50' : '#e74c3c';
+    const gid = `eloG${Date.now()}`;
+
+    const grid = [0, 0.25, 0.5, 0.75, 1].map(t => {
+      const v = yMin + t * (yMax - yMin), y = yOf(v).toFixed(1);
+      return `<line x1="${pad.left}" y1="${y}" x2="${(pad.left+iW).toFixed(1)}" y2="${y}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+              <text x="${(pad.left-5).toFixed(1)}" y="${(+y+3.5).toFixed(1)}" text-anchor="end" font-size="9" fill="rgba(255,255,255,0.3)">${Math.round(v)}</text>`;
+    }).join('');
+
+    const base1000 = (yMin < 1000 && yMax > 1000)
+      ? `<line x1="${pad.left}" y1="${yOf(1000).toFixed(1)}" x2="${(pad.left+iW).toFixed(1)}" y2="${yOf(1000).toFixed(1)}" stroke="rgba(255,255,255,0.18)" stroke-width="1" stroke-dasharray="4,3"/>`
+      : '';
+
+    const linePath = points.map((p, i) => `${i===0?'M':'L'}${xOf(i).toFixed(1)},${yOf(p.elo).toFixed(1)}`).join(' ');
+    const areaPath = `${linePath} L${xOf(points.length-1).toFixed(1)},${(pad.top+iH).toFixed(1)} L${xOf(0).toFixed(1)},${(pad.top+iH).toFixed(1)} Z`;
+
+    const labelStep = Math.max(1, Math.floor(points.length / 5));
+    const xLabels = points.map((p, i) => {
+      if (i % labelStep !== 0 && i !== points.length - 1) return '';
+      const lbl = i === points.length - 1 ? 'Now' : (p.label.slice(5) || '');
+      return lbl ? `<text x="${xOf(i).toFixed(1)}" y="${(H-4).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="rgba(255,255,255,0.3)">${lbl}</text>` : '';
+    }).join('');
+
+    const dots = points.map((p, i) => {
+      const last = i === points.length - 1;
+      return `<circle cx="${xOf(i).toFixed(1)}" cy="${yOf(p.elo).toFixed(1)}" r="${last?4:2}" fill="${col}" opacity="${last?1:0.55}"/>`;
+    }).join('');
+
+    const lx = xOf(points.length - 1), ly = yOf(currentElo);
+    const anchor = lx + 44 > W ? 'end' : 'start';
+    const lxOff = anchor === 'end' ? lx - 7 : lx + 7;
+
+    svg.innerHTML = `
+      <defs>
+        <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${col}" stop-opacity="0.28"/>
+          <stop offset="100%" stop-color="${col}" stop-opacity="0.02"/>
+        </linearGradient>
+      </defs>
+      ${grid}${base1000}
+      <path d="${areaPath}" fill="url(#${gid})"/>
+      <path d="${linePath}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      ${dots}
+      <text x="${lxOff.toFixed(1)}" y="${(ly+4).toFixed(1)}" text-anchor="${anchor}" font-size="11" font-weight="700" fill="${col}">${currentElo}</text>
+      ${xLabels}
+    `;
+  }
+
+  window.addEventListener('resize', () => {
+    if (currentChartPoints) drawEloSvg(document.getElementById('eloChartSvg'), currentChartPoints, currentChartElo);
+  });
 
   // ── Activity feed ─────────────────────────────────
   async function loadActivity() {
@@ -737,7 +891,7 @@
       }
     }
 
-    loadElo();
+    loadShowcase();
     loadActivity();
     loadComments();
   })();

@@ -32,10 +32,10 @@ function charImgUrl(name) {
 // Falls back to the base portrait if the alt image hasn't been uploaded yet.
 function charAltImgUrl(name, alt) {
   if (!alt && alt !== 0) return charImgUrl(name);
-  // Derive a safe base name: use the override stem if one exists, else the display name
-  const overrideFile = CHAR_FILE_OVERRIDES[name];
-  const base = overrideFile ? overrideFile.replace(/\.png$/i, '') : name;
-  return SUPABASE_CHARS + encodeURIComponent(base + '_' + alt + '.png');
+  const safeName = name
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '') // é → e (matches upload script)
+    .replace(/\//g, ' ');                               // Pyra/Mythra → Pyra Mythra
+  return SUPABASE_CHARS + encodeURIComponent(safeName + '_' + alt + '.png');
 }
 
 const SMASH_ROSTER = [

@@ -57,6 +57,30 @@
     #eloHistSpinner { text-align:center; padding:20px; color:var(--text-muted); font-size:0.85rem; }
     .char-row-clickable { cursor:pointer; }
     .char-row-clickable:hover td { background:rgba(255,255,255,0.04); }
+    .char-row-mine td { background: rgba(0,119,200,0.08) !important; }
+    .char-row-mine:hover td { background: rgba(0,119,200,0.14) !important; }
+    .char-row-mine td:first-child { border-left: 3px solid var(--accent-blue); }
+
+    @media (max-width: 700px) {
+      /* Make rank + player sticky so stats scroll horizontally */
+      #charTable thead th:nth-child(1),
+      #charTable thead th:nth-child(2),
+      #charTable tbody td:nth-child(1),
+      #charTable tbody td:nth-child(2) {
+        position: sticky;
+        background: var(--card-bg, #1a1a2e);
+        z-index: 2;
+      }
+      #charTable thead th:nth-child(1), #charTable tbody td:nth-child(1) { left: 0; min-width: 38px; }
+      #charTable thead th:nth-child(2), #charTable tbody td:nth-child(2) { left: 38px; box-shadow: 2px 0 6px rgba(0,0,0,0.4); }
+      .char-row-mine td:nth-child(1), .char-row-mine td:nth-child(2) { background: rgba(0,119,200,0.12) !important; }
+
+      /* Filter inputs full-width on mobile */
+      #filterPlayer, #filterChar { width: 100% !important; }
+      .data-table { font-size: 0.78rem; }
+      .char-img-sm { width: 28px; height: 28px; }
+      .user-av { width: 22px; height: 22px; }
+    }
   </style>
 </head>
 <body>
@@ -193,11 +217,12 @@
 <script src="js/chars.js"></script>
 <script>
   const PAGE_SIZE = 25;
-  let allCharData = [];    // raw data from server
-  let rankedData  = [];    // sorted with global rank assigned
+  let allCharData = [];
+  let rankedData  = [];
   let currentPage = 1;
   let sortCol = 'elo';
   let sortDir = 'desc';
+  let myUsername  = '';
 
   function sortBy(col) {
     if (sortCol === col) {
@@ -277,8 +302,11 @@
     const body = document.getElementById('charBody');
     body.innerHTML = page.map(entry => {
       const i = entry.globalRank - 1;
-      const rankLabel = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${entry.globalRank}`;
-      const rowClass  = i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '';
+      const rankLabel = i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${entry.globalRank}`;
+      const isMine = entry.username === myUsername;
+      const rowClass = isMine
+        ? 'char-row-mine'
+        : (i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '');
       const av = entry.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}`;
       const imgUrl = entry.preferred_alt != null
         ? charAltImgUrl(entry.character, entry.preferred_alt + 1)
@@ -347,8 +375,9 @@
       document.getElementById('globalTableWrap').style.display = 'block';
       const body = document.getElementById('globalBody');
       body.innerHTML = data.map((u, i) => {
-        const rowClass   = i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '';
-        const rankSymbol = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
+        const isMine     = u.username === myUsername;
+        const rowClass   = isMine ? 'char-row-mine' : (i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '');
+        const rankSymbol = i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
         return `<tr class="${rowClass}">
           <td style="font-weight:700;">${rankSymbol}</td>
           <td style="font-weight:600;">${escHtml(u.username)}</td>
@@ -365,7 +394,6 @@
   }
 
   (async function init() {
-    let myUsername = '';
     try {
       const me = await apiGet('/users/me');
       if (me) {

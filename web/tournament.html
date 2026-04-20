@@ -176,7 +176,10 @@
       <button onclick="undoLastScore()" style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:6px;padding:5px 14px;font-size:0.82rem;font-weight:700;cursor:pointer;">Undo</button>
     </div>
 
-    <p style="margin-top:12px;font-size:0.82rem;color:var(--text-muted);" id="refreshNote">Auto-refreshes every 5 seconds.</p>
+    <div id="refreshNote" style="margin-top:12px;display:inline-flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--text-muted);">
+      <span style="width:7px;height:7px;border-radius:50%;background:#27ae60;display:inline-block;animation:pulse 2s ease-in-out infinite;flex-shrink:0;"></span>
+      <span id="refreshNoteText">Live · syncing every 5s</span>
+    </div>
   </div>
 
   <div id="errorState" style="display:none;" class="empty-state">
@@ -566,7 +569,8 @@ function renderBracket(data) {
   if (!is_live && pollInterval) {
     clearInterval(pollInterval);
     pollInterval = null;
-    document.getElementById('refreshNote').textContent = 'Tournament has ended.';
+    const rn = document.getElementById('refreshNote');
+    if (rn) { rn.querySelector('span:first-child').style.background = '#e74c3c'; rn.querySelector('#refreshNoteText').textContent = 'Tournament ended'; }
   }
 
   // Winner banner
@@ -872,10 +876,27 @@ function renderLineupStatus(data) {
   list.innerHTML = players.map(p => {
     const chars = confirmedLineups[p];
     const done = chars && chars.length > 0;
+
+    let rightSide = '';
+    if (done) {
+      const icons = chars.map(c => {
+        const url = typeof charImgUrl === 'function' ? charImgUrl(c) : '';
+        return url
+          ? `<img src="${url}" alt="${c}" title="${c}" style="width:26px;height:26px;object-fit:contain;border-radius:4px;background:var(--card-bg);" onerror="this.style.display='none'">`
+          : `<span style="font-size:0.72rem;color:var(--text-muted);">${c}</span>`;
+      }).join('');
+      rightSide = `<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">${icons}</div>`;
+    } else {
+      rightSide = `<span style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:var(--text-muted);">
+        <span style="width:9px;height:9px;border-radius:50%;background:#27ae60;display:inline-block;animation:pulse 1.2s ease-in-out infinite;flex-shrink:0;"></span>
+        Waiting…
+      </span>`;
+    }
+
     return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--card-bg2);border-radius:8px;border:1px solid ${done ? 'rgba(39,174,96,0.3)' : 'var(--border)'};">
-      <span style="font-size:1rem;">${done ? '✅' : '⏳'}</span>
+      <span style="font-size:1rem;">${done ? '✅' : ''}</span>
       <span style="font-weight:600;flex:1;">${p}</span>
-      <span style="font-size:0.82rem;color:var(--text-muted);">${done ? chars.join(', ') : 'Waiting…'}</span>
+      ${rightSide}
     </div>`;
   }).join('');
 }
@@ -1173,7 +1194,8 @@ async function fetchAndRender() {
     if (!data.is_live && pollInterval) {
       clearInterval(pollInterval);
       pollInterval = null;
-      document.getElementById('refreshNote').textContent = 'Tournament has ended.';
+      const rn = document.getElementById('refreshNote');
+    if (rn) { rn.querySelector('span:first-child').style.background = '#e74c3c'; rn.querySelector('#refreshNoteText').textContent = 'Tournament ended'; }
     }
   } catch (err) {
     document.getElementById('loading').style.display = 'none';

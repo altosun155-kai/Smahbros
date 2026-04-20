@@ -167,6 +167,11 @@
     .mastery-stat-pill strong {
       color: var(--text);
     }
+
+    @media (max-width: 700px) {
+      .mastery-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+      .mastery-tile .tile-tooltip { display: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -188,6 +193,15 @@
   <div id="masteryContent" style="display:none;">
     <div class="mastery-stats" id="masteryStats"></div>
     <div class="mastery-legend" id="masteryLegend"></div>
+    <div style="margin:16px 0 8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <input id="masterySearch" type="text" placeholder="Search characters…"
+        oninput="filterMasteryGrid()"
+        style="background:var(--card-bg2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 14px;font-size:0.85rem;width:220px;outline:none;transition:border-color .15s;"
+        onfocus="this.style.borderColor='var(--accent-blue)'" onblur="this.style.borderColor='var(--border)'" />
+      <button onclick="document.getElementById('masterySearch').value='';filterMasteryGrid()"
+        style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:0.8rem;">Clear</button>
+      <span id="masteryCount" style="font-size:0.78rem;color:var(--text-muted);"></span>
+    </div>
     <div class="mastery-grid" id="masteryGrid"></div>
   </div>
 </main>
@@ -265,7 +279,7 @@
           `<span style="color:${playerColorMap[data.username]}">${data.username}</span><br>` +
           `${data.points} pts · ${data.wins}W ${data.losses}L`;
       } else {
-        tooltip.innerHTML = `<strong>${char}</strong><span style="color:var(--text-muted)">No claims yet</span>`;
+        tooltip.innerHTML = `<strong>${char}</strong><span style="color:#e74c3c;font-weight:700;">Skill Issue</span>`;
       }
       tile.appendChild(tooltip);
 
@@ -314,6 +328,27 @@
       `<div class="mastery-stat-pill"><strong>${pct}%</strong> roster coverage</div>`;
   }
 
+  function filterMasteryGrid() {
+    const q = (document.getElementById('masterySearch')?.value || '').toLowerCase().trim();
+    const tiles = document.querySelectorAll('#masteryGrid .mastery-tile');
+    let shown = 0;
+    tiles.forEach(tile => {
+      const name = (tile.querySelector('img')?.alt || tile.querySelector('.char-fallback')?.textContent || '').toLowerCase();
+      const match = !q || name.includes(q);
+      tile.style.display = match ? '' : 'none';
+      if (match) shown++;
+    });
+    updateMasteryCount(shown, tiles.length);
+  }
+
+  function updateMasteryCount(shown, total) {
+    const el = document.getElementById('masteryCount');
+    if (!el) return;
+    const t = total ?? document.querySelectorAll('#masteryGrid .mastery-tile').length;
+    const s = shown ?? t;
+    el.textContent = s < t ? `${s} of ${t} characters` : `${t} characters`;
+  }
+
   (async function init() {
     try {
       const me = await apiGet('/users/me');
@@ -346,6 +381,7 @@
       buildStats(masteryMap);
       buildLegend(playerColorMap, masteryMap);
       buildGrid(masteryMap, playerColorMap);
+      updateMasteryCount();
 
       document.getElementById('loadingState').style.display = 'none';
       document.getElementById('masteryContent').style.display = 'block';

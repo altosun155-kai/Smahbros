@@ -38,6 +38,41 @@
 
     .view-user-row { display: flex; gap: 10px; max-width: 400px; margin-bottom: 20px; }
     .view-user-row input { flex: 1; }
+
+    /* Tap-to-assign (mobile) */
+    .char-tile.tap-selected {
+      border-color: var(--accent-blue) !important;
+      box-shadow: 0 0 10px rgba(0,119,200,0.6);
+      transform: scale(1.15);
+      z-index: 5;
+    }
+    .tier-zone.tap-target, .unranked-zone.tap-target {
+      outline: 2px dashed var(--accent-blue);
+      outline-offset: -2px;
+      background: rgba(0,119,200,0.08);
+      cursor: pointer;
+    }
+    #tapModeBar {
+      display: none;
+      position: fixed;
+      bottom: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent-blue);
+      color: #fff;
+      border-radius: 20px;
+      padding: 8px 20px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      z-index: 500;
+      white-space: nowrap;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+    @media (max-width: 700px) {
+      .unranked-zone { gap: 4px; }
+      .char-tile { width: 60px !important; height: 60px !important; }
+      .tier-label { width: 44px; font-size: 1.3rem; }
+    }
   </style>
 </head>
 <body>
@@ -62,6 +97,7 @@
       <button class="btn btn-outline" onclick="resetTierList()">Reset All</button>
       <span class="last-saved" id="lastSaved"></span>
     </div>
+    <div id="tapModeBar">Tap a tier to place — tap again to cancel</div>
 
     <div class="tier-board" id="tierBoard"></div>
 
@@ -125,7 +161,32 @@
       draggedChar = null;
     });
 
+    // Tap-to-assign for touch devices
+    tile.addEventListener('click', () => {
+      if (!isTouchDevice()) return;
+      if (tapSelectedChar === char) { clearTapMode(); return; }
+      clearTapMode();
+      tapSelectedChar = char;
+      tile.classList.add('tap-selected');
+      document.querySelectorAll('.tier-zone, .unranked-zone').forEach(z => z.classList.add('tap-target'));
+      document.getElementById('tapModeBar').style.display = 'block';
+    });
+
     return tile;
+  }
+
+  // ── Tap-to-assign state ───────────────────────────
+  let tapSelectedChar = null;
+
+  function isTouchDevice() {
+    return window.matchMedia('(max-width: 700px)').matches;
+  }
+
+  function clearTapMode() {
+    tapSelectedChar = null;
+    document.querySelectorAll('.char-tile.tap-selected').forEach(t => t.classList.remove('tap-selected'));
+    document.querySelectorAll('.tier-zone, .unranked-zone').forEach(z => z.classList.remove('tap-target'));
+    document.getElementById('tapModeBar').style.display = 'none';
   }
 
   function addFallback(tile, char) {
@@ -223,6 +284,17 @@
       const before = getInsertTarget(zone, e.clientX, e.clientY);
       if (before) zone.insertBefore(tile, before);
       else zone.appendChild(tile);
+    });
+
+    // Tap-to-assign: tapping a zone places the selected character there
+    zone.addEventListener('click', () => {
+      if (!tapSelectedChar) return;
+      const char = tapSelectedChar;
+      const newTier = zone.dataset.tier;
+      tierMap[char] = newTier;
+      const tile = document.querySelector(`.char-tile[data-char="${CSS.escape(char)}"]`);
+      if (tile) zone.appendChild(tile);
+      clearTapMode();
     });
   }
 

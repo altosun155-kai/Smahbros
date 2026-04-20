@@ -14,6 +14,12 @@
     .bracket-name { font-size: 0.98rem; font-weight: 600; color: var(--text); }
     .bracket-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 3px; }
     .bracket-actions { display: flex; gap: 8px; align-items: center; }
+    .status-badge { font-size: 0.7rem; font-weight: 700; border-radius: 5px; padding: 2px 8px; letter-spacing: 0.3px; }
+    .status-live     { background: rgba(39,174,96,0.15); border: 1px solid rgba(39,174,96,0.45); color: #27ae60; }
+    .status-done     { background: rgba(255,215,0,0.1);  border: 1px solid rgba(255,215,0,0.3);  color: #ffd700; }
+    .status-progress { background: rgba(0,119,200,0.12); border: 1px solid rgba(0,119,200,0.35); color: #4da6ff; }
+    .btn-trash { background: none; border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.35); border-radius: 6px; padding: 5px 8px; cursor: pointer; font-size: 0.85rem; line-height: 1; transition: border-color 0.15s, color 0.15s; }
+    .btn-trash:hover { border-color: rgba(231,76,60,0.6); color: #e74c3c; }
     .expand-icon { color: var(--text-muted); font-size: 1.1rem; transition: transform 0.2s; }
     .bracket-body { display: none; padding: 0 20px 16px; border-top: 1px solid var(--border); }
     .bracket-body.open { display: block; }
@@ -86,15 +92,22 @@
         </div>`
       ).join('');
 
-      const isLive = b.is_live;
+      const isLive    = b.is_live;
+      const hasWinner = !!b.winner;
       const hasLineup = isLive && !(b.bracket_data && b.bracket_data.length);
-      const liveLabel = hasLineup ? '📋 Lineup' : '🔴 Live';
-      const viewBadge = isLive
-        ? `<a href="tournament.html?id=${b.id}" class="btn btn-sm" onclick="event.stopPropagation();" style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.5);color:#27ae60;font-size:0.75rem;">${liveLabel}</a>`
-        : `<a href="tournament.html?id=${b.id}" class="btn btn-outline btn-sm" onclick="event.stopPropagation();" style="font-size:0.75rem;">View</a>`;
-      const winnerBadge = b.winner
-        ? `<span style="font-size:0.75rem;font-weight:700;color:#ffd700;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.3);border-radius:4px;padding:2px 8px;">🏆 ${escHtml(b.winner)}</span>`
-        : '';
+
+      // Status badge
+      let statusBadge = '';
+      if (isLive && hasLineup) {
+        statusBadge = `<span class="status-badge status-progress">📋 Lineup</span>`;
+      } else if (isLive) {
+        statusBadge = `<span class="status-badge status-live">🔴 Live</span>`;
+      } else if (hasWinner) {
+        statusBadge = `<span class="status-badge status-done">🏆 ${escHtml(b.winner)}</span>`;
+      } else {
+        statusBadge = `<span class="status-badge status-progress">In Progress</span>`;
+      }
+
       return `
         <div class="bracket-item">
           <div class="bracket-header" onclick="toggleBracket(${b.id})">
@@ -106,9 +119,9 @@
               </div>
             </div>
             <div class="bracket-actions">
-              ${winnerBadge}
-              ${viewBadge}
-              <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteBracket(${b.id},'${b.name.replace(/'/g,"\\'")}')" >Delete</button>
+              ${statusBadge}
+              <a href="tournament.html?id=${b.id}" class="btn btn-outline btn-sm" onclick="event.stopPropagation();" style="font-size:0.75rem;">View</a>
+              <button class="btn-trash" title="Delete bracket" onclick="event.stopPropagation();deleteBracket(${b.id},'${b.name.replace(/'/g,"\\'")}')">🗑</button>
               <span class="expand-icon" id="icon_${b.id}">›</span>
             </div>
           </div>

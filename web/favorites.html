@@ -27,13 +27,37 @@
       border-color: var(--accent-blue);
       color: #fff;
     }
-    .char-chip.disabled { opacity: 0.4; cursor: not-allowed; }
+    .char-chip.disabled { opacity: 0.25; cursor: not-allowed; pointer-events: none; }
     .counter { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; }
     .counter span { color: var(--accent-gold); }
-    .fav-list { list-style: none; }
-    .fav-list li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; color: var(--text); display: flex; align-items: center; gap: 10px; }
-    .fav-list li:last-child { border-bottom: none; }
-    .fav-rank { font-weight: 700; color: var(--text-muted); min-width: 24px; }
+    .power-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .power-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 16px;
+      transition: border-color 0.15s;
+    }
+    .power-item:hover { border-color: rgba(255,255,255,0.15); }
+    .power-rank {
+      font-size: 1.4rem;
+      font-weight: 900;
+      min-width: 36px;
+      text-align: center;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .power-rank-1 { color: #ffd700; }
+    .power-rank-2 { color: #c0c0c0; }
+    .power-rank-3 { color: #cd7f32; }
+    .power-rank-n { color: rgba(255,255,255,0.2); }
+    .power-char-img { width: 40px; height: 40px; object-fit: contain; border-radius: 6px; background: var(--card-bg); flex-shrink: 0; }
+    .power-char-name { font-size: 0.95rem; font-weight: 700; color: var(--text); flex: 1; }
+    .power-remove { background: none; border: none; color: rgba(255,255,255,0.25); font-size: 0.8rem; cursor: pointer; padding: 4px 6px; border-radius: 4px; transition: color 0.12s; }
+    .power-remove:hover { color: #e74c3c; }
   </style>
 </head>
 <body>
@@ -55,6 +79,15 @@
   <div id="favsContent" style="display:none;">
     <div class="counter"><span id="selCount">0</span>/10 selected</div>
 
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+      <input id="chipsSearch" type="text" placeholder="Search characters…"
+        oninput="filterChips()"
+        style="background:var(--card-bg2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 14px;font-size:16px;width:220px;outline:none;transition:border-color .15s;"
+        onfocus="this.style.borderColor='var(--accent-blue)'" onblur="this.style.borderColor='var(--border)'" />
+      <button onclick="document.getElementById('chipsSearch').value='';filterChips()"
+        style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:0.8rem;">Clear</button>
+    </div>
+
     <div class="chips-grid" id="chipsGrid"></div>
 
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:32px;">
@@ -63,13 +96,14 @@
     </div>
 
     <div id="currentFavsSection" style="display:none;">
-      <h2 style="font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:14px;">Your Current Top 10</h2>
-      <ul class="fav-list" id="favList"></ul>
+      <h2 style="font-size:0.72rem;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px;">Your Power Rankings</h2>
+      <ul class="power-list" id="favList"></ul>
     </div>
   </div>
 </main>
 
 <script src="js/api.js"></script>
+<script src="js/chars.js"></script>
 <script src="js/friends-sidebar.js"></script>
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
@@ -111,6 +145,17 @@
 
   function updateCounter() {
     document.getElementById('selCount').textContent = selected.size;
+    const full = selected.size >= 10;
+    document.querySelectorAll('.char-chip:not(.selected)').forEach(chip => {
+      chip.classList.toggle('disabled', full);
+    });
+  }
+
+  function filterChips() {
+    const q = (document.getElementById('chipsSearch')?.value || '').toLowerCase().trim();
+    document.querySelectorAll('#chipsGrid .char-chip').forEach(chip => {
+      chip.style.display = (!q || chip.textContent.toLowerCase().includes(q)) ? '' : 'none';
+    });
   }
 
   function updateFavList() {
@@ -119,12 +164,18 @@
     const arr = [...selected];
     if (!arr.length) { section.style.display = 'none'; return; }
     section.style.display = 'block';
-    list.innerHTML = arr.map((c, i) => `
-      <li>
-        <span class="fav-rank">#${i+1}</span>
-        <span>${c}</span>
-      </li>
-    `).join('');
+    list.innerHTML = arr.map((c, i) => {
+      const rankClass = i === 0 ? 'power-rank-1' : i === 1 ? 'power-rank-2' : i === 2 ? 'power-rank-3' : 'power-rank-n';
+      const rankLabel = i === 0 ? '#1' : i === 1 ? '#2' : i === 2 ? '#3' : `#${i+1}`;
+      const imgUrl = typeof charImgUrl === 'function' ? charImgUrl(c) : '';
+      const img = imgUrl ? `<img class="power-char-img" src="${imgUrl}" alt="${c}" onerror="this.style.display='none'" />` : '';
+      return `<li class="power-item">
+        <span class="power-rank ${rankClass}">${rankLabel}</span>
+        ${img}
+        <span class="power-char-name">${c}</span>
+        <button class="power-remove" onclick="toggleChar('${c.replace(/'/g,"\\'")}')">✕</button>
+      </li>`;
+    }).join('');
   }
 
   function clearAll() {

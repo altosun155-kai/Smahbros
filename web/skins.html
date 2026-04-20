@@ -35,7 +35,12 @@
 
     .skin-tile.has-pick {
       border-color: var(--accent-gold);
-      box-shadow: 0 0 10px 1px rgba(245,166,35,0.4);
+      box-shadow: 0 0 16px 3px rgba(245,166,35,0.5);
+      transform: scale(1.07);
+      z-index: 3;
+    }
+    .skin-tile.has-pick:hover {
+      transform: scale(1.13);
     }
 
     .skin-tile img {
@@ -61,20 +66,21 @@
 
     .skin-tile .alt-badge {
       position: absolute;
-      top: 4px;
-      right: 4px;
-      min-width: 18px;
-      height: 18px;
-      border-radius: 9px;
-      padding: 0 4px;
+      top: 3px;
+      right: 3px;
+      min-width: 20px;
+      height: 20px;
+      border-radius: 10px;
+      padding: 0 5px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.62rem;
+      font-size: 0.7rem;
       font-weight: 900;
       color: #111;
       background: var(--accent-gold);
       line-height: 1;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
     }
 
     .skin-tile .char-name {
@@ -227,6 +233,19 @@
 
     .last-saved { font-size: 0.82rem; color: var(--text-muted); }
     .skins-note { font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; }
+
+    /* Skeleton shimmer for image loading */
+    @keyframes shimmer {
+      0%   { background-position: -200% 0; }
+      100% { background-position:  200% 0; }
+    }
+    .skin-tile.loading {
+      background: linear-gradient(90deg, #1a1a2e 25%, #252540 50%, #1a1a2e 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s ease-in-out infinite;
+    }
+    .skin-tile.loading img { opacity: 0; }
+    .skin-tile img.loaded  { opacity: 1; transition: opacity 0.2s; }
   </style>
 </head>
 <body>
@@ -251,6 +270,14 @@
       <span class="last-saved" id="lastSaved"></span>
     </div>
     <p class="skins-note">Gold border = custom alt selected. Numbers match in-game costume slots (1 = default).</p>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+      <input id="skinsSearch" type="text" placeholder="Search characters…"
+        oninput="filterSkinsGrid()"
+        style="background:var(--card-bg2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 14px;font-size:0.85rem;width:220px;outline:none;transition:border-color .15s;"
+        onfocus="this.style.borderColor='var(--accent-blue)'" onblur="this.style.borderColor='var(--border)'" />
+      <button onclick="document.getElementById('skinsSearch').value='';filterSkinsGrid()"
+        style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:0.8rem;">Clear</button>
+    </div>
     <div class="skins-grid" id="skinsGrid"></div>
   </div>
 </main>
@@ -296,7 +323,7 @@
       const alt = skins[char] ?? null; // 0-indexed, null = default shown
 
       const tile = document.createElement('div');
-      tile.className = 'skin-tile' + (alt !== null ? ' has-pick' : '');
+      tile.className = 'skin-tile loading' + (alt !== null ? ' has-pick' : '');
       tile.title = char;
       tile.onclick = () => openPicker(char);
 
@@ -305,7 +332,9 @@
       const img = document.createElement('img');
       img.src = charAltImgUrl(char, displayAlt);
       img.alt = char;
+      img.onload = () => { img.classList.add('loaded'); tile.classList.remove('loading'); };
       img.onerror = () => {
+        tile.classList.remove('loading');
         if (img.src !== charImgUrl(char)) { img.src = charImgUrl(char); return; }
         img.remove(); addFb(tile, char);
       };
@@ -397,6 +426,14 @@
   }
 
   // ── Save / Reset ──────────────────────────────────────
+
+  function filterSkinsGrid() {
+    const q = (document.getElementById('skinsSearch')?.value || '').toLowerCase().trim();
+    document.querySelectorAll('#skinsGrid .skin-tile').forEach(tile => {
+      const name = (tile.querySelector('img')?.alt || tile.querySelector('.char-fallback')?.textContent || tile.querySelector('.char-name')?.textContent || '').toLowerCase();
+      tile.style.display = (!q || name.includes(q)) ? '' : 'none';
+    });
+  }
 
   async function saveSkins() {
     try {

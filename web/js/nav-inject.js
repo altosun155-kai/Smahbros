@@ -1,31 +1,30 @@
-// nav-inject.js — single source of truth for the nav HTML.
-// Writes the navbar into <nav class="navbar" id="main-nav"></nav>.
+// nav-inject.js — single source of truth for nav HTML (left sidebar + mobile bottom nav).
 // Must be included before nav.js.
 (function () {
   const nav = document.getElementById('main-nav');
   if (!nav) return;
 
   const LINKS = [
-    { href: 'index.html',       label: 'Home' },
-    { href: 'bracket.html',     label: 'Bracket' },
-    { href: 'duel.html',        label: '1v1 Duel' },
-    { href: 'roundrobin.html',  label: 'Round Robin' },
-    { href: 'my-brackets.html', label: 'My Brackets' },
-    { href: 'tier-list.html',   label: 'Tier List' },
-    { href: 'mastery.html',     label: 'Mastery' },
-    { href: 'favorites.html',   label: 'Favorites' },
-    { href: 'skins.html',       label: 'Skins' },
-    { href: 'stats.html',       label: 'Stats' },
-    { href: 'leaderboard.html', label: 'Leaderboard' },
-    { href: 'invites.html',     label: 'Invites' },
-    { href: 'friends.html',     label: 'Friends' },
-    { href: 'profile.html',     label: 'Profile' },
+    { href: 'index.html',       label: 'Home',         icon: '🏠' },
+    { href: 'bracket.html',     label: 'Bracket',      icon: '🏆' },
+    { href: 'duel.html',        label: '1v1 Duel',     icon: '⚔️' },
+    { href: 'roundrobin.html',  label: 'Round Robin',  icon: '🔄' },
+    { href: 'my-brackets.html', label: 'My Brackets',  icon: '📁' },
+    { href: 'tier-list.html',   label: 'Tier List',    icon: '🎖️' },
+    { href: 'mastery.html',     label: 'Mastery',      icon: '🎯' },
+    { href: 'favorites.html',   label: 'Favorites',    icon: '⭐' },
+    { href: 'skins.html',       label: 'Skins',        icon: '🎨' },
+    { href: 'stats.html',       label: 'Stats',        icon: '📊' },
+    { href: 'leaderboard.html', label: 'Leaderboard',  icon: '📈' },
+    { href: 'invites.html',     label: 'Invites',      icon: '📬' },
+    { href: 'friends.html',     label: 'Friends',      icon: '👥' },
+    { href: 'profile.html',     label: 'Profile',      icon: '👤' },
   ];
 
   const currentPage = window.location.pathname.split('/').pop() || 'index.html';
 
   const items = LINKS.map(l =>
-    `<li><a href="${l.href}"${currentPage === l.href ? ' class="active"' : ''}>${l.label}</a></li>`
+    `<li><a href="${l.href}"${currentPage === l.href ? ' class="active"' : ''}>${l.icon} ${l.label}</a></li>`
   ).join('');
 
   nav.innerHTML =
@@ -38,4 +37,18 @@
       `</div>` +
       `<button class="btn-signout" onclick="logout()">Sign Out</button>` +
     `</div>`;
+
+  // Inject mobile bottom nav into body (CSS hides it on desktop)
+  if (!document.getElementById('bottomNav')) {
+    const bnav = document.createElement('nav');
+    bnav.id = 'bottomNav';
+    bnav.setAttribute('role', 'navigation');
+    bnav.setAttribute('aria-label', 'Main navigation');
+    bnav.innerHTML =
+      `<a href="index.html" class="bnav-item${currentPage === 'index.html' ? ' active' : ''}"><span class="bnav-icon">🏠</span>Home</a>` +
+      `<a href="leaderboard.html" class="bnav-item${currentPage === 'leaderboard.html' ? ' active' : ''}"><span class="bnav-icon">📈</span>Rankings</a>` +
+      `<button class="bnav-item" onclick="if(typeof toggleFriendsSidebar==='function')toggleFriendsSidebar()" id="bnavFriends"><span class="bnav-icon">👥</span>Friends</button>` +
+      `<a href="profile.html" class="bnav-item${currentPage === 'profile.html' ? ' active' : ''}"><span class="bnav-icon">👤</span>Profile</a>`;
+    document.body.appendChild(bnav);
+  }
 })();

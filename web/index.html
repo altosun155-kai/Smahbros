@@ -8,15 +8,15 @@
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/auth.js"></script>
   <style>
-    /* ── Page-level gradient ───────────────────────── */
+    /* ═══════════════════════════════════════════════
+       SHARED
+    ═══════════════════════════════════════════════ */
     body {
       background:
         radial-gradient(ellipse 120% 45% at 50% -8%, rgba(0,55,140,0.38) 0%, transparent 60%),
         radial-gradient(ellipse 60% 30% at 90% 20%, rgba(80,0,160,0.15) 0%, transparent 55%),
         var(--bg, #0d0d1a);
     }
-
-    /* ── Glass utility ────────────────────────────── */
     .glass {
       background: rgba(255,255,255,0.035);
       backdrop-filter: blur(14px);
@@ -24,27 +24,13 @@
       border: 1px solid rgba(255,255,255,0.09);
     }
 
-    /* ── Invite ribbon (mobile-first, sticky) ────── */
-    #inviteRibbon {
-      display: none;
-      position: sticky;
-      top: 48px;
-      z-index: 200;
-      background: linear-gradient(90deg, rgba(0,100,210,0.95), rgba(60,0,160,0.9));
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid rgba(255,255,255,0.12);
-      padding: 10px 16px;
-      align-items: center;
-      gap: 10px;
-    }
-    #inviteRibbon.visible { display: flex; }
-    #inviteRibbonText { flex: 1; font-size: 0.88rem; font-weight: 700; color: #fff; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #inviteRibbonBtn { flex-shrink: 0; background: #fff; color: #0055cc; border: none; border-radius: 6px; padding: 6px 14px; font-weight: 800; font-size: 0.82rem; cursor: pointer; text-decoration: none; }
-
-    /* ── Hero card ────────────────────────────────── */
+    /* ═══════════════════════════════════════════════
+       DESKTOP  (≥ 701px)
+    ═══════════════════════════════════════════════ */
+    /* Hero card */
     .hero-card {
       border-radius: 20px;
-      padding: 28px 28px 28px 28px;
+      padding: 28px;
       margin-bottom: 24px;
       position: relative;
       overflow: hidden;
@@ -55,214 +41,239 @@
     }
     .hero-card::before {
       content: '';
-      position: absolute;
-      inset: 0;
+      position: absolute; inset: 0;
       background: linear-gradient(135deg, rgba(0,80,180,0.22) 0%, rgba(60,0,120,0.14) 100%);
       pointer-events: none;
     }
-    .hero-left { flex: 1; min-width: 0; position: relative; z-index: 1; }
+    .hero-left  { flex: 1; min-width: 0; position: relative; z-index: 1; }
     .hero-avatar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
-    .hero-avatar {
-      width: 52px; height: 52px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 2px solid rgba(255,255,255,0.2);
-      flex-shrink: 0;
-    }
-    .hero-name { font-size: 1.5rem; font-weight: 800; color: #fff; line-height: 1.1; }
+    .hero-avatar { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.2); flex-shrink: 0; }
+    .hero-name  { font-size: 1.5rem; font-weight: 800; color: #fff; line-height: 1.1; }
     .hero-badge-row { margin-top: 3px; }
-    .hero-stats-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 12px;
-    }
+    .hero-stats-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
     .hero-stat {
       background: rgba(255,255,255,0.06);
       border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 10px;
-      padding: 6px 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
+      border-radius: 10px; padding: 6px 14px;
+      display: flex; flex-direction: column; gap: 1px;
     }
     .hero-stat-label { font-size: 0.58rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: rgba(255,255,255,0.45); }
-    .hero-stat-val { font-size: 1.05rem; font-weight: 800; color: #fff; }
-    .hero-stat-sub { font-size: 0.65rem; color: rgba(255,255,255,0.45); }
-    .hero-right {
-      flex-shrink: 0;
-      position: relative;
-      z-index: 1;
-      width: 130px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .hero-char-art {
-      width: 130px;
-      height: 130px;
-      object-fit: contain;
-      filter: drop-shadow(0 0 20px rgba(100,160,255,0.5));
-      image-rendering: pixelated;
-    }
-    .hero-char-name {
-      position: absolute;
-      bottom: -18px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 0.62rem;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.4);
-      white-space: nowrap;
-    }
+    .hero-stat-val   { font-size: 1.05rem; font-weight: 800; color: #fff; }
+    .hero-stat-sub   { font-size: 0.65rem; color: rgba(255,255,255,0.45); }
+    .hero-right { flex-shrink: 0; position: relative; z-index: 1; width: 130px; display: flex; align-items: center; justify-content: center; }
+    .hero-char-art { width: 130px; height: 130px; object-fit: contain; filter: drop-shadow(0 0 20px rgba(100,160,255,0.5)); image-rendering: pixelated; }
+    .hero-char-name { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: rgba(255,255,255,0.4); white-space: nowrap; }
 
-    /* ── Invites section ──────────────────────────── */
-    .invite-card {
-      border-radius: 14px;
-      padding: 14px 16px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 10px;
-    }
-    .invite-badge-dot {
-      width: 10px; height: 10px;
-      background: #e74c3c;
-      border-radius: 50%;
-      flex-shrink: 0;
-      box-shadow: 0 0 8px #e74c3c;
-      animation: pulse-dot 1.6s ease-in-out infinite;
-    }
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.6; transform: scale(0.8); }
-    }
+    /* Live + invite banners */
+    .live-banner { border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; gap: 14px; margin-bottom: 18px; background: linear-gradient(135deg, rgba(231,76,60,0.18), rgba(192,57,43,0.1)); border: 1.5px solid rgba(231,76,60,0.45); }
+    .live-dot { width: 9px; height: 9px; background: #e74c3c; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 8px #e74c3c; animation: pulseDot 1.2s ease-in-out infinite; }
+    .live-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: rgba(231,76,60,0.9); }
+    .live-name  { font-size: 1rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .live-open  { flex-shrink: 0; background: #e74c3c; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; text-decoration: none; white-space: nowrap; }
+    .invite-card { border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+    .invite-dot  { width: 10px; height: 10px; background: #e74c3c; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 8px #e74c3c; animation: pulseDot 1.6s ease-in-out infinite; }
     .invite-info { flex: 1; min-width: 0; }
     .invite-from { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: rgba(120,180,255,0.8); margin-bottom: 2px; }
     .invite-name { font-size: 0.95rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .invite-actions { display: flex; gap: 8px; flex-shrink: 0; }
-    .invite-accept { background: #0077c8; color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 700; font-size: 0.82rem; cursor: pointer; text-decoration: none; display: flex; align-items: center; gap: 4px; }
-    .invite-accept:hover { background: #0088e0; }
-    .invite-decline { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.45); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px 12px; font-size: 0.82rem; cursor: pointer; }
-    .invite-decline:hover { color: #e74c3c; border-color: rgba(231,76,60,0.4); }
+    .invite-view { background: #0077c8; color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 700; font-size: 0.82rem; cursor: pointer; text-decoration: none; }
+    .invite-view:hover { background: #0088e0; }
+    .invite-dismiss { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.45); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px 12px; font-size: 0.82rem; cursor: pointer; }
+    .invite-dismiss:hover { color: #e74c3c; border-color: rgba(231,76,60,0.4); }
+    @keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(.8)} }
 
-    /* ── Live banner ──────────────────────────────── */
-    .live-banner {
-      border-radius: 14px;
-      padding: 14px 18px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 18px;
-      background: linear-gradient(135deg, rgba(231,76,60,0.18), rgba(192,57,43,0.1));
-      border: 1.5px solid rgba(231,76,60,0.45);
-    }
-    .live-dot {
-      width: 9px; height: 9px;
-      background: #e74c3c;
-      border-radius: 50%;
-      flex-shrink: 0;
-      box-shadow: 0 0 8px #e74c3c;
-      animation: pulse-dot 1.2s ease-in-out infinite;
-    }
-    .live-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: rgba(231,76,60,0.9); }
-    .live-name { font-size: 1rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .live-open { flex-shrink: 0; background: #e74c3c; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; text-decoration: none; white-space: nowrap; }
+    /* Section label */
+    .section-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.3); margin: 24px 0 10px; }
 
-    /* ── Section label ────────────────────────────── */
-    .section-label {
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.3);
-      margin: 24px 0 10px;
-    }
-
-    /* ── Primary action cards ─────────────────────── */
-    .primary-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-    .primary-card {
-      text-decoration: none;
-      border-radius: 16px;
-      padding: 22px 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      position: relative;
-      overflow: hidden;
-      transition: transform 0.15s, box-shadow 0.15s;
-    }
+    /* Primary cards */
+    .primary-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 12px; }
+    .primary-card { text-decoration: none; border-radius: 16px; padding: 22px 20px; display: flex; flex-direction: column; gap: 10px; position: relative; overflow: hidden; transition: transform 0.15s, box-shadow 0.15s; }
     .primary-card:hover { transform: translateY(-3px); }
-    .primary-card.duel {
-      background: linear-gradient(135deg, rgba(0,100,220,0.25) 0%, rgba(0,60,140,0.15) 100%);
-      border: 1px solid rgba(0,120,255,0.3);
-    }
-    .primary-card.duel:hover { box-shadow: 0 0 28px rgba(0,120,255,0.25); border-color: rgba(0,140,255,0.5); }
-    .primary-card.bracket {
-      background: linear-gradient(135deg, rgba(245,166,35,0.2) 0%, rgba(180,100,0,0.12) 100%);
-      border: 1px solid rgba(245,166,35,0.3);
-    }
-    .primary-card.bracket:hover { box-shadow: 0 0 28px rgba(245,166,35,0.2); border-color: rgba(245,166,35,0.55); }
-    .primary-card.rr {
-      background: linear-gradient(135deg, rgba(39,174,96,0.2) 0%, rgba(0,100,60,0.12) 100%);
-      border: 1px solid rgba(39,174,96,0.3);
-    }
-    .primary-card.rr:hover { box-shadow: 0 0 28px rgba(39,174,96,0.2); border-color: rgba(39,174,96,0.55); }
-    .primary-icon { font-size: 2rem; line-height: 1; }
+    .primary-card.duel    { background: linear-gradient(135deg, rgba(0,100,220,.25), rgba(0,60,140,.15));  border: 1px solid rgba(0,120,255,.3); }
+    .primary-card.bracket { background: linear-gradient(135deg, rgba(245,166,35,.2),  rgba(180,100,0,.12)); border: 1px solid rgba(245,166,35,.3); }
+    .primary-card.rr      { background: linear-gradient(135deg, rgba(39,174,96,.2),   rgba(0,100,60,.12));  border: 1px solid rgba(39,174,96,.3); }
+    .primary-card.duel:hover    { box-shadow: 0 0 28px rgba(0,120,255,.25); border-color: rgba(0,140,255,.5); }
+    .primary-card.bracket:hover { box-shadow: 0 0 28px rgba(245,166,35,.2); border-color: rgba(245,166,35,.55); }
+    .primary-card.rr:hover      { box-shadow: 0 0 28px rgba(39,174,96,.2);  border-color: rgba(39,174,96,.55); }
+    .primary-icon  { font-size: 2rem; line-height: 1; }
     .primary-title { font-size: 1rem; font-weight: 800; color: #fff; }
-    .primary-desc { font-size: 0.75rem; color: rgba(255,255,255,0.5); line-height: 1.4; }
-    .primary-arrow { position: absolute; top: 18px; right: 18px; font-size: 1rem; color: rgba(255,255,255,0.25); }
+    .primary-desc  { font-size: 0.75rem; color: rgba(255,255,255,.5); line-height: 1.4; }
+    .primary-arrow { position: absolute; top: 18px; right: 18px; font-size: 1rem; color: rgba(255,255,255,.25); }
 
-    /* ── Secondary cards ──────────────────────────── */
-    .secondary-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 10px;
-    }
-    .secondary-card {
-      text-decoration: none;
-      border-radius: 12px;
-      padding: 14px 16px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.07);
-    }
-    .secondary-card:hover {
-      transform: translateY(-2px);
-      background: rgba(255,255,255,0.055);
-      border-color: rgba(255,255,255,0.14);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    }
+    /* Secondary cards */
+    .secondary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 10px; }
+    .secondary-card { text-decoration: none; border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; transition: transform .12s, box-shadow .12s, border-color .12s; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07); }
+    .secondary-card:hover { transform: translateY(-2px); background: rgba(255,255,255,.055); border-color: rgba(255,255,255,.14); box-shadow: 0 4px 20px rgba(0,0,0,.3); }
     .sec-icon { font-size: 1.35rem; flex-shrink: 0; }
-    .sec-text h3 { font-size: 0.88rem; font-weight: 700; color: rgba(255,255,255,0.88); margin-bottom: 2px; }
-    .sec-text p { font-size: 0.72rem; color: rgba(255,255,255,0.38); line-height: 1.35; margin: 0; }
-    .sec-arrow { color: rgba(255,255,255,0.2); font-size: 1rem; margin-left: auto; flex-shrink: 0; padding-left: 6px; }
+    .sec-text h3 { font-size: 0.88rem; font-weight: 700; color: rgba(255,255,255,.88); margin-bottom: 2px; }
+    .sec-text p  { font-size: 0.72rem; color: rgba(255,255,255,.38); line-height: 1.35; margin: 0; }
+    .sec-arrow   { color: rgba(255,255,255,.2); font-size: 1rem; margin-left: auto; flex-shrink: 0; padding-left: 6px; }
 
-    /* ── Mobile ───────────────────────────────────── */
+    /* Hide mobile-only elements on desktop */
+    .mobile-only { display: none !important; }
+    #bottomNav   { display: none !important; }
+
+    /* ═══════════════════════════════════════════════
+       MOBILE  (≤ 700px)
+    ═══════════════════════════════════════════════ */
     @media (max-width: 700px) {
-      .hero-card { padding: 20px 16px; min-height: 140px; }
-      .hero-right { width: 90px; }
-      .hero-char-art { width: 90px; height: 90px; }
-      .hero-name { font-size: 1.2rem; }
-      .primary-grid { grid-template-columns: 1fr 1fr; }
-      .primary-grid .primary-card.rr { grid-column: 1 / -1; flex-direction: row; align-items: center; }
-      .primary-grid .primary-card.rr .primary-desc { display: none; }
-      .secondary-grid { grid-template-columns: 1fr 1fr; }
-    }
-    @media (max-width: 400px) {
-      .hero-right { display: none; }
-      .primary-grid { grid-template-columns: 1fr; }
-      .secondary-grid { grid-template-columns: 1fr; }
+      /* Hide desktop elements on mobile */
+      .desktop-only { display: none !important; }
+      .mobile-only  { display: block !important; }
+
+      /* Make room for fixed bottom nav */
+      main.page-container { padding-bottom: 80px !important; padding-top: 0 !important; }
+
+      /* ── Mobile hero card ── */
+      .hero-card {
+        border-radius: 0;
+        margin: 0 -16px 0;   /* bleed to edges */
+        padding: 18px 16px 22px;
+        min-height: unset;
+        gap: 0;
+        position: relative;
+        overflow: hidden;
+        background:
+          linear-gradient(105deg, rgba(0,50,140,.55) 0%, rgba(40,0,100,.45) 60%, transparent 100%),
+          var(--card-bg, #1a1a2e);
+        border: none;
+        border-bottom: 1px solid rgba(255,255,255,.08);
+        border-radius: 0 0 20px 20px;
+      }
+      .hero-card::before { display: none; }
+
+      /* Avatar row */
+      .hero-avatar-row { gap: 10px; margin-bottom: 6px; }
+      .hero-avatar { width: 44px; height: 44px; }
+      .hero-name   { font-size: 1.25rem; }
+
+      /* Stats in a row of 2 */
+      .hero-stats-row { gap: 6px; margin-top: 10px; }
+      .hero-stat { padding: 5px 12px; border-radius: 8px; }
+      .hero-stat-val { font-size: 0.95rem; }
+
+      /* Character art — peeks from top-right corner */
+      .hero-right {
+        position: absolute;
+        right: -8px;
+        top: 0;
+        bottom: 0;
+        width: 110px;
+        display: flex !important;
+        align-items: center;
+        justify-content: flex-end;
+        pointer-events: none;
+      }
+      .hero-char-art {
+        width: 110px;
+        height: 110px;
+        object-fit: contain;
+        opacity: 0.55;
+        mask-image: linear-gradient(to left, rgba(0,0,0,.9) 40%, transparent 100%);
+        -webkit-mask-image: linear-gradient(to left, rgba(0,0,0,.9) 40%, transparent 100%);
+      }
+      .hero-char-name { display: none; }
+      /* Push left content away from the art */
+      .hero-left { padding-right: 90px; }
+
+      /* ── Mobile invite banner ── */
+      #mobileInviteBanner {
+        margin: 12px 0 0;
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      .mobile-invite-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px;
+        background: linear-gradient(90deg, rgba(0,100,210,.2), rgba(60,0,140,.12));
+        border: 1.5px solid rgba(0,120,255,.35);
+        border-radius: 14px;
+        margin-bottom: 8px;
+      }
+      .mobile-invite-item .inv-dot {
+        width: 8px; height: 8px; border-radius: 50%; background: #e74c3c;
+        box-shadow: 0 0 6px #e74c3c;
+        animation: pulseDot 1.4s ease-in-out infinite;
+        flex-shrink: 0;
+      }
+      .mobile-invite-item .inv-text { flex: 1; min-width: 0; }
+      .mobile-invite-item .inv-by   { font-size: 0.6rem; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: rgba(120,180,255,.8); }
+      .mobile-invite-item .inv-name { font-size: 0.9rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .mobile-invite-item .inv-btn  { flex-shrink: 0; background: #0077c8; color: #fff; border: none; border-radius: 8px; padding: 9px 16px; font-weight: 800; font-size: 0.82rem; cursor: pointer; text-decoration: none; }
+      .mobile-invite-item .inv-x    { flex-shrink: 0; background: none; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; color: rgba(255,255,255,.4); padding: 9px 10px; font-size: 0.8rem; cursor: pointer; }
+
+      /* ── Live banner mobile ── */
+      .live-banner {
+        border-radius: 12px;
+        padding: 12px 14px;
+        margin-bottom: 12px;
+      }
+
+      /* ── Mobile action bars ── */
+      .primary-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .primary-card {
+        border-radius: 14px;
+        flex-direction: row !important;
+        align-items: center;
+        padding: 0 20px;
+        height: 76px;
+        gap: 16px;
+      }
+      .primary-icon  { font-size: 1.8rem; flex-shrink: 0; }
+      .primary-title { font-size: 1rem; font-weight: 800; }
+      .primary-desc  { display: none; }
+      .primary-arrow { position: static; margin-left: auto; color: rgba(255,255,255,.35); font-size: 1.2rem; }
+
+      /* ── Mobile secondary ── */
+      .secondary-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .secondary-card { padding: 12px 12px; border-radius: 12px; gap: 10px; }
+      .sec-icon { font-size: 1.2rem; }
+      .sec-text h3 { font-size: 0.8rem; }
+      .sec-text p  { display: none; }
+      .sec-arrow   { display: none; }
+
+      .section-label { margin: 18px 0 8px; }
+
+      /* ── Bottom Nav ── */
+      #bottomNav {
+        display: flex !important;
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        height: 60px;
+        background: rgba(13,13,26,.96);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border-top: 1px solid rgba(255,255,255,.1);
+        z-index: 600;
+        align-items: stretch;
+      }
+      .bnav-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        text-decoration: none;
+        color: rgba(255,255,255,.38);
+        font-size: 0.58rem;
+        font-weight: 700;
+        letter-spacing: .3px;
+        text-transform: uppercase;
+        transition: color .15s;
+        cursor: pointer;
+        border: none;
+        background: none;
+        padding: 0;
+      }
+      .bnav-item.active, .bnav-item:active { color: var(--accent-blue, #0077c8); }
+      .bnav-icon { font-size: 1.35rem; line-height: 1; }
     }
   </style>
 </head>
@@ -270,18 +281,11 @@
 <script>requireAuth();</script>
 
 <div id="toast-container"></div>
-
-<!-- Sticky invite ribbon for mobile -->
-<div id="inviteRibbon">
-  <div id="inviteRibbonText"></div>
-  <a id="inviteRibbonBtn" href="invites.html">View →</a>
-</div>
-
 <nav class="navbar" id="main-nav"></nav>
 
 <main class="page-container" style="padding-top:20px;">
 
-  <!-- Hero Card -->
+  <!-- ══ HERO CARD (shared, but styled differently per breakpoint) ══ -->
   <div class="hero-card glass" id="heroCard">
     <div class="hero-left">
       <div class="hero-avatar-row">
@@ -314,13 +318,17 @@
         </div>
       </div>
     </div>
+    <!-- Character art: visible on desktop normally, on mobile as peek -->
     <div class="hero-right" id="heroRight" style="display:none;">
       <img class="hero-char-art" id="heroCharArt" src="" alt="" />
       <div class="hero-char-name" id="heroCharName"></div>
     </div>
   </div>
 
-  <!-- Live Tournament Banner -->
+  <!-- ══ MOBILE INVITES (below hero, mobile only) ══ -->
+  <div id="mobileInviteBanner" class="mobile-only" style="display:none !important;"></div>
+
+  <!-- ══ LIVE TOURNAMENT BANNER ══ -->
   <div id="liveBanner" style="display:none;" class="live-banner">
     <div class="live-dot"></div>
     <div style="flex:1;min-width:0;">
@@ -330,36 +338,42 @@
     <a id="liveLink" href="#" class="live-open">Open →</a>
   </div>
 
-  <!-- Pending Invites -->
-  <div id="inviteSection" style="display:none;">
+  <!-- ══ DESKTOP INVITE SECTION ══ -->
+  <div id="inviteSection" style="display:none;" class="desktop-only">
     <div class="section-label">🎟 Tournament Invites</div>
     <div id="inviteList"></div>
   </div>
 
-  <!-- Play -->
+  <!-- ══ PLAY ══ -->
   <div class="section-label">Play</div>
   <div class="primary-grid">
     <a href="duel.html" class="primary-card duel">
       <span class="primary-arrow">›</span>
       <div class="primary-icon">⚔️</div>
-      <div class="primary-title">1v1 Duel</div>
-      <div class="primary-desc">Head-to-head series with live elo and stock multipliers.</div>
+      <div>
+        <div class="primary-title">1v1 Duel</div>
+        <div class="primary-desc">Head-to-head with live elo and stock multipliers.</div>
+      </div>
     </a>
     <a href="bracket.html" class="primary-card bracket">
       <span class="primary-arrow">›</span>
       <div class="primary-icon">🏆</div>
-      <div class="primary-title">Tournament</div>
-      <div class="primary-desc">Single-elimination with elo rewards that scale with size.</div>
+      <div>
+        <div class="primary-title">Tournament</div>
+        <div class="primary-desc">Single-elimination with elo rewards.</div>
+      </div>
     </a>
     <a href="roundrobin.html" class="primary-card rr">
       <span class="primary-arrow">›</span>
       <div class="primary-icon">🔄</div>
-      <div class="primary-title">Round Robin</div>
-      <div class="primary-desc">Everyone plays everyone — track live standings.</div>
+      <div>
+        <div class="primary-title">Round Robin</div>
+        <div class="primary-desc">Everyone plays everyone.</div>
+      </div>
     </a>
   </div>
 
-  <!-- Rankings -->
+  <!-- ══ RANKINGS ══ -->
   <div class="section-label">Rankings</div>
   <div class="secondary-grid">
     <a href="leaderboard.html" class="secondary-card">
@@ -369,7 +383,7 @@
     </a>
     <a href="leaderboard.html#global" class="secondary-card">
       <span class="sec-icon">🌍</span>
-      <div class="sec-text"><h3>Global Leaderboard</h3><p>Wins, kills & sessions</p></div>
+      <div class="sec-text"><h3>Global Rankings</h3><p>Wins, kills & sessions</p></div>
       <span class="sec-arrow">›</span>
     </a>
     <a href="mastery.html" class="secondary-card">
@@ -379,12 +393,12 @@
     </a>
   </div>
 
-  <!-- History -->
-  <div class="section-label">History & Stats</div>
+  <!-- ══ HISTORY & STATS ══ -->
+  <div class="section-label">History &amp; Stats</div>
   <div class="secondary-grid">
     <a href="stats.html" class="secondary-card">
       <span class="sec-icon">📊</span>
-      <div class="sec-text"><h3>Character Stats</h3><p>Elo, win%, K/D per character</p></div>
+      <div class="sec-text"><h3>Character Stats</h3><p>Elo, win%, K/D</p></div>
       <span class="sec-arrow">›</span>
     </a>
     <a href="my-brackets.html" class="secondary-card">
@@ -392,19 +406,19 @@
       <div class="sec-text"><h3>My Brackets</h3><p>All saved tournaments</p></div>
       <span class="sec-arrow">›</span>
     </a>
-    <a href="profile.html" class="secondary-card">
-      <span class="sec-icon">👤</span>
-      <div class="sec-text"><h3>Profile</h3><p>Stats, badges & activity</p></div>
+    <a href="invites.html" class="secondary-card">
+      <span class="sec-icon">📬</span>
+      <div class="sec-text"><h3>Invites</h3><p>Pending invitations</p></div>
       <span class="sec-arrow">›</span>
     </a>
   </div>
 
-  <!-- Customize -->
+  <!-- ══ CUSTOMIZE ══ -->
   <div class="section-label">Customize</div>
   <div class="secondary-grid">
     <a href="tier-list.html" class="secondary-card">
       <span class="sec-icon">🎖️</span>
-      <div class="sec-text"><h3>Tier List</h3><p>Rank all 89 fighters S–F</p></div>
+      <div class="sec-text"><h3>Tier List</h3><p>Rank all 89 fighters</p></div>
       <span class="sec-arrow">›</span>
     </a>
     <a href="favorites.html" class="secondary-card">
@@ -414,12 +428,22 @@
     </a>
     <a href="skins.html" class="secondary-card">
       <span class="sec-icon">🎨</span>
-      <div class="sec-text"><h3>Skins</h3><p>Pick your preferred alts</p></div>
+      <div class="sec-text"><h3>Skins</h3><p>Pick your alts</p></div>
       <span class="sec-arrow">›</span>
     </a>
   </div>
 
 </main>
+
+<!-- ══ MOBILE BOTTOM NAV ══ -->
+<nav id="bottomNav" role="navigation" aria-label="Main navigation">
+  <a href="index.html"        class="bnav-item active"><span class="bnav-icon">🏠</span>Home</a>
+  <a href="leaderboard.html"  class="bnav-item"><span class="bnav-icon">📈</span>Rankings</a>
+  <a href="#" onclick="toggleFriendsSidebar();return false;" class="bnav-item" id="bnavFriends">
+    <span class="bnav-icon">👥</span>Friends
+  </a>
+  <a href="profile.html"      class="bnav-item"><span class="bnav-icon">👤</span>Profile</a>
+</nav>
 
 <script src="js/api.js"></script>
 <script src="js/badges.js"></script>
@@ -432,6 +456,8 @@
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  const isMobile = () => window.innerWidth <= 700;
+
   (async function init() {
     let me = null;
     try {
@@ -441,21 +467,20 @@
         const avatarUrl = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
         const navAv = document.getElementById('navAvatar');
         navAv.src = avatarUrl; navAv.style.display = 'block';
-
         document.getElementById('heroName').textContent = me.username;
         const heroAv = document.getElementById('heroAvatar');
         heroAv.src = avatarUrl; heroAv.style.display = 'block';
       }
     } catch (_) {}
 
-    // Badges
+    // Badge
     if (me) {
       try {
         await loadAllBadges();
         const b = _allBadges[me.username];
         if (b) {
           const icon = b.id === 'char_king'
-            ? (b.label.replace(/ King$/, '') in CHAR_EMOJIS ? CHAR_EMOJIS[b.label.replace(/ King$/, '')] : '👾')
+            ? (CHAR_EMOJIS[b.label.replace(/ King$/,'')] || '👾')
             : (BADGE_ICONS[b.id] || '🏅');
           document.getElementById('heroBadgeRow').innerHTML =
             `<span style="display:inline-flex;align-items:center;gap:4px;background:${b.color}22;border:1px solid ${b.color}44;color:${b.color};border-radius:8px;padding:2px 9px;font-size:0.7rem;font-weight:700;">${icon} ${b.label}</span>`;
@@ -463,48 +488,41 @@
       } catch (_) {}
     }
 
-    // Character stats → hero card
+    // Stats + hero art
     if (me) {
       try {
         const stats = await apiGet('/characters/stats');
         if (Array.isArray(stats) && stats.length) {
-          const byElo = [...stats].sort((a, b) => (b.elo || 1000) - (a.elo || 1000));
+          const byElo = [...stats].sort((a,b) => (b.elo||1000)-(a.elo||1000));
           const top = byElo[0];
           document.getElementById('heroElo').textContent = top.elo || 1000;
           document.getElementById('heroEloChar').textContent = top.character;
 
-          // Show character art in hero
           if (typeof charImgUrl === 'function') {
             const artUrl = charImgUrl(top.character);
             const heroRight = document.getElementById('heroRight');
-            const heroArt = document.getElementById('heroCharArt');
+            const heroArt   = document.getElementById('heroCharArt');
             heroArt.src = artUrl;
             heroArt.alt = top.character;
             document.getElementById('heroCharName').textContent = top.character;
             heroRight.style.display = 'flex';
             heroArt.onerror = () => { heroRight.style.display = 'none'; };
-            // Color glow based on elo
             const elo = top.elo || 1000;
-            const glowColor = elo >= 1200 ? 'rgba(245,166,35,0.55)' : elo >= 1100 ? 'rgba(80,220,100,0.45)' : 'rgba(100,160,255,0.45)';
-            heroArt.style.filter = `drop-shadow(0 0 22px ${glowColor})`;
+            const glow = elo >= 1200 ? 'rgba(245,166,35,.55)' : elo >= 1100 ? 'rgba(80,220,100,.45)' : 'rgba(100,160,255,.45)';
+            heroArt.style.filter = `drop-shadow(0 0 22px ${glow})`;
           }
 
-          const totalWins = stats.reduce((acc, r) => acc + (r.wins || 0), 0);
+          const totalWins = stats.reduce((acc,r) => acc+(r.wins||0), 0);
           document.getElementById('heroWins').textContent = totalWins;
 
-          const qualified = stats.filter(s => (s.wins || 0) + (s.losses || 0) >= 3);
+          const qualified = stats.filter(s => (s.wins||0)+(s.losses||0) >= 3);
           if (qualified.length) {
-            const best = qualified.sort((a, b) => {
-              const pa = a.wins / (a.wins + a.losses);
-              const pb = b.wins / (b.wins + b.losses);
-              return pb - pa;
-            })[0];
-            const pct = Math.round(best.wins / (best.wins + best.losses) * 100);
+            const best = qualified.sort((a,b)=> (b.wins/(b.wins+b.losses)) - (a.wins/(a.wins+a.losses)))[0];
+            const pct = Math.round(best.wins/(best.wins+best.losses)*100);
             document.getElementById('heroWinPct').textContent = `${pct}%`;
             document.getElementById('heroWinPctChar').textContent = best.character;
           }
 
-          // Best rank
           try {
             const lb = await apiGet('/characters/stats/leaderboard/elo');
             if (lb && lb.length) {
@@ -513,7 +531,7 @@
                 let rank = 1;
                 for (const e of lb) {
                   if (e.username === me.username && e.character === s.character) continue;
-                  if ((e.elo || 1000) > (s.elo || 1000)) rank++;
+                  if ((e.elo||1000) > (s.elo||1000)) rank++;
                 }
                 if (rank < bestRank) { bestRank = rank; bestRankChar = s.character; }
               }
@@ -530,7 +548,7 @@
     // Live tournaments
     try {
       const brackets = await apiGet('/brackets');
-      const live = (brackets || []).filter(b => b.is_live);
+      const live = (brackets||[]).filter(b => b.is_live);
       if (live.length > 0) {
         const t = live[0];
         document.getElementById('liveName').textContent = t.name;
@@ -539,51 +557,61 @@
       }
     } catch (_) {}
 
-    // Pending invites
+    // Invites
     try {
       const invites = await apiGet('/invites/received');
       if (invites) {
         const pending = invites.filter(i => i.status === 'pending');
         if (pending.length > 0) {
-          // Sticky ribbon (mobile-friendly)
-          const ribbon = document.getElementById('inviteRibbon');
-          document.getElementById('inviteRibbonText').textContent =
-            pending.length === 1
-              ? `🎟 ${pending[0].inviter} invited you: ${pending[0].bracket_name}`
-              : `🎟 ${pending.length} tournament invites pending`;
-          document.getElementById('inviteRibbonBtn').href = 'invites.html';
-          ribbon.classList.add('visible');
-
-          // Invite cards
+          // Desktop cards
           document.getElementById('inviteSection').style.display = 'block';
           document.getElementById('inviteList').innerHTML = pending.map(inv => `
             <div class="invite-card glass" id="invCard_${inv.id}">
-              <div class="invite-badge-dot"></div>
+              <div class="invite-dot"></div>
               <div class="invite-info">
                 <div class="invite-from">Invited by ${escHtml(inv.inviter)}</div>
                 <div class="invite-name">${escHtml(inv.bracket_name)}</div>
               </div>
               <div class="invite-actions">
-                <a href="tournament.html?id=${inv.bracket_id}" class="invite-accept">View →</a>
-                <button class="invite-decline" onclick="declineInvite(${inv.id})">✕</button>
+                <a href="tournament.html?id=${inv.bracket_id}" class="invite-view">View →</a>
+                <button class="invite-dismiss" onclick="dismissInvite(${inv.id},'invCard_${inv.id}')">✕</button>
               </div>
             </div>
           `).join('');
+
+          // Mobile invite items (below hero)
+          const mob = document.getElementById('mobileInviteBanner');
+          mob.style.cssText = 'display:block !important;';
+          mob.innerHTML = pending.map(inv => `
+            <div class="mobile-invite-item" id="mobInv_${inv.id}">
+              <div class="inv-dot"></div>
+              <div class="inv-text">
+                <div class="inv-by">From ${escHtml(inv.inviter)}</div>
+                <div class="inv-name">${escHtml(inv.bracket_name)}</div>
+              </div>
+              <a href="tournament.html?id=${inv.bracket_id}" class="inv-btn">View →</a>
+              <button class="inv-x" onclick="dismissInvite(${inv.id},'mobInv_${inv.id}','invCard_${inv.id}')">✕</button>
+            </div>
+          `).join('');
+
+          // Badge on bottom nav friends? No — put it on invites
+          const bnavItem = document.querySelector('.bnav-item[href="index.html"]');
+          if (bnavItem && pending.length) {
+            bnavItem.querySelector('.bnav-icon').textContent = '🏠';
+          }
         }
       }
     } catch (_) {}
   })();
 
-  async function declineInvite(id) {
-    try {
-      await apiPatch(`/invites/${id}`, { status: 'declined' });
-      document.getElementById(`invCard_${id}`)?.remove();
-      const list = document.getElementById('inviteList');
-      if (list && !list.children.length) {
-        document.getElementById('inviteSection').style.display = 'none';
-        document.getElementById('inviteRibbon').classList.remove('visible');
-      }
-    } catch (_) {}
+  function dismissInvite(id, ...elIds) {
+    elIds.forEach(elId => document.getElementById(elId)?.remove());
+    apiPatch(`/invites/${id}`, { status: 'declined' }).catch(() => {});
+    // hide sections if empty
+    const list = document.getElementById('inviteList');
+    if (list && !list.children.length) document.getElementById('inviteSection').style.display = 'none';
+    const mob = document.getElementById('mobileInviteBanner');
+    if (mob && !mob.children.length) mob.style.cssText = 'display:none !important;';
   }
 </script>
 </body>

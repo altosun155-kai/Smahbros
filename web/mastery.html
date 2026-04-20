@@ -206,7 +206,7 @@
     '#00bcd4', '#ff5722', '#8bc34a', '#ff9800',
   ];
 
-  function buildGrid(masteryMap, playerColorMap, mySkins) {
+  function buildGrid(masteryMap, playerColorMap) {
     const grid = document.getElementById('masteryGrid');
     grid.innerHTML = '';
 
@@ -221,8 +221,8 @@
         tile.style.borderColor = color;
       }
 
-      // Use the current user's preferred alt if set, otherwise base portrait
-      const altIndex = mySkins[char] ?? null;
+      // Use the owner's preferred alt, otherwise base portrait
+      const altIndex = data?.preferred_alt ?? null;
       const url = altIndex !== null
         ? charAltImgUrl(char, altIndex + 1)
         : (typeof charImgUrl === 'function' ? charImgUrl(char) : null);
@@ -326,11 +326,7 @@
     } catch (_) {}
 
     try {
-      const [data, skinsData] = await Promise.all([
-        apiGet('/characters/mastery/friends'),
-        apiGet('/characters/skins').catch(() => ({ skins: {} })),
-      ]);
-      const mySkins = skinsData.skins || {};
+      const data = await apiGet('/characters/mastery/friends');
 
       // Build mastery map: char -> { username, points, wins, losses, avatar_url }
       const masteryMap = {};
@@ -349,7 +345,7 @@
 
       buildStats(masteryMap);
       buildLegend(playerColorMap, masteryMap);
-      buildGrid(masteryMap, playerColorMap, mySkins);
+      buildGrid(masteryMap, playerColorMap);
 
       document.getElementById('loadingState').style.display = 'none';
       document.getElementById('masteryContent').style.display = 'block';

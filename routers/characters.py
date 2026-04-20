@@ -163,18 +163,22 @@ def character_mastery_friends(db: Session = Depends(get_db), current_user: User 
         CharacterStats.user_id.in_(friend_ids),
         CharacterStats.points > 0,
     ).all()
+
+    skins = _skins_map(db)
+
     char_map = {}
     for row in rows:
         char = row.character
         if char not in char_map or row.points > char_map[char]["points"]:
             char_map[char] = {
-                "character": char,
-                "username": row.owner.username,
-                "avatar_url": row.owner.avatar_url,
-                "points": row.points,
-                "wins": row.wins or 0,
-                "losses": row.losses or 0,
-                "is_me": row.user_id == current_user.id,
+                "character":     char,
+                "username":      row.owner.username,
+                "avatar_url":    row.owner.avatar_url,
+                "points":        row.points,
+                "wins":          row.wins or 0,
+                "losses":        row.losses or 0,
+                "is_me":         row.user_id == current_user.id,
+                "preferred_alt": skins.get(row.user_id, {}).get(char),
             }
     return list(char_map.values())
 

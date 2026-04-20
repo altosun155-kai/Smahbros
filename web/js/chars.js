@@ -32,7 +32,10 @@ function charImgUrl(name) {
 // Falls back to the base portrait if the alt image hasn't been uploaded yet.
 function charAltImgUrl(name, alt) {
   if (!alt && alt !== 0) return charImgUrl(name);
-  return SUPABASE_CHARS + encodeURIComponent(name + '_' + alt + '.png');
+  // Derive a safe base name: use the override stem if one exists, else the display name
+  const overrideFile = CHAR_FILE_OVERRIDES[name];
+  const base = overrideFile ? overrideFile.replace(/\.png$/i, '') : name;
+  return SUPABASE_CHARS + encodeURIComponent(base + '_' + alt + '.png');
 }
 
 const SMASH_ROSTER = [

@@ -12,6 +12,7 @@ uploads them to the existing Characters bucket in Supabase.
 import argparse
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
 try:
@@ -239,7 +240,9 @@ def main():
 
     ok = fail = skip = 0
     for path, display, alt in files:
-        dest = f"{display}_{alt}.png"
+        # Strip diacritics so Supabase accepts the key (e.g. "Pokémon" → "Pokemon")
+        safe = unicodedata.normalize('NFKD', display).encode('ascii', 'ignore').decode('ascii')
+        dest = f"{safe}_{alt}.png"
         if args.skip_existing and dest in existing:
             skip += 1
             continue

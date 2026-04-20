@@ -921,7 +921,12 @@ async function previewMatchups() {
   const playerGroups = {};
   players.forEach(p => {
     const chars = confirmedLineups[p] || [];
-    playerGroups[p] = chars.map(c => ({ player: p, character: c }));
+    const stats = playerStats[p] || [];
+    // Sort each player's characters by elo descending so slot 0 = best char,
+    // slot 1 = 2nd best, etc. — prevents a player's worst char landing in the
+    // same pool as everyone else's best.
+    const getElo = c => (stats.find(s => s.character === c) || {}).elo || 1000;
+    playerGroups[p] = [...chars].sort((a, b) => getElo(b) - getElo(a)).map(c => ({ player: p, character: c }));
   });
   const maxChars = Math.max(...players.map(p => (playerGroups[p] || []).length), 0);
   if (maxChars === 0) { showToast('No confirmed lineups yet.', 'warn'); return; }

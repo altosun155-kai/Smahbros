@@ -299,17 +299,27 @@ def end_tournament(bracket_id: int, db: Session = Depends(get_db), current_user:
         k = num_players * 4  # 4p=16, 8p=32, 16p=64
 
         rw = b.round_winners
-        max_ri = -1
-        for key in rw:
-            m = _re.match(r"r(\d+)_m(\d+)$", key)
-            if m:
-                max_ri = max(max_ri, int(m.group(1)))
 
-        if max_ri >= 0:
+        # Compute the expected Grand Final round index from bracket size.
+        # bracket_data is always padded to a power of 2, so GF is at
+        # r<log2(len)>_m0. Walk the bit to avoid importing math.
+        r1_count = len(b.bracket_data)
+        expected_gf_ri = 0
+        n = r1_count
+        while n > 1:
+            n >>= 1
+            expected_gf_ri += 1
+
+        # Only award bonuses if the Grand Final was actually played.
+        # Using the expected round index (from bracket size) prevents early-end
+        # scenarios from misidentifying a semifinal winner as champion.
+        gf_winner_label = rw.get(f"r{expected_gf_ri}_m0", "")
+        max_ri = expected_gf_ri
+
+        if gf_winner_label and " — " in gf_winner_label and b.winner:
             participants = _compute_round_participants(b.bracket_data, rw)
 
             # 1st place: Grand Final winner
-            gf_winner_label = rw.get(f"r{max_ri}_m0", "")
             gf_winner_player, gf_winner_char = _parse_label(gf_winner_label)
             if gf_winner_player:
                 bonuses.append((gf_winner_player, gf_winner_char, round(k * 1.0), "1st"))

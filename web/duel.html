@@ -319,6 +319,7 @@
 </main>
 
 <script src="js/api.js"></script>
+<script src="js/badges.js"></script>
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/chars.js"></script>
@@ -414,7 +415,10 @@
 
   async function init() {
     try {
-      const users = await apiGet('/users/all');
+      const [users] = await Promise.all([
+        apiGet('/users/all'),
+        loadAllBadges(),
+      ]);
       const opts = users.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
       document.getElementById('p1Select').innerHTML = '<option value="">Select player…</option>' + opts;
       document.getElementById('p2Select').innerHTML = '<option value="">Select player…</option>' + opts;
@@ -617,8 +621,8 @@
     p1Score = 0; p2Score = 0; games = []; seriesWinner = null;
     selectedWinnerKills = 0; selectedLoserKills = 0;
 
-    document.getElementById('seriesP1Name').textContent = p1;
-    document.getElementById('seriesP2Name').textContent = p2;
+    document.getElementById('seriesP1Name').innerHTML = escHtml(p1) + ' ' + badgePill(p1);
+    document.getElementById('seriesP2Name').innerHTML = escHtml(p2) + ' ' + badgePill(p2);
     document.getElementById('seriesTitle').textContent = 'Series';
     document.getElementById('scoreLabelP1').textContent = `${p1} Wins`;
     document.getElementById('scoreLabelP2').textContent = `${p2} Wins`;

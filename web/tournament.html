@@ -324,6 +324,7 @@
 </div>
 
 <script src="js/api.js"></script>
+<script src="js/badges.js"></script>
 <script src="js/friends-sidebar.js"></script>
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
@@ -496,8 +497,9 @@ function entryHtml(label, roundWinners, roundScores, is_live, roundIdx, matchKey
     ? `<button class="edit-char-btn" onclick="openCharPicker('${myChar.replace(/'/g, "\\'")}')">✏️</button>`
     : '';
 
+  const badgeHtml = parsed ? badgeIcon(parsed.player) : '';
   const cls = `match-entry${isWinner ? ' winner' : ''}${isMe ? ' mine' : ''}`;
-  return `<div class="${cls}" style="${loserStyle}">${icon}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span>${scoreBadge}${editBtn}</div>`;
+  return `<div class="${cls}" style="${loserStyle}">${icon}${badgeHtml}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span>${scoreBadge}${editBtn}</div>`;
 }
 
 function renderBracket(data) {
@@ -620,9 +622,9 @@ function openScoreModal(a, b, key) {
   if (!scoreModalA || !scoreModalB) return;
 
   // Player names & chars
-  document.getElementById('scoreP1Name').textContent = scoreModalA.player;
+  document.getElementById('scoreP1Name').innerHTML = escHtml(scoreModalA.player) + ' ' + badgePill(scoreModalA.player);
   document.getElementById('scoreP1Char').textContent = scoreModalA.character;
-  document.getElementById('scoreP2Name').textContent = scoreModalB.player;
+  document.getElementById('scoreP2Name').innerHTML = escHtml(scoreModalB.player) + ' ' + badgePill(scoreModalB.player);
   document.getElementById('scoreP2Char').textContent = scoreModalB.character;
   document.getElementById('scoreLabel1').textContent = `${scoreModalA.player} Wins`;
   document.getElementById('scoreLabel2').textContent = `${scoreModalB.player} Wins`;
@@ -1203,6 +1205,8 @@ async function fetchAndRender() {
     allUsers.forEach(u => { allUserAvatars[u.username] = u.avatar_url || null; });
   } catch (_) {}
 
+  await loadAllBadges();
+  applyNavBadge(myUsername);
   await fetchAndRender();
   // Poll every 5s for live updates
   pollInterval = setInterval(fetchAndRender, 5000);

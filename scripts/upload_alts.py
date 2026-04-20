@@ -110,10 +110,24 @@ INTERNAL_TO_DISPLAY = {
     "tantan":      "Min Min",
     "pickel":      "Steve",
     "edge":        "Sephiroth",
-    "eflame":      "Pyra/Mythra",
-    "elight":      "Pyra/Mythra",  # same slot, skip dupes
-    "demon":       "Kazuya",
-    "trails":      "Sora",
+    "eflame":        "Pyra/Mythra",
+    "eflame_first":  "Pyra/Mythra",
+    "eflame_only":   "Pyra/Mythra",
+    "elight":        "Pyra/Mythra",
+    "elight_first":  "Pyra/Mythra",
+    "elight_only":   "Pyra/Mythra",
+    "demon":         "Kazuya",
+    "trails":        "Sora",
+    # alternate internal name spellings found in some dumps
+    "ice_climber":   "Ice Climbers",
+    "mariod":        "Dr. Mario",
+    "rockman":       "Mega Man",
+    "miigunner":     "Mii Gunner",
+    "miiswordsman":  "Mii Swordfighter",
+    # Pokémon Trainer's individual Pokémon — map to the trainer slot
+    "pzenigame":     "Pokémon Trainer",
+    "pfushigisou":   "Pokémon Trainer",
+    "plizardon":     "Pokémon Trainer",
 }
 
 # ── File discovery ────────────────────────────────────────────────────────────
@@ -163,14 +177,22 @@ def upload_file(path: Path, dest_name: str, service_key: str, dry_run: bool) -> 
         "Content-Type":  "image/png",
         "x-upsert":      "true",
     }
-    with open(path, "rb") as fh:
-        resp = requests.post(url, headers=headers, data=fh, timeout=30)
-    if resp.status_code in (200, 201):
-        print(f"  [OK]  {dest_name}")
-        return True
-    else:
-        print(f"  [ERR] {dest_name}  →  {resp.status_code} {resp.text[:120]}")
-        return False
+    for attempt in range(3):
+        try:
+            with open(path, "rb") as fh:
+                resp = requests.post(url, headers=headers, data=fh, timeout=90)
+            if resp.status_code in (200, 201):
+                print(f"  [OK]  {dest_name}")
+                return True
+            else:
+                print(f"  [ERR] {dest_name}  →  {resp.status_code} {resp.text[:120]}")
+                return False
+        except requests.exceptions.Timeout:
+            if attempt < 2:
+                print(f"  [RETRY {attempt+1}] {dest_name} timed out, retrying…")
+            else:
+                print(f"  [ERR] {dest_name}  →  timed out after 3 attempts")
+                return False
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -179,7 +201,8 @@ def main():
     parser = argparse.ArgumentParser(description="Upload Smash alt portraits to Supabase")
     parser.add_argument("--input",   required=True,  help="Root folder containing character sub-folders")
     parser.add_argument("--key",     default="",     help="Supabase service role key")
-    parser.add_argument("--dry-run", action="store_true", help="Print what would be uploaded without actually uploading")
+    parser.add_argument("--dry-run",       action="store_true", help="Print what would be uploaded without actually uploading")
+    parser.add_argument("--skip-existing", action="store_true", help="Skip files already in Supabase")
     args = parser.parse_args()
 
     if not args.dry_run and not args.key:
@@ -195,15 +218,37 @@ def main():
 
     print(f"Found {len(files)} alt images across {len({d for _,d,_ in files})} characters.\n")
 
-    ok = fail = 0
+    # Fetch list of already-uploaded files from Supabase
+    existing = set()
+    if args.skip_existing and not args.dry_run:
+        print("Fetching existing files from Supabase…")
+        try:
+            resp = requests.post(
+                f"{SUPABASE_URL}/storage/v1/object/list/{SUPABASE_BUCKET}",
+                headers={"Authorization": f"Bearer {args.key}", "apikey": args.key},
+                json={"prefix": "", "limit": 10000},
+                timeout=30,
+            )
+            if resp.status_code == 200:
+                existing = {item["name"] for item in resp.json()}
+                print(f"  {len(existing)} files already in bucket.\n")
+            else:
+                print(f"  Could not fetch existing files ({resp.status_code}), uploading all.\n")
+        except Exception as e:
+            print(f"  Could not fetch existing files ({e}), uploading all.\n")
+
+    ok = fail = skip = 0
     for path, display, alt in files:
         dest = f"{display}_{alt}.png"
+        if args.skip_existing and dest in existing:
+            skip += 1
+            continue
         if upload_file(path, dest, args.key, args.dry_run):
             ok += 1
         else:
             fail += 1
 
-    print(f"\nDone. {ok} uploaded, {fail} failed.")
+    print(f"\nDone. {ok} uploaded, {skip} skipped, {fail} failed.")
 
 
 if __name__ == "__main__":

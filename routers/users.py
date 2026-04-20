@@ -38,6 +38,83 @@ def all_users(db: Session = Depends(get_db), current_user: User = Depends(get_cu
     return [{"id": u.id, "username": u.username, "avatar_url": u.avatar_url} for u in users]
 
 
+@router.get("/users/badges/all")
+def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_current_user)):
+    """Batch: returns {username: top_badge} for every user. Single set of DB queries."""
+    PRIORITY = ['tourney_king','finisher','punching_bag','serial_champ',
+                'champion','top3','veteran','consistent','allrounder','specialist']
+
+    all_users_list = db.query(User).all()
+
+    # CharacterStats grouped by user_id
+    stats_by_user: dict = {}
+    for s in db.query(CharacterStats).filter(CharacterStats.points > 0).all():
+        stats_by_user.setdefault(s.user_id, []).append(s)
+
+    # Tournament wins per username
+    t_rows = (db.query(Bracket.winner, func.count(Bracket.id).label("cnt"))
+              .filter(Bracket.winner.isnot(None), Bracket.winner != "")
+              .group_by(Bracket.winner).all())
+    tourney_wins = {r.winner: r.cnt for r in t_rows}
+    top_tourney = max(tourney_wins, key=tourney_wins.get) if tourney_wins else None
+
+    # Match counts + 3-stock stats — one pass over all matches
+    match_counts: dict = {}
+    tsg: dict = {}  # three-stocks given  (winner_id -> count)
+    tsr: dict = {}  # three-stocks received (loser_id -> count)
+    for m in db.query(MatchResult).all():
+        match_counts[m.winner_id] = match_counts.get(m.winner_id, 0) + 1
+        match_counts[m.loser_id]  = match_counts.get(m.loser_id,  0) + 1
+        if (m.winner_kills or 0) >= 3 and (m.loser_kills or 0) == 0:
+            tsg[m.winner_id] = tsg.get(m.winner_id, 0) + 1
+            tsr[m.loser_id]  = tsr.get(m.loser_id,  0) + 1
+    top_fin_id = max(tsg, key=tsg.get) if tsg else None
+    top_pb_id  = max(tsr, key=tsr.get) if tsr else None
+
+    # Top-3 character leaderboard users (by points)
+    top3_uids = {r.user_id for r in
+                 db.query(CharacterStats).filter(CharacterStats.points > 0)
+                 .order_by(CharacterStats.points.desc()).limit(3).all()}
+
+    result = {}
+    for u in all_users_list:
+        uid, uname = u.id, u.username
+        stats   = stats_by_user.get(uid, [])
+        t_wins  = tourney_wins.get(uname, 0)
+        matches = match_counts.get(uid, 0)
+
+        earned = []
+        if stats:
+            best = max(stats, key=lambda s: s.points)
+            if best.points >= 10:
+                earned.append({"id":"specialist","label":f"{best.character} Specialist","color":"#f5a623"})
+            if len([s for s in stats if s.points > 0]) >= 5:
+                earned.append({"id":"allrounder","label":"All-Rounder","color":"#27ae60"})
+            if len([s for s in stats if s.points >= 10]) >= 3:
+                earned.append({"id":"consistent","label":"Consistent","color":"#3498db"})
+        if t_wins >= 1:
+            earned.append({"id":"champion","label":"Bracket Champion","color":"#e74c3c"})
+        if t_wins >= 3:
+            earned.append({"id":"serial_champ","label":"Serial Champion","color":"#f5a623"})
+        if top_tourney == uname and t_wins >= 1:
+            earned.append({"id":"tourney_king","label":"Tournament King","color":"#ffe066"})
+        if uid in top3_uids:
+            earned.append({"id":"top3","label":"Top Performer","color":"#9b59b6"})
+        if matches >= 20:
+            earned.append({"id":"veteran","label":"Veteran","color":"#1abc9c"})
+        if top_fin_id == uid and tsg.get(uid, 0) >= 3:
+            earned.append({"id":"finisher","label":"The Finisher","color":"#00bcd4"})
+        if top_pb_id == uid and tsr.get(uid, 0) >= 3:
+            earned.append({"id":"punching_bag","label":"Punching Bag","color":"#e74c3c"})
+
+        if not earned:
+            continue
+        by_id = {b["id"]: b for b in earned}
+        result[uname] = next((by_id[p] for p in PRIORITY if p in by_id), earned[0])
+
+    return result
+
+
 @router.get("/users/search")
 def search_users(q: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     users = db.query(User).filter(User.username.ilike(f"%{q}%")).limit(10).all()

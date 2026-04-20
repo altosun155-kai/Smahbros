@@ -802,7 +802,8 @@ async function pickTournamentScore(p1Stocks, p2Stocks) {
 let charsPerPlayer = 2;
 let isHost = false;
 let lineupSlotValues = []; // current values in my char slot inputs
-let lastLineupHash = ''; // prevent re-rendering slots while user is typing
+let lastLineupHash = '';   // prevent re-rendering slots while user is typing
+let lastMyLineupHash = ''; // tracks only THIS user's confirmed lineup (not others')
 
 function buildMyCharSlots(k, confirmedLineups) {
   charsPerPlayer = k;
@@ -1131,11 +1132,14 @@ async function fetchAndRender() {
       document.getElementById('lineupPhase').style.display = 'block';
       document.getElementById('bracketPhase').style.display = 'none';
 
-      // Only rebuild the char slot inputs when lineups actually changed
-      // (prevents wiping what the user is typing during a 5-second poll)
-      const lineupHash = JSON.stringify(data.confirmed_lineups);
-      if (lineupHash !== lastLineupHash) {
-        lastLineupHash = lineupHash;
+      // Only rebuild the char slot inputs when MY lineup changed on the server.
+      // Using the full lineup hash would wipe in-progress picks whenever
+      // another player confirms theirs.
+      const myConfirmedNow = JSON.stringify((data.confirmed_lineups || {})[myUsername] || []);
+      const slotsBuilt = document.querySelector('.lineup-char-input') !== null;
+      if (myConfirmedNow !== lastMyLineupHash || !slotsBuilt) {
+        lastMyLineupHash = myConfirmedNow;
+        lastLineupHash = JSON.stringify(data.confirmed_lineups);
         buildMyCharSlots(data.chars_per_player || 2, data.confirmed_lineups);
       }
       renderLineupStatus(data);

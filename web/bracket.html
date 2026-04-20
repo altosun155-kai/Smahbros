@@ -278,7 +278,6 @@ let allUserFavs = {};      // username -> [character, ...] ordered (favorites mo
 let allUserTiers = {};     // username -> {S:[...], A:[...], ...} (tier list mode)
 let allUserKills = {};     // username -> [{character, kills}] sorted desc (kills mode)
 let allUserAvatars = {};   // username -> avatar URL (fetched fresh each build)
-let allUserSkins  = {};   // username -> {character: alt_index 0-7}
 let currentTeamOf = {};    // username -> team label, snapshotted at bracket generation
 
 // ── Mode toggle ───────────────────────────────────
@@ -355,12 +354,6 @@ async function buildEntryGrid() {
         allUserStats[p] = stats.filter(s => (s.wins||0) + (s.losses||0) > 0).sort((a,b) => (b.elo||1000) - (a.elo||1000) || (b.kills||0) - (a.kills||0) || (b.points||0) - (a.points||0));
         allUserKills[p] = stats.filter(s => s.kills > 0).sort((a,b) => b.kills - a.kills);
       } catch (_) { allUserStats[p] = []; allUserKills[p] = []; }
-    }
-    if (!allUserSkins[p]) {
-      try {
-        const sd = await apiGet(`/characters/skins/${encodeURIComponent(p)}`);
-        allUserSkins[p] = sd.skins || {};
-      } catch (_) { allUserSkins[p] = {}; }
     }
   }));
 
@@ -1319,23 +1312,13 @@ function openVsModal(a, b, key) {
   document.getElementById('vsP2Avatar').src = avatarB;
   document.getElementById('vsP2Avatar').onerror = () => document.getElementById('vsP2Avatar').src = `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(b.player)}`;
 
-  // Character images — use each player's preferred alt if set
+  // Character images
   const charImg1 = document.getElementById('vsP1CharImg');
   const charImg2 = document.getElementById('vsP2CharImg');
-  const alt1 = (allUserSkins[a.player] || {})[a.character] ?? null;
-  const alt2 = (allUserSkins[b.player] || {})[b.character] ?? null;
-  const url1 = alt1 !== null ? charAltImgUrl(a.character, alt1 + 1) : charImgUrl(a.character);
-  const url2 = alt2 !== null ? charAltImgUrl(b.character, alt2 + 1) : charImgUrl(b.character);
-  if (url1) {
-    charImg1.src = url1;
-    charImg1.onerror = () => { charImg1.src = charImgUrl(a.character); };
-    charImg1.style.display = 'block';
-  } else { charImg1.style.display = 'none'; }
-  if (url2) {
-    charImg2.src = url2;
-    charImg2.onerror = () => { charImg2.src = charImgUrl(b.character); };
-    charImg2.style.display = 'block';
-  } else { charImg2.style.display = 'none'; }
+  const url1 = charImgUrl(a.character);
+  const url2 = charImgUrl(b.character);
+  if (url1) { charImg1.src = url1; charImg1.style.display = 'block'; } else { charImg1.style.display = 'none'; }
+  if (url2) { charImg2.src = url2; charImg2.style.display = 'block'; } else { charImg2.style.display = 'none'; }
 
   // Seed info (shown in VS modal instead of bracket view)
   const seedMode = document.querySelector('input[name="seedMode"]:checked')?.value || 'elo';

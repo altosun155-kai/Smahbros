@@ -22,6 +22,29 @@ const CHAR_FILE_OVERRIDES = {
 // Characters with no image in Supabase
 const CHAR_NO_IMAGE = new Set([]);
 
+// Stock icon overrides (chara_2 exports) — only needed when filename differs
+const CHAR_HEAD_OVERRIDES = {
+  'Pokémon Trainer':  'Pokemon Trainer_icon.png',
+  'Rosalina & Luma':  'Rosalina and Luma_icon.png',
+  'Pac-Man':          'Pac Man_icon.png',
+  'Bowser Jr.':       'Bowser Jr_icon.png',
+  'King K. Rool':     'King K Rool_icon.png',
+  'Banjo & Kazooie':  'Banjo and Kazooie_icon.png',
+  'Pyra/Mythra':      'Pyra Mythra_icon.png',
+  'R.O.B.':           'R.O.B._icon.png',
+  'Wii Fit Trainer':  'WII Fit Trainer_icon.png',
+  'Mii Brawler':      'Mii_fighter_icon.png',
+  'Mii Swordfighter': 'Mii_sword_icon.png',
+  'Mii Gunner':       'Mii_gunner_icon.png',
+};
+
+// Returns the stock-icon (chara_2) URL for a character, falls back to full portrait.
+function charHeadUrl(name) {
+  if (CHAR_NO_IMAGE.has(name)) return charImgUrl(name);
+  const filename = CHAR_HEAD_OVERRIDES[name] || (name + '_icon.png');
+  return SUPABASE_CHARS + encodeURIComponent(filename);
+}
+
 function charImgUrl(name) {
   if (CHAR_NO_IMAGE.has(name)) return '';
   const filename = CHAR_FILE_OVERRIDES[name] || (name + '.png');

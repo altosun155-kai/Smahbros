@@ -120,6 +120,7 @@ INTERNAL_TO_DISPLAY = {
     "demon":         "Kazuya",
     "trail":         "Sora",
     "trails":        "Sora",
+    "sora":          "Sora",
     # alternate internal name spellings found in some dumps
     "ice_climber":   "Ice Climbers",
     "mariod":        "Dr. Mario",
@@ -134,34 +135,57 @@ INTERNAL_TO_DISPLAY = {
 
 # ── File discovery ────────────────────────────────────────────────────────────
 
-PATTERN = re.compile(r"^chara_3_(.+?)_(\d{2})\.png$", re.IGNORECASE)
+PATTERN_ALT  = re.compile(r"^chara_3_(.+?)_(\d{2})\.png$", re.IGNORECASE)
+PATTERN_ICON = re.compile(r"^chara_2_(.+?)_(\d{2})\.png$", re.IGNORECASE)
 
 
 def find_alt_files(root: Path) -> list[tuple[Path, str, int]]:
-    """Return list of (path, display_name, alt_1_indexed) for all chara_3 alts."""
+    """Return (path, display_name, alt_1_indexed) for all chara_3 alt portraits."""
     results = []
     seen_display = set()
 
     for f in sorted(root.rglob("chara_3_*.png")):
-        m = PATTERN.match(f.name)
+        m = PATTERN_ALT.match(f.name)
         if not m:
             continue
         internal = m.group(1).lower()
-        alt_zero = int(m.group(2))  # 00-07
-        alt_one  = alt_zero + 1     # 1-8 (our UI convention)
+        alt_zero = int(m.group(2))
+        alt_one  = alt_zero + 1
 
         display = INTERNAL_TO_DISPLAY.get(internal)
         if not display:
             print(f"  [SKIP] unknown internal name: {internal!r}  ({f.name})")
             continue
 
-        # Skip the second Pyra/Mythra file (elight) to avoid overwriting eflame
         key = (display, alt_one)
         if key in seen_display:
             continue
         seen_display.add(key)
-
         results.append((f, display, alt_one))
+
+    return results
+
+
+def find_icon_files(root: Path) -> list[tuple[Path, str]]:
+    """Return (path, display_name) for chara_2_*_00 headshots (default costume only)."""
+    results = []
+    seen = set()
+
+    for f in sorted(root.rglob("chara_2_*.png")):
+        m = PATTERN_ICON.match(f.name)
+        if not m:
+            continue
+        if int(m.group(2)) != 0:   # only _00 (default costume)
+            continue
+        internal = m.group(1).lower()
+        display = INTERNAL_TO_DISPLAY.get(internal)
+        if not display:
+            print(f"  [SKIP] unknown internal name: {internal!r}  ({f.name})")
+            continue
+        if display in seen:
+            continue
+        seen.add(display)
+        results.append((f, display))
 
     return results
 
@@ -199,10 +223,35 @@ def upload_file(path: Path, dest_name: str, service_key: str, dry_run: bool) -> 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+def safe_name(display: str) -> str:
+    """Strip diacritics and slashes so the name is safe as a Supabase storage key."""
+    s = unicodedata.normalize('NFKD', display).encode('ascii', 'ignore').decode('ascii')
+    return s.replace('/', ' ')
+
+
+def fetch_existing(key: str) -> set:
+    try:
+        resp = requests.post(
+            f"{SUPABASE_URL}/storage/v1/object/list/{SUPABASE_BUCKET}",
+            headers={"Authorization": f"Bearer {key}", "apikey": key},
+            json={"prefix": "", "limit": 10000},
+            timeout=30,
+        )
+        if resp.status_code == 200:
+            names = {item["name"] for item in resp.json()}
+            print(f"  {len(names)} files already in bucket.\n")
+            return names
+        print(f"  Could not fetch existing files ({resp.status_code}), uploading all.\n")
+    except Exception as e:
+        print(f"  Could not fetch existing files ({e}), uploading all.\n")
+    return set()
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Upload Smash alt portraits to Supabase")
+    parser = argparse.ArgumentParser(description="Upload Smash alt portraits / headshots to Supabase")
     parser.add_argument("--input",   required=True,  help="Root folder containing character sub-folders")
     parser.add_argument("--key",     default="",     help="Supabase service role key")
+    parser.add_argument("--icons",         action="store_true", help="Upload chara_2 headshots as {Name}_icon.png instead of alt portraits")
     parser.add_argument("--dry-run",       action="store_true", help="Print what would be uploaded without actually uploading")
     parser.add_argument("--skip-existing", action="store_true", help="Skip files already in Supabase")
     args = parser.parse_args()
@@ -214,44 +263,43 @@ def main():
     if not root.is_dir():
         sys.exit(f"Input folder not found: {root}")
 
-    files = find_alt_files(root)
-    if not files:
-        sys.exit("No chara_3_*_0?.png files found. Check --input path.")
-
-    print(f"Found {len(files)} alt images across {len({d for _,d,_ in files})} characters.\n")
-
-    # Fetch list of already-uploaded files from Supabase
     existing = set()
     if args.skip_existing and not args.dry_run:
         print("Fetching existing files from Supabase…")
-        try:
-            resp = requests.post(
-                f"{SUPABASE_URL}/storage/v1/object/list/{SUPABASE_BUCKET}",
-                headers={"Authorization": f"Bearer {args.key}", "apikey": args.key},
-                json={"prefix": "", "limit": 10000},
-                timeout=30,
-            )
-            if resp.status_code == 200:
-                existing = {item["name"] for item in resp.json()}
-                print(f"  {len(existing)} files already in bucket.\n")
-            else:
-                print(f"  Could not fetch existing files ({resp.status_code}), uploading all.\n")
-        except Exception as e:
-            print(f"  Could not fetch existing files ({e}), uploading all.\n")
+        existing = fetch_existing(args.key)
 
     ok = fail = skip = 0
-    for path, display, alt in files:
-        # Strip diacritics and replace / so filenames are URL-safe
-        safe = unicodedata.normalize('NFKD', display).encode('ascii', 'ignore').decode('ascii')
-        safe = safe.replace('/', ' ')  # "Pyra/Mythra" → "Pyra Mythra"
-        dest = f"{safe}_{alt}.png"
-        if args.skip_existing and dest in existing:
-            skip += 1
-            continue
-        if upload_file(path, dest, args.key, args.dry_run):
-            ok += 1
-        else:
-            fail += 1
+
+    if args.icons:
+        # ── Headshot mode: chara_2_*_00 → {Name}_icon.png ──
+        files = find_icon_files(root)
+        if not files:
+            sys.exit("No chara_2_*_00.png files found. Check --input path.")
+        print(f"Found {len(files)} headshot images.\n")
+        for path, display in files:
+            dest = f"{safe_name(display)}_icon.png"
+            if args.skip_existing and dest in existing:
+                skip += 1
+                continue
+            if upload_file(path, dest, args.key, args.dry_run):
+                ok += 1
+            else:
+                fail += 1
+    else:
+        # ── Alt portrait mode: chara_3_* → {Name}_1..8.png ──
+        files = find_alt_files(root)
+        if not files:
+            sys.exit("No chara_3_*_0?.png files found. Check --input path.")
+        print(f"Found {len(files)} alt images across {len({d for _,d,_ in files})} characters.\n")
+        for path, display, alt in files:
+            dest = f"{safe_name(display)}_{alt}.png"
+            if args.skip_existing and dest in existing:
+                skip += 1
+                continue
+            if upload_file(path, dest, args.key, args.dry_run):
+                ok += 1
+            else:
+                fail += 1
 
     print(f"\nDone. {ok} uploaded, {skip} skipped, {fail} failed.")
 

@@ -16,8 +16,31 @@
 
     /* Badges */
     .badges-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 14px; }
-    .badge-pill { display: inline-flex; align-items: center; gap: 5px; border-radius: 20px; padding: 4px 10px; font-size: 0.72rem; font-weight: 700; color: #111; cursor: default; }
-    .badge-pill .badge-icon { font-size: 0.85rem; }
+    .badge-pill { display: inline-flex; align-items: center; gap: 5px; border-radius: 20px; padding: 4px 10px; font-size: 0.72rem; font-weight: 700; color: #111; cursor: pointer; transition: transform 0.12s, box-shadow 0.12s; }
+    .badge-pill:hover { transform: scale(1.07); box-shadow: 0 2px 10px rgba(0,0,0,0.35); }
+    .badge-pill .badge-icon { font-size: 0.85rem; line-height: 1; }
+    .badge-pill .badge-char-img { width: 20px; height: 20px; object-fit: contain; border-radius: 3px; display: block; }
+
+    /* Badge detail modal */
+    #badgeModal { display: none; position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; padding: 20px; }
+    #badgeModal.open { display: flex; }
+    .badge-modal-box {
+      background: var(--card-bg);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 28px 24px 22px;
+      max-width: 340px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.7);
+      position: relative;
+    }
+    .badge-modal-icon { font-size: 2.6rem; line-height: 1; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; }
+    .badge-modal-icon img { width: 56px; height: 56px; object-fit: contain; border-radius: 8px; }
+    .badge-modal-name { font-size: 1.1rem; font-weight: 800; margin-bottom: 6px; }
+    .badge-modal-stat { font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 14px; }
+    .badge-modal-how { font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; background: var(--card-bg2); border-radius: 8px; padding: 10px 14px; }
+    .badge-modal-close { position: absolute; top: 12px; right: 14px; background: none; border: none; color: var(--text-muted); font-size: 1.1rem; cursor: pointer; padding: 4px 6px; }
 
     /* Avatar editor */
     .avatar-preview { width: 80px; height: 80px; border-radius: 50%; background: var(--card-bg2); margin: 12px 0; object-fit: cover; border: 2px solid var(--border); display: block; }
@@ -326,6 +349,17 @@
   </div>
 </main>
 
+<!-- Badge detail modal -->
+<div id="badgeModal" onclick="if(event.target===this)closeBadgeModal()">
+  <div class="badge-modal-box">
+    <button class="badge-modal-close" onclick="closeBadgeModal()">✕</button>
+    <div class="badge-modal-icon" id="badgeModalIcon"></div>
+    <div class="badge-modal-name" id="badgeModalName"></div>
+    <div class="badge-modal-stat" id="badgeModalStat"></div>
+    <div class="badge-modal-how" id="badgeModalHow"></div>
+  </div>
+</div>
+
 <script src="js/api.js"></script>
 <script src="js/chars.js"></script>
 <script src="js/nav-inject.js"></script>
@@ -355,6 +389,20 @@
     char_king: '👾',
   };
 
+  const BADGE_HOW = {
+    specialist:    'Score the most points with a single character across all players.',
+    allrounder:    'Score points with 5 or more different characters.',
+    consistent:    'Maintain 10+ points on 3 or more characters simultaneously.',
+    champion:      'Win a tournament.',
+    serial_champ:  'Win 3 or more tournaments.',
+    tourney_king:  'Win more tournaments than anyone else globally.',
+    top3:          'Land in the top 3 on the character Elo leaderboard.',
+    veteran:       'Play 50 or more recorded matches.',
+    finisher:      'Land more 3-stocks (perfect wins) than anyone else globally.',
+    punching_bag:  'Get 3-stocked more than anyone else globally. Rough.',
+    char_king:     'Have the most total wins with a specific character across all players.',
+  };
+
   // Priority order: highest prestige first. First match wins.
   const BADGE_THEME_PRIORITY = [
     'tourney_king', 'finisher', 'punching_bag', 'serial_champ',
@@ -375,24 +423,48 @@
     'Mario':'🍄','Donkey Kong':'🦍','Link':'🗡️','Samus':'🚀','Dark Samus':'☄️','Yoshi':'🦕','Kirby':'⭐','Fox':'🦊','Pikachu':'⚡','Luigi':'👻','Ness':'🎮','Captain Falcon':'🏎️','Jigglypuff':'🎵','Peach':'🍑','Daisy':'🌼','Bowser':'🐢','Ice Climbers':'❄️','Sheik':'🌙','Zelda':'🔮','Dr. Mario':'💊','Pichu':'🐭','Falco':'🦅','Marth':'🗡️','Lucina':'💙','Young Link':'🏹','Ganondorf':'👹','Mewtwo':'🔮','Roy':'🔥','Chrom':'⚔️','Mr. Game & Watch':'🕹️','Meta Knight':'🌀','Pit':'😇','Dark Pit':'😈','Zero Suit Samus':'🔫','Wario':'💰','Snake':'💣','Ike':'🔥','Pokémon Trainer':'🎒','Diddy Kong':'🍌','Lucas':'🌟','Sonic':'💨','King Dedede':'🔨','Olimar':'🌸','Lucario':'💙','R.O.B.':'🤖','Toon Link':'🌊','Wolf':'🐺','Villager':'🌳','Mega Man':'⚙️','Wii Fit Trainer':'🧘','Rosalina & Luma':'✨','Little Mac':'🥊','Greninja':'💧','Mii Brawler':'👊','Mii Swordfighter':'🗡️','Mii Gunner':'🔫','Palutena':'✨','Pac-Man':'🟡','Robin':'📖','Shulk':'🔮','Bowser Jr.':'🖌️','Duck Hunt':'🦆','Ryu':'🥋','Ken':'🥊','Cloud':'⚡','Corrin':'🐉','Bayonetta':'💜','Inkling':'🦑','Ridley':'🦎','Simon':'⛓️','Richter':'💫','King K. Rool':'🐊','Isabelle':'🎣','Incineroar':'🔥','Piranha Plant':'🌿','Joker':'🃏','Hero':'⚔️','Banjo & Kazooie':'🐦','Terry':'👊','Byleth':'🏫','Min Min':'🍜','Steve':'⛏️','Sephiroth':'🖤','Pyra/Mythra':'🔥','Kazuya':'👿','Sora':'🔑',
   };
 
-  function badgeIconForId(b) {
-    if (b.id === 'char_king') {
-      const char = b.label.replace(/ King$/, '');
-      return CHAR_EMOJIS[char] || '👾';
+  let _badges = [];
+
+  function badgeIconForId(b, forModal = false) {
+    if (b.id === 'specialist' || b.id === 'char_king') {
+      const char = b.character
+        || (b.id === 'char_king' ? b.label.replace(/ King$/, '') : b.label.replace(/ Specialist$/, ''));
+      const url = forModal
+        ? (typeof charImgUrl  === 'function' ? charImgUrl(char)  : '')
+        : (typeof charHeadUrl === 'function' ? charHeadUrl(char) : '');
+      if (url) return `<img class="badge-char-img" src="${url}" alt="${char}" onerror="this.style.display='none'" />`;
+      return CHAR_EMOJIS[char] || (b.id === 'char_king' ? '👾' : '⚔️');
     }
     return BADGE_ICONS[b.id] || '🏅';
   }
 
   function renderBadges(badges) {
+    _badges = badges || [];
     const row = document.getElementById('badgesRow');
-    if (!badges || !badges.length) { row.innerHTML = ''; return; }
-    row.innerHTML = badges.map(b => `
-      <span class="badge-pill" style="background:${b.color}22;border:1px solid ${b.color}55;color:${b.color};" title="${b.desc}">
+    if (!_badges.length) { row.innerHTML = ''; return; }
+    row.innerHTML = _badges.map((b, i) => `
+      <span class="badge-pill" style="background:${b.color}22;border:1px solid ${b.color}55;color:${b.color};" title="${b.desc}" onclick="openBadgeModal(${i})">
         <span class="badge-icon">${badgeIconForId(b)}</span>${b.label}
       </span>
     `).join('');
-    applyBadgeTheme(badges);
+    applyBadgeTheme(_badges);
   }
+
+  function openBadgeModal(i) {
+    const b = _badges[i];
+    if (!b) return;
+    document.getElementById('badgeModalIcon').innerHTML = `<span style="font-size:2.4rem;">${badgeIconForId(b, true)}</span>`;
+    document.getElementById('badgeModalName').textContent = b.label;
+    document.getElementById('badgeModalStat').textContent = b.desc || '';
+    document.getElementById('badgeModalHow').textContent = BADGE_HOW[b.id] || '';
+    document.getElementById('badgeModal').classList.add('open');
+  }
+
+  function closeBadgeModal() {
+    document.getElementById('badgeModal').classList.remove('open');
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeBadgeModal(); });
 
   // ── H2H ──────────────────────────────────────────
   async function loadH2H() {

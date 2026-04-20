@@ -61,8 +61,103 @@
     .char-row-mine:hover td { background: rgba(0,119,200,0.14) !important; }
     .char-row-mine td:first-child { border-left: 3px solid var(--accent-blue); }
 
+    /* ── Sticky table headers ── */
+    .data-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background: var(--card-bg, #1a1a2e);
+    }
+
+    /* ── Zebra striping ── */
+    .data-table tbody tr:nth-child(even) td {
+      background: rgba(255,255,255,0.025);
+    }
+
+    /* ── Win% progress bar ── */
+    .winpct-bar {
+      height: 3px;
+      border-radius: 2px;
+      margin-top: 3px;
+      background: var(--border);
+      overflow: hidden;
+    }
+    .winpct-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+
+    /* ── Desktop split-pane: Global + Avg side by side ── */
+    #bottomSplit {
+      display: flex;
+      gap: 28px;
+      align-items: flex-start;
+      margin-top: 40px;
+    }
+    #globalSection { flex: 3; min-width: 0; }
+    #avgSection    { flex: 2; min-width: 0; }
+    #globalSection .section-label,
+    #avgSection    .section-label { margin-top: 0; }
+
+    /* Avg toggle full-width on mobile */
+    #avgToggleRow { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+
+    /* ── Expandable avg cards (mobile only) ── */
+    #avgCardList { display: none; }
+    .avg-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+    .avg-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .avg-card-header:active { background: rgba(255,255,255,0.04); }
+    .avg-card-rank  { font-size: 1.05rem; font-weight: 800; min-width: 28px; text-align: center; }
+    .avg-card-name  { flex: 1; font-weight: 600; font-size: 0.92rem; }
+    .avg-card-elo   { font-weight: 800; color: var(--accent-gold); font-size: 0.95rem; }
+    .avg-card-chevron { color: var(--text-muted); font-size: 1rem; transition: transform 0.2s; margin-left: 4px; }
+    .avg-card.open .avg-card-chevron { transform: rotate(90deg); }
+    .avg-card-detail {
+      display: none;
+      border-top: 1px solid var(--border);
+      padding: 12px 14px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 16px;
+    }
+    .avg-card.open .avg-card-detail { display: grid; }
+    .avg-card:not(.open) .avg-card-detail { display: none; }
+    .avg-detail-item { font-size: 0.8rem; }
+    .avg-detail-label { color: var(--text-muted); font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
+    .avg-card.me-card .avg-card-header { background: rgba(0,119,200,0.08); border-bottom: none; }
+    .avg-card.me-card { border-color: rgba(0,119,200,0.3); }
+
     @media (max-width: 700px) {
-      /* Make rank + player sticky so stats scroll horizontally */
+      /* Stack split-pane vertically on mobile */
+      #bottomSplit { flex-direction: column; gap: 0; margin-top: 24px; }
+      #globalSection { order: 1; }
+      #avgSection    { order: 2; }
+
+      /* Hide avg table, show cards on mobile */
+      #avgTableWrap { display: none !important; }
+      #avgCardList  { display: block; }
+
+      /* Full-width toggle on mobile */
+      #avgToggleRow { flex-direction: column; align-items: stretch; }
+      #avgToggleRow .avg-toggle-btns {
+        display: flex;
+        border-radius: 10px;
+        overflow: hidden;
+        width: 100%;
+      }
+      #avgToggleRow .avg-toggle-btns button { flex: 1; padding: 10px; font-size: 0.88rem; }
+
+      /* Make rank + player sticky so char stats scroll horizontally */
       #charTable thead th:nth-child(1),
       #charTable thead th:nth-child(2),
       #charTable tbody td:nth-child(1),
@@ -139,63 +234,75 @@
     </div>
   </div>
 
-  <!-- Global (RR sessions) leaderboard -->
-  <div class="section-label" style="margin-top:40px;">Global (Round Robin)</div>
-  <div id="globalLoading" class="loading-center">
-    <div class="spinner"></div><span>Loading global leaderboard…</span>
-  </div>
-  <div id="globalEmpty" class="empty-state" style="display:none;">
-    <p>No global stats available yet.</p>
-  </div>
-  <div style="overflow-x:auto;" id="globalTableWrap" style="display:none;">
-    <table class="data-table" id="globalTable">
-      <thead>
-        <tr>
-          <th>Rank</th>
-          <th>Player</th>
-          <th>Wins</th>
-          <th>Losses</th>
-          <th>Kills</th>
-          <th>Sessions</th>
-        </tr>
-      </thead>
-      <tbody id="globalBody"></tbody>
-    </table>
-  </div>
+  <!-- ── Split-pane: Global RR (left) + User Avg (right) ── -->
+  <div id="bottomSplit">
 
-  <!-- User Average Stats leaderboard -->
-  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:40px;margin-bottom:10px;">
-    <div class="section-label" style="margin:0;">User Avg Stats</div>
-    <div style="display:flex;background:var(--card-bg2);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:0.78rem;font-weight:700;">
-      <button id="avgToggleUnweighted" onclick="setAvgMode('unweighted')"
-        style="padding:5px 14px;border:none;cursor:pointer;background:var(--accent-blue);color:#fff;transition:background 0.15s;">Unweighted</button>
-      <button id="avgToggleWeighted" onclick="setAvgMode('weighted')"
-        style="padding:5px 14px;border:none;cursor:pointer;background:transparent;color:var(--text-muted);transition:background 0.15s;">Weighted</button>
+    <!-- Global (RR sessions) leaderboard -->
+    <div id="globalSection">
+      <div class="section-label">Global (Round Robin)</div>
+      <div id="globalLoading" class="loading-center">
+        <div class="spinner"></div><span>Loading global leaderboard…</span>
+      </div>
+      <div id="globalEmpty" class="empty-state" style="display:none;">
+        <p style="margin-bottom:12px;">No global stats yet — be the first to start a session!</p>
+        <a href="roundrobin.html" class="btn btn-primary btn-sm">▶ Start a Session</a>
+      </div>
+      <div style="overflow-x:auto;" id="globalTableWrap">
+        <table class="data-table" id="globalTable">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Player</th>
+              <th>Wins</th>
+              <th>Losses</th>
+              <th>Kills</th>
+              <th>Sessions</th>
+            </tr>
+          </thead>
+          <tbody id="globalBody"></tbody>
+        </table>
+      </div>
     </div>
-    <span style="font-size:0.75rem;color:var(--text-muted);" id="avgModeDesc">Simple average across all characters</span>
-  </div>
-  <div id="avgLoading" class="loading-center">
-    <div class="spinner"></div><span>Loading…</span>
-  </div>
-  <div id="avgEmpty" class="empty-state" style="display:none;"><p>No stats available yet.</p></div>
-  <div style="overflow-x:auto;" id="avgTableWrap" style="display:none;">
-    <table class="data-table" id="avgTable">
-      <thead>
-        <tr>
-          <th style="width:48px;">Rank</th>
-          <th>Player</th>
-          <th>Chars</th>
-          <th>Games</th>
-          <th>Avg Elo</th>
-          <th>Avg Kills</th>
-          <th>Avg K/D</th>
-          <th>Avg Win%</th>
-          <th>Avg LB Rank</th>
-        </tr>
-      </thead>
-      <tbody id="avgBody"></tbody>
-    </table>
-  </div>
+
+    <!-- User Average Stats leaderboard -->
+    <div id="avgSection">
+      <div id="avgToggleRow">
+        <div class="section-label" style="margin:0;">User Avg Stats</div>
+        <div class="avg-toggle-btns" style="display:flex;background:var(--card-bg2);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:0.78rem;font-weight:700;">
+          <button id="avgToggleUnweighted" onclick="setAvgMode('unweighted')"
+            style="padding:5px 14px;border:none;cursor:pointer;background:var(--accent-blue);color:#fff;transition:background 0.15s;">Unweighted</button>
+          <button id="avgToggleWeighted" onclick="setAvgMode('weighted')"
+            style="padding:5px 14px;border:none;cursor:pointer;background:transparent;color:var(--text-muted);transition:background 0.15s;">Weighted</button>
+        </div>
+        <span style="font-size:0.75rem;color:var(--text-muted);" id="avgModeDesc">Simple average across all characters</span>
+      </div>
+      <div id="avgLoading" class="loading-center">
+        <div class="spinner"></div><span>Loading…</span>
+      </div>
+      <div id="avgEmpty" class="empty-state" style="display:none;"><p>No stats available yet.</p></div>
+      <!-- Table (desktop) -->
+      <div style="overflow-x:auto;" id="avgTableWrap">
+        <table class="data-table" id="avgTable">
+          <thead>
+            <tr>
+              <th style="width:44px;">Rank</th>
+              <th>Player</th>
+              <th>Chars</th>
+              <th>Games</th>
+              <th>Avg Elo</th>
+              <th>Avg K/D</th>
+              <th>Avg Win%</th>
+              <th>Avg Rank</th>
+            </tr>
+          </thead>
+          <tbody id="avgBody"></tbody>
+        </table>
+      </div>
+      <!-- Cards (mobile) -->
+      <div id="avgCardList"></div>
+    </div>
+
+  </div><!-- /#bottomSplit -->
 </main>
 
 <!-- Elo history modal -->
@@ -317,10 +424,11 @@
       const pctColor = entry.win_pct != null
         ? (entry.win_pct >= 60 ? '#27ae60' : entry.win_pct >= 40 ? '#ffe066' : '#e74c3c')
         : 'var(--text-muted)';
+      const pctFill = entry.win_pct != null ? Math.min(100, entry.win_pct) : 0;
       const pctStr = entry.win_pct != null ? `${entry.win_pct}%` : '—';
       const kdVal = entry.kd;
       const kdStr = kdVal !== null && kdVal !== undefined
-        ? `<span style="font-weight:700;color:${kdVal >= 2 ? '#27ae60' : kdVal >= 1 ? '#ffe066' : '#e74c3c'};">${kdVal.toFixed(2)}</span>`
+        ? `<span style="font-weight:700;color:${kdVal >= 1.2 ? '#27ae60' : kdVal >= 1.0 ? '#ffe066' : '#e74c3c'};">${kdVal.toFixed(2)}</span>`
         : ((entry.kills ?? 0) > 0 ? `<span style="color:#27ae60;font-weight:700;">∞</span>` : '—');
 
       return `<tr class="${rowClass} char-row-clickable" data-u="${escHtml(entry.username)}" data-c="${escHtml(entry.character)}" onclick="openEloHist(this.dataset.u,this.dataset.c)">
@@ -336,7 +444,7 @@
         <td>${kdStr}</td>
         <td style="font-weight:700;color:#27ae60;">${entry.wins}</td>
         <td style="font-weight:700;color:#e74c3c;">${entry.losses}</td>
-        <td style="font-weight:800;color:${pctColor};">${pctStr}</td>
+        <td><div style="font-weight:800;color:${pctColor};">${pctStr}</div>${entry.win_pct != null ? `<div class="winpct-bar"><div class="winpct-fill" style="width:${pctFill}%;background:${pctColor};"></div></div>` : ''}</td>
       </tr>`;
     }).join('');
   }
@@ -428,34 +536,82 @@
   }
 
   function renderAvgTable() {
-    const key = avgMode; // 'unweighted' | 'weighted'
+    const key = avgMode;
     const sorted = [...allAvgData].sort((a, b) => (b[key].avg_elo ?? 0) - (a[key].avg_elo ?? 0));
+
+    function kdColor(v) {
+      if (v == null) return 'var(--text-muted)';
+      return v >= 1.2 ? '#27ae60' : v >= 1.0 ? '#ffe066' : '#e74c3c';
+    }
+    function pctColor(v) {
+      if (v == null) return 'var(--text-muted)';
+      return v >= 60 ? '#27ae60' : v >= 40 ? '#ffe066' : '#e74c3c';
+    }
+    function winPctCell(v) {
+      if (v == null) return '—';
+      const color = pctColor(v);
+      const fill = Math.min(100, Math.max(0, v));
+      return `<div>
+        <span style="font-weight:800;color:${color};">${v}%</span>
+        <div class="winpct-bar"><div class="winpct-fill" style="width:${fill}%;background:${color};"></div></div>
+      </div>`;
+    }
+
+    // ── Desktop table ──
     const body = document.getElementById('avgBody');
     body.innerHTML = sorted.map((u, i) => {
       const s = u[key];
-      const rankLabel = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
-      const rowClass  = i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '';
+      const rankLabel = i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
+      const isMe = u.username === myUsername;
+      const rowClass = isMe ? 'char-row-mine' : (i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '');
       const av = u.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u.username)}`;
-      const pctColor = s.avg_win_pct != null
-        ? (s.avg_win_pct >= 60 ? '#27ae60' : s.avg_win_pct >= 40 ? '#ffe066' : '#e74c3c')
-        : 'var(--text-muted)';
-      const kdColor = s.avg_kd != null
-        ? (s.avg_kd >= 2 ? '#27ae60' : s.avg_kd >= 1 ? '#ffe066' : '#e74c3c')
-        : 'var(--text-muted)';
+      const nameSuffix = isMe ? ' <span title="You" style="font-size:0.85rem;">⚡</span>' : '';
       return `<tr class="${rowClass}">
         <td style="font-weight:800;">${rankLabel}</td>
         <td><div style="display:flex;align-items:center;gap:8px;">
           <img class="user-av" src="${av}" alt="${escHtml(u.username)}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u.username)}'" />
-          <span style="font-weight:600;">${escHtml(u.username)}</span>
+          <span style="font-weight:600;">${escHtml(u.username)}${nameSuffix}</span>
         </div></td>
         <td style="color:var(--text-muted);">${u.num_chars}</td>
         <td style="color:var(--text-muted);">${u.total_games}</td>
         <td style="font-weight:800;color:var(--accent-gold);">${s.avg_elo ?? '—'}</td>
-        <td style="font-weight:700;color:#e67e22;">${s.avg_kills ?? '—'}</td>
-        <td style="font-weight:700;color:${kdColor};">${s.avg_kd != null ? s.avg_kd.toFixed(2) : '—'}</td>
-        <td style="font-weight:800;color:${pctColor};">${s.avg_win_pct != null ? s.avg_win_pct + '%' : '—'}</td>
+        <td style="font-weight:700;color:${kdColor(s.avg_kd)};">${s.avg_kd != null ? s.avg_kd.toFixed(2) : '—'}</td>
+        <td>${winPctCell(s.avg_win_pct)}</td>
         <td style="color:var(--text-muted);">${s.avg_rank != null ? '#' + s.avg_rank : '—'}</td>
       </tr>`;
+    }).join('');
+
+    // ── Mobile expandable cards ──
+    const cardList = document.getElementById('avgCardList');
+    cardList.innerHTML = sorted.map((u, i) => {
+      const s = u[key];
+      const rankLabel = i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
+      const isMe = u.username === myUsername;
+      const av = u.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u.username)}`;
+      const kd   = s.avg_kd != null ? s.avg_kd.toFixed(2) : '—';
+      const pct  = s.avg_win_pct != null ? s.avg_win_pct + '%' : '—';
+      const pctFill = s.avg_win_pct != null ? Math.min(100, s.avg_win_pct) : 0;
+      const pctC = pctColor(s.avg_win_pct);
+      const kdC  = kdColor(s.avg_kd);
+      return `<div class="avg-card${isMe ? ' me-card' : ''}" onclick="this.classList.toggle('open')">
+        <div class="avg-card-header">
+          <span class="avg-card-rank">${rankLabel}</span>
+          <img class="user-av" src="${av}" alt="${escHtml(u.username)}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u.username)}'" style="width:28px;height:28px;border-radius:50%;" />
+          <span class="avg-card-name">${escHtml(u.username)}${isMe ? ' ⚡' : ''}</span>
+          <span class="avg-card-elo">${s.avg_elo ?? '—'}</span>
+          <span class="avg-card-chevron">›</span>
+        </div>
+        <div class="avg-card-detail">
+          <div class="avg-detail-item"><div class="avg-detail-label">Avg K/D</div><span style="font-weight:700;color:${kdC};">${kd}</span></div>
+          <div class="avg-detail-item"><div class="avg-detail-label">Avg Win %</div>
+            <span style="font-weight:700;color:${pctC};">${pct}</span>
+            <div class="winpct-bar" style="margin-top:3px;"><div class="winpct-fill" style="width:${pctFill}%;background:${pctC};"></div></div>
+          </div>
+          <div class="avg-detail-item"><div class="avg-detail-label">Characters</div>${u.num_chars}</div>
+          <div class="avg-detail-item"><div class="avg-detail-label">Games</div>${u.total_games}</div>
+          <div class="avg-detail-item"><div class="avg-detail-label">Avg LB Rank</div>${s.avg_rank != null ? '#' + s.avg_rank : '—'}</div>
+        </div>
+      </div>`;
     }).join('');
   }
 

@@ -302,7 +302,8 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
         best = max(stats, key=lambda s: s.points)
         if best.points >= 10:
             badges.append({"id": "specialist", "label": f"{best.character} Specialist",
-                           "desc": f"{best.points} pts with {best.character}", "color": "#f5a623"})
+                           "desc": f"{best.points} pts with {best.character}", "color": "#f5a623",
+                           "character": best.character})
         chars_with_pts = len([s for s in stats if s.points > 0])
         if chars_with_pts >= 5:
             badges.append({"id": "allrounder", "label": "All-Rounder",
@@ -343,7 +344,7 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
         top_king = max(my_king_chars, key=lambda x: x[1])
         badges.append({"id": "char_king", "label": f"{top_king[0]} King",
                        "desc": f"Most wins with {top_king[0]} globally ({top_king[1]}W)",
-                       "color": "#e91e8c"})
+                       "color": "#e91e8c", "character": top_king[0]})
 
     top_rows = db.query(CharacterStats).filter(CharacterStats.points > 0)\
         .order_by(CharacterStats.points.desc()).limit(3).all()

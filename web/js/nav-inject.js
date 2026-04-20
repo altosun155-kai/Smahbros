@@ -4,28 +4,32 @@
   const nav = document.getElementById('main-nav');
   if (!nav) return;
 
-  const LINKS = [
+  const NAV = [
     { href: 'index.html',       label: 'Home',         icon: '🏠' },
+    { section: 'Compete' },
     { href: 'bracket.html',     label: 'Bracket',      icon: '🏆' },
     { href: 'duel.html',        label: '1v1 Duel',     icon: '⚔️' },
     { href: 'roundrobin.html',  label: 'Round Robin',  icon: '🔄' },
     { href: 'my-brackets.html', label: 'My Brackets',  icon: '📁' },
-    { href: 'tier-list.html',   label: 'Tier List',    icon: '🎖️' },
-    { href: 'mastery.html',     label: 'Mastery',      icon: '🎯' },
-    { href: 'practice.html',   label: 'Practice',     icon: '🥊' },
-    { href: 'favorites.html',   label: 'Favorites',    icon: '⭐' },
-    { href: 'skins.html',       label: 'Skins',        icon: '🎨' },
+    { section: 'Track' },
     { href: 'stats.html',       label: 'Stats',        icon: '📊' },
     { href: 'leaderboard.html', label: 'Leaderboard',  icon: '📈' },
+    { href: 'mastery.html',     label: 'Mastery',      icon: '🎯' },
+    { href: 'practice.html',    label: 'Practice',     icon: '🥊' },
+    { section: 'My Stuff' },
+    { href: 'tier-list.html',   label: 'Tier List',    icon: '🎖️' },
+    { href: 'favorites.html',   label: 'Favorites',    icon: '⭐' },
+    { href: 'skins.html',       label: 'Skins',        icon: '🎨' },
     { href: 'invites.html',     label: 'Invites',      icon: '📬' },
     { href: 'profile.html',     label: 'Profile',      icon: '👤' },
   ];
 
   const currentPage = window.location.pathname.split('/').pop() || 'index.html';
 
-  const items = LINKS.map(l =>
-    `<li><a href="${l.href}"${currentPage === l.href ? ' class="active"' : ''}>${l.icon} ${l.label}</a></li>`
-  ).join('');
+  const items = NAV.map(l => {
+    if (l.section) return `<li class="nav-section-header">${l.section}</li>`;
+    return `<li><a href="${l.href}"${currentPage === l.href ? ' class="active"' : ''}>${l.icon} ${l.label}</a></li>`;
+  }).join('');
 
   nav.innerHTML =
     `<a class="logo" href="index.html">Smash<span>Bros</span></a>` +

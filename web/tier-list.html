@@ -12,7 +12,7 @@
     .tier-row { display: flex; align-items: stretch; margin-bottom: 4px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); min-height: 72px; }
     .tier-label { width: 58px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; font-weight: 900; color: #111; user-select: none; }
     .tier-zone { flex: 1; display: flex; flex-wrap: wrap; gap: 3px; padding: 8px; background: var(--card-bg2); min-height: 72px; transition: background 0.12s; }
-    .tier-zone.drag-over { background: rgba(255,255,255,0.09); outline: 2px dashed rgba(255,255,255,0.25); outline-offset: -2px; }
+    .tier-zone.drag-over { background: rgba(0,119,200,0.15); outline: 2px dashed rgba(0,119,200,0.6); outline-offset: -2px; }
 
     .char-tile { width: 54px; height: 54px; border-radius: 4px; cursor: grab; overflow: hidden; border: 2px solid transparent; transition: border-color 0.1s, transform 0.1s, opacity 0.1s; flex-shrink: 0; background: var(--card-bg); }
     .char-tile:hover { border-color: rgba(255,255,255,0.4); transform: scale(1.1); z-index: 2; }
@@ -23,6 +23,9 @@
 
     .unranked-section { margin-top: 20px; }
     .unranked-label { font-size: 0.73rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+    .unranked-search { width: 100%; max-width: 280px; padding: 7px 12px; background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 0.85rem; margin-bottom: 8px; box-sizing: border-box; }
+    .unranked-search:focus { outline: none; border-color: var(--accent-blue); }
+    .unranked-search::placeholder { color: rgba(255,255,255,0.25); }
     .unranked-zone { display: flex; flex-wrap: wrap; gap: 3px; padding: 10px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; min-height: 72px; transition: background 0.12s; }
     .unranked-zone.drag-over { background: rgba(255,255,255,0.04); outline: 2px dashed rgba(255,255,255,0.15); outline-offset: -2px; }
 
@@ -329,12 +332,26 @@
     const unrankedLabel = document.createElement('div');
     unrankedLabel.className = 'unranked-label';
     unrankedLabel.textContent = 'Unranked — drag into a tier above';
+
+    const unrankedSearch = document.createElement('input');
+    unrankedSearch.type = 'text';
+    unrankedSearch.className = 'unranked-search';
+    unrankedSearch.placeholder = 'Search characters…';
+    unrankedSearch.id = 'unrankedSearch';
+    unrankedSearch.addEventListener('input', () => {
+      const q = unrankedSearch.value.trim().toLowerCase();
+      document.querySelectorAll('#zone-unranked .char-tile').forEach(tile => {
+        tile.style.display = !q || tile.dataset.char.toLowerCase().includes(q) ? '' : 'none';
+      });
+    });
+
     const unrankedZone = document.createElement('div');
     unrankedZone.className = 'unranked-zone';
     unrankedZone.id = 'zone-unranked';
     unrankedZone.dataset.tier = 'unranked';
     setupDropZone(unrankedZone);
     unrankedSection.appendChild(unrankedLabel);
+    unrankedSection.appendChild(unrankedSearch);
     unrankedSection.appendChild(unrankedZone);
     board.appendChild(unrankedSection);
 

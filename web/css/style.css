@@ -11,7 +11,7 @@
   --accent-blue:  #0077c8;
   --accent-gold:  #f5a623;
   --text:         #e8edf3;
-  --text-muted:   #a0aabc;
+  --text-muted:   #b0bcce;
   --border:       rgba(255,255,255,0.08);
   --radius:       10px;
   --tier-s:       #ff7f7f;
@@ -102,6 +102,21 @@ a:hover {
 .nav-links a.active {
   background: var(--accent-blue);
   color: #fff;
+}
+
+.nav-section-header {
+  display: none; /* hidden on mobile/top-bar; shown only in sidebar */
+  font-size: 0.63rem;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.28);
+  padding: 14px 12px 4px;
+  pointer-events: none;
+  user-select: none;
+}
+@media (min-width: 901px) {
+  .nav-section-header { display: block; }
 }
 
 .nav-right {

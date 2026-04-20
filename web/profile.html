@@ -218,6 +218,26 @@
       <!-- Right: sections -->
       <div id="rightCol">
 
+        <!-- Top Characters + Elo Chart -->
+        <div class="prof-section">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+            <div class="prof-section-title" style="margin:0;">Top Characters</div>
+            <div id="showcaseRankNote" style="font-size:0.72rem;color:var(--text-muted);"></div>
+          </div>
+          <div id="showcaseLoading" style="font-size:0.84rem;color:var(--text-muted);">Loading…</div>
+          <div id="showcaseContent" style="display:none;">
+            <div class="showcase-strip" id="showcaseCards"></div>
+            <div style="margin-top:20px;">
+              <div class="prof-section-title" id="chartCharLabel" style="margin-bottom:8px;">Elo Development</div>
+              <div style="background:var(--card-bg2);border:1px solid var(--border);border-radius:8px;padding:12px 8px 6px;overflow:hidden;">
+                <svg id="eloChartSvg" width="100%" style="display:block;overflow:visible;"></svg>
+              </div>
+              <div id="chartStats" style="display:flex;gap:16px;margin-top:8px;font-size:0.75rem;flex-wrap:wrap;color:var(--text-muted);"></div>
+            </div>
+          </div>
+          <div id="showcaseEmpty" style="display:none;font-size:0.84rem;color:var(--text-muted);">No ranked matches yet. Play some games!</div>
+        </div>
+
         <!-- Rivalry / H2H -->
         <div class="prof-section">
           <div class="prof-section-title">Head-to-Head Rivalry</div>
@@ -278,26 +298,6 @@
             </div>
           </div>
           <div id="h2hEmpty" style="display:none;font-size:0.84rem;color:var(--text-muted);margin-top:10px;">No matches recorded yet between these players.</div>
-        </div>
-
-        <!-- Top Characters + Elo Chart -->
-        <div class="prof-section">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
-            <div class="prof-section-title" style="margin:0;">Top Characters</div>
-            <div id="showcaseRankNote" style="font-size:0.72rem;color:var(--text-muted);"></div>
-          </div>
-          <div id="showcaseLoading" style="font-size:0.84rem;color:var(--text-muted);">Loading…</div>
-          <div id="showcaseContent" style="display:none;">
-            <div class="showcase-strip" id="showcaseCards"></div>
-            <div style="margin-top:20px;">
-              <div class="prof-section-title" id="chartCharLabel" style="margin-bottom:8px;">Elo Development</div>
-              <div style="background:var(--card-bg2);border:1px solid var(--border);border-radius:8px;padding:12px 8px 6px;overflow:hidden;">
-                <svg id="eloChartSvg" width="100%" style="display:block;overflow:visible;"></svg>
-              </div>
-              <div id="chartStats" style="display:flex;gap:16px;margin-top:8px;font-size:0.75rem;flex-wrap:wrap;color:var(--text-muted);"></div>
-            </div>
-          </div>
-          <div id="showcaseEmpty" style="display:none;font-size:0.84rem;color:var(--text-muted);">No ranked matches yet. Play some games!</div>
         </div>
 
         <!-- Activity feed -->

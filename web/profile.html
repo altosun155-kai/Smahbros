@@ -371,12 +371,24 @@
     if (match) document.body.classList.add(`badge-${match}`);
   }
 
+  const CHAR_EMOJIS = {
+    'Mario':'🍄','Donkey Kong':'🦍','Link':'🗡️','Samus':'🚀','Dark Samus':'☄️','Yoshi':'🦕','Kirby':'⭐','Fox':'🦊','Pikachu':'⚡','Luigi':'👻','Ness':'🎮','Captain Falcon':'🏎️','Jigglypuff':'🎵','Peach':'🍑','Daisy':'🌼','Bowser':'🐢','Ice Climbers':'❄️','Sheik':'🌙','Zelda':'🔮','Dr. Mario':'💊','Pichu':'🐭','Falco':'🦅','Marth':'🗡️','Lucina':'💙','Young Link':'🏹','Ganondorf':'👹','Mewtwo':'🔮','Roy':'🔥','Chrom':'⚔️','Mr. Game & Watch':'🕹️','Meta Knight':'🌀','Pit':'😇','Dark Pit':'😈','Zero Suit Samus':'🔫','Wario':'💰','Snake':'💣','Ike':'🔥','Pokémon Trainer':'🎒','Diddy Kong':'🍌','Lucas':'🌟','Sonic':'💨','King Dedede':'🔨','Olimar':'🌸','Lucario':'💙','R.O.B.':'🤖','Toon Link':'🌊','Wolf':'🐺','Villager':'🌳','Mega Man':'⚙️','Wii Fit Trainer':'🧘','Rosalina & Luma':'✨','Little Mac':'🥊','Greninja':'💧','Mii Brawler':'👊','Mii Swordfighter':'🗡️','Mii Gunner':'🔫','Palutena':'✨','Pac-Man':'🟡','Robin':'📖','Shulk':'🔮','Bowser Jr.':'🖌️','Duck Hunt':'🦆','Ryu':'🥋','Ken':'🥊','Cloud':'⚡','Corrin':'🐉','Bayonetta':'💜','Inkling':'🦑','Ridley':'🦎','Simon':'⛓️','Richter':'💫','King K. Rool':'🐊','Isabelle':'🎣','Incineroar':'🔥','Piranha Plant':'🌿','Joker':'🃏','Hero':'⚔️','Banjo & Kazooie':'🐦','Terry':'👊','Byleth':'🏫','Min Min':'🍜','Steve':'⛏️','Sephiroth':'🖤','Pyra/Mythra':'🔥','Kazuya':'👿','Sora':'🔑',
+  };
+
+  function badgeIconForId(b) {
+    if (b.id === 'char_king') {
+      const char = b.label.replace(/ King$/, '');
+      return CHAR_EMOJIS[char] || '👾';
+    }
+    return BADGE_ICONS[b.id] || '🏅';
+  }
+
   function renderBadges(badges) {
     const row = document.getElementById('badgesRow');
     if (!badges || !badges.length) { row.innerHTML = ''; return; }
     row.innerHTML = badges.map(b => `
       <span class="badge-pill" style="background:${b.color}22;border:1px solid ${b.color}55;color:${b.color};" title="${b.desc}">
-        <span class="badge-icon">${BADGE_ICONS[b.id] || '🏅'}</span>${b.label}
+        <span class="badge-icon">${badgeIconForId(b)}</span>${b.label}
       </span>
     `).join('');
     applyBadgeTheme(badges);

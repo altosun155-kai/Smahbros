@@ -7,240 +7,423 @@
   <link rel="stylesheet" href="css/reset.css" />
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/auth.js"></script>
+  <style>
+    /* ── Page-level gradient ───────────────────────── */
+    body {
+      background:
+        radial-gradient(ellipse 120% 45% at 50% -8%, rgba(0,55,140,0.38) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 30% at 90% 20%, rgba(80,0,160,0.15) 0%, transparent 55%),
+        var(--bg, #0d0d1a);
+    }
+
+    /* ── Glass utility ────────────────────────────── */
+    .glass {
+      background: rgba(255,255,255,0.035);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,0.09);
+    }
+
+    /* ── Invite ribbon (mobile-first, sticky) ────── */
+    #inviteRibbon {
+      display: none;
+      position: sticky;
+      top: 48px;
+      z-index: 200;
+      background: linear-gradient(90deg, rgba(0,100,210,0.95), rgba(60,0,160,0.9));
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      padding: 10px 16px;
+      align-items: center;
+      gap: 10px;
+    }
+    #inviteRibbon.visible { display: flex; }
+    #inviteRibbonText { flex: 1; font-size: 0.88rem; font-weight: 700; color: #fff; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #inviteRibbonBtn { flex-shrink: 0; background: #fff; color: #0055cc; border: none; border-radius: 6px; padding: 6px 14px; font-weight: 800; font-size: 0.82rem; cursor: pointer; text-decoration: none; }
+
+    /* ── Hero card ────────────────────────────────── */
+    .hero-card {
+      border-radius: 20px;
+      padding: 28px 28px 28px 28px;
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      min-height: 180px;
+    }
+    .hero-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(0,80,180,0.22) 0%, rgba(60,0,120,0.14) 100%);
+      pointer-events: none;
+    }
+    .hero-left { flex: 1; min-width: 0; position: relative; z-index: 1; }
+    .hero-avatar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .hero-avatar {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid rgba(255,255,255,0.2);
+      flex-shrink: 0;
+    }
+    .hero-name { font-size: 1.5rem; font-weight: 800; color: #fff; line-height: 1.1; }
+    .hero-badge-row { margin-top: 3px; }
+    .hero-stats-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .hero-stat {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 6px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .hero-stat-label { font-size: 0.58rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: rgba(255,255,255,0.45); }
+    .hero-stat-val { font-size: 1.05rem; font-weight: 800; color: #fff; }
+    .hero-stat-sub { font-size: 0.65rem; color: rgba(255,255,255,0.45); }
+    .hero-right {
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+      width: 130px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .hero-char-art {
+      width: 130px;
+      height: 130px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 20px rgba(100,160,255,0.5));
+      image-rendering: pixelated;
+    }
+    .hero-char-name {
+      position: absolute;
+      bottom: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      white-space: nowrap;
+    }
+
+    /* ── Invites section ──────────────────────────── */
+    .invite-card {
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 10px;
+    }
+    .invite-badge-dot {
+      width: 10px; height: 10px;
+      background: #e74c3c;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 8px #e74c3c;
+      animation: pulse-dot 1.6s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.8); }
+    }
+    .invite-info { flex: 1; min-width: 0; }
+    .invite-from { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: rgba(120,180,255,0.8); margin-bottom: 2px; }
+    .invite-name { font-size: 0.95rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .invite-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .invite-accept { background: #0077c8; color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 700; font-size: 0.82rem; cursor: pointer; text-decoration: none; display: flex; align-items: center; gap: 4px; }
+    .invite-accept:hover { background: #0088e0; }
+    .invite-decline { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.45); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px 12px; font-size: 0.82rem; cursor: pointer; }
+    .invite-decline:hover { color: #e74c3c; border-color: rgba(231,76,60,0.4); }
+
+    /* ── Live banner ──────────────────────────────── */
+    .live-banner {
+      border-radius: 14px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 18px;
+      background: linear-gradient(135deg, rgba(231,76,60,0.18), rgba(192,57,43,0.1));
+      border: 1.5px solid rgba(231,76,60,0.45);
+    }
+    .live-dot {
+      width: 9px; height: 9px;
+      background: #e74c3c;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 8px #e74c3c;
+      animation: pulse-dot 1.2s ease-in-out infinite;
+    }
+    .live-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: rgba(231,76,60,0.9); }
+    .live-name { font-size: 1rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .live-open { flex-shrink: 0; background: #e74c3c; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; text-decoration: none; white-space: nowrap; }
+
+    /* ── Section label ────────────────────────────── */
+    .section-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.3);
+      margin: 24px 0 10px;
+    }
+
+    /* ── Primary action cards ─────────────────────── */
+    .primary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .primary-card {
+      text-decoration: none;
+      border-radius: 16px;
+      padding: 22px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .primary-card:hover { transform: translateY(-3px); }
+    .primary-card.duel {
+      background: linear-gradient(135deg, rgba(0,100,220,0.25) 0%, rgba(0,60,140,0.15) 100%);
+      border: 1px solid rgba(0,120,255,0.3);
+    }
+    .primary-card.duel:hover { box-shadow: 0 0 28px rgba(0,120,255,0.25); border-color: rgba(0,140,255,0.5); }
+    .primary-card.bracket {
+      background: linear-gradient(135deg, rgba(245,166,35,0.2) 0%, rgba(180,100,0,0.12) 100%);
+      border: 1px solid rgba(245,166,35,0.3);
+    }
+    .primary-card.bracket:hover { box-shadow: 0 0 28px rgba(245,166,35,0.2); border-color: rgba(245,166,35,0.55); }
+    .primary-card.rr {
+      background: linear-gradient(135deg, rgba(39,174,96,0.2) 0%, rgba(0,100,60,0.12) 100%);
+      border: 1px solid rgba(39,174,96,0.3);
+    }
+    .primary-card.rr:hover { box-shadow: 0 0 28px rgba(39,174,96,0.2); border-color: rgba(39,174,96,0.55); }
+    .primary-icon { font-size: 2rem; line-height: 1; }
+    .primary-title { font-size: 1rem; font-weight: 800; color: #fff; }
+    .primary-desc { font-size: 0.75rem; color: rgba(255,255,255,0.5); line-height: 1.4; }
+    .primary-arrow { position: absolute; top: 18px; right: 18px; font-size: 1rem; color: rgba(255,255,255,0.25); }
+
+    /* ── Secondary cards ──────────────────────────── */
+    .secondary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+    }
+    .secondary-card {
+      text-decoration: none;
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+    }
+    .secondary-card:hover {
+      transform: translateY(-2px);
+      background: rgba(255,255,255,0.055);
+      border-color: rgba(255,255,255,0.14);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .sec-icon { font-size: 1.35rem; flex-shrink: 0; }
+    .sec-text h3 { font-size: 0.88rem; font-weight: 700; color: rgba(255,255,255,0.88); margin-bottom: 2px; }
+    .sec-text p { font-size: 0.72rem; color: rgba(255,255,255,0.38); line-height: 1.35; margin: 0; }
+    .sec-arrow { color: rgba(255,255,255,0.2); font-size: 1rem; margin-left: auto; flex-shrink: 0; padding-left: 6px; }
+
+    /* ── Mobile ───────────────────────────────────── */
+    @media (max-width: 700px) {
+      .hero-card { padding: 20px 16px; min-height: 140px; }
+      .hero-right { width: 90px; }
+      .hero-char-art { width: 90px; height: 90px; }
+      .hero-name { font-size: 1.2rem; }
+      .primary-grid { grid-template-columns: 1fr 1fr; }
+      .primary-grid .primary-card.rr { grid-column: 1 / -1; flex-direction: row; align-items: center; }
+      .primary-grid .primary-card.rr .primary-desc { display: none; }
+      .secondary-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 400px) {
+      .hero-right { display: none; }
+      .primary-grid { grid-template-columns: 1fr; }
+      .secondary-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
 <script>requireAuth();</script>
 
 <div id="toast-container"></div>
 
+<!-- Sticky invite ribbon for mobile -->
+<div id="inviteRibbon">
+  <div id="inviteRibbonText"></div>
+  <a id="inviteRibbonBtn" href="invites.html">View →</a>
+</div>
+
 <nav class="navbar" id="main-nav"></nav>
 
-<main class="page-container">
-  <div class="page-header">
-    <h1 id="welcomeHeading">Dashboard</h1>
-    <p id="welcomeSub">Welcome back!</p>
-  </div>
+<main class="page-container" style="padding-top:20px;">
 
-  <style>
-    .dash-section-label {
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      color: var(--text-muted);
-      margin: 28px 0 10px;
-    }
-    .dash-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-      gap: 12px;
-    }
-    .dash-card {
-      display: flex;
-      align-items: flex-start;
-      gap: 14px;
-      text-decoration: none;
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px 18px;
-      transition: border-color 0.15s, background 0.15s;
-    }
-    .dash-card:hover { background: var(--card-bg2); border-color: rgba(255,255,255,0.18); }
-    .dash-card .dash-icon { font-size: 1.6rem; flex-shrink: 0; line-height: 1; margin-top: 2px; }
-    .dash-card h3 { font-size: 0.93rem; font-weight: 700; color: var(--text); margin-bottom: 3px; }
-    .dash-card p { font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; margin: 0; }
-    .dash-arrow { color: var(--text-muted); font-size: 1.1rem; align-self: center; margin-left: auto; flex-shrink: 0; padding-left: 8px; }
-    .dash-card.featured {
-      border-color: rgba(0,119,200,0.45);
-      background: linear-gradient(135deg, rgba(0,119,200,0.12), rgba(0,60,120,0.06));
-    }
-    .dash-card.featured:hover { border-color: rgba(0,119,200,0.75); background: rgba(0,119,200,0.15); }
-
-    /* Quick stats strip */
-    .stat-strip {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 6px;
-    }
-    .stat-pill {
-      background: var(--card-bg2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      min-width: 100px;
-    }
-    .stat-pill .pill-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.7px; text-transform: uppercase; color: var(--text-muted); }
-    .stat-pill .pill-val { font-size: 1.1rem; font-weight: 800; color: var(--text); }
-    .stat-pill .pill-sub { font-size: 0.7rem; color: var(--text-muted); }
-  </style>
-
-  <!-- Live Tournament Banner -->
-  <div id="liveTournamentSection" style="display:none;margin-bottom:12px;">
-    <div style="background:linear-gradient(135deg,rgba(231,76,60,0.18),rgba(192,57,43,0.10));border:1.5px solid rgba(231,76,60,0.5);border-radius:var(--radius);padding:16px 20px;display:flex;align-items:center;gap:16px;">
-      <div style="font-size:1.6rem;flex-shrink:0;">🔴</div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:rgba(231,76,60,0.9);margin-bottom:3px;">Live Tournament</div>
-        <div id="liveTournamentName" style="font-size:1rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+  <!-- Hero Card -->
+  <div class="hero-card glass" id="heroCard">
+    <div class="hero-left">
+      <div class="hero-avatar-row">
+        <img class="hero-avatar" id="heroAvatar" src="" alt="avatar" style="display:none;" />
+        <div>
+          <div class="hero-name" id="heroName">—</div>
+          <div class="hero-badge-row" id="heroBadgeRow"></div>
+        </div>
       </div>
-      <a id="liveTournamentLink" href="#" style="flex-shrink:0;background:#e74c3c;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:0.85rem;text-decoration:none;white-space:nowrap;">Open →</a>
+      <div class="hero-stats-row">
+        <div class="hero-stat">
+          <span class="hero-stat-label">Top Elo</span>
+          <span class="hero-stat-val" id="heroElo">—</span>
+          <span class="hero-stat-sub" id="heroEloChar">—</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-label">Best Rank</span>
+          <span class="hero-stat-val" id="heroRank">—</span>
+          <span class="hero-stat-sub" id="heroRankChar">—</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-label">Total Wins</span>
+          <span class="hero-stat-val" id="heroWins">—</span>
+          <span class="hero-stat-sub">all characters</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-label">Best Win%</span>
+          <span class="hero-stat-val" id="heroWinPct">—</span>
+          <span class="hero-stat-sub" id="heroWinPctChar">—</span>
+        </div>
+      </div>
+    </div>
+    <div class="hero-right" id="heroRight" style="display:none;">
+      <img class="hero-char-art" id="heroCharArt" src="" alt="" />
+      <div class="hero-char-name" id="heroCharName"></div>
     </div>
   </div>
 
-  <!-- Pending Tournament Invites -->
-  <div id="inviteSection" style="display:none;margin-bottom:18px;">
-    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Tournament Invites</div>
-    <div id="inviteCards" style="display:flex;flex-direction:column;gap:10px;"></div>
+  <!-- Live Tournament Banner -->
+  <div id="liveBanner" style="display:none;" class="live-banner">
+    <div class="live-dot"></div>
+    <div style="flex:1;min-width:0;">
+      <div class="live-label">Live Tournament</div>
+      <div class="live-name" id="liveName"></div>
+    </div>
+    <a id="liveLink" href="#" class="live-open">Open →</a>
   </div>
 
-  <!-- Quick Stats -->
-  <div class="dash-section-label">Your Stats</div>
-  <div id="statStrip" class="stat-strip">
-    <div class="stat-pill"><span class="pill-label">Top Elo</span><span class="pill-val" id="statTopElo">—</span><span class="pill-sub" id="statTopChar">—</span></div>
-    <div class="stat-pill"><span class="pill-label">Best Rank</span><span class="pill-val" id="statBestRank">—</span><span class="pill-sub" id="statBestRankChar">—</span></div>
-    <div class="stat-pill"><span class="pill-label">Total Wins</span><span class="pill-val" id="statWins">—</span><span class="pill-sub">all characters</span></div>
-    <div class="stat-pill"><span class="pill-label">Win Rate</span><span class="pill-val" id="statWinPct">—</span><span class="pill-sub" id="statWinPctMin">min 3 games</span></div>
+  <!-- Pending Invites -->
+  <div id="inviteSection" style="display:none;">
+    <div class="section-label">🎟 Tournament Invites</div>
+    <div id="inviteList"></div>
   </div>
-  <a href="stats.html" style="font-size:0.75rem;color:var(--accent-blue);text-decoration:none;display:inline-block;margin-top:4px;margin-bottom:4px;">View full stats →</a>
 
   <!-- Play -->
-  <div class="dash-section-label">Play</div>
-  <div class="dash-grid">
-    <a href="duel.html" class="dash-card featured">
-      <div class="dash-icon">⚔️</div>
-      <div>
-        <h3>1v1 Duel</h3>
-        <p>Head-to-head series with live elo tracking, rank previews, and stock-based multipliers.</p>
-      </div>
-      <span class="dash-arrow">›</span>
+  <div class="section-label">Play</div>
+  <div class="primary-grid">
+    <a href="duel.html" class="primary-card duel">
+      <span class="primary-arrow">›</span>
+      <div class="primary-icon">⚔️</div>
+      <div class="primary-title">1v1 Duel</div>
+      <div class="primary-desc">Head-to-head series with live elo and stock multipliers.</div>
     </a>
-    <a href="bracket.html" class="dash-card featured">
-      <div class="dash-icon">🏆</div>
-      <div>
-        <h3>Tournament Bracket</h3>
-        <p>Single-elimination brackets with elo rewards that scale with tournament size.</p>
-      </div>
-      <span class="dash-arrow">›</span>
+    <a href="bracket.html" class="primary-card bracket">
+      <span class="primary-arrow">›</span>
+      <div class="primary-icon">🏆</div>
+      <div class="primary-title">Tournament</div>
+      <div class="primary-desc">Single-elimination with elo rewards that scale with size.</div>
     </a>
-    <a href="roundrobin.html" class="dash-card featured">
-      <div class="dash-icon">🔄</div>
-      <div>
-        <h3>Round Robin</h3>
-        <p>Everyone plays everyone — track live standings across all matchups.</p>
-      </div>
-      <span class="dash-arrow">›</span>
+    <a href="roundrobin.html" class="primary-card rr">
+      <span class="primary-arrow">›</span>
+      <div class="primary-icon">🔄</div>
+      <div class="primary-title">Round Robin</div>
+      <div class="primary-desc">Everyone plays everyone — track live standings.</div>
     </a>
   </div>
 
   <!-- Rankings -->
-  <div class="dash-section-label">Rankings</div>
-  <div class="dash-grid">
-    <a href="leaderboard.html" class="dash-card">
-      <div class="dash-icon">📈</div>
-      <div>
-        <h3>Elo Leaderboard</h3>
-        <p>Character-level elo rankings. Requires 3+ games played. Beat stronger players to climb faster.</p>
-      </div>
-      <span class="dash-arrow">›</span>
+  <div class="section-label">Rankings</div>
+  <div class="secondary-grid">
+    <a href="leaderboard.html" class="secondary-card">
+      <span class="sec-icon">📈</span>
+      <div class="sec-text"><h3>Elo Leaderboard</h3><p>Character elo rankings</p></div>
+      <span class="sec-arrow">›</span>
     </a>
-    <a href="leaderboard.html#global" class="dash-card">
-      <div class="dash-icon">🌍</div>
-      <div>
-        <h3>Global Leaderboard</h3>
-        <p>Overall player rankings by wins, kills, and sessions across all modes.</p>
-      </div>
-      <span class="dash-arrow">›</span>
+    <a href="leaderboard.html#global" class="secondary-card">
+      <span class="sec-icon">🌍</span>
+      <div class="sec-text"><h3>Global Leaderboard</h3><p>Wins, kills & sessions</p></div>
+      <span class="sec-arrow">›</span>
+    </a>
+    <a href="mastery.html" class="secondary-card">
+      <span class="sec-icon">🎯</span>
+      <div class="sec-text"><h3>Mastery</h3><p>Who owns each character</p></div>
+      <span class="sec-arrow">›</span>
     </a>
   </div>
 
   <!-- History -->
-  <div class="dash-section-label">History</div>
-  <div class="dash-grid">
-    <a href="my-brackets.html" class="dash-card">
-      <div class="dash-icon">📁</div>
-      <div>
-        <h3>My Brackets</h3>
-        <p>View, replay, and manage all your saved single-elimination tournaments.</p>
-      </div>
-      <span class="dash-arrow">›</span>
+  <div class="section-label">History & Stats</div>
+  <div class="secondary-grid">
+    <a href="stats.html" class="secondary-card">
+      <span class="sec-icon">📊</span>
+      <div class="sec-text"><h3>Character Stats</h3><p>Elo, win%, K/D per character</p></div>
+      <span class="sec-arrow">›</span>
     </a>
-    <a href="roundrobin.html#saved" class="dash-card">
-      <div class="dash-icon">📋</div>
-      <div>
-        <h3>My RR Sessions</h3>
-        <p>Browse your saved round-robin session results and standings.</p>
-      </div>
-      <span class="dash-arrow">›</span>
+    <a href="my-brackets.html" class="secondary-card">
+      <span class="sec-icon">📁</span>
+      <div class="sec-text"><h3>My Brackets</h3><p>All saved tournaments</p></div>
+      <span class="sec-arrow">›</span>
     </a>
-    <a href="stats.html" class="dash-card">
-      <div class="dash-icon">📊</div>
-      <div>
-        <h3>Character Stats</h3>
-        <p>Per-character elo, win %, K/D, kills, and deaths across all matches.</p>
-      </div>
-      <span class="dash-arrow">›</span>
+    <a href="profile.html" class="secondary-card">
+      <span class="sec-icon">👤</span>
+      <div class="sec-text"><h3>Profile</h3><p>Stats, badges & activity</p></div>
+      <span class="sec-arrow">›</span>
     </a>
   </div>
 
   <!-- Customize -->
-  <div class="dash-section-label">Customize</div>
-  <div class="dash-grid">
-    <a href="tier-list.html" class="dash-card">
-      <div class="dash-icon">🎖️</div>
-      <div>
-        <h3>My Tier List</h3>
-        <p>Rate all 89 Smash Ultimate fighters from S to F tier.</p>
-      </div>
-      <span class="dash-arrow">›</span>
+  <div class="section-label">Customize</div>
+  <div class="secondary-grid">
+    <a href="tier-list.html" class="secondary-card">
+      <span class="sec-icon">🎖️</span>
+      <div class="sec-text"><h3>Tier List</h3><p>Rank all 89 fighters S–F</p></div>
+      <span class="sec-arrow">›</span>
     </a>
-    <a href="favorites.html" class="dash-card">
-      <div class="dash-icon">⭐</div>
-      <div>
-        <h3>Top 10 Favorites</h3>
-        <p>Pick your 10 favorite fighters — used for auto-fill in brackets.</p>
-      </div>
-      <span class="dash-arrow">›</span>
+    <a href="favorites.html" class="secondary-card">
+      <span class="sec-icon">⭐</span>
+      <div class="sec-text"><h3>Favorites</h3><p>Top 10 for auto-fill</p></div>
+      <span class="sec-arrow">›</span>
+    </a>
+    <a href="skins.html" class="secondary-card">
+      <span class="sec-icon">🎨</span>
+      <div class="sec-text"><h3>Skins</h3><p>Pick your preferred alts</p></div>
+      <span class="sec-arrow">›</span>
     </a>
   </div>
 
-  <!-- Social -->
-  <div class="dash-section-label">Social</div>
-  <div class="dash-grid">
-    <a href="friends.html" class="dash-card">
-      <div class="dash-icon">👥</div>
-      <div>
-        <h3>Friends</h3>
-        <p>Add friends and see who's currently online.</p>
-      </div>
-      <span class="dash-arrow">›</span>
-    </a>
-    <a href="invites.html" class="dash-card">
-      <div class="dash-icon">📬</div>
-      <div>
-        <h3>Tournament Invites</h3>
-        <p>Accept or decline tournament invitations from friends.</p>
-        <div id="pendingBadge" style="display:none;margin-top:6px;">
-          <span class="badge badge-pending" id="pendingCount"></span>
-        </div>
-      </div>
-      <span class="dash-arrow">›</span>
-    </a>
-    <a href="profile.html" class="dash-card">
-      <div class="dash-icon">⚙️</div>
-      <div>
-        <h3>Profile</h3>
-        <p>Customize your avatar with DiceBear styles or a custom URL.</p>
-      </div>
-      <span class="dash-arrow">›</span>
-    </a>
-  </div>
 </main>
 
 <script src="js/api.js"></script>
+<script src="js/badges.js"></script>
+<script src="js/chars.js"></script>
 <script src="js/friends-sidebar.js"></script>
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
@@ -250,33 +433,78 @@
   }
 
   (async function init() {
-    // User info
     let me = null;
     try {
       me = await apiGet('/users/me');
       if (me) {
         document.getElementById('navUsername').textContent = me.username;
-        document.getElementById('welcomeHeading').textContent = `Hey, ${me.username} 👋`;
-        document.getElementById('welcomeSub').textContent = 'Here\'s where everything lives.';
-        const avatarEl = document.getElementById('navAvatar');
         const avatarUrl = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
-        avatarEl.src = avatarUrl;
-        avatarEl.style.display = 'block';
+        const navAv = document.getElementById('navAvatar');
+        navAv.src = avatarUrl; navAv.style.display = 'block';
+
+        document.getElementById('heroName').textContent = me.username;
+        const heroAv = document.getElementById('heroAvatar');
+        heroAv.src = avatarUrl; heroAv.style.display = 'block';
       }
     } catch (_) {}
 
-    // Quick stats — /characters/stats returns a plain array for the current authed user
+    // Badges
+    if (me) {
+      try {
+        await loadAllBadges();
+        const b = _allBadges[me.username];
+        if (b) {
+          const icon = b.id === 'char_king'
+            ? (b.label.replace(/ King$/, '') in CHAR_EMOJIS ? CHAR_EMOJIS[b.label.replace(/ King$/, '')] : '👾')
+            : (BADGE_ICONS[b.id] || '🏅');
+          document.getElementById('heroBadgeRow').innerHTML =
+            `<span style="display:inline-flex;align-items:center;gap:4px;background:${b.color}22;border:1px solid ${b.color}44;color:${b.color};border-radius:8px;padding:2px 9px;font-size:0.7rem;font-weight:700;">${icon} ${b.label}</span>`;
+        }
+      } catch (_) {}
+    }
+
+    // Character stats → hero card
     if (me) {
       try {
         const stats = await apiGet('/characters/stats');
         if (Array.isArray(stats) && stats.length) {
-          // Top elo
           const byElo = [...stats].sort((a, b) => (b.elo || 1000) - (a.elo || 1000));
           const top = byElo[0];
-          document.getElementById('statTopElo').textContent = top.elo || 1000;
-          document.getElementById('statTopChar').textContent = top.character;
+          document.getElementById('heroElo').textContent = top.elo || 1000;
+          document.getElementById('heroEloChar').textContent = top.character;
 
-          // Best rank — use full elo leaderboard (includes all players with 3+ games)
+          // Show character art in hero
+          if (typeof charImgUrl === 'function') {
+            const artUrl = charImgUrl(top.character);
+            const heroRight = document.getElementById('heroRight');
+            const heroArt = document.getElementById('heroCharArt');
+            heroArt.src = artUrl;
+            heroArt.alt = top.character;
+            document.getElementById('heroCharName').textContent = top.character;
+            heroRight.style.display = 'flex';
+            heroArt.onerror = () => { heroRight.style.display = 'none'; };
+            // Color glow based on elo
+            const elo = top.elo || 1000;
+            const glowColor = elo >= 1200 ? 'rgba(245,166,35,0.55)' : elo >= 1100 ? 'rgba(80,220,100,0.45)' : 'rgba(100,160,255,0.45)';
+            heroArt.style.filter = `drop-shadow(0 0 22px ${glowColor})`;
+          }
+
+          const totalWins = stats.reduce((acc, r) => acc + (r.wins || 0), 0);
+          document.getElementById('heroWins').textContent = totalWins;
+
+          const qualified = stats.filter(s => (s.wins || 0) + (s.losses || 0) >= 3);
+          if (qualified.length) {
+            const best = qualified.sort((a, b) => {
+              const pa = a.wins / (a.wins + a.losses);
+              const pb = b.wins / (b.wins + b.losses);
+              return pb - pa;
+            })[0];
+            const pct = Math.round(best.wins / (best.wins + best.losses) * 100);
+            document.getElementById('heroWinPct').textContent = `${pct}%`;
+            document.getElementById('heroWinPctChar').textContent = best.character;
+          }
+
+          // Best rank
           try {
             const lb = await apiGet('/characters/stats/leaderboard/elo');
             if (lb && lb.length) {
@@ -290,63 +518,54 @@
                 if (rank < bestRank) { bestRank = rank; bestRankChar = s.character; }
               }
               if (bestRank !== Infinity) {
-                document.getElementById('statBestRank').textContent = `#${bestRank}`;
-                document.getElementById('statBestRankChar').textContent = bestRankChar;
+                document.getElementById('heroRank').textContent = `#${bestRank}`;
+                document.getElementById('heroRankChar').textContent = bestRankChar;
               }
             }
           } catch (_) {}
-
-          // Total wins + best win % (min 3 games)
-          const totalWins = stats.reduce((acc, r) => acc + (r.wins || 0), 0);
-          document.getElementById('statWins').textContent = totalWins;
-
-          const qualified = stats.filter(s => (s.wins || 0) + (s.losses || 0) >= 3);
-          if (qualified.length) {
-            const best = qualified.sort((a, b) => {
-              const pa = (a.wins || 0) / ((a.wins || 0) + (a.losses || 0));
-              const pb = (b.wins || 0) / ((b.wins || 0) + (b.losses || 0));
-              return pb - pa;
-            })[0];
-            const pct = Math.round((best.wins / (best.wins + best.losses)) * 100);
-            document.getElementById('statWinPct').textContent = `${pct}%`;
-            document.getElementById('statWinPctMin').textContent = best.character;
-          }
         }
       } catch (_) {}
     }
 
-    // Live tournaments (hosted by you)
+    // Live tournaments
     try {
       const brackets = await apiGet('/brackets');
       const live = (brackets || []).filter(b => b.is_live);
       if (live.length > 0) {
         const t = live[0];
-        document.getElementById('liveTournamentName').textContent = t.name;
-        document.getElementById('liveTournamentLink').href = `tournament.html?id=${t.id}`;
-        document.getElementById('liveTournamentSection').style.display = 'block';
+        document.getElementById('liveName').textContent = t.name;
+        document.getElementById('liveLink').href = `tournament.html?id=${t.id}`;
+        document.getElementById('liveBanner').style.display = 'flex';
       }
     } catch (_) {}
 
-    // Pending invites — cards on homepage + badge
+    // Pending invites
     try {
       const invites = await apiGet('/invites/received');
       if (invites) {
         const pending = invites.filter(i => i.status === 'pending');
         if (pending.length > 0) {
-          document.getElementById('pendingCount').textContent = `${pending.length} pending`;
-          document.getElementById('pendingBadge').style.display = 'block';
+          // Sticky ribbon (mobile-friendly)
+          const ribbon = document.getElementById('inviteRibbon');
+          document.getElementById('inviteRibbonText').textContent =
+            pending.length === 1
+              ? `🎟 ${pending[0].inviter} invited you: ${pending[0].bracket_name}`
+              : `🎟 ${pending.length} tournament invites pending`;
+          document.getElementById('inviteRibbonBtn').href = 'invites.html';
+          ribbon.classList.add('visible');
 
+          // Invite cards
           document.getElementById('inviteSection').style.display = 'block';
-          document.getElementById('inviteCards').innerHTML = pending.map(inv => `
-            <div style="background:linear-gradient(135deg,rgba(0,119,200,0.15),rgba(0,80,160,0.08));border:1.5px solid rgba(0,119,200,0.4);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;gap:14px;" id="invCard_${inv.id}">
-              <div style="font-size:1.4rem;flex-shrink:0;">📬</div>
-              <div style="flex:1;min-width:0;">
-                <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;color:rgba(0,180,255,0.8);margin-bottom:2px;">Invited by ${escHtml(inv.inviter)}</div>
-                <div style="font-size:0.97rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(inv.bracket_name)}</div>
+          document.getElementById('inviteList').innerHTML = pending.map(inv => `
+            <div class="invite-card glass" id="invCard_${inv.id}">
+              <div class="invite-badge-dot"></div>
+              <div class="invite-info">
+                <div class="invite-from">Invited by ${escHtml(inv.inviter)}</div>
+                <div class="invite-name">${escHtml(inv.bracket_name)}</div>
               </div>
-              <div style="display:flex;gap:8px;flex-shrink:0;">
-                <a href="tournament.html?id=${inv.bracket_id}" style="background:#0077c8;color:#fff;border:none;padding:7px 14px;border-radius:6px;font-weight:700;font-size:0.82rem;text-decoration:none;white-space:nowrap;">View →</a>
-                <button onclick="declineInvite(${inv.id})" style="background:transparent;color:var(--text-muted);border:1px solid var(--border);padding:7px 12px;border-radius:6px;font-size:0.82rem;cursor:pointer;">✕</button>
+              <div class="invite-actions">
+                <a href="tournament.html?id=${inv.bracket_id}" class="invite-accept">View →</a>
+                <button class="invite-decline" onclick="declineInvite(${inv.id})">✕</button>
               </div>
             </div>
           `).join('');
@@ -358,10 +577,12 @@
   async function declineInvite(id) {
     try {
       await apiPatch(`/invites/${id}`, { status: 'declined' });
-      const card = document.getElementById(`invCard_${id}`);
-      if (card) card.remove();
-      const cards = document.getElementById('inviteCards');
-      if (cards && !cards.children.length) document.getElementById('inviteSection').style.display = 'none';
+      document.getElementById(`invCard_${id}`)?.remove();
+      const list = document.getElementById('inviteList');
+      if (list && !list.children.length) {
+        document.getElementById('inviteSection').style.display = 'none';
+        document.getElementById('inviteRibbon').classList.remove('visible');
+      }
     } catch (_) {}
   }
 </script>

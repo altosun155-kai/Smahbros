@@ -34,6 +34,14 @@ def _run_migrations():
             conn.execute(text("ALTER TABLE match_results ADD COLUMN IF NOT EXISTS elo_delta INTEGER DEFAULT 0"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS chars_per_player INTEGER DEFAULT 2"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS confirmed_lineups JSONB DEFAULT '{}'"))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS character_skins (
+                    id SERIAL PRIMARY KEY,
+                    owner_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    skins JSONB DEFAULT '{}',
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """))
         else:
             cols = {row[1] for row in conn.execute(text("PRAGMA table_info(brackets)"))}
             if "round_winners" not in cols:

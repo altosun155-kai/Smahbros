@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smash Bracket — Character Mastery</title>
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/auth.js"></script>
+  <style>
+    .mastery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+      gap: 6px;
+      margin-top: 20px;
+    }
+
+    .mastery-tile {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 3px solid transparent;
+      background: #111;
+      cursor: default;
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+
+    .mastery-tile:hover {
+      transform: scale(1.12);
+      z-index: 10;
+    }
+
+    .mastery-tile img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      pointer-events: none;
+    }
+
+    .mastery-tile.unowned img {
+      filter: grayscale(1) brightness(0.35);
+    }
+
+    .mastery-tile.owned {
+      box-shadow: 0 0 10px 2px var(--owner-color);
+    }
+
+    .mastery-tile .owner-label {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.75);
+      color: #fff;
+      font-size: 0.52rem;
+      font-weight: 700;
+      text-align: center;
+      padding: 2px 2px 3px;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mastery-tile .owner-label-me {
+      background: rgba(245, 166, 35, 0.85);
+      color: #111;
+    }
+
+    .mastery-tile .char-fallback {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.5rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 4px;
+      line-height: 1.2;
+    }
+
+    /* Tooltip */
+    .mastery-tile .tile-tooltip {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a2e;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.75rem;
+      white-space: nowrap;
+      z-index: 100;
+      pointer-events: none;
+      color: var(--text);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+
+    .mastery-tile:hover .tile-tooltip {
+      display: block;
+    }
+
+    .tile-tooltip strong {
+      display: block;
+      font-size: 0.8rem;
+      margin-bottom: 2px;
+    }
+
+    /* Legend */
+    .mastery-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 20px;
+      margin-top: 16px;
+      padding: 14px 16px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .legend-avatar {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+
+    .mastery-stats {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .mastery-stat-pill {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .mastery-stat-pill strong {
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+<script>requireAuth();</script>
+<div id="toast-container"></div>
+
+<nav class="navbar" id="main-nav"></nav>
+
+<main class="page-container">
+  <div class="page-header">
+    <h1>Character Mastery</h1>
+    <p>Who in your friend circle dominates each character? Greyed = unclaimed. Colored = point leader.</p>
+  </div>
+
+  <div id="loadingState" class="loading-center">
+    <div class="spinner"></div><span>Loading mastery data…</span>
+  </div>
+
+  <div id="masteryContent" style="display:none;">
+    <div class="mastery-stats" id="masteryStats"></div>
+    <div class="mastery-legend" id="masteryLegend"></div>
+    <div class="mastery-grid" id="masteryGrid"></div>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script src="js/friends-sidebar.js"></script>
+<script src="js/nav-inject.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/chars.js"></script>
+<script>
+  const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];
+
+  const PLAYER_COLORS = [
+    '#0077c8', '#f5a623', '#27ae60', '#e74c3c',
+    '#9b59b6', '#1abc9c', '#e67e22', '#e91e8c',
+    '#00bcd4', '#ff5722', '#8bc34a', '#ff9800',
+  ];
+
+  function buildGrid(masteryMap, playerColorMap) {
+    const grid = document.getElementById('masteryGrid');
+    grid.innerHTML = '';
+
+    ROSTER.forEach(char => {
+      const data = masteryMap[char];
+      const tile = document.createElement('div');
+      tile.className = 'mastery-tile ' + (data ? 'owned' : 'unowned');
+
+      if (data) {
+        const color = playerColorMap[data.username];
+        tile.style.setProperty('--owner-color', color);
+        tile.style.borderColor = color;
+      }
+
+      // Character image
+      const url = typeof charImgUrl === 'function' ? charImgUrl(char) : null;
+      if (url) {
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = char;
+        img.onerror = () => {
+          img.remove();
+          const fb = document.createElement('div');
+          fb.className = 'char-fallback';
+          fb.textContent = char.length > 7 ? char.slice(0, 6) + '…' : char;
+          tile.insertBefore(fb, tile.firstChild);
+        };
+        tile.appendChild(img);
+      } else {
+        const fb = document.createElement('div');
+        fb.className = 'char-fallback';
+        fb.textContent = char.length > 7 ? char.slice(0, 6) + '…' : char;
+        tile.appendChild(fb);
+      }
+
+      // Owner label
+      if (data) {
+        const label = document.createElement('div');
+        label.className = 'owner-label' + (data.is_me ? ' owner-label-me' : '');
+        label.textContent = data.is_me ? '★ ' + data.username : data.username;
+        tile.appendChild(label);
+      }
+
+      // Tooltip
+      const tooltip = document.createElement('div');
+      tooltip.className = 'tile-tooltip';
+      if (data) {
+        tooltip.innerHTML =
+          `<strong>${char}</strong>` +
+          `<span style="color:${playerColorMap[data.username]}">${data.username}</span><br>` +
+          `${data.points} pts · ${data.wins}W ${data.losses}L`;
+      } else {
+        tooltip.innerHTML = `<strong>${char}</strong><span style="color:var(--text-muted)">No claims yet</span>`;
+      }
+      tile.appendChild(tooltip);
+
+      grid.appendChild(tile);
+    });
+  }
+
+  function buildLegend(playerColorMap, masteryMap) {
+    const legend = document.getElementById('masteryLegend');
+    legend.innerHTML = '';
+
+    const header = document.createElement('div');
+    header.style.cssText = 'width:100%;font-size:0.72rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;';
+    header.textContent = 'Players';
+    legend.appendChild(header);
+
+    // Count chars per player
+    const charCounts = {};
+    Object.values(masteryMap).forEach(d => {
+      charCounts[d.username] = (charCounts[d.username] || 0) + 1;
+    });
+
+    Object.entries(playerColorMap).forEach(([username, color]) => {
+      const item = document.createElement('div');
+      item.className = 'legend-item';
+      const dot = document.createElement('div');
+      dot.className = 'legend-dot';
+      dot.style.background = color;
+      item.appendChild(dot);
+      const label = document.createElement('span');
+      label.textContent = `${username} (${charCounts[username] || 0})`;
+      label.style.color = 'var(--text)';
+      item.appendChild(label);
+      legend.appendChild(item);
+    });
+  }
+
+  function buildStats(masteryMap) {
+    const owned = Object.keys(masteryMap).length;
+    const total = ROSTER.length;
+    const pct = Math.round(owned / total * 100);
+    const statsEl = document.getElementById('masteryStats');
+    statsEl.innerHTML =
+      `<div class="mastery-stat-pill"><strong>${owned}</strong> / ${total} characters claimed</div>` +
+      `<div class="mastery-stat-pill"><strong>${total - owned}</strong> unclaimed</div>` +
+      `<div class="mastery-stat-pill"><strong>${pct}%</strong> roster coverage</div>`;
+  }
+
+  (async function init() {
+    try {
+      const me = await apiGet('/users/me');
+      if (me) {
+        document.getElementById('navUsername').textContent = me.username;
+        const url = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
+        const av = document.getElementById('navAvatar');
+        av.src = url; av.style.display = 'block';
+      }
+    } catch (_) {}
+
+    try {
+      const data = await apiGet('/characters/mastery/friends');
+
+      // Build mastery map: char -> { username, points, wins, losses, avatar_url }
+      const masteryMap = {};
+      data.forEach(d => { masteryMap[d.character] = d; });
+
+      // Assign a stable color per player (sorted by # of chars owned desc)
+      const playerCharCounts = {};
+      data.forEach(d => {
+        playerCharCounts[d.username] = (playerCharCounts[d.username] || 0) + 1;
+      });
+      const players = Object.keys(playerCharCounts).sort((a, b) => playerCharCounts[b] - playerCharCounts[a]);
+      const playerColorMap = {};
+      players.forEach((p, i) => {
+        playerColorMap[p] = PLAYER_COLORS[i % PLAYER_COLORS.length];
+      });
+
+      buildStats(masteryMap);
+      buildLegend(playerColorMap, masteryMap);
+      buildGrid(masteryMap, playerColorMap);
+
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('masteryContent').style.display = 'block';
+    } catch (err) {
+      document.getElementById('loadingState').innerHTML =
+        `<p style="color:var(--text-muted)">Failed to load mastery data.</p>`;
+      showToast('Error loading mastery: ' + err.message, 'error');
+    }
+  })();
+</script>
+</body>
+</html>

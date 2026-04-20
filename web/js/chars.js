@@ -28,6 +28,13 @@ function charImgUrl(name) {
   return SUPABASE_CHARS + encodeURIComponent(filename);
 }
 
+// Returns the alt portrait URL (e.g. alt=1 → "Mario_1.png").
+// Falls back to the base portrait if the alt image hasn't been uploaded yet.
+function charAltImgUrl(name, alt) {
+  if (!alt && alt !== 0) return charImgUrl(name);
+  return SUPABASE_CHARS + encodeURIComponent(name + '_' + alt + '.png');
+}
+
 const SMASH_ROSTER = [
   'Mario','Donkey Kong','Link','Samus','Dark Samus','Yoshi','Kirby','Fox','Pikachu',
   'Luigi','Ness','Captain Falcon','Jigglypuff','Peach','Daisy','Bowser','Ice Climbers',

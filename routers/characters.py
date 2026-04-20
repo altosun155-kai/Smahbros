@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
 
-from database import User, CharacterRanking, CharacterStats, FavoriteCharacters
+from sqlalchemy import or_, and_
+from database import User, CharacterRanking, CharacterStats, FavoriteCharacters, CharacterSkins, Friendship
 from auth import get_db, get_current_user
 
 router = APIRouter(tags=["characters"])
@@ -39,6 +40,10 @@ class BulkStatEntry(BaseModel):
 class BulkStatsRequest(BaseModel):
     username: str
     entries: list[BulkStatEntry]
+
+
+class SkinsUpdate(BaseModel):
+    skins: dict  # {character: alt_index (0-7)}
 
 
 def _stat_row(r):
@@ -122,6 +127,85 @@ def save_favorites(req: FavoritesUpdate, db: Session = Depends(get_db), current_
 def get_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     rows = db.query(CharacterStats).filter(CharacterStats.user_id == current_user.id).all()
     return [_stat_row(r) for r in rows]
+
+
+@router.get("/characters/mastery")
+def character_mastery(db: Session = Depends(get_db)):
+    """For each character, returns the user with the most points."""
+    rows = db.query(CharacterStats).filter(CharacterStats.points > 0).all()
+    char_map = {}
+    for row in rows:
+        char = row.character
+        if char not in char_map or row.points > char_map[char]["points"]:
+            char_map[char] = {
+                "character": char,
+                "username": row.owner.username,
+                "avatar_url": row.owner.avatar_url,
+                "points": row.points,
+                "wins": row.wins or 0,
+                "losses": row.losses or 0,
+            }
+    return list(char_map.values())
+
+
+@router.get("/characters/mastery/friends")
+def character_mastery_friends(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Returns character mastery scoped to the current user + their accepted friends."""
+    friend_rows = db.query(Friendship).filter(
+        Friendship.status == "accepted",
+        or_(Friendship.requester_id == current_user.id, Friendship.addressee_id == current_user.id),
+    ).all()
+    friend_ids = {current_user.id}
+    for row in friend_rows:
+        friend_ids.add(row.addressee_id if row.requester_id == current_user.id else row.requester_id)
+
+    rows = db.query(CharacterStats).filter(
+        CharacterStats.user_id.in_(friend_ids),
+        CharacterStats.points > 0,
+    ).all()
+    char_map = {}
+    for row in rows:
+        char = row.character
+        if char not in char_map or row.points > char_map[char]["points"]:
+            char_map[char] = {
+                "character": char,
+                "username": row.owner.username,
+                "avatar_url": row.owner.avatar_url,
+                "points": row.points,
+                "wins": row.wins or 0,
+                "losses": row.losses or 0,
+                "is_me": row.user_id == current_user.id,
+            }
+    return list(char_map.values())
+
+
+# ── Skins ─────────────────────────────────────────────────────────────────────
+
+@router.get("/characters/skins")
+def get_skins(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    row = db.query(CharacterSkins).filter(CharacterSkins.owner_id == current_user.id).first()
+    return {"skins": row.skins if row else {}}
+
+
+@router.put("/characters/skins")
+def save_skins(req: SkinsUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    row = db.query(CharacterSkins).filter(CharacterSkins.owner_id == current_user.id).first()
+    if row:
+        row.skins = req.skins
+    else:
+        row = CharacterSkins(owner_id=current_user.id, skins=req.skins)
+        db.add(row)
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/characters/skins/{username}")
+def get_skins_by_user(username: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    row = db.query(CharacterSkins).filter(CharacterSkins.owner_id == user.id).first()
+    return {"username": user.username, "skins": row.skins if row else {}}
 
 
 @router.get("/characters/stats/leaderboard")

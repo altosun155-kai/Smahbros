@@ -265,8 +265,30 @@ def user_averages_leaderboard(db: Session = Depends(get_db), _current_user: User
             "avg_rank":    round(sum(ranks)  / len(ranks),  1) if ranks else None,
         }
 
-        # Weighted: each character weighted by its games played
-        w_elo = sum((s.elo or 1000) * g for s, g in zip(stats, games_per)) / total_games if total_games else unweighted["avg_elo"]
+        # Weighted formulas:
+        # Elo   : Σ(elo × win_pct) / num_chars  — elo pulled up by win rate
+        # Win%  : Σ(wins) / Σ(total matches)    — true overall win rate
+        # K/D   : Σ(kd × elo) / Σ(elo)          — power-weighted by elo (screenshot 3)
+        # Kills : total kills / total games       — kills per match
+        char_win_pcts = [(s.wins or 0) / g for s, g in zip(stats, games_per) if g > 0]
+        elos_for_wp   = [s.elo or 1000 for s, g in zip(stats, games_per) if g > 0]
+        n_wp = len(char_win_pcts)
+        w_elo = (
+            sum(e * wp for e, wp in zip(elos_for_wp, char_win_pcts)) / n_wp
+            if n_wp else unweighted["avg_elo"]
+        )
+
+        # Power K/D: Σ(kd_i × elo_i) / Σ(elo_i)
+        kd_elo_pairs = [
+            ((s.kills or 0) / (s.deaths or 1), s.elo or 1000)
+            for s in stats if (s.deaths or 0) > 0
+        ]
+        total_elo_w = sum(e for _, e in kd_elo_pairs)
+        power_kd = (
+            round(sum(kd * e for kd, e in kd_elo_pairs) / total_elo_w, 2)
+            if total_elo_w else None
+        )
+
         ranked_games = sum(g for s, g in zip(stats, games_per) if s.id in elo_rank_map)
         w_rank = (
             sum(elo_rank_map[s.id] * g for s, g in zip(stats, games_per) if s.id in elo_rank_map) / ranked_games
@@ -276,7 +298,7 @@ def user_averages_leaderboard(db: Session = Depends(get_db), _current_user: User
         weighted = {
             "avg_elo":     round(w_elo, 1),
             "avg_kills":   round(total_kills / total_games, 2) if total_games else 0,
-            "avg_kd":      round(total_kills / total_deaths, 2) if total_deaths else None,
+            "avg_kd":      power_kd,
             "avg_win_pct": round(total_wins / total_games * 100, 1) if total_games else None,
             "avg_rank":    round(w_rank, 1) if w_rank else None,
         }

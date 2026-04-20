@@ -138,6 +138,40 @@
       <tbody id="globalBody"></tbody>
     </table>
   </div>
+
+  <!-- User Average Stats leaderboard -->
+  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:40px;margin-bottom:10px;">
+    <div class="section-label" style="margin:0;">User Avg Stats</div>
+    <div style="display:flex;background:var(--card-bg2);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:0.78rem;font-weight:700;">
+      <button id="avgToggleUnweighted" onclick="setAvgMode('unweighted')"
+        style="padding:5px 14px;border:none;cursor:pointer;background:var(--accent-blue);color:#fff;transition:background 0.15s;">Unweighted</button>
+      <button id="avgToggleWeighted" onclick="setAvgMode('weighted')"
+        style="padding:5px 14px;border:none;cursor:pointer;background:transparent;color:var(--text-muted);transition:background 0.15s;">Weighted</button>
+    </div>
+    <span style="font-size:0.75rem;color:var(--text-muted);" id="avgModeDesc">Simple average across all characters</span>
+  </div>
+  <div id="avgLoading" class="loading-center">
+    <div class="spinner"></div><span>Loading…</span>
+  </div>
+  <div id="avgEmpty" class="empty-state" style="display:none;"><p>No stats available yet.</p></div>
+  <div style="overflow-x:auto;" id="avgTableWrap" style="display:none;">
+    <table class="data-table" id="avgTable">
+      <thead>
+        <tr>
+          <th style="width:48px;">Rank</th>
+          <th>Player</th>
+          <th>Chars</th>
+          <th>Games</th>
+          <th>Avg Elo</th>
+          <th>Avg Kills</th>
+          <th>Avg K/D</th>
+          <th>Avg Win%</th>
+          <th>Avg LB Rank</th>
+        </tr>
+      </thead>
+      <tbody id="avgBody"></tbody>
+    </table>
+  </div>
 </main>
 
 <!-- Elo history modal -->
@@ -258,7 +292,7 @@
         ? `<span style="font-weight:700;color:${kdVal >= 2 ? '#27ae60' : kdVal >= 1 ? '#ffe066' : '#e74c3c'};">${kdVal.toFixed(2)}</span>`
         : ((entry.kills ?? 0) > 0 ? `<span style="color:#27ae60;font-weight:700;">∞</span>` : '—');
 
-      return `<tr class="${rowClass} char-row-clickable" onclick="openEloHist(${JSON.stringify(entry.username)},${JSON.stringify(entry.character)})">
+      return `<tr class="${rowClass} char-row-clickable" data-u="${escHtml(entry.username)}" data-c="${escHtml(entry.character)}" onclick="openEloHist(this.dataset.u,this.dataset.c)">
         <td style="font-weight:800;">${rankLabel}</td>
         <td><div style="display:flex;align-items:center;gap:8px;">
           <img class="user-av" src="${av}" alt="${escHtml(entry.username)}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}'" />
@@ -340,7 +374,73 @@
 
     loadCharLeaderboard();
     loadGlobal();
+    loadUserAverages();
   })();
+
+  // ── User average stats ────────────────────────────
+  let allAvgData = [];
+  let avgMode = 'unweighted'; // 'unweighted' | 'weighted'
+
+  function setAvgMode(mode) {
+    avgMode = mode;
+    document.getElementById('avgToggleUnweighted').style.background = mode === 'unweighted' ? 'var(--accent-blue)' : 'transparent';
+    document.getElementById('avgToggleUnweighted').style.color      = mode === 'unweighted' ? '#fff' : 'var(--text-muted)';
+    document.getElementById('avgToggleWeighted').style.background   = mode === 'weighted'   ? 'var(--accent-blue)' : 'transparent';
+    document.getElementById('avgToggleWeighted').style.color        = mode === 'weighted'   ? '#fff' : 'var(--text-muted)';
+    document.getElementById('avgModeDesc').textContent = mode === 'weighted'
+      ? 'Each character weighted by games played'
+      : 'Simple average across all characters';
+    renderAvgTable();
+  }
+
+  function renderAvgTable() {
+    const key = avgMode; // 'unweighted' | 'weighted'
+    const sorted = [...allAvgData].sort((a, b) => (b[key].avg_elo ?? 0) - (a[key].avg_elo ?? 0));
+    const body = document.getElementById('avgBody');
+    body.innerHTML = sorted.map((u, i) => {
+      const s = u[key];
+      const rankLabel = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
+      const rowClass  = i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '';
+      const av = u.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u.username)}`;
+      const pctColor = s.avg_win_pct != null
+        ? (s.avg_win_pct >= 60 ? '#27ae60' : s.avg_win_pct >= 40 ? '#ffe066' : '#e74c3c')
+        : 'var(--text-muted)';
+      const kdColor = s.avg_kd != null
+        ? (s.avg_kd >= 2 ? '#27ae60' : s.avg_kd >= 1 ? '#ffe066' : '#e74c3c')
+        : 'var(--text-muted)';
+      return `<tr class="${rowClass}">
+        <td style="font-weight:800;">${rankLabel}</td>
+        <td><div style="display:flex;align-items:center;gap:8px;">
+          <img class="user-av" src="${av}" alt="${escHtml(u.username)}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u.username)}'" />
+          <span style="font-weight:600;">${escHtml(u.username)}</span>
+        </div></td>
+        <td style="color:var(--text-muted);">${u.num_chars}</td>
+        <td style="color:var(--text-muted);">${u.total_games}</td>
+        <td style="font-weight:800;color:var(--accent-gold);">${s.avg_elo ?? '—'}</td>
+        <td style="font-weight:700;color:#e67e22;">${s.avg_kills ?? '—'}</td>
+        <td style="font-weight:700;color:${kdColor};">${s.avg_kd != null ? s.avg_kd.toFixed(2) : '—'}</td>
+        <td style="font-weight:800;color:${pctColor};">${s.avg_win_pct != null ? s.avg_win_pct + '%' : '—'}</td>
+        <td style="color:var(--text-muted);">${s.avg_rank != null ? '#' + s.avg_rank : '—'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function loadUserAverages() {
+    try {
+      const data = await apiGet('/characters/stats/user-averages');
+      document.getElementById('avgLoading').style.display = 'none';
+      if (!data || data.length === 0) {
+        document.getElementById('avgEmpty').style.display = 'block';
+        return;
+      }
+      allAvgData = data;
+      document.getElementById('avgTableWrap').style.display = 'block';
+      renderAvgTable();
+    } catch (err) {
+      document.getElementById('avgLoading').style.display = 'none';
+      showToast('Error loading user averages: ' + err.message, 'error');
+    }
+  }
 
   async function openEloHist(username, character) {
     document.getElementById('eloHistTitle').textContent = `${character} — ${username}`;

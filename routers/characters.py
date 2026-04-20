@@ -221,6 +221,78 @@ def elo_leaderboard(db: Session = Depends(get_db)):
     return results
 
 
+@router.get("/characters/stats/user-averages")
+def user_averages_leaderboard(db: Session = Depends(get_db), _current_user: User = Depends(get_current_user)):
+    """Per-user average stats across all their characters, weighted and unweighted."""
+    all_stats = db.query(CharacterStats).filter(
+        (CharacterStats.wins + CharacterStats.losses) >= 1
+    ).all()
+
+    # Global elo rank (1 = best) for chars with >= 3 games
+    ranked_chars = sorted(
+        [s for s in all_stats if (s.wins or 0) + (s.losses or 0) >= 3],
+        key=lambda s: -(s.elo or 1000),
+    )
+    elo_rank_map = {s.id: i + 1 for i, s in enumerate(ranked_chars)}
+
+    # Group by user
+    from collections import defaultdict
+    by_user = defaultdict(list)
+    for s in all_stats:
+        by_user[s.user_id].append(s)
+
+    results = []
+    for _uid, stats in by_user.items():
+        user = stats[0].owner
+        games_per = [(s.wins or 0) + (s.losses or 0) for s in stats]
+        total_games = sum(games_per)
+        total_wins  = sum(s.wins or 0 for s in stats)
+        total_kills = sum(s.kills or 0 for s in stats)
+        total_deaths = sum(s.deaths or 0 for s in stats)
+
+        # Unweighted: simple mean per character slot
+        elos   = [s.elo or 1000 for s in stats]
+        kills_l = [s.kills or 0 for s in stats]
+        kd_l   = [(s.kills or 0) / (s.deaths or 1) for s in stats if (s.deaths or 0) > 0]
+        wp_l   = [(s.wins or 0) / g * 100 for s, g in zip(stats, games_per) if g > 0]
+        ranks  = [elo_rank_map[s.id] for s in stats if s.id in elo_rank_map]
+
+        unweighted = {
+            "avg_elo":     round(sum(elos) / len(elos), 1),
+            "avg_kills":   round(sum(kills_l) / len(kills_l), 1),
+            "avg_kd":      round(sum(kd_l) / len(kd_l), 2)  if kd_l  else None,
+            "avg_win_pct": round(sum(wp_l)  / len(wp_l),  1) if wp_l  else None,
+            "avg_rank":    round(sum(ranks)  / len(ranks),  1) if ranks else None,
+        }
+
+        # Weighted: each character weighted by its games played
+        w_elo = sum((s.elo or 1000) * g for s, g in zip(stats, games_per)) / total_games if total_games else unweighted["avg_elo"]
+        ranked_games = sum(g for s, g in zip(stats, games_per) if s.id in elo_rank_map)
+        w_rank = (
+            sum(elo_rank_map[s.id] * g for s, g in zip(stats, games_per) if s.id in elo_rank_map) / ranked_games
+            if ranked_games else None
+        )
+
+        weighted = {
+            "avg_elo":     round(w_elo, 1),
+            "avg_kills":   round(total_kills / total_games, 2) if total_games else 0,
+            "avg_kd":      round(total_kills / total_deaths, 2) if total_deaths else None,
+            "avg_win_pct": round(total_wins / total_games * 100, 1) if total_games else None,
+            "avg_rank":    round(w_rank, 1) if w_rank else None,
+        }
+
+        results.append({
+            "username":    user.username,
+            "avatar_url":  user.avatar_url,
+            "num_chars":   len(stats),
+            "total_games": total_games,
+            "unweighted":  unweighted,
+            "weighted":    weighted,
+        })
+
+    return results
+
+
 @router.get("/characters/stats/{username}")
 def get_stats_by_user(username: str, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == username).first()

@@ -516,6 +516,12 @@
     loadAllBadges().then(() => {
       if (myUsername) applyNavBadge(myUsername);
       loadCharLeaderboard(); loadGlobal(); loadUserAverages();
+    }).then(() => {
+      if (window.location.hash === '#global') {
+        setTimeout(() => {
+          document.getElementById('globalSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 400);
+      }
     });
   })();
 

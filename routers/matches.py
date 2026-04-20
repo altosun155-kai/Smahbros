@@ -51,6 +51,47 @@ def _get_or_create_stat(db: Session, user_id: int, character: str) -> CharacterS
     return row
 
 
+@router.get("/matches/history")
+def char_elo_history(
+    username: str,
+    character: str,
+    limit: int = 5,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    rows = (
+        db.query(MatchResult)
+        .filter(
+            ((MatchResult.winner_id == user.id) & (MatchResult.winner_char == character)) |
+            ((MatchResult.loser_id  == user.id) & (MatchResult.loser_char  == character))
+        )
+        .order_by(MatchResult.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    results = []
+    for r in rows:
+        won = r.winner_id == user.id
+        opponent_id = r.loser_id if won else r.winner_id
+        opponent_char = r.loser_char if won else r.winner_char
+        opponent = db.query(User).filter(User.id == opponent_id).first()
+        results.append({
+            "won": won,
+            "elo_delta": r.elo_delta if won else -r.elo_delta,
+            "opponent": opponent.username if opponent else "?",
+            "opponent_char": opponent_char,
+            "my_kills": r.winner_kills if won else r.loser_kills,
+            "opp_kills": r.loser_kills if won else r.winner_kills,
+            "created_at": r.created_at.isoformat(),
+        })
+    return results
+
+
 @router.post("/matches/record")
 def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     winner = db.query(User).filter(User.username == req.winner_username).first()

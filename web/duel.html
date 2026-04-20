@@ -33,6 +33,21 @@
     }
     .duel-side.p1 { border-color: rgba(0,119,200,0.4); }
     .duel-side.p2 { border-color: rgba(245,166,35,0.4); }
+
+    /* Avatar picker */
+    .avatar-picker-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:4px; }
+    .av-pick {
+      display:flex; flex-direction:column; align-items:center; gap:4px;
+      cursor:pointer; border-radius:10px; padding:6px 8px;
+      border:2px solid transparent; background:var(--card-bg2);
+      transition:border-color 0.15s, background 0.15s; min-width:60px;
+    }
+    .av-pick img { width:40px; height:40px; border-radius:50%; object-fit:cover; }
+    .av-pick span { font-size:0.62rem; font-weight:700; color:var(--text-muted); text-align:center; }
+    .av-pick.selected-p1 { border-color:var(--accent-blue); background:rgba(0,119,200,0.12); }
+    .av-pick.selected-p1 span { color:var(--accent-blue); }
+    .av-pick.selected-p2 { border-color:var(--accent-gold); background:rgba(245,166,35,0.12); }
+    .av-pick.selected-p2 span { color:var(--accent-gold); }
     .duel-divider {
       display: flex;
       align-items: center;
@@ -191,20 +206,19 @@
     <div class="duel-vs">
       <div class="duel-side p1">
         <div class="player-label" style="color:var(--accent-blue);">Player 1</div>
-        <select id="p1Select" class="char-select" onchange="onPlayerChange()">
-          <option value="">Select player…</option>
-        </select>
+        <div class="avatar-picker-row" id="avPicker1"></div>
+        <select id="p1Select" class="char-select" onchange="onPlayerChange()" style="display:none;"></select>
         <div class="char-picker" id="picker-p1Char">
           <input type="text" placeholder="Search character…" autocomplete="off" oninput="filterPicker('p1Char')" onfocus="openPicker('p1Char')" onblur="closePicker('p1Char')" onkeydown="pickerKey(event,'p1Char')" />
           <div class="char-dropdown" id="drop-p1Char"></div>
         </div>
+        <button class="btn btn-outline btn-sm" id="quickStartBtn" onclick="quickStart()" style="display:none;margin-top:4px;font-size:0.78rem;">⚡ Quick Start (top char)</button>
       </div>
       <div class="duel-divider">VS</div>
       <div class="duel-side p2">
         <div class="player-label" style="color:var(--accent-gold);">Player 2</div>
-        <select id="p2Select" class="char-select" onchange="onPlayerChange()">
-          <option value="">Select player…</option>
-        </select>
+        <div class="avatar-picker-row" id="avPicker2"></div>
+        <select id="p2Select" class="char-select" onchange="onPlayerChange()" style="display:none;"></select>
         <div class="char-picker" id="picker-p2Char">
           <input type="text" placeholder="Search character…" autocomplete="off" oninput="filterPicker('p2Char')" onfocus="openPicker('p2Char')" onblur="closePicker('p2Char')" onkeydown="pickerKey(event,'p2Char')" />
           <div class="char-dropdown" id="drop-p2Char"></div>
@@ -444,18 +458,62 @@
     return '';
   }
 
+  let allUsers = [];
+  let myUsernameLocal = null;
+
   async function init() {
     try {
-      const [users] = await Promise.all([
+      const [users, me] = await Promise.all([
         apiGet('/users/all'),
+        apiGet('/users/me'),
         loadAllBadges(),
       ]);
-      const opts = users.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
-      document.getElementById('p1Select').innerHTML = '<option value="">Select player…</option>' + opts;
-      document.getElementById('p2Select').innerHTML = '<option value="">Select player…</option>' + opts;
+      allUsers = users || [];
+      myUsernameLocal = me?.username || null;
+
+      const avFallback = u => `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}`;
+      ['avPicker1','avPicker2'].forEach((pickerId, idx) => {
+        const slot = idx === 0 ? 'p1' : 'p2';
+        document.getElementById(pickerId).innerHTML = allUsers.map(u =>
+          `<div class="av-pick" data-slot="${slot}" data-username="${escHtml(u.username)}" onclick="selectPlayer('${slot}','${escHtml(u.username)}')">
+            <img src="${u.avatar_url || avFallback(u.username)}" alt="${escHtml(u.username)}" onerror="this.src='${avFallback(u.username)}'" />
+            <span>${escHtml(u.username)}</span>
+          </div>`
+        ).join('');
+      });
+
+      // Auto-select current user as P1
+      if (myUsernameLocal) selectPlayer('p1', myUsernameLocal);
     } catch (e) { showToast('Failed to load users', 'error'); }
     initPicker('p1Char', '');
     initPicker('p2Char', '');
+  }
+
+  function selectPlayer(slot, username) {
+    const sel = document.getElementById(`${slot}Select`);
+    sel.value = username;
+    document.querySelectorAll(`.av-pick`).forEach(c => {
+      if (c.dataset.slot === slot) {
+        c.classList.toggle(`selected-${slot}`, c.dataset.username === username);
+      }
+    });
+    // Show Quick Start only for P1 when it's the current user
+    const qsBtn = document.getElementById('quickStartBtn');
+    if (qsBtn && slot === 'p1') qsBtn.style.display = username ? 'block' : 'none';
+    onPlayerChange();
+  }
+
+  async function quickStart() {
+    const u1 = document.getElementById('p1Select').value;
+    if (!u1) return;
+    try {
+      const stats = await apiGet(`/characters/stats/${encodeURIComponent(u1)}`);
+      const sorted = (stats || []).filter(s => (s.wins||0)+(s.losses||0) > 0).sort((a,b) => (b.elo||1000)-(a.elo||1000));
+      if (sorted.length) {
+        selectPicker('p1Char', sorted[0].character);
+        showToast(`Auto-filled ${sorted[0].character} (top Elo)`, 'success');
+      }
+    } catch (_) {}
   }
 
   let h2hCache = null;

@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/auth.js"></script>
   <style>
-    .char-img-sm { width: 36px; height: 36px; object-fit: contain; border-radius: 4px; background: var(--card-bg2); }
+    .char-img-sm { width: 28px; height: 28px; object-fit: contain; border-radius: 50%; background: var(--card-bg2); }
     .user-av { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
     .global-row-gold td   { color: #ffd700; }
     .global-row-silver td { color: #c0c0c0; }
@@ -60,6 +60,16 @@
     .char-row-mine td { background: rgba(0,119,200,0.08) !important; }
     .char-row-mine:hover td { background: rgba(0,119,200,0.14) !important; }
     .char-row-mine td:first-child { border-left: 3px solid var(--accent-blue); }
+
+    /* ── Rivalry matrix ── */
+    #matrixTable th, #matrixTable td { text-align: center; padding: 8px 14px; white-space: nowrap; }
+    #matrixTable th:first-child, #matrixTable td:first-child { text-align: left; padding-left: 10px; }
+    .matrix-me th, .matrix-me td { background: rgba(0,119,200,0.08) !important; }
+    .matrix-me td:first-child { border-left: 3px solid var(--accent-blue); }
+    .matrix-self { background: rgba(255,255,255,0.03) !important; color: var(--text-muted); }
+    .matrix-win  { color: #4caf50; font-weight: 800; }
+    .matrix-loss { color: #e74c3c; font-weight: 800; }
+    .matrix-even { color: var(--text-muted); font-weight: 700; }
 
     /* ── Sticky table headers ── */
     .data-table thead th {
@@ -173,7 +183,7 @@
       /* Filter inputs full-width on mobile */
       #filterPlayer, #filterChar { width: 100% !important; }
       .data-table { font-size: 0.78rem; }
-      .char-img-sm { width: 28px; height: 28px; }
+      .char-img-sm { width: 24px; height: 24px; }
       .user-av { width: 22px; height: 22px; }
     }
   </style>
@@ -303,6 +313,18 @@
     </div>
 
   </div><!-- /#bottomSplit -->
+
+  <!-- ── Rivalry Matrix ── -->
+  <div style="margin-top:44px;" id="matrixSection">
+    <div class="section-label">Rivalry Matrix</div>
+    <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:14px;">Head-to-head win–loss for every pair. Your row is highlighted.</p>
+    <div id="matrixLoading" class="loading-center"><div class="spinner"></div><span>Loading…</span></div>
+    <div id="matrixWrap" style="display:none;overflow-x:auto;">
+      <table class="data-table" id="matrixTable" style="min-width:320px;"></table>
+    </div>
+    <div id="matrixEmpty" class="empty-state" style="display:none;"><p>Not enough players with match history yet.</p></div>
+  </div>
+
 </main>
 
 <!-- Elo history modal -->
@@ -415,11 +437,9 @@
         ? 'char-row-mine'
         : (i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '');
       const av = entry.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}`;
-      const imgUrl = entry.preferred_alt != null
-        ? charAltImgUrl(entry.character, entry.preferred_alt + 1)
-        : charImgUrl(entry.character);
-      const charImg = imgUrl
-        ? `<img class="char-img-sm" src="${imgUrl}" alt="${entry.character}" onerror="this.src='${charImgUrl(entry.character)}'" />`
+      const headUrl = typeof charHeadUrl === 'function' ? charHeadUrl(entry.character) : charImgUrl(entry.character);
+      const charImg = headUrl
+        ? `<img class="char-img-sm" src="${headUrl}" alt="${entry.character}" onerror="this.style.display='none'" />`
         : '';
       const pctColor = entry.win_pct != null
         ? (entry.win_pct >= 60 ? '#27ae60' : entry.win_pct >= 40 ? '#ffe066' : '#e74c3c')
@@ -501,6 +521,67 @@
     }
   }
 
+  async function loadH2HMatrix() {
+    try {
+      const data = await apiGet('/leaderboard');
+      if (!data || data.length < 2) {
+        document.getElementById('matrixLoading').style.display = 'none';
+        document.getElementById('matrixEmpty').style.display = 'block';
+        return;
+      }
+      const players = data.slice(0, 8); // cap at 8 players
+      const n = players.length;
+
+      // Fetch all unique pairs in parallel
+      const h2h = {};
+      await Promise.all(players.flatMap((p1, i) =>
+        players.slice(i + 1).map((p2, k) => {
+          const j = i + 1 + k;
+          return apiGet(`/users/${encodeURIComponent(p1.username)}/h2h/${encodeURIComponent(p2.username)}`)
+            .then(d => { h2h[`${i}_${j}`] = d; }).catch(() => {});
+        })
+      ));
+
+      const avFallback = u => `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}`;
+
+      let html = '<thead><tr><th></th>';
+      players.forEach(p => {
+        const av = p.avatar_url || avFallback(p.username);
+        html += `<th><div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <img class="user-av" src="${av}" alt="${escHtml(p.username)}" onerror="this.src='${avFallback(p.username)}'" />
+          <span style="font-size:0.72rem;">${escHtml(p.username)}</span></div></th>`;
+      });
+      html += '</tr></thead><tbody>';
+
+      players.forEach((rowP, i) => {
+        const isMe = rowP.username === myUsername;
+        html += `<tr${isMe ? ' class="matrix-me"' : ''}>`;
+        html += `<td><div style="display:flex;align-items:center;gap:8px;">
+          <img class="user-av" src="${rowP.avatar_url || avFallback(rowP.username)}" onerror="this.src='${avFallback(rowP.username)}'" />
+          <strong>${escHtml(rowP.username)}</strong></div></td>`;
+        players.forEach((colP, j) => {
+          if (i === j) { html += '<td class="matrix-self">—</td>'; return; }
+          const key = i < j ? `${i}_${j}` : `${j}_${i}`;
+          const d = h2h[key];
+          if (!d || d.total === 0) { html += '<td style="color:var(--text-muted);font-size:0.8rem;">0–0</td>'; return; }
+          const wins   = i < j ? d.user1_wins : d.user2_wins;
+          const losses = i < j ? d.user2_wins : d.user1_wins;
+          const cls    = wins > losses ? 'matrix-win' : wins < losses ? 'matrix-loss' : 'matrix-even';
+          html += `<td class="${cls}" title="${wins}W ${losses}L vs ${escHtml(colP.username)}">${wins}–${losses}</td>`;
+        });
+        html += '</tr>';
+      });
+      html += '</tbody>';
+
+      document.getElementById('matrixLoading').style.display = 'none';
+      document.getElementById('matrixTable').innerHTML = html;
+      document.getElementById('matrixWrap').style.display = 'block';
+    } catch (err) {
+      document.getElementById('matrixLoading').style.display = 'none';
+      document.getElementById('matrixEmpty').style.display = 'block';
+    }
+  }
+
   (async function init() {
     try {
       const me = await apiGet('/users/me');
@@ -515,7 +596,7 @@
 
     loadAllBadges().then(() => {
       if (myUsername) applyNavBadge(myUsername);
-      loadCharLeaderboard(); loadGlobal(); loadUserAverages();
+      loadCharLeaderboard(); loadGlobal(); loadUserAverages(); loadH2HMatrix();
     }).then(() => {
       if (window.location.hash === '#global') {
         setTimeout(() => {

@@ -92,6 +92,31 @@ def char_elo_history(
     return results
 
 
+@router.get("/matches/shame")
+def shame_feed(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Recent clean-sweep (3-stock) events for the Wall of Shame."""
+    rows = (
+        db.query(MatchResult)
+        .filter(MatchResult.winner_kills >= 3, MatchResult.loser_kills == 0)
+        .order_by(MatchResult.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return [{
+        "winner": r.winner.username,
+        "winner_char": r.winner_char,
+        "winner_avatar": r.winner.avatar_url,
+        "loser": r.loser.username,
+        "loser_char": r.loser_char,
+        "loser_avatar": r.loser.avatar_url,
+        "created_at": r.created_at.isoformat(),
+    } for r in rows]
+
+
 @router.post("/matches/record")
 def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     winner = db.query(User).filter(User.username == req.winner_username).first()

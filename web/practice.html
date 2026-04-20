@@ -139,23 +139,27 @@
     .pm-form-row label { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
     .level-btns { display: flex; gap: 4px; flex-wrap: wrap; }
     .level-btn {
-      width: 32px; height: 32px; border-radius: 6px;
+      width: 34px; height: 34px; border-radius: 6px;
       border: 1.5px solid var(--border); background: var(--card-bg2);
-      color: var(--text-muted); font-size: 0.82rem; font-weight: 700;
+      color: var(--text-muted); font-size: 0.84rem; font-weight: 700;
       cursor: pointer; transition: all 0.12s;
     }
     .level-btn:hover { border-color: var(--accent-blue); color: var(--text); }
     .level-btn.active { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
-    .result-btns { display: flex; gap: 8px; }
+    .level-btn.lv9 { border-color: rgba(231,76,60,0.45); color: #e74c3c; }
+    .level-btn.lv9:hover { border-color: #e74c3c; background: rgba(231,76,60,0.1); }
+    .level-btn.lv9.active { background: #e74c3c; border-color: #e74c3c; color: #fff; }
+    .result-btns { display: flex; gap: 10px; }
     .result-btn {
-      flex: 1; padding: 8px; border-radius: 7px;
-      border: 1.5px solid var(--border); background: var(--card-bg2);
-      font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.12s;
+      flex: 1; padding: 14px 10px; border-radius: 10px;
+      border: 2px solid var(--border); background: var(--card-bg2);
+      font-size: 1rem; font-weight: 800; cursor: pointer; transition: all 0.15s;
+      letter-spacing: 0.3px;
     }
-    .result-btn.won-btn  { color: #4caf50; }
-    .result-btn.lost-btn { color: #e74c3c; }
-    .result-btn.won-btn.active  { background: rgba(76,175,80,0.18); border-color: #4caf50; }
-    .result-btn.lost-btn.active { background: rgba(231,76,60,0.18);  border-color: #e74c3c; }
+    .result-btn.won-btn  { color: #4caf50; border-color: rgba(76,175,80,0.3); }
+    .result-btn.lost-btn { color: #e74c3c; border-color: rgba(231,76,60,0.3); }
+    .result-btn.won-btn.active  { background: rgba(76,175,80,0.2); border-color: #4caf50; box-shadow: 0 0 12px rgba(76,175,80,0.25); }
+    .result-btn.lost-btn.active { background: rgba(231,76,60,0.2); border-color: #e74c3c; box-shadow: 0 0 12px rgba(231,76,60,0.25); }
     .stocks-btns { display: flex; gap: 6px; }
     .stock-btn {
       width: 36px; height: 36px; border-radius: 7px;
@@ -497,7 +501,7 @@
   function buildLevelBtns() {
     document.getElementById('levelBtns').innerHTML = Array.from({length: 9}, (_, i) => {
       const lv = i + 1;
-      return `<button class="level-btn${lv === selectedLevel ? ' active' : ''}" onclick="setLevel(${lv})">${lv}</button>`;
+      return `<button class="level-btn${lv === 9 ? ' lv9' : ''}${lv === selectedLevel ? ' active' : ''}" onclick="setLevel(${lv})">${lv === 9 ? '9 🔥' : lv}</button>`;
     }).join('');
   }
 

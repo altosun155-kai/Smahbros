@@ -82,6 +82,14 @@
     .invite-dismiss:hover { color: #e74c3c; border-color: rgba(231,76,60,0.4); }
     @keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(.8)} }
 
+    /* Wall of Shame */
+    .shame-item { display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--card-bg); border:1px solid var(--border); border-radius:10px; margin-bottom:8px; font-size:0.84rem; }
+    .shame-item.fresh { border-color:rgba(231,76,60,0.4); background:rgba(231,76,60,0.06); }
+    .shame-av { width:32px; height:32px; border-radius:50%; object-fit:cover; flex-shrink:0; }
+    .shame-text { flex:1; line-height:1.5; }
+    .shame-skull { font-size:1.2rem; flex-shrink:0; }
+    .shame-time { font-size:0.72rem; color:var(--text-muted); white-space:nowrap; flex-shrink:0; }
+
     /* Section label */
     .section-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.3); margin: 24px 0 10px; }
 
@@ -415,6 +423,10 @@
     </a>
   </div>
 
+  <!-- ══ WALL OF SHAME ══ -->
+  <div class="section-label">💀 Wall of Shame</div>
+  <div id="shameFeed"><div style="font-size:0.8rem;color:var(--text-muted);padding:4px 0;">Loading…</div></div>
+
   <!-- ══ CUSTOMIZE ══ -->
   <div class="section-label">Customize</div>
   <div class="secondary-grid">
@@ -604,6 +616,42 @@
         }
       }
     } catch (_) {}
+  })();
+
+  (async function loadShame() {
+    try {
+      const data = await apiGet('/matches/shame?limit=6');
+      const feed = document.getElementById('shameFeed');
+      if (!data || !data.length) { feed.innerHTML = '<div style="font-size:0.8rem;color:var(--text-muted);padding:4px 0;">No 3-stocks yet — stay strapped.</div>'; return; }
+      const now = Date.now();
+      const avFallback = u => `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}`;
+      const timeAgo = iso => {
+        const s = Math.floor((now - new Date(iso)) / 1000);
+        if (s < 60) return 'just now';
+        if (s < 3600) return `${Math.floor(s/60)}m ago`;
+        if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+        return `${Math.floor(s/86400)}d ago`;
+      };
+      feed.innerHTML = data.map(r => {
+        const fresh = (now - new Date(r.created_at)) < 86400000;
+        const loserAv = r.loser_avatar || avFallback(r.loser);
+        const winnerAv = r.winner_avatar || avFallback(r.winner);
+        return `<div class="shame-item${fresh ? ' fresh' : ''}">
+          <span class="shame-skull">💀</span>
+          <img class="shame-av" src="${loserAv}" alt="${escHtml(r.loser)}" onerror="this.src='${avFallback(r.loser)}'" />
+          <div class="shame-text">
+            <strong style="color:#e74c3c;">${escHtml(r.loser)}</strong>
+            <span style="color:var(--text-muted);"> (${escHtml(r.loser_char)}) got 3-stocked by </span>
+            <img class="shame-av" src="${winnerAv}" alt="${escHtml(r.winner)}" onerror="this.src='${avFallback(r.winner)}'" style="width:20px;height:20px;vertical-align:middle;margin:0 2px;" />
+            <strong style="color:#4caf50;">${escHtml(r.winner)}</strong>
+            <span style="color:var(--text-muted);"> (${escHtml(r.winner_char)})</span>
+          </div>
+          <span class="shame-time">${timeAgo(r.created_at)}</span>
+        </div>`;
+      }).join('');
+    } catch (_) {
+      document.getElementById('shameFeed').innerHTML = '';
+    }
   })();
 
   function dismissInvite(id, ...elIds) {

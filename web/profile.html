@@ -16,9 +16,17 @@
 
     /* Badges */
     .badges-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 14px; }
-    .badge-pill { display: inline-flex; align-items: center; gap: 5px; border-radius: 20px; padding: 4px 10px; font-size: 0.72rem; font-weight: 700; color: #111; cursor: pointer; transition: transform 0.12s, box-shadow 0.12s; }
-    .badge-pill:hover { transform: scale(1.07); box-shadow: 0 2px 10px rgba(0,0,0,0.35); }
-    .badge-pill .badge-icon { font-size: 0.85rem; line-height: 1; }
+    .badge-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      border-radius: 8px; padding: 5px 11px;
+      font-size: 0.72rem; font-weight: 700; color: var(--text);
+      background: var(--card-bg2);
+      border: 1px solid var(--border);
+      border-left-width: 3px;
+      cursor: pointer; transition: transform 0.12s, box-shadow 0.12s;
+    }
+    .badge-pill:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,0.4); }
+    .badge-pill .badge-icon { font-size: 0.9rem; line-height: 1; }
     .badge-pill .badge-char-img { width: 20px; height: 20px; object-fit: contain; border-radius: 3px; display: block; }
 
     /* Badge detail modal */
@@ -77,6 +85,18 @@
     .comment-delete { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; padding: 0 4px; }
     .comment-delete:hover { color: #e74c3c; }
     .comment-input-row { display: flex; gap: 8px; margin-top: 14px; }
+
+    /* Elo chart tooltip */
+    .elo-chart-wrap { position: relative; }
+    #eloTooltip {
+      display: none; position: absolute; pointer-events: none; z-index: 20;
+      background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: 7px 12px; font-size: 0.78rem; white-space: nowrap;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5); transform: translate(-50%, calc(-100% - 10px));
+    }
+    #eloTooltip .tt-elo { font-size: 1rem; font-weight: 800; }
+    #eloTooltip .tt-match { color: var(--text-muted); margin-top: 2px; }
+    #eloTooltip .tt-delta { font-weight: 700; }
     .comment-input-row input { flex: 1; }
 
     @media (max-width: 700px) { .profile-layout { grid-template-columns: 1fr; } .profile-card { position: static; } }
@@ -252,8 +272,9 @@
             <div class="showcase-strip" id="showcaseCards"></div>
             <div style="margin-top:20px;">
               <div class="prof-section-title" id="chartCharLabel" style="margin-bottom:8px;">Elo Development</div>
-              <div style="background:var(--card-bg2);border:1px solid var(--border);border-radius:8px;padding:12px 8px 6px;overflow:hidden;">
+              <div class="elo-chart-wrap" style="background:var(--card-bg2);border:1px solid var(--border);border-radius:8px;padding:12px 8px 6px;overflow:hidden;">
                 <svg id="eloChartSvg" width="100%" style="display:block;overflow:visible;"></svg>
+                <div id="eloTooltip"></div>
               </div>
               <div id="chartStats" style="display:flex;gap:16px;margin-top:8px;font-size:0.75rem;flex-wrap:wrap;color:var(--text-muted);"></div>
             </div>
@@ -443,8 +464,8 @@
     const row = document.getElementById('badgesRow');
     if (!_badges.length) { row.innerHTML = ''; return; }
     row.innerHTML = _badges.map((b, i) => `
-      <span class="badge-pill" style="background:${b.color}22;border:1px solid ${b.color}55;color:${b.color};" title="${b.desc}" onclick="openBadgeModal(${i})">
-        <span class="badge-icon">${badgeIconForId(b)}</span>${b.label}
+      <span class="badge-pill" style="border-left-color:${b.color};" title="${b.desc}" onclick="openBadgeModal(${i})">
+        <span class="badge-icon" style="color:${b.color};">${badgeIconForId(b)}</span>${b.label}
       </span>
     `).join('');
     applyBadgeTheme(_badges);
@@ -618,8 +639,8 @@
   async function loadEloChart(character, currentElo) {
     document.getElementById('chartCharLabel').textContent = `${character} — Elo History`;
     const svg = document.getElementById('eloChartSvg');
-    svg.setAttribute('height', '160');
-    svg.innerHTML = `<text x="50%" y="80" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="13">Loading…</text>`;
+    svg.setAttribute('height', '200');
+    svg.innerHTML = `<text x="50%" y="100" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="13">Loading…</text>`;
     document.getElementById('chartStats').innerHTML = '';
     try {
       const history = await apiGet(`/matches/history?username=${encodeURIComponent(currentUsername)}&character=${encodeURIComponent(character)}&limit=30`);
@@ -628,14 +649,17 @@
         return;
       }
       // Reconstruct elo timeline (history newest-first, elo_delta signed)
-      const pts = [{ elo: currentElo, label: 'Now' }];
+      // pts[j+1] was reached by historyOldFirst[j] (history reversed to oldest-first)
+      const historyOldFirst = [...history].reverse();
+      const pts = [{ elo: currentElo, label: 'Now', match: null }];
       let elo = currentElo;
       for (const h of history) {
         elo = Math.round(elo - h.elo_delta);
-        pts.push({ elo, label: h.created_at ? h.created_at.slice(0, 10) : '' });
+        pts.push({ elo, label: h.created_at ? h.created_at.slice(0, 10) : '', match: h });
       }
-      pts.reverse(); // oldest → newest
+      pts.reverse(); // oldest → newest; pts[j].match = match that produced this elo
       currentChartPoints = pts;
+      currentChartHistory = historyOldFirst;
       requestAnimationFrame(() => drawEloSvg(svg, pts, currentElo));
 
       const peak = Math.max(...pts.map(p => p.elo));
@@ -651,9 +675,11 @@
     }
   }
 
+  let currentChartHistory = null;
+
   function drawEloSvg(svg, points, currentElo) {
     const W = svg.getBoundingClientRect().width || svg.clientWidth || 500;
-    const H = 160;
+    const H = 200;
     svg.setAttribute('height', H);
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     const pad = { top: 18, right: 44, bottom: 28, left: 42 };
@@ -715,6 +741,40 @@
       <text x="${lxOff.toFixed(1)}" y="${(ly+4).toFixed(1)}" text-anchor="${anchor}" font-size="11" font-weight="700" fill="${col}">${currentElo}</text>
       ${xLabels}
     `;
+
+    // ── Tooltip on hover ─────────────────────────────
+    const tooltip = document.getElementById('eloTooltip');
+    if (!tooltip) return;
+    const wrap = svg.parentElement;
+
+    svg.addEventListener('mousemove', e => {
+      const rect = svg.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      if (points.length < 2) return;
+      const idx = Math.round((mx - pad.left) / iW * (points.length - 1));
+      const i = Math.max(0, Math.min(points.length - 1, idx));
+      const p = points[i];
+      const px = xOf(i), py = yOf(p.elo);
+
+      const deltaColor = p.match
+        ? (p.match.elo_delta > 0 ? '#4caf50' : p.match.elo_delta < 0 ? '#e74c3c' : 'var(--text-muted)')
+        : 'var(--text-muted)';
+      const matchLine = p.match
+        ? `<div class="tt-match">vs ${escHtml(p.match.opponent || '')} (${escHtml(p.match.opponent_char || '')})<br>
+            <span class="tt-delta" style="color:${deltaColor};">${p.match.elo_delta > 0 ? '+' : ''}${p.match.elo_delta}</span>
+            <span style="color:var(--text-muted);"> · ${p.label}</span></div>`
+        : `<div class="tt-match" style="color:var(--text-muted);">Starting point</div>`;
+
+      tooltip.innerHTML = `<div class="tt-elo" style="color:${col};">${p.elo}</div>${matchLine}`;
+      const svgRect = svg.getBoundingClientRect();
+      const wrapRect = wrap.getBoundingClientRect();
+      const tx = (e.clientX - wrapRect.left);
+      const ty = (svgRect.top - wrapRect.top) + py;
+      tooltip.style.left = tx + 'px';
+      tooltip.style.top = ty + 'px';
+      tooltip.style.display = 'block';
+    });
+    svg.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
   }
 
   window.addEventListener('resize', () => {

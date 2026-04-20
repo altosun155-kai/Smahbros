@@ -270,11 +270,12 @@ def user_averages_leaderboard(db: Session = Depends(get_db), _current_user: User
         # Win%  : Σ(wins) / Σ(total matches)    — true overall win rate
         # K/D   : Σ(kd × elo) / Σ(elo)          — power-weighted by elo (screenshot 3)
         # Kills : total kills / total games       — kills per match
-        char_win_pcts = [(s.wins or 0) / g for s, g in zip(stats, games_per) if g > 0]
-        elos_for_wp   = [s.elo or 1000 for s, g in zip(stats, games_per) if g > 0]
-        n_wp = len(char_win_pcts)
+        # Only include chars that appear on the elo leaderboard (>= 3 games)
+        lb_pairs = [(s.elo or 1000, (s.wins or 0) / g)
+                    for s, g in zip(stats, games_per) if g >= 3]
+        n_wp = len(lb_pairs)
         w_elo = (
-            sum(e * wp for e, wp in zip(elos_for_wp, char_win_pcts)) / n_wp
+            sum(e * wp for e, wp in lb_pairs) / n_wp
             if n_wp else unweighted["avg_elo"]
         )
 

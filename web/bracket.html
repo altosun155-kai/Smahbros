@@ -258,6 +258,7 @@
 </main>
 
 <script src="js/api.js"></script>
+<script src="js/badges.js"></script>
 <script src="js/friends-sidebar.js"></script>
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
@@ -908,7 +909,8 @@ function renderBracket() {
           ? `<span style="font-size:0.68rem;font-weight:800;color:#ffe066;background:rgba(255,224,102,0.12);border:1px solid rgba(255,224,102,0.3);border-radius:4px;padding:1px 5px;flex-shrink:0;">${sc}</span>`
           : '';
         const loserStyle = isLost ? 'opacity:0.45;' : '';
-        return `<div class="match-entry${isByeEntry?' bye':''}${swapClass}${wonClass}" style="${loserStyle}" data-pair="${mi}" data-slot="${slot}">${icon}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span>${scoreBadge}</div>`;
+        const bIcon = (!isByeEntry && typeof badgeIcon === 'function') ? badgeIcon(entry.player) : '';
+        return `<div class="match-entry${isByeEntry?' bye':''}${swapClass}${wonClass}" style="${loserStyle}" data-pair="${mi}" data-slot="${slot}">${icon}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}${bIcon ? ' '+bIcon : ''}</span>${scoreBadge}</div>`;
       }
 
       let html = entryHtml(a, la, swapClassA, 0);
@@ -1199,7 +1201,8 @@ async function endTournament() {
     }
   } catch (_) {}
 
-  // Pre-load all user avatars so VS screen always has them
+  // Pre-load badges and all user avatars
+  try { await loadAllBadges(); } catch (_) {}
   try {
     const allUsers = await apiGet('/users/all');
     allUsers.forEach(u => { allUserAvatars[u.username] = u.avatar_url || null; });

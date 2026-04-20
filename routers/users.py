@@ -42,7 +42,7 @@ def all_users(db: Session = Depends(get_db), current_user: User = Depends(get_cu
 def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_current_user)):
     """Batch: returns {username: top_badge} for every user. Single set of DB queries."""
     PRIORITY = ['tourney_king','finisher','punching_bag','serial_champ',
-                'champion','top3','veteran','consistent','allrounder','specialist']
+                'champion','top3','veteran','consistent','allrounder','char_king','specialist']
 
     all_users_list = db.query(User).all()
 
@@ -71,6 +71,17 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
     top_fin_id = max(tsg, key=tsg.get) if tsg else None
     top_pb_id  = max(tsr, key=tsr.get) if tsr else None
 
+    # Char King: per-character, who has the most wins? map character -> (user_id, wins)
+    char_king_map: dict = {}  # character -> (user_id, wins)
+    for s in db.query(CharacterStats).filter(CharacterStats.wins > 0).all():
+        prev = char_king_map.get(s.character)
+        if prev is None or s.wins > prev[1]:
+            char_king_map[s.character] = (s.user_id, s.wins)
+    # user_id -> set of characters they are king of
+    char_king_by_uid: dict = {}
+    for char, (uid, wins) in char_king_map.items():
+        char_king_by_uid.setdefault(uid, []).append((char, wins))
+
     # Top-3 character leaderboard users (by points)
     top3_uids = {r.user_id for r in
                  db.query(CharacterStats).filter(CharacterStats.points > 0)
@@ -92,6 +103,10 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
                 earned.append({"id":"allrounder","label":"All-Rounder","color":"#27ae60"})
             if len([s for s in stats if s.points >= 10]) >= 3:
                 earned.append({"id":"consistent","label":"Consistent","color":"#3498db"})
+        kings = char_king_by_uid.get(uid, [])
+        if kings:
+            top_king = max(kings, key=lambda x: x[1])
+            earned.append({"id":"char_king","label":f"{top_king[0]} King","color":"#e91e8c"})
         if t_wins >= 1:
             earned.append({"id":"champion","label":"Bracket Champion","color":"#e74c3c"})
         if t_wins >= 3:
@@ -315,6 +330,20 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
     if top_winner and top_winner.winner == username and tournament_wins >= 1:
         badges.append({"id": "tourney_king", "label": "Tournament King",
                        "desc": f"Most tournament wins globally ({tournament_wins})", "color": "#ffe066"})
+
+    # Char King: lead in wins for any character globally
+    all_char_stats = db.query(CharacterStats).filter(CharacterStats.wins > 0).all()
+    char_leaders: dict = {}  # character -> (user_id, wins)
+    for s in all_char_stats:
+        prev = char_leaders.get(s.character)
+        if prev is None or s.wins > prev[1]:
+            char_leaders[s.character] = (s.user_id, s.wins)
+    my_king_chars = [(char, wins) for char, (uid, wins) in char_leaders.items() if uid == user.id]
+    if my_king_chars:
+        top_king = max(my_king_chars, key=lambda x: x[1])
+        badges.append({"id": "char_king", "label": f"{top_king[0]} King",
+                       "desc": f"Most wins with {top_king[0]} globally ({top_king[1]}W)",
+                       "color": "#e91e8c"})
 
     top_rows = db.query(CharacterStats).filter(CharacterStats.points > 0)\
         .order_by(CharacterStats.points.desc()).limit(3).all()

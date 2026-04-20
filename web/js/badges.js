@@ -10,6 +10,7 @@ const BADGE_ICONS = {
   veteran:      '🎖️',
   finisher:     '⚡',
   punching_bag: '💀',
+  char_king:    '👾',
 };
 
 let _allBadges = {};     // username -> {id, label, color}

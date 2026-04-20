@@ -118,6 +118,7 @@ INTERNAL_TO_DISPLAY = {
     "elight_first":  "Pyra/Mythra",
     "elight_only":   "Pyra/Mythra",
     "demon":         "Kazuya",
+    "trail":         "Sora",
     "trails":        "Sora",
     # alternate internal name spellings found in some dumps
     "ice_climber":   "Ice Climbers",

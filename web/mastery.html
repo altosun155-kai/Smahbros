@@ -206,7 +206,7 @@
     '#00bcd4', '#ff5722', '#8bc34a', '#ff9800',
   ];
 
-  function buildGrid(masteryMap, playerColorMap) {
+  function buildGrid(masteryMap, playerColorMap, mySkins) {
     const grid = document.getElementById('masteryGrid');
     grid.innerHTML = '';
 
@@ -221,13 +221,19 @@
         tile.style.borderColor = color;
       }
 
-      // Character image
-      const url = typeof charImgUrl === 'function' ? charImgUrl(char) : null;
+      // Use the current user's preferred alt if set, otherwise base portrait
+      const altIndex = mySkins[char] ?? null;
+      const url = altIndex !== null
+        ? charAltImgUrl(char, altIndex + 1)
+        : (typeof charImgUrl === 'function' ? charImgUrl(char) : null);
       if (url) {
         const img = document.createElement('img');
         img.src = url;
         img.alt = char;
         img.onerror = () => {
+          // alt not uploaded yet — fall back to base portrait
+          const base = charImgUrl(char);
+          if (img.src !== base) { img.src = base; return; }
           img.remove();
           const fb = document.createElement('div');
           fb.className = 'char-fallback';
@@ -320,7 +326,11 @@
     } catch (_) {}
 
     try {
-      const data = await apiGet('/characters/mastery/friends');
+      const [data, skinsData] = await Promise.all([
+        apiGet('/characters/mastery/friends'),
+        apiGet('/characters/skins').catch(() => ({ skins: {} })),
+      ]);
+      const mySkins = skinsData.skins || {};
 
       // Build mastery map: char -> { username, points, wins, losses, avatar_url }
       const masteryMap = {};
@@ -339,7 +349,7 @@
 
       buildStats(masteryMap);
       buildLegend(playerColorMap, masteryMap);
-      buildGrid(masteryMap, playerColorMap);
+      buildGrid(masteryMap, playerColorMap, mySkins);
 
       document.getElementById('loadingState').style.display = 'none';
       document.getElementById('masteryContent').style.display = 'block';

@@ -280,9 +280,11 @@
       const rankLabel = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${entry.globalRank}`;
       const rowClass  = i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '';
       const av = entry.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}`;
-      const imgUrl = charImgUrl(entry.character);
+      const imgUrl = entry.preferred_alt != null
+        ? charAltImgUrl(entry.character, entry.preferred_alt + 1)
+        : charImgUrl(entry.character);
       const charImg = imgUrl
-        ? `<img class="char-img-sm" src="${imgUrl}" alt="${entry.character}" onerror="this.style.display='none'" />`
+        ? `<img class="char-img-sm" src="${imgUrl}" alt="${entry.character}" onerror="this.src='${charImgUrl(entry.character)}'" />`
         : '';
       const pctColor = entry.win_pct != null
         ? (entry.win_pct >= 60 ? '#27ae60' : entry.win_pct >= 40 ? '#ffe066' : '#e74c3c')

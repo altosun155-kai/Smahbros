@@ -82,10 +82,13 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
     for char, (uid, wins) in char_king_map.items():
         char_king_by_uid.setdefault(uid, []).append((char, wins))
 
-    # Top-3 character leaderboard users (by points)
-    top3_uids = {r.user_id for r in
-                 db.query(CharacterStats).filter(CharacterStats.points > 0)
-                 .order_by(CharacterStats.points.desc()).limit(3).all()}
+    # Top-3 players by their best character elo
+    top3_uids = {row[0] for row in
+                 db.query(CharacterStats.user_id)
+                 .filter(CharacterStats.elo > 1000)
+                 .group_by(CharacterStats.user_id)
+                 .order_by(func.max(CharacterStats.elo).desc())
+                 .limit(3).all()}
 
     result = {}
     for u in all_users_list:
@@ -346,9 +349,13 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
                        "desc": f"Most wins with {top_king[0]} globally ({top_king[1]}W)",
                        "color": "#e91e8c", "character": top_king[0]})
 
-    top_rows = db.query(CharacterStats).filter(CharacterStats.points > 0)\
-        .order_by(CharacterStats.points.desc()).limit(3).all()
-    if any(r.owner.username == username for r in top_rows):
+    top3_player_ids = {row[0] for row in
+                       db.query(CharacterStats.user_id)
+                       .filter(CharacterStats.elo > 1000)
+                       .group_by(CharacterStats.user_id)
+                       .order_by(func.max(CharacterStats.elo).desc())
+                       .limit(3).all()}
+    if user.id in top3_player_ids:
         badges.append({"id": "top3", "label": "Top Performer",
                        "desc": "Top 3 on the character leaderboard", "color": "#9b59b6"})
     match_count = db.query(MatchResult).filter(

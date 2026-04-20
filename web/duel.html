@@ -250,19 +250,26 @@
 
     <!-- Score -->
     <div class="duel-card" style="text-align:center;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <div style="font-weight:700;font-size:1rem;color:var(--accent-blue);" id="seriesP1Name">—</div>
         <div style="font-size:0.75rem;color:var(--text-muted);" id="seriesTitle">Best of …</div>
         <div style="font-weight:700;font-size:1rem;color:var(--accent-gold);" id="seriesP2Name">—</div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;font-size:0.78rem;color:var(--text-muted);">
-        <span id="seriesP1Char">—</span>
-        <span id="seriesP2Char">—</span>
-      </div>
-      <div class="score-display">
-        <span class="score-num p1" id="scoreP1">0</span>
-        <span class="score-dash">—</span>
-        <span class="score-num p2" id="scoreP2">0</span>
+      <!-- Character art row -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-bottom:10px;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;">
+          <img id="seriesP1CharImg" src="" alt="" style="width:80px;height:80px;object-fit:contain;display:none;" onerror="this.style.display='none'" />
+          <span id="seriesP1Char" style="font-size:0.78rem;color:var(--text-muted);">—</span>
+        </div>
+        <div class="score-display" style="flex:none;margin:0;">
+          <span class="score-num p1" id="scoreP1">0</span>
+          <span class="score-dash">—</span>
+          <span class="score-num p2" id="scoreP2">0</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;">
+          <img id="seriesP2CharImg" src="" alt="" style="width:80px;height:80px;object-fit:contain;display:none;" onerror="this.style.display='none'" />
+          <span id="seriesP2Char" style="font-size:0.78rem;color:var(--text-muted);">—</span>
+        </div>
       </div>
     </div>
 
@@ -745,8 +752,18 @@
   function renderScore() {
     document.getElementById('scoreP1').textContent = p1Score;
     document.getElementById('scoreP2').textContent = p2Score;
-    document.getElementById('seriesP1Char').textContent = getPickerValue('gameP1Char') || p1CharCurrent;
-    document.getElementById('seriesP2Char').textContent = getPickerValue('gameP2Char') || p2CharCurrent;
+    const c1 = getPickerValue('gameP1Char') || p1CharCurrent;
+    const c2 = getPickerValue('gameP2Char') || p2CharCurrent;
+    document.getElementById('seriesP1Char').textContent = c1;
+    document.getElementById('seriesP2Char').textContent = c2;
+    const setCharImg = (id, char) => {
+      const img = document.getElementById(id);
+      const url = char && typeof charImgUrl === 'function' ? charImgUrl(char) : '';
+      if (url) { img.src = url; img.alt = char; img.style.display = ''; }
+      else { img.style.display = 'none'; }
+    };
+    setCharImg('seriesP1CharImg', c1);
+    setCharImg('seriesP2CharImg', c2);
   }
 
   function renderLog() {

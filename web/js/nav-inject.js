@@ -12,12 +12,12 @@
     { href: 'my-brackets.html', label: 'My Brackets',  icon: '📁' },
     { href: 'tier-list.html',   label: 'Tier List',    icon: '🎖️' },
     { href: 'mastery.html',     label: 'Mastery',      icon: '🎯' },
+    { href: 'practice.html',   label: 'Practice',     icon: '🥊' },
     { href: 'favorites.html',   label: 'Favorites',    icon: '⭐' },
     { href: 'skins.html',       label: 'Skins',        icon: '🎨' },
     { href: 'stats.html',       label: 'Stats',        icon: '📊' },
     { href: 'leaderboard.html', label: 'Leaderboard',  icon: '📈' },
     { href: 'invites.html',     label: 'Invites',      icon: '📬' },
-    { href: 'friends.html',     label: 'Friends',      icon: '👥' },
     { href: 'profile.html',     label: 'Profile',      icon: '👤' },
   ];
 

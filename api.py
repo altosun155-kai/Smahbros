@@ -7,7 +7,7 @@ import os
 import logging
 
 from database import engine, Base
-from routers import auth, users, brackets, characters, matches, roundrobin, invites, friends, leaderboard
+from routers import auth, users, brackets, characters, matches, roundrobin, invites, friends, leaderboard, practice
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +34,20 @@ def _run_migrations():
             conn.execute(text("ALTER TABLE match_results ADD COLUMN IF NOT EXISTS elo_delta INTEGER DEFAULT 0"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS chars_per_player INTEGER DEFAULT 2"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS confirmed_lineups JSONB DEFAULT '{}'"))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS practice_sessions (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    my_char VARCHAR NOT NULL,
+                    cpu_char VARCHAR NOT NULL,
+                    cpu_level INTEGER DEFAULT 9,
+                    my_stocks INTEGER DEFAULT 3,
+                    cpu_stocks INTEGER DEFAULT 0,
+                    won BOOLEAN DEFAULT TRUE,
+                    notes VARCHAR(500),
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """))
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS character_skins (
                     id SERIAL PRIMARY KEY,
@@ -110,6 +124,7 @@ app.include_router(roundrobin.router)
 app.include_router(invites.router)
 app.include_router(friends.router)
 app.include_router(leaderboard.router)
+app.include_router(practice.router)
 
 
 @app.get("/health")

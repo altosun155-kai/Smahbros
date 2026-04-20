@@ -43,6 +43,7 @@ class User(Base):
     character_skins     = relationship("CharacterSkins", back_populates="owner", uselist=False, cascade="all, delete-orphan")
     sent_friend_requests     = relationship("Friendship", foreign_keys="Friendship.requester_id", back_populates="requester", cascade="all, delete-orphan")
     received_friend_requests = relationship("Friendship", foreign_keys="Friendship.addressee_id", back_populates="addressee", cascade="all, delete-orphan")
+    practice_sessions        = relationship("PracticeSession", back_populates="owner", cascade="all, delete-orphan")
 
 
 class Bracket(Base):
@@ -184,6 +185,24 @@ class CharacterSkins(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     owner = relationship("User", back_populates="character_skins")
+
+
+class PracticeSession(Base):
+    """One row per CPU practice game logged by a user."""
+    __tablename__ = "practice_sessions"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
+    my_char    = Column(String, nullable=False)
+    cpu_char   = Column(String, nullable=False)
+    cpu_level  = Column(Integer, default=9)
+    my_stocks  = Column(Integer, default=3)
+    cpu_stocks = Column(Integer, default=0)
+    won        = Column(Boolean, default=True)
+    notes      = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    owner = relationship("User", back_populates="practice_sessions")
 
 
 class MatchResult(Base):

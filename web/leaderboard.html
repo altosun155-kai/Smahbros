@@ -427,7 +427,7 @@
 
   async function loadUserAverages() {
     try {
-      const data = await apiGet('/characters/stats/user-averages');
+      const data = await apiGet('/characters/user-averages');
       document.getElementById('avgLoading').style.display = 'none';
       if (!data || data.length === 0) {
         document.getElementById('avgEmpty').style.display = 'block';

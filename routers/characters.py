@@ -221,7 +221,7 @@ def elo_leaderboard(db: Session = Depends(get_db)):
     return results
 
 
-@router.get("/characters/stats/user-averages")
+@router.get("/characters/user-averages")
 def user_averages_leaderboard(db: Session = Depends(get_db), _current_user: User = Depends(get_current_user)):
     """Per-user average stats across all their characters, weighted and unweighted."""
     all_stats = db.query(CharacterStats).filter(

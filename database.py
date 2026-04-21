@@ -40,7 +40,6 @@ class User(Base):
     received_invites    = relationship("TournamentInvite", foreign_keys="TournamentInvite.invitee_id", back_populates="invitee")
     favorite_characters = relationship("FavoriteCharacters", back_populates="owner", uselist=False, cascade="all, delete-orphan")
     character_stats     = relationship("CharacterStats", back_populates="owner", cascade="all, delete-orphan")
-    character_skins     = relationship("CharacterSkins", back_populates="owner", uselist=False, cascade="all, delete-orphan")
     sent_friend_requests     = relationship("Friendship", foreign_keys="Friendship.requester_id", back_populates="requester", cascade="all, delete-orphan")
     received_friend_requests = relationship("Friendship", foreign_keys="Friendship.addressee_id", back_populates="addressee", cascade="all, delete-orphan")
     practice_sessions        = relationship("PracticeSession", back_populates="owner", cascade="all, delete-orphan")
@@ -170,21 +169,6 @@ class Friendship(Base):
 
     requester = relationship("User", foreign_keys=[requester_id], back_populates="sent_friend_requests")
     addressee = relationship("User", foreign_keys=[addressee_id], back_populates="received_friend_requests")
-
-
-class CharacterSkins(Base):
-    """
-    One row per user. Stores their preferred alt (0-7) per character.
-    skins = {"Mario": 2, "Link": 0, ...}
-    """
-    __tablename__ = "character_skins"
-
-    id         = Column(Integer, primary_key=True, index=True)
-    owner_id   = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
-    skins      = Column(JSON, default=dict)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    owner = relationship("User", back_populates="character_skins")
 
 
 class PracticeSession(Base):

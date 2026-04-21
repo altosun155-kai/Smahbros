@@ -224,13 +224,11 @@
 <!-- Practice modal -->
 <div id="practiceModal">
   <div class="pm-box">
-    <!-- Left: character + skins -->
+    <!-- Left: character -->
     <div class="pm-left">
       <img class="pm-char-img" id="pmCharImg" src="" alt="" onerror="this.style.opacity='0.3'" />
       <div class="pm-char-name" id="pmCharName"></div>
       <div class="pm-summary" id="pmSummary">Loading…</div>
-      <div class="alt-label">Alts</div>
-      <div class="alt-strip" id="altStrip"></div>
     </div>
 
     <!-- Right: stats + form -->
@@ -324,10 +322,8 @@
 <script>
   const ROSTER = SMASH_ROSTER;
 
-  let mySkins = {};
   let practiceCounts = {};   // { character: { total, wins } }
   let activeChar = null;
-  let selectedAlt = 1;
   let selectedLevel = 9;
   let selectedWon = true;
   let selectedMyStocks = 3;
@@ -343,10 +339,8 @@
       .map(char => {
         const info = practiceCounts[char];
         const count = info ? info.total : 0;
-        const alt = (mySkins[char] || 0) + 1;
-        const imgUrl = typeof charAltImgUrl === 'function' ? charAltImgUrl(char, alt) : charImgUrl(char);
         return `<div class="ptile${count > 0 ? ' has-sessions' : ''}" onclick="openModal('${char.replace(/'/g, "\\'")}')">
-          <img src="${imgUrl}" alt="${char}" onerror="this.src='${charImgUrl(char)}'" />
+          <img src="${charImgUrl(char)}" alt="${char}" onerror="this.style.opacity='0.3'" />
           <div class="ptile-name">${char}</div>
           ${count > 0 ? `<div class="ptile-count">${count} session${count !== 1 ? 's' : ''}</div>` : ''}
         </div>`;
@@ -360,12 +354,11 @@
   // ── Modal ─────────────────────────────────────────
   async function openModal(char) {
     activeChar = char;
-    selectedAlt = (mySkins[char] || 0) + 1;
-
     document.getElementById('pmCharName').textContent = char;
     document.getElementById('pmTitle').textContent = `${char} — Practice`;
-    updateCharImg();
-    buildAltStrip(char);
+    const img = document.getElementById('pmCharImg');
+    img.src = charImgUrl(char);
+    img.onerror = () => { img.style.opacity = '0.3'; };
     document.getElementById('practiceModal').classList.add('open');
     document.body.style.overflow = 'hidden';
 
@@ -391,30 +384,6 @@
   document.getElementById('practiceModal').addEventListener('click', e => {
     if (e.target === document.getElementById('practiceModal')) closeModal();
   });
-
-  function updateCharImg() {
-    const img = document.getElementById('pmCharImg');
-    const url = typeof charAltImgUrl === 'function' ? charAltImgUrl(activeChar, selectedAlt) : charImgUrl(activeChar);
-    img.src = url;
-    img.onerror = () => { img.src = charImgUrl(activeChar); };
-  }
-
-  function buildAltStrip(char) {
-    const strip = document.getElementById('altStrip');
-    strip.innerHTML = Array.from({length: 8}, (_, i) => {
-      const alt = i + 1;
-      const url = typeof charAltImgUrl === 'function' ? charAltImgUrl(char, alt) : charImgUrl(char);
-      return `<button type="button" class="alt-btn${alt === selectedAlt ? ' active' : ''}" data-alt="${alt}" onclick="selectAlt(${alt})">
-        <img src="${url}" alt="${alt}" onerror="this.parentElement.style.display='none'" />
-      </button>`;
-    }).join('');
-  }
-
-  function selectAlt(alt) {
-    selectedAlt = alt;
-    document.querySelectorAll('.alt-btn').forEach(b => b.classList.toggle('active', +b.dataset.alt === alt));
-    updateCharImg();
-  }
 
   async function loadStats(char) {
     document.getElementById('pmSummary').textContent = 'Loading…';
@@ -611,11 +580,7 @@
       }
     } catch (_) {}
 
-    // Load skins + practice counts in parallel
-    await Promise.allSettled([
-      apiGet('/characters/skins').then(d => { mySkins = d.skins || {}; }).catch(() => {}),
-      refreshCounts(),
-    ]);
+    await refreshCounts();
 
     buildGrid();
     buildLevelBtns();

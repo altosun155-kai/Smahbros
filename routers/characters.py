@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from datetime import datetime
 
 from sqlalchemy import or_, and_
-from database import User, CharacterRanking, CharacterStats, FavoriteCharacters, CharacterSkins, Friendship
+from database import User, CharacterRanking, CharacterStats, FavoriteCharacters, Friendship
 from auth import get_db, get_current_user
 
 router = APIRouter(tags=["characters"])
@@ -40,10 +40,6 @@ class BulkStatEntry(BaseModel):
 class BulkStatsRequest(BaseModel):
     username: str
     entries: list[BulkStatEntry]
-
-
-class SkinsUpdate(BaseModel):
-    skins: dict  # {character: alt_index (0-7)}
 
 
 def _stat_row(r):
@@ -164,63 +160,25 @@ def character_mastery_friends(db: Session = Depends(get_db), current_user: User 
         CharacterStats.points > 0,
     ).all()
 
-    skins = _skins_map(db)
-
     char_map = {}
     for row in rows:
         char = row.character
         if char not in char_map or row.points > char_map[char]["points"]:
             char_map[char] = {
-                "character":     char,
-                "username":      row.owner.username,
-                "avatar_url":    row.owner.avatar_url,
-                "points":        row.points,
-                "wins":          row.wins or 0,
-                "losses":        row.losses or 0,
-                "is_me":         row.user_id == current_user.id,
-                "preferred_alt": skins.get(row.user_id, {}).get(char),
+                "character":  char,
+                "username":   row.owner.username,
+                "avatar_url": row.owner.avatar_url,
+                "points":     row.points,
+                "wins":       row.wins or 0,
+                "losses":     row.losses or 0,
+                "is_me":      row.user_id == current_user.id,
             }
     return list(char_map.values())
-
-
-# ── Skins ─────────────────────────────────────────────────────────────────────
-
-@router.get("/characters/skins")
-def get_skins(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    row = db.query(CharacterSkins).filter(CharacterSkins.owner_id == current_user.id).first()
-    return {"skins": row.skins if row else {}}
-
-
-@router.put("/characters/skins")
-def save_skins(req: SkinsUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    row = db.query(CharacterSkins).filter(CharacterSkins.owner_id == current_user.id).first()
-    if row:
-        row.skins = req.skins
-    else:
-        row = CharacterSkins(owner_id=current_user.id, skins=req.skins)
-        db.add(row)
-    db.commit()
-    return {"ok": True}
-
-
-@router.get("/characters/skins/{username}")
-def get_skins_by_user(username: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == username).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    row = db.query(CharacterSkins).filter(CharacterSkins.owner_id == user.id).first()
-    return {"username": user.username, "skins": row.skins if row else {}}
-
-
-def _skins_map(db: Session) -> dict:
-    """Returns {user_id: {character: alt_index}} for all users."""
-    return {s.owner_id: (s.skins or {}) for s in db.query(CharacterSkins).all()}
 
 
 @router.get("/characters/stats/leaderboard")
 def character_leaderboard(db: Session = Depends(get_db)):
     rows = db.query(CharacterStats).all()
-    skins = _skins_map(db)
     results = []
     for row in rows:
         w = row.wins or 0
@@ -233,17 +191,16 @@ def character_leaderboard(db: Session = Depends(get_db)):
         deaths = row.deaths or 0
         kd     = round(kills / deaths, 2) if deaths > 0 else None
         results.append({
-            "username":      row.owner.username,
-            "avatar_url":    row.owner.avatar_url,
-            "character":     row.character,
-            "preferred_alt": skins.get(row.user_id, {}).get(row.character),
-            "points":        row.points,
-            "kills":         kills,
-            "deaths":        deaths,
-            "kd":            kd,
-            "wins":          w,
-            "losses":        l,
-            "win_pct":       win_pct,
+            "username":   row.owner.username,
+            "avatar_url": row.owner.avatar_url,
+            "character":  row.character,
+            "points":     row.points,
+            "kills":      kills,
+            "deaths":     deaths,
+            "kd":         kd,
+            "wins":       w,
+            "losses":     l,
+            "win_pct":    win_pct,
         })
     results.sort(key=lambda x: -x["points"])
     return results
@@ -252,15 +209,13 @@ def character_leaderboard(db: Session = Depends(get_db)):
 @router.get("/characters/stats/leaderboard/kills")
 def kills_leaderboard(db: Session = Depends(get_db)):
     rows = db.query(CharacterStats).filter(CharacterStats.kills > 0).order_by(CharacterStats.kills.desc()).all()
-    skins = _skins_map(db)
     return [
         {
-            "username":      row.owner.username,
-            "avatar_url":    row.owner.avatar_url,
-            "character":     row.character,
-            "preferred_alt": skins.get(row.user_id, {}).get(row.character),
-            "kills":         row.kills or 0,
-            "points":        row.points,
+            "username":   row.owner.username,
+            "avatar_url": row.owner.avatar_url,
+            "character":  row.character,
+            "kills":      row.kills or 0,
+            "points":     row.points,
         }
         for row in rows
     ]
@@ -269,7 +224,6 @@ def kills_leaderboard(db: Session = Depends(get_db)):
 @router.get("/characters/stats/leaderboard/winpct")
 def winpct_leaderboard(db: Session = Depends(get_db)):
     rows = db.query(CharacterStats).all()
-    skins = _skins_map(db)
     results = []
     for row in rows:
         w = row.wins or 0
@@ -279,14 +233,13 @@ def winpct_leaderboard(db: Session = Depends(get_db)):
             continue
         win_pct = round(w / total * 100, 1)
         results.append({
-            "username":      row.owner.username,
-            "avatar_url":    row.owner.avatar_url,
-            "character":     row.character,
-            "preferred_alt": skins.get(row.user_id, {}).get(row.character),
-            "win_pct":       win_pct,
-            "wins":          w,
-            "losses":        l,
-            "points":        row.points,
+            "username":   row.owner.username,
+            "avatar_url": row.owner.avatar_url,
+            "character":  row.character,
+            "win_pct":    win_pct,
+            "wins":       w,
+            "losses":     l,
+            "points":     row.points,
         })
     results.sort(key=lambda x: (-x["win_pct"], -x["wins"]))
     return results
@@ -297,7 +250,6 @@ def elo_leaderboard(db: Session = Depends(get_db)):
     rows = db.query(CharacterStats).filter(
         (CharacterStats.wins + CharacterStats.losses) >= 3
     ).order_by(CharacterStats.elo.desc()).all()
-    skins = _skins_map(db)
     results = []
     for row in rows:
         w = row.wins or 0
@@ -306,18 +258,17 @@ def elo_leaderboard(db: Session = Depends(get_db)):
         kills  = row.kills  or 0
         deaths = row.deaths or 0
         results.append({
-            "username":      row.owner.username,
-            "avatar_url":    row.owner.avatar_url,
-            "character":     row.character,
-            "preferred_alt": skins.get(row.user_id, {}).get(row.character),
-            "elo":           row.elo if row.elo is not None else 1000,
-            "wins":          w,
-            "losses":        l,
-            "kills":         kills,
-            "deaths":        deaths,
-            "kd":            round(kills / deaths, 2) if deaths > 0 else None,
-            "win_pct":       round(w / total * 100, 1) if total >= 3 else None,
-            "points":        row.points or 0,
+            "username":   row.owner.username,
+            "avatar_url": row.owner.avatar_url,
+            "character":  row.character,
+            "elo":        row.elo if row.elo is not None else 1000,
+            "wins":       w,
+            "losses":     l,
+            "kills":      kills,
+            "deaths":     deaths,
+            "kd":         round(kills / deaths, 2) if deaths > 0 else None,
+            "win_pct":    round(w / total * 100, 1) if total >= 3 else None,
+            "points":     row.points or 0,
         })
     return results
 

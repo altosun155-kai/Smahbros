@@ -242,7 +242,7 @@
     const byPlayer = {};
     Object.entries(masteryMap).forEach(([char, d]) => {
       if (!byPlayer[d.username]) byPlayer[d.username] = [];
-      byPlayer[d.username].push({ char, points: d.points, wins: d.wins, preferred_alt: d.preferred_alt });
+      byPlayer[d.username].push({ char, points: d.points, wins: d.wins });
     });
     const players = Object.keys(playerColorMap); // already sorted by char count desc
     container.innerHTML = players.map(username => {
@@ -251,7 +251,7 @@
       const av = avatarMap[username] || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(username)}`;
       const total = (byPlayer[username] || []).length;
       const charTiles = chars.map(c => {
-        const url = c.preferred_alt != null ? charAltImgUrl(c.char, c.preferred_alt + 1) : (typeof charImgUrl === 'function' ? charImgUrl(c.char) : '');
+        const url = typeof charImgUrl === 'function' ? charImgUrl(c.char) : '';
         return `<div class="psc-char" title="${c.char} · ${c.points}pts">
           ${url ? `<img src="${url}" alt="${c.char}" onerror="this.style.display='none'" />` : ''}
         </div>`;
@@ -282,11 +282,7 @@
         tile.style.borderColor = color;
       }
 
-      // Use the owner's preferred alt, otherwise base portrait
-      const altIndex = data?.preferred_alt ?? null;
-      const url = altIndex !== null
-        ? charAltImgUrl(char, altIndex + 1)
-        : (typeof charImgUrl === 'function' ? charImgUrl(char) : null);
+      const url = typeof charImgUrl === 'function' ? charImgUrl(char) : null;
       if (url) {
         const img = document.createElement('img');
         img.src = url;

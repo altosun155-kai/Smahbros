@@ -453,7 +453,7 @@ async function buildEntryGrid() {
     allUsers.forEach(u => { allUserAvatars[u.username] = u.avatar_url || null; });
   } catch (_) {}
 
-  // Always load points+kills stats + skins for all players
+  // Always load points+kills stats for all players
   await Promise.all(players.map(async p => {
     if (!allUserStats[p]) {
       try {

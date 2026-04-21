@@ -873,30 +873,66 @@ function generateBracketJS(base, teamMode, teamOf) {
 
   // ── Free Pool mode: apply chosen style across the entire character pool ──
   if (poolMode === 'freePool') {
-    // Sort each player's chars by seed so wave 0 = everyone's best, wave 1 = second best, etc.
-    const sortedGroups = {};
-    players.forEach(p => {
-      sortedGroups[p] = [...playerGroups[p]].sort((a, b) => getSeedValue(b) - getSeedValue(a));
-    });
-
     const pairs = [];
-    for (let wave = 0; wave < maxChars; wave++) {
-      // One char per player for this wave — no player can repeat until next wave
-      let waveEntries = players.filter(p => sortedGroups[p][wave]).map(p => sortedGroups[p][wave]);
 
-      if (style === 'random') {
-        shuffle(waveEntries);
-      } else {
-        waveEntries.sort((a, b) => getSeedValue(b) - getSeedValue(a));
+    if (style === 'strongVsStrong') {
+      // Wave-based: each wave = each player's best remaining char, sort globally, pair adjacent
+      const rem = {};
+      players.forEach(p => { rem[p] = [...playerGroups[p]].sort((a, b) => getSeedValue(b) - getSeedValue(a)); });
+      for (let wave = 0; wave < maxChars; wave++) {
+        let w = players.filter(p => rem[p].length > 0).map(p => rem[p].shift());
+        w.sort((a, b) => getSeedValue(b) - getSeedValue(a));
+        if (w.length % 2 === 1) w.push(BYE);
+        for (let i = 0; i + 1 < w.length; i += 2) pairs.push([w[i], w[i + 1]]);
       }
-      if (waveEntries.length % 2 === 1) waveEntries.push(BYE);
+    } else if (style === 'random') {
+      // Wave-based: each wave = a random char per player, shuffle, pair adjacent
+      const rem = {};
+      players.forEach(p => { rem[p] = shuffle([...playerGroups[p]]); });
+      for (let wave = 0; wave < maxChars; wave++) {
+        let w = players.filter(p => rem[p].length > 0).map(p => rem[p].shift());
+        shuffle(w);
+        if (w.length % 2 === 1) w.push(BYE);
+        for (let i = 0; i + 1 < w.length; i += 2) pairs.push([w[i], w[i + 1]]);
+      }
+    } else {
+      // strongVsWeak: global sort, pair best vs worst, skip already-used players per wave
+      const pool = [...base].sort((a, b) => getSeedValue(b) - getSeedValue(a));
+      const n = pool.length;
+      const taken = new Array(n).fill(false);
+      let totalPaired = 0;
 
-      if (style === 'strongVsWeak') {
-        let lo = 0, hi = waveEntries.length - 1;
-        while (lo < hi) pairs.push([waveEntries[lo++], waveEntries[hi--]]);
-        if (lo === hi) pairs.push([waveEntries[lo], BYE]);
-      } else {
-        for (let i = 0; i + 1 < waveEntries.length; i += 2) pairs.push([waveEntries[i], waveEntries[i + 1]]);
+      while (totalPaired < n) {
+        const usedThisWave = new Set();
+        let madeProgress = true;
+
+        while (madeProgress) {
+          madeProgress = false;
+          let lo = -1, hi = -1;
+          for (let k = 0; k < n; k++) {
+            if (!taken[k] && !usedThisWave.has(pool[k].player)) { lo = k; break; }
+          }
+          if (lo === -1) break;
+          for (let k = n - 1; k > lo; k--) {
+            if (!taken[k] && !usedThisWave.has(pool[k].player) && pool[k].player !== pool[lo].player) { hi = k; break; }
+          }
+          if (hi === -1) break;
+
+          pairs.push([pool[lo], pool[hi]]);
+          taken[lo] = taken[hi] = true;
+          usedThisWave.add(pool[lo].player);
+          usedThisWave.add(pool[hi].player);
+          totalPaired += 2;
+          madeProgress = true;
+        }
+
+        // Only one player's chars remain — pair with BYE
+        if (!madeProgress) {
+          for (let k = 0; k < n; k++) {
+            if (!taken[k]) { pairs.push([pool[k], BYE]); taken[k] = true; totalPaired++; }
+          }
+          break;
+        }
       }
     }
 

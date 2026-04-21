@@ -1043,37 +1043,66 @@ async function previewMatchups() {
   }
 
   if (poolMode === 'freePool') {
-    // Sort each player's chars by seed so wave 0 = everyone's best, wave 1 = second best, etc.
-    // This guarantees every player gets one match before anyone gets a second match.
-    const sortedGroups = {};
-    players.forEach(p => {
-      sortedGroups[p] = [...(playerGroups[p] || [])].sort((a, b) => getSeed(b) - getSeed(a));
-    });
+    const toLabel = e => e.player === 'SYSTEM' ? 'BYE' : `${e.player} — ${e.character}`;
 
-    for (let wave = 0; wave < maxChars; wave++) {
-      let waveEntries = players.filter(p => sortedGroups[p][wave]).map(p => sortedGroups[p][wave]);
-
-      if (style === 'random') {
-        shuffleArr(waveEntries);
-      } else {
-        waveEntries.sort((a, b) => getSeed(b) - getSeed(a));
+    if (style === 'strongVsStrong') {
+      // Wave-based: each wave = each player's best remaining char, sort globally, pair adjacent
+      const rem = {};
+      players.forEach(p => { rem[p] = [...(playerGroups[p] || [])].sort((a, b) => getSeed(b) - getSeed(a)); });
+      for (let wave = 0; wave < maxChars; wave++) {
+        let w = players.filter(p => rem[p].length > 0).map(p => rem[p].shift());
+        w.sort((a, b) => getSeed(b) - getSeed(a));
+        if (w.length % 2 === 1) w.push({ player: 'SYSTEM', character: 'BYE' });
+        for (let i = 0; i + 1 < w.length; i += 2) pairs.push({ a: toLabel(w[i]), b: toLabel(w[i + 1]) });
       }
-      if (waveEntries.length % 2 === 1) waveEntries.push({ player: 'SYSTEM', character: 'BYE' });
+    } else if (style === 'random') {
+      // Wave-based: each wave = a random char per player, shuffle, pair adjacent
+      const rem = {};
+      players.forEach(p => { rem[p] = shuffleArr([...(playerGroups[p] || [])]); });
+      for (let wave = 0; wave < maxChars; wave++) {
+        let w = players.filter(p => rem[p].length > 0).map(p => rem[p].shift());
+        shuffleArr(w);
+        if (w.length % 2 === 1) w.push({ player: 'SYSTEM', character: 'BYE' });
+        for (let i = 0; i + 1 < w.length; i += 2) pairs.push({ a: toLabel(w[i]), b: toLabel(w[i + 1]) });
+      }
+    } else {
+      // strongVsWeak: global sort, pair best vs worst, skip already-used players per wave
+      const allEntries = [];
+      players.forEach(p => (playerGroups[p] || []).forEach(e => allEntries.push(e)));
+      allEntries.sort((a, b) => getSeed(b) - getSeed(a));
+      const n = allEntries.length;
+      const taken = new Array(n).fill(false);
+      let totalPaired = 0;
 
-      if (style === 'strongVsWeak') {
-        let lo = 0, hi = waveEntries.length - 1;
-        while (lo < hi) {
-          const a = waveEntries[lo++], b = waveEntries[hi--];
-          pairs.push({ a: a.player === 'SYSTEM' ? 'BYE' : `${a.player} — ${a.character}`, b: b.player === 'SYSTEM' ? 'BYE' : `${b.player} — ${b.character}` });
+      while (totalPaired < n) {
+        const usedThisWave = new Set();
+        let madeProgress = true;
+
+        while (madeProgress) {
+          madeProgress = false;
+          let lo = -1, hi = -1;
+          for (let k = 0; k < n; k++) {
+            if (!taken[k] && !usedThisWave.has(allEntries[k].player)) { lo = k; break; }
+          }
+          if (lo === -1) break;
+          for (let k = n - 1; k > lo; k--) {
+            if (!taken[k] && !usedThisWave.has(allEntries[k].player) && allEntries[k].player !== allEntries[lo].player) { hi = k; break; }
+          }
+          if (hi === -1) break;
+
+          pairs.push({ a: toLabel(allEntries[lo]), b: toLabel(allEntries[hi]) });
+          taken[lo] = taken[hi] = true;
+          usedThisWave.add(allEntries[lo].player);
+          usedThisWave.add(allEntries[hi].player);
+          totalPaired += 2;
+          madeProgress = true;
         }
-        if (lo === hi) {
-          const e = waveEntries[lo];
-          pairs.push({ a: `${e.player} — ${e.character}`, b: 'BYE' });
-        }
-      } else {
-        for (let i = 0; i + 1 < waveEntries.length; i += 2) {
-          const a = waveEntries[i], b = waveEntries[i + 1];
-          pairs.push({ a: a.player === 'SYSTEM' ? 'BYE' : `${a.player} — ${a.character}`, b: b.player === 'SYSTEM' ? 'BYE' : `${b.player} — ${b.character}` });
+
+        if (!madeProgress) {
+          for (let k = 0; k < n; k++) {
+            if (!taken[k]) { pairs.push({ a: toLabel(allEntries[k]), b: 'BYE' }); taken[k] = true; totalPaired++; }
+          }
+          break;
         }
       }
     }

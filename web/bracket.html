@@ -167,8 +167,8 @@
         <label>Preset Name</label>
         <input type="text" id="spName" placeholder="e.g. Friday Night Smash" maxlength="40" />
       </div>
-      <div class="sp-row">
-        <label>Players (from current setup)</label>
+      <div class="sp-row" id="spPlayerRow">
+        <label>Players</label>
         <div id="spPlayerList" style="font-size:0.82rem;color:var(--text-muted);padding:8px 12px;background:var(--card-bg2);border:1px solid var(--border);border-radius:7px;min-height:36px;"></div>
       </div>
       <div class="sp-row">
@@ -1442,6 +1442,8 @@ async function endTournament() {
   } catch (_) {
     chips.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">No friends yet — add some on the Friends page.</span>';
   }
+
+  loadPresets();
 })();
 
 
@@ -1692,14 +1694,16 @@ function _openModal(preset = null) {
 
   if (isEdit) {
     document.getElementById('spPlayerList').textContent = preset.players.join(', ');
-    document.getElementById('spFillMode').value   = preset.fill_mode   || 'elo';
-    document.getElementById('spSeedMode').value   = preset.seed_mode   || 'elo';
+    document.getElementById('spPlayerRow').style.display = 'flex';
+    document.getElementById('spFillMode').value     = preset.fill_mode   || 'elo';
+    document.getElementById('spSeedMode').value     = preset.seed_mode   || 'elo';
     document.getElementById('spBracketStyle').value = preset.bracket_style || 'strongVsStrong';
     document.getElementById('spPoolMode').value     = preset.pool_mode || 'slot';
-    document.getElementById('spCpp').value         = String(preset.chars_per_player || 2);
+    document.getElementById('spCpp').value          = String(preset.chars_per_player || 2);
   } else {
     const players = getPlayers();
     document.getElementById('spPlayerList').textContent = players.join(', ');
+    document.getElementById('spPlayerRow').style.display = players.length ? 'flex' : 'none';
     const fillMode = document.querySelector('input[name="fillMode"]:checked')?.value || 'elo';
     const seedMode = document.querySelector('input[name="seedMode"]:checked')?.value || 'elo';
     const style    = document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong';
@@ -1737,7 +1741,7 @@ async function savePreset() {
   const name = document.getElementById('spName').value.trim();
   if (!name) { showToast('Give the preset a name', 'warn'); return; }
 
-  const payload = {
+  const settings = {
     name,
     fill_mode:        document.getElementById('spFillMode').value,
     seed_mode:        document.getElementById('spSeedMode').value,
@@ -1748,14 +1752,12 @@ async function savePreset() {
 
   try {
     if (_editingPresetId) {
-      // Edit mode — PATCH, players list stays as-is on the server
-      await apiPatch(`/presets/${_editingPresetId}`, payload);
+      await apiPatch(`/presets/${_editingPresetId}`, settings);
       showToast(`"${name}" updated!`, 'success');
     } else {
-      // Create mode — POST, include current players
       const players = getPlayers();
       if (players.length < 2) { showToast('Need at least 2 players', 'warn'); return; }
-      await apiPost('/presets', { ...payload, players });
+      await apiPost('/presets', { ...settings, players });
       showToast(`"${name}" saved!`, 'success');
     }
     closePresetModal();
@@ -1770,7 +1772,6 @@ document.getElementById('savePresetModal').addEventListener('click', function(e)
 });
 
 // Load presets on page init (after apiGet is available)
-window.addEventListener('DOMContentLoaded', () => { loadPresets(); });
 </script>
 
 <!-- VS Modal -->

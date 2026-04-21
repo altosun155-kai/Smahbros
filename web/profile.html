@@ -407,7 +407,6 @@
     champion: '🏆', serial_champ: '🥇', tourney_king: '👑',
     top3: '🌟', veteran: '🎖️',
     finisher: '⚡', punching_bag: '💀',
-    char_king: '👾',
   };
 
   const BADGE_HOW = {
@@ -421,8 +420,13 @@
     veteran:       'Play 50 or more recorded matches.',
     finisher:      'Land more 3-stocks (perfect wins) than anyone else globally.',
     punching_bag:  'Get 3-stocked more than anyone else globally. Rough.',
-    char_king:     'Have the most total wins with a specific character across all players.',
   };
+
+  function _charFromBadge(b) {
+    if (b.character) return b.character;
+    if (b.id && b.id.startsWith('char_')) return b.id.slice(5);
+    return null;
+  }
 
   // Priority order: highest prestige first. First match wins.
   const BADGE_THEME_PRIORITY = [
@@ -445,30 +449,49 @@
   };
 
   let _badges = [];
+  let _featuredBadgeId = null;
 
   function badgeIconForId(b, forModal = false) {
-    if (b.id === 'specialist' || b.id === 'char_king') {
-      const char = b.character
-        || (b.id === 'char_king' ? b.label.replace(/ King$/, '') : b.label.replace(/ Specialist$/, ''));
+    const char = _charFromBadge(b);
+    if (char || b.id === 'specialist') {
+      const c = char || b.label.replace(/ Specialist$/, '');
       const url = forModal
-        ? (typeof charImgUrl  === 'function' ? charImgUrl(char)  : '')
-        : (typeof charHeadUrl === 'function' ? charHeadUrl(char) : '');
-      if (url) return `<img class="badge-char-img" src="${url}" alt="${char}" onerror="this.style.display='none'" />`;
-      return CHAR_EMOJIS[char] || (b.id === 'char_king' ? '👾' : '⚔️');
+        ? (typeof charImgUrl  === 'function' ? charImgUrl(c)  : '')
+        : (typeof charHeadUrl === 'function' ? charHeadUrl(c) : '');
+      if (url) return `<img class="badge-char-img" src="${url}" alt="${c}" onerror="this.style.display='none'" />`;
+      return CHAR_EMOJIS[c] || '👾';
     }
     return BADGE_ICONS[b.id] || '🏅';
   }
 
-  function renderBadges(badges) {
+  function renderBadges(badges, featuredId) {
     _badges = badges || [];
+    _featuredBadgeId = featuredId || null;
     const row = document.getElementById('badgesRow');
     if (!_badges.length) { row.innerHTML = ''; return; }
-    row.innerHTML = _badges.map((b, i) => `
-      <span class="badge-pill" style="border-left-color:${b.color};" title="${b.desc}" onclick="openBadgeModal(${i})">
-        <span class="badge-icon" style="color:${b.color};">${badgeIconForId(b)}</span>${b.label}
-      </span>
-    `).join('');
+    const isOwn = !viewingOther || currentUsername === myUsername;
+    row.innerHTML = _badges.map((b, i) => {
+      const isPinned = b.id === _featuredBadgeId;
+      const pinBtn = isOwn
+        ? `<button type="button" onclick="event.stopPropagation();pinBadge('${b.id}')" title="${isPinned ? 'Featured' : 'Feature this badge'}" style="background:none;border:none;cursor:pointer;padding:0 0 0 4px;font-size:0.75rem;opacity:${isPinned ? '1' : '0.35'};transition:opacity 0.15s;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='${isPinned ? '1' : '0.35'}'">📌</button>`
+        : '';
+      return `<span class="badge-pill" style="border-left-color:${b.color};" title="${b.desc || ''}" onclick="openBadgeModal(${i})">
+        <span class="badge-icon" style="color:${b.color};">${badgeIconForId(b)}</span>${b.label}${pinBtn}
+      </span>`;
+    }).join('');
     applyBadgeTheme(_badges);
+  }
+
+  async function pinBadge(badgeId) {
+    const newId = _featuredBadgeId === badgeId ? '' : badgeId;
+    try {
+      await apiPatch('/users/me/featured-badge', { badge_id: newId });
+      _featuredBadgeId = newId || null;
+      renderBadges(_badges, _featuredBadgeId);
+      showToast(newId ? 'Badge featured!' : 'Badge unpinned.', 'success');
+    } catch (e) {
+      showToast('Failed to update badge.', 'error');
+    }
   }
 
   function openBadgeModal(i) {
@@ -477,7 +500,9 @@
     document.getElementById('badgeModalIcon').innerHTML = `<span style="font-size:2.4rem;">${badgeIconForId(b, true)}</span>`;
     document.getElementById('badgeModalName').textContent = b.label;
     document.getElementById('badgeModalStat').textContent = b.desc || '';
-    document.getElementById('badgeModalHow').textContent = BADGE_HOW[b.id] || '';
+    const char = _charFromBadge(b);
+    document.getElementById('badgeModalHow').textContent =
+      BADGE_HOW[b.id] || (char ? `Have the most wins with ${char} globally.` : '');
     document.getElementById('badgeModal').classList.add('open');
   }
 
@@ -1011,7 +1036,10 @@
 
     // Load badges, stats, activity, comments, and populate rival dropdown in parallel
     const [, users] = await Promise.allSettled([
-      apiGet(`/users/${encodeURIComponent(currentUsername)}/badges`).then(renderBadges).catch(() => {}),
+      apiGet(`/users/${encodeURIComponent(currentUsername)}/badges`).then(badges => {
+        const featuredId = (!viewingOther && me) ? (me.featured_badge || null) : null;
+        renderBadges(badges, featuredId);
+      }).catch(() => {}),
       apiGet('/users/all'),
       apiGet(`/users/${encodeURIComponent(currentUsername)}/stats`).then(s => {
         document.getElementById('statTourneyWins').textContent = s.tournament_wins;

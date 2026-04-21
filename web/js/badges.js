@@ -106,10 +106,10 @@ const CHAR_EMOJIS = {
   'Sora':               '🔑',
 };
 
-function charKingIcon(label) {
-  // label is like "Joker King" — strip " King" to get character name
-  const char = label.replace(/ King$/, '');
-  return CHAR_EMOJIS[char] || '👾';
+function charFromBadge(b) {
+  if (b.character) return b.character;
+  if (b.id && b.id.startsWith('char_')) return b.id.slice(5);
+  return null;
 }
 
 let _allBadges = {};     // username -> {id, label, color}
@@ -125,11 +125,17 @@ function loadAllBadges() {
   return _badgesPromise;
 }
 
+function _badgeIcon(b) {
+  const char = charFromBadge(b);
+  if (char) return CHAR_EMOJIS[char] || '👾';
+  return BADGE_ICONS[b.id] || '🏅';
+}
+
 // Full pill: colored badge with icon + label. Use in wide layouts (leaderboard rows).
 function badgePill(username) {
   const b = _allBadges[username];
   if (!b || PRIVATE_BADGES.has(b.id)) return '';
-  const icon = b.id === 'char_king' ? charKingIcon(b.label) : (BADGE_ICONS[b.id] || '🏅');
+  const icon = _badgeIcon(b);
   return `<span title="${b.label}" style="display:inline-flex;align-items:center;gap:3px;background:${b.color}22;border:1px solid ${b.color}55;color:${b.color};border-radius:10px;padding:1px 7px;font-size:0.68rem;font-weight:700;vertical-align:middle;white-space:nowrap;">${icon} ${b.label}</span>`;
 }
 
@@ -137,7 +143,7 @@ function badgePill(username) {
 function badgeIcon(username) {
   const b = _allBadges[username];
   if (!b || PRIVATE_BADGES.has(b.id)) return '';
-  const icon = b.id === 'char_king' ? charKingIcon(b.label) : (BADGE_ICONS[b.id] || '🏅');
+  const icon = _badgeIcon(b);
   return `<span title="${b.label}" style="font-size:0.85rem;vertical-align:middle;">${icon}</span>`;
 }
 

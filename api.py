@@ -35,6 +35,7 @@ def _run_migrations():
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS chars_per_player INTEGER DEFAULT 2"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS confirmed_lineups JSONB DEFAULT '{}'"))
             conn.execute(text("ALTER TABLE tournament_presets ADD COLUMN IF NOT EXISTS pool_mode VARCHAR DEFAULT 'slot'"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS featured_badge VARCHAR"))
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS practice_sessions (
                     id SERIAL PRIMARY KEY,
@@ -113,6 +114,9 @@ def _run_migrations():
                     conn.execute(text("ALTER TABLE tournament_presets ADD COLUMN pool_mode VARCHAR DEFAULT 'slot'"))
             except Exception:
                 pass
+            u_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(users)"))}
+            if "featured_badge" not in u_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN featured_badge VARCHAR"))
             existing = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))}
             if "tournament_presets" not in existing:
                 conn.execute(text("""

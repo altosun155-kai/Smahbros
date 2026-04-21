@@ -31,6 +31,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     avatar_url      = Column(String, nullable=True)
     last_seen       = Column(DateTime, nullable=True)
+    featured_badge  = Column(String, nullable=True)
     created_at      = Column(DateTime, default=datetime.utcnow)
 
     brackets          = relationship("Bracket", back_populates="owner", cascade="all, delete-orphan")

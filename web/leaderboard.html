@@ -734,7 +734,7 @@
         const color = r.elo_delta >= 0 ? '#27ae60' : '#e74c3c';
         const outcome = r.won ? '<span style="color:#27ae60;font-weight:700;">W</span>' : '<span style="color:#e74c3c;font-weight:700;">L</span>';
         const score = (r.my_kills || r.opp_kills) ? `${r.my_kills}-${r.opp_kills}` : '';
-        const date = new Date(r.created_at).toLocaleDateString(undefined, { month:'short', day:'numeric' });
+        const date = new Date(r.created_at).toLocaleString(undefined, { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
         return `<div class="elohist-row">
           <span class="elohist-delta" style="color:${color};">${sign}${r.elo_delta}</span>
           ${outcome}

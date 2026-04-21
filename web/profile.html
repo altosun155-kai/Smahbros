@@ -655,7 +655,7 @@
       let elo = currentElo;
       for (const h of history) {
         elo = Math.round(elo - h.elo_delta);
-        pts.push({ elo, label: h.created_at ? h.created_at.slice(0, 10) : '', match: h });
+        pts.push({ elo, label: h.created_at ? new Date(h.created_at).toLocaleString() : '', match: h });
       }
       pts.reverse(); // oldest → newest; pts[j].match = match that produced this elo
       currentChartPoints = pts;
@@ -800,7 +800,7 @@
         const desc = won
           ? `<span style="color:var(--text);">${r.winner_char}</span> <span style="color:var(--text-muted);">beat</span> ${r.loser} <span style="color:var(--text-muted);">playing</span> ${r.loser_char}`
           : `<span style="color:var(--text);">${r.loser_char}</span> <span style="color:var(--text-muted);">lost to</span> ${r.winner} <span style="color:var(--text-muted);">playing</span> ${r.winner_char}`;
-        const date = r.created_at ? new Date(r.created_at).toLocaleDateString() : '';
+        const date = r.created_at ? new Date(r.created_at).toLocaleString() : '';
         let eloBadge = '';
         if (r.elo_delta) {
           const gain = won ? r.elo_delta : -r.elo_delta;

@@ -119,6 +119,8 @@ def shame_feed(
 
 @router.post("/matches/record")
 def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.username != "kai":
+        raise HTTPException(status_code=403, detail="Only kai can record match results")
     winner = db.query(User).filter(User.username == req.winner_username).first()
     loser  = db.query(User).filter(User.username == req.loser_username).first()
     if not winner or not loser:

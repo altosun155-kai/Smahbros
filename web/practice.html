@@ -457,7 +457,7 @@
       if (sessions.length) {
         document.getElementById('pmSessionsWrap').style.display = 'block';
         document.getElementById('pmSessionList').innerHTML = sessions.map(s => {
-          const date = s.created_at ? new Date(s.created_at).toLocaleDateString() : '';
+          const date = s.created_at ? new Date(s.created_at).toLocaleString() : '';
           const stocks = s.won
             ? `<span style="color:#4caf50;">${s.my_stocks} stocks left</span>`
             : `<span style="color:#e74c3c;">CPU had ${s.cpu_stocks} left</span>`;

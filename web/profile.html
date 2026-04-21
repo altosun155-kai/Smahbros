@@ -422,11 +422,6 @@
     punching_bag:  'Get 3-stocked more than anyone else globally. Rough.',
   };
 
-  function _charFromBadge(b) {
-    if (b.character) return b.character;
-    if (b.id && b.id.startsWith('char_')) return b.id.slice(5);
-    return null;
-  }
 
   // Priority order: highest prestige first. First match wins.
   const BADGE_THEME_PRIORITY = [
@@ -452,14 +447,13 @@
   let _featuredBadgeId = null;
 
   function badgeIconForId(b, forModal = false) {
-    const char = _charFromBadge(b);
-    if (char || b.id === 'specialist') {
-      const c = char || b.label.replace(/ Specialist$/, '');
+    if (b.id === 'specialist') {
+      const char = b.character || b.label.replace(/ Specialist$/, '');
       const url = forModal
-        ? (typeof charImgUrl  === 'function' ? charImgUrl(c)  : '')
-        : (typeof charHeadUrl === 'function' ? charHeadUrl(c) : '');
-      if (url) return `<img class="badge-char-img" src="${url}" alt="${c}" onerror="this.style.display='none'" />`;
-      return CHAR_EMOJIS[c] || '👾';
+        ? (typeof charImgUrl  === 'function' ? charImgUrl(char)  : '')
+        : (typeof charHeadUrl === 'function' ? charHeadUrl(char) : '');
+      if (url) return `<img class="badge-char-img" src="${url}" alt="${char}" onerror="this.style.display='none'" />`;
+      return CHAR_EMOJIS[char] || '⚔️';
     }
     return BADGE_ICONS[b.id] || '🏅';
   }
@@ -500,9 +494,7 @@
     document.getElementById('badgeModalIcon').innerHTML = `<span style="font-size:2.4rem;">${badgeIconForId(b, true)}</span>`;
     document.getElementById('badgeModalName').textContent = b.label;
     document.getElementById('badgeModalStat').textContent = b.desc || '';
-    const char = _charFromBadge(b);
-    document.getElementById('badgeModalHow').textContent =
-      BADGE_HOW[b.id] || (char ? `Have the most wins with ${char} globally.` : '');
+    document.getElementById('badgeModalHow').textContent = BADGE_HOW[b.id] || '';
     document.getElementById('badgeModal').classList.add('open');
   }
 

@@ -83,17 +83,6 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
     top_fin_id = max(tsg, key=tsg.get) if tsg else None
     top_pb_id  = max(tsr, key=tsr.get) if tsr else None
 
-    # Per-character wins leader: character -> (user_id, wins)
-    char_king_map: dict = {}
-    for s in db.query(CharacterStats).filter(CharacterStats.wins > 0).all():
-        prev = char_king_map.get(s.character)
-        if prev is None or s.wins > prev[1]:
-            char_king_map[s.character] = (s.user_id, s.wins)
-    # user_id -> [(char, wins), ...]
-    char_king_by_uid: dict = {}
-    for char, (uid, wins) in char_king_map.items():
-        char_king_by_uid.setdefault(uid, []).append((char, wins))
-
     top3_uids = {row[0] for row in
                  db.query(CharacterStats.user_id)
                  .filter(CharacterStats.elo > 1000)
@@ -117,10 +106,6 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
                 earned.append({"id":"allrounder","label":"All-Rounder","color":"#27ae60"})
             if len([s for s in stats if s.points >= 10]) >= 3:
                 earned.append({"id":"consistent","label":"Consistent","color":"#3498db"})
-        # Per-character achievement: one badge per character this user leads
-        for char, wins in char_king_by_uid.get(uid, []):
-            earned.append({"id": f"char_{char}", "label": f"{char} Main",
-                           "color": "#e91e8c", "character": char})
         if t_wins >= 1:
             earned.append({"id":"champion","label":"Bracket Champion","color":"#e74c3c"})
         if t_wins >= 3:
@@ -146,12 +131,7 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
             result[uname] = by_id[featured]
             continue
 
-        # Fall back to priority order, then char_ badges
-        picked = next((by_id[p] for p in PRIORITY if p in by_id), None)
-        if picked is None:
-            char_badges = [b for b in earned if b["id"].startswith("char_")]
-            picked = char_badges[0] if char_badges else earned[0]
-        result[uname] = picked
+        result[uname] = next((by_id[p] for p in PRIORITY if p in by_id), earned[0])
 
     return result
 
@@ -358,21 +338,6 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
         badges.append({"id": "tourney_king", "label": "Tournament King",
                        "desc": f"Most tournament wins globally ({tournament_wins})", "color": "#ffe066"})
 
-    # Per-character achievement: one badge per character this user leads globally
-    all_char_stats = db.query(CharacterStats).filter(CharacterStats.wins > 0).all()
-    char_leaders: dict = {}  # character -> (user_id, wins)
-    for s in all_char_stats:
-        prev = char_leaders.get(s.character)
-        if prev is None or s.wins > prev[1]:
-            char_leaders[s.character] = (s.user_id, s.wins)
-    my_king_chars = sorted(
-        [(char, wins) for char, (uid, wins) in char_leaders.items() if uid == user.id],
-        key=lambda x: x[1], reverse=True
-    )
-    for char, wins in my_king_chars:
-        badges.append({"id": f"char_{char}", "label": f"{char} Main",
-                       "desc": f"Most wins with {char} globally ({wins}W)",
-                       "color": "#e91e8c", "character": char})
 
     top3_player_ids = {row[0] for row in
                        db.query(CharacterStats.user_id)

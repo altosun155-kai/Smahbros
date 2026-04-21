@@ -106,12 +106,6 @@ const CHAR_EMOJIS = {
   'Sora':               '🔑',
 };
 
-function charFromBadge(b) {
-  if (b.character) return b.character;
-  if (b.id && b.id.startsWith('char_')) return b.id.slice(5);
-  return null;
-}
-
 let _allBadges = {};     // username -> {id, label, color}
 let _badgesReady = false;
 let _badgesPromise = null;
@@ -126,8 +120,6 @@ function loadAllBadges() {
 }
 
 function _badgeIcon(b) {
-  const char = charFromBadge(b);
-  if (char) return CHAR_EMOJIS[char] || '👾';
   return BADGE_ICONS[b.id] || '🏅';
 }
 

@@ -1,16 +1,33 @@
 // Shared badge utilities — include before page scripts that render usernames.
 const BADGE_ICONS = {
-  specialist:   '⚔️',
-  allrounder:   '🌀',
-  consistent:   '📈',
-  champion:     '🏆',
-  serial_champ: '🥇',
-  tourney_king: '👑',
-  top3:         '🌟',
-  veteran:      '🎖️',
-  finisher:     '⚡',
-  punching_bag: '💀',
-  char_king:    '👾',
+  specialist:    '⚔️',
+  allrounder:    '🌀',
+  consistent:    '📈',
+  champion:      '🏆',
+  serial_champ:  '🥇',
+  tourney_king:  '👑',
+  top3:          '🌟',
+  veteran:       '🎖️',
+  finisher:      '⚡',
+  punching_bag:  '💀',
+  // Performance & Skill
+  the_wall:      '🧱',
+  demon_slayer:  '😈',
+  clutch_factor: '🎯',
+  unstoppable:   '💪',
+  // Character & Loyalty
+  char_legend:   '🐉',
+  roster_master: '📚',
+  old_reliable:  '🔁',
+  jack_of_all:   '🃏',
+  // Tournament
+  bronze_bomber: '🥉',
+  silver_lining: '🥈',
+  flawless_run:  '✨',
+  executioner:   '🗡️',
+  // Fun
+  tax_collector: '💰',
+  pacifist:      '🕊️',
 };
 
 // Badges that only appear on the profile page, never in compact/shared contexts

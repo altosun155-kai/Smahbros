@@ -405,21 +405,38 @@
   const BADGE_ICONS = {
     specialist: '⚔️', allrounder: '🌀', consistent: '📈',
     champion: '🏆', serial_champ: '🥇', tourney_king: '👑',
-    top3: '🌟', veteran: '🎖️',
-    finisher: '⚡', punching_bag: '💀',
+    top3: '🌟', veteran: '🎖️', finisher: '⚡', punching_bag: '💀',
+    the_wall: '🧱', demon_slayer: '😈', clutch_factor: '🎯', unstoppable: '💪',
+    char_legend: '🐉', roster_master: '📚', old_reliable: '🔁', jack_of_all: '🃏',
+    bronze_bomber: '🥉', silver_lining: '🥈', flawless_run: '✨', executioner: '🗡️',
+    tax_collector: '💰', pacifist: '🕊️',
   };
 
   const BADGE_HOW = {
-    specialist:    'Score the most points with a single character across all players.',
+    specialist:    'Score 10+ points with a single character.',
     allrounder:    'Score points with 5 or more different characters.',
     consistent:    'Maintain 10+ points on 3 or more characters simultaneously.',
     champion:      'Win a tournament.',
     serial_champ:  'Win 3 or more tournaments.',
     tourney_king:  'Win more tournaments than anyone else globally.',
-    top3:          'Land in the top 3 on the character Elo leaderboard.',
-    veteran:       'Play 50 or more recorded matches.',
+    top3:          'Hold the #1 spot on the character Elo leaderboard.',
+    veteran:       'Play 20 or more recorded matches.',
     finisher:      'Land more 3-stocks (perfect wins) than anyone else globally.',
-    punching_bag:  'Get 3-stocked more than anyone else globally. Rough.',
+    punching_bag:  'Get 3-stocked more than anyone else globally.',
+    the_wall:      'Win 75% or more of your last 20 matches.',
+    demon_slayer:  'Defeat the player currently ranked #1 on the leaderboard.',
+    clutch_factor: 'Win 5 consecutive matches, all decided on the last stock.',
+    unstoppable:   'Reach a power-weighted Elo average of 1100+ across all characters played.',
+    char_legend:   'Reach 1200+ Elo on a single character.',
+    roster_master: 'Hold the most points with 10 or more different characters globally.',
+    old_reliable:  'Play 100 total matches with your single most-used character.',
+    jack_of_all:   'Win at least 5 matches with 15 different characters.',
+    bronze_bomber: 'Finish in 3rd place in 3 separate tournaments.',
+    silver_lining: 'Finish in 2nd place in 3 separate tournaments.',
+    flawless_run:  'Win a tournament without losing a single recorded match.',
+    executioner:   'Directly eliminate the defending champion in the very next tournament.',
+    tax_collector: 'Accumulate 100 or more total kills across all matches.',
+    pacifist:      'Have the lowest average kills per match globally while still having 5+ wins.',
   };
 
 
@@ -447,13 +464,13 @@
   let _featuredBadgeId = null;
 
   function badgeIconForId(b, forModal = false) {
-    if (b.id === 'specialist') {
-      const char = b.character || b.label.replace(/ Specialist$/, '');
+    if (b.id === 'specialist' || b.id === 'char_legend' || b.id === 'old_reliable') {
+      const char = b.character || b.label.replace(/ Specialist$/, '').replace(/ Legend$/, '');
       const url = forModal
         ? (typeof charImgUrl  === 'function' ? charImgUrl(char)  : '')
         : (typeof charHeadUrl === 'function' ? charHeadUrl(char) : '');
       if (url) return `<img class="badge-char-img" src="${url}" alt="${char}" onerror="this.style.display='none'" />`;
-      return CHAR_EMOJIS[char] || '⚔️';
+      return CHAR_EMOJIS[char] || BADGE_ICONS[b.id] || '🏅';
     }
     return BADGE_ICONS[b.id] || '🏅';
   }

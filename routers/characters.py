@@ -105,6 +105,15 @@ def get_favorites(db: Session = Depends(get_db), current_user: User = Depends(ge
     return {"characters": fav.characters if fav else []}
 
 
+@router.get("/characters/favorites/{username}")
+def get_favorites_by_user(username: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    fav = db.query(FavoriteCharacters).filter(FavoriteCharacters.owner_id == user.id).first()
+    return {"username": user.username, "characters": fav.characters if fav else []}
+
+
 @router.put("/characters/favorites")
 def save_favorites(req: FavoritesUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     fav = db.query(FavoriteCharacters).filter(FavoriteCharacters.owner_id == current_user.id).first()

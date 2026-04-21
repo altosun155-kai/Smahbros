@@ -121,6 +121,51 @@
     .mobile-only { display: none !important; }
     #bottomNav   { display: none !important; }
 
+    /* ── Hero char picker ── */
+    .hero-right { cursor: pointer; }
+    .hero-edit-hint {
+      position: absolute; bottom: 6px; right: 6px;
+      background: rgba(0,0,0,.65); border-radius: 50%;
+      width: 22px; height: 22px;
+      display: none; align-items: center; justify-content: center;
+      font-size: 0.7rem; pointer-events: none;
+    }
+    .hero-right:hover .hero-edit-hint { display: flex; }
+
+    #heroCharPicker {
+      display: none; position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,.72); align-items: center; justify-content: center;
+    }
+    #heroCharPicker.open { display: flex; }
+    .hcp-box {
+      background: #1a1a2e; border: 1px solid rgba(255,255,255,.1);
+      border-radius: 20px; padding: 20px;
+      width: min(480px, 94vw); max-height: 82vh;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .hcp-header { display: flex; align-items: center; justify-content: space-between; }
+    .hcp-title  { font-size: 1rem; font-weight: 800; color: #fff; }
+    .hcp-close  { background: none; border: none; color: rgba(255,255,255,.4); font-size: 1.3rem; cursor: pointer; line-height: 1; padding: 0; }
+    .hcp-search {
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+      border-radius: 10px; color: #fff; padding: 9px 14px;
+      font-size: 0.88rem; width: 100%; outline: none; box-sizing: border-box;
+    }
+    .hcp-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+      gap: 6px; overflow-y: auto; max-height: 52vh; padding: 2px;
+    }
+    .hcp-tile {
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      cursor: pointer; border-radius: 10px; padding: 6px 4px;
+      border: 1.5px solid transparent; background: none;
+      transition: background .1s, border-color .1s;
+    }
+    .hcp-tile:hover   { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.15); }
+    .hcp-tile.sel     { border-color: #0077c8; background: rgba(0,119,200,.15); }
+    .hcp-tile img     { width: 46px; height: 46px; object-fit: contain; }
+    .hcp-tile-name    { font-size: 0.5rem; color: rgba(255,255,255,.4); text-align: center; line-height: 1.2; }
+
     /* ── Quick Start presets ── */
     .qs-section { margin-bottom: 4px; }
 
@@ -373,9 +418,10 @@
       </div>
     </div>
     <!-- Character art: visible on desktop normally, on mobile as peek -->
-    <div class="hero-right" id="heroRight" style="display:none;">
+    <div class="hero-right" id="heroRight" style="display:none;" onclick="openHeroCharPicker()" title="Click to change">
       <img class="hero-char-art" id="heroCharArt" src="" alt="" />
       <div class="hero-char-name" id="heroCharName"></div>
+      <div class="hero-edit-hint">✏️</div>
     </div>
   </div>
 
@@ -396,6 +442,18 @@
   <div id="inviteSection" style="display:none;" class="desktop-only">
     <div class="section-label">🎟 Tournament Invites</div>
     <div id="inviteList"></div>
+  </div>
+
+  <!-- ══ HERO CHAR PICKER ══ -->
+  <div id="heroCharPicker">
+    <div class="hcp-box">
+      <div class="hcp-header">
+        <div class="hcp-title">Choose Your Icon</div>
+        <button type="button" class="hcp-close" onclick="closeHeroCharPicker()">✕</button>
+      </div>
+      <input type="text" class="hcp-search" id="hcpSearch" placeholder="Search characters…" oninput="renderHcpGrid()" />
+      <div class="hcp-grid" id="hcpGrid"></div>
+    </div>
   </div>
 
   <!-- ══ QUICK START PRESETS ══ -->
@@ -524,6 +582,7 @@
     try {
       me = await apiGet('/users/me');
       if (me) {
+        _meUsername = me.username;
         document.getElementById('navUsername').textContent = me.username;
         const avatarUrl = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
         const navAv = document.getElementById('navAvatar');
@@ -559,19 +618,17 @@
           document.getElementById('heroElo').textContent = top.elo || 1000;
           document.getElementById('heroEloChar').textContent = top.character;
 
-          if (typeof charImgUrl === 'function') {
-            const artUrl = charImgUrl(top.character);
-            const heroRight = document.getElementById('heroRight');
-            const heroArt   = document.getElementById('heroCharArt');
-            heroArt.src = artUrl;
-            heroArt.alt = top.character;
-            document.getElementById('heroCharName').textContent = top.character;
-            heroRight.style.display = 'flex';
-            heroArt.onerror = () => { heroRight.style.display = 'none'; };
-            const elo = top.elo || 1000;
-            const glow = elo >= 1200 ? 'rgba(245,166,35,.55)' : elo >= 1100 ? 'rgba(80,220,100,.45)' : 'rgba(100,160,255,.45)';
-            heroArt.style.filter = `drop-shadow(0 0 22px ${glow})`;
+          // Determine hero char: localStorage → first favorite → top elo
+          let heroChar = localStorage.getItem('heroChar_' + me.username);
+          if (!heroChar || !SMASH_ROSTER.includes(heroChar)) {
+            try {
+              const favs = await apiGet('/characters/favorites');
+              heroChar = (favs.characters || [])[0] || null;
+            } catch(_) {}
           }
+          if (!heroChar) heroChar = top.character;
+          _heroCharChoice = heroChar;
+          setHeroChar(heroChar);
 
           const totalWins = stats.reduce((acc,r) => acc+(r.wins||0), 0);
           document.getElementById('heroWins').textContent = totalWins;
@@ -701,6 +758,58 @@
     }
   })();
 
+  let _meUsername = null;
+  let _heroCharChoice = null;
+
+  function setHeroChar(char) {
+    if (!char || typeof charImgUrl !== 'function') return;
+    const heroRight = document.getElementById('heroRight');
+    const heroArt   = document.getElementById('heroCharArt');
+    heroArt.src = charImgUrl(char);
+    heroArt.alt = char;
+    document.getElementById('heroCharName').textContent = char;
+    heroRight.style.display = 'flex';
+    heroArt.onerror = () => { heroRight.style.display = 'none'; };
+    const statEl = document.getElementById('heroEloChar');
+    // keep top-elo label; glow is accent blue for chosen chars
+    heroArt.style.filter = 'drop-shadow(0 0 22px rgba(100,160,255,.5))';
+  }
+
+  function openHeroCharPicker() {
+    document.getElementById('heroCharPicker').classList.add('open');
+    document.getElementById('hcpSearch').value = '';
+    renderHcpGrid();
+    setTimeout(() => document.getElementById('hcpSearch').focus(), 50);
+  }
+  function closeHeroCharPicker() {
+    document.getElementById('heroCharPicker').classList.remove('open');
+  }
+  document.getElementById('heroCharPicker').addEventListener('click', e => {
+    if (e.target === document.getElementById('heroCharPicker')) closeHeroCharPicker();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeHeroCharPicker();
+  });
+
+  function renderHcpGrid() {
+    const q = document.getElementById('hcpSearch').value.toLowerCase();
+    const chars = (typeof SMASH_ROSTER !== 'undefined' ? SMASH_ROSTER : [])
+      .filter(c => !q || c.toLowerCase().includes(q));
+    document.getElementById('hcpGrid').innerHTML = chars.map(c =>
+      `<button type="button" class="hcp-tile${c === _heroCharChoice ? ' sel' : ''}" onclick="pickHeroChar(${JSON.stringify(c)})">
+        <img src="${charImgUrl(c)}" alt="${escHtml(c)}" onerror="this.style.opacity='0.2'" />
+        <div class="hcp-tile-name">${escHtml(c)}</div>
+      </button>`
+    ).join('');
+  }
+
+  function pickHeroChar(char) {
+    _heroCharChoice = char;
+    if (_meUsername) localStorage.setItem('heroChar_' + _meUsername, char);
+    closeHeroCharPicker();
+    setHeroChar(char);
+  }
+
   let _dimmedPlayers = new Set();
   let _presetsData   = [];
   let _playerTopChars = {};
@@ -716,10 +825,16 @@
 
       await Promise.all(allPlayers.map(async u => {
         try {
-          const d = await apiGet('/characters/stats/' + encodeURIComponent(u));
-          const sorted = (d.stats || []).sort((a,b) => (b.elo||1000)-(a.elo||1000));
-          _playerTopChars[u] = sorted[0]?.character || null;
-        } catch(_) { _playerTopChars[u] = null; }
+          const d = await apiGet('/characters/favorites/' + encodeURIComponent(u));
+          _playerTopChars[u] = (d.characters || [])[0] || null;
+        } catch(_) {}
+        if (!_playerTopChars[u]) {
+          try {
+            const d = await apiGet('/characters/stats/' + encodeURIComponent(u));
+            const sorted = (d.stats || []).sort((a,b) => (b.elo||1000)-(a.elo||1000));
+            _playerTopChars[u] = sorted[0]?.character || null;
+          } catch(_) { _playerTopChars[u] = null; }
+        }
       }));
 
       _renderWhoRow(allPlayers);

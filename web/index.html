@@ -250,7 +250,35 @@
 
       .section-label { margin: 18px 0 8px; }
 
-      /* ── Bottom Nav ── */
+      /* ── Quick Start presets ── */
+    .qs-section { margin-bottom: 4px; }
+    .qs-scroll  { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .qs-scroll::-webkit-scrollbar { display: none; }
+    .qs-card {
+      flex-shrink: 0;
+      min-width: 160px; max-width: 200px;
+      background: rgba(245,166,35,.08);
+      border: 1px solid rgba(245,166,35,.25);
+      border-radius: 14px;
+      padding: 14px 14px 12px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .qs-name { font-size: 0.88rem; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .qs-players { font-size: 0.68rem; color: rgba(255,255,255,.45); line-height: 1.4; }
+    .qs-launch {
+      margin-top: auto;
+      background: rgba(245,166,35,.18);
+      border: 1px solid rgba(245,166,35,.4);
+      color: #f5a623;
+      border-radius: 8px; padding: 7px 0;
+      font-size: 0.78rem; font-weight: 800;
+      cursor: pointer; width: 100%; text-align: center;
+      transition: background .15s, border-color .15s;
+    }
+    .qs-launch:hover { background: rgba(245,166,35,.3); border-color: rgba(245,166,35,.7); }
+    .qs-launch:disabled { opacity: .5; cursor: default; }
+
+    /* ── Bottom Nav ── */
       #bottomNav {
         display: flex !important;
         position: fixed;
@@ -352,6 +380,12 @@
   <div id="inviteSection" style="display:none;" class="desktop-only">
     <div class="section-label">🎟 Tournament Invites</div>
     <div id="inviteList"></div>
+  </div>
+
+  <!-- ══ QUICK START PRESETS ══ -->
+  <div id="homePresetsSection" class="qs-section" style="display:none;">
+    <div class="section-label">Quick Start</div>
+    <div class="qs-scroll" id="homePresetCards"></div>
   </div>
 
   <!-- ══ PLAY ══ -->
@@ -654,6 +688,33 @@
       document.getElementById('shameFeed').innerHTML = '';
     }
   })();
+
+  (async function loadHomePresets() {
+    try {
+      const presets = await apiGet('/presets');
+      if (!presets || !presets.length) return;
+      document.getElementById('homePresetsSection').style.display = 'block';
+      document.getElementById('homePresetCards').innerHTML = presets.map(p => `
+        <div class="qs-card">
+          <div class="qs-name">${escHtml(p.name)}</div>
+          <div class="qs-players">${p.players.map(escHtml).join(', ')}</div>
+          <button class="qs-launch" id="hqsBtn_${p.id}" onclick="homelaunchPreset(${p.id})">▶ Launch</button>
+        </div>
+      `).join('');
+    } catch (_) {}
+  })();
+
+  async function homelaunchPreset(id) {
+    const btn = document.getElementById('hqsBtn_' + id);
+    if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
+    try {
+      const res = await apiPost('/presets/' + id + '/launch', {});
+      window.location.href = 'tournament.html?id=' + res.id;
+    } catch (e) {
+      if (btn) { btn.disabled = false; btn.textContent = '▶ Launch'; }
+      alert(e.message || 'Launch failed');
+    }
+  }
 
   function dismissInvite(id, ...elIds) {
     elIds.forEach(elId => document.getElementById(elId)?.remove());

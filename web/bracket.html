@@ -1514,6 +1514,27 @@ const FILL_LABELS  = { elo:'Elo fill', kills:'Kills fill', winpct:'Win% fill', f
 const SEED_LABELS  = { elo:'Elo seed', kills:'Kills seed', winpct:'Win% seed' };
 const STYLE_LABELS = { strongVsStrong:'Strong vs Strong', strongVsWeak:'Strong vs Weak', random:'Random draw' };
 
+let _editingPresetId = null; // null = create mode, number = edit mode
+
+function _renderPresetCard(p) {
+  const isOwner = p.creator === myUsername;
+  return `
+    <div class="qs-card" id="qsCard_${p.id}">
+      <div class="qs-card-name">${escHtml(p.name)}</div>
+      <div class="qs-card-players">${p.players.map(escHtml).join(' · ')}</div>
+      <div class="qs-card-meta">
+        ${SEED_LABELS[p.seed_mode] || p.seed_mode} &nbsp;·&nbsp;
+        ${STYLE_LABELS[p.bracket_style] || p.bracket_style}<br>
+        ${p.chars_per_player} char${p.chars_per_player !== 1 ? 's' : ''}/player
+      </div>
+      <div class="qs-card-actions">
+        <button class="qs-launch-btn" onclick="launchPreset(${p.id},this)">⚡ Launch</button>
+        ${isOwner ? `<button class="qs-delete-btn" title="Edit" onclick="openEditPreset(${p.id})" style="font-size:0.9rem;">✏️</button>` : ''}
+        ${isOwner ? `<button class="qs-delete-btn" title="Delete" onclick="deletePreset(${p.id})">🗑</button>` : ''}
+      </div>
+    </div>`;
+}
+
 async function loadPresets() {
   try {
     const presets = await apiGet('/presets');
@@ -1521,25 +1542,11 @@ async function loadPresets() {
     const container = document.getElementById('presetCards');
     if (!presets || !presets.length) { section.style.display = 'none'; return; }
     section.style.display = 'block';
-    container.innerHTML = presets.map(p => `
-      <div class="qs-card" id="qsCard_${p.id}">
-        <div class="qs-card-name">${escHtml(p.name)}</div>
-        <div class="qs-card-players">${p.players.map(escHtml).join(' · ')}</div>
-        <div class="qs-card-meta">
-          ${FILL_LABELS[p.fill_mode] || p.fill_mode} &nbsp;·&nbsp;
-          ${SEED_LABELS[p.seed_mode] || p.seed_mode} &nbsp;·&nbsp;
-          ${STYLE_LABELS[p.bracket_style] || p.bracket_style}<br>
-          ${p.chars_per_player} char${p.chars_per_player !== 1 ? 's' : ''}/player
-          ${p.creator === myUsername ? ' · <span style="color:rgba(255,255,255,.3);">yours</span>' : ''}
-        </div>
-        <div class="qs-card-actions">
-          <button class="qs-launch-btn" onclick="launchPreset(${p.id},this)">⚡ Launch</button>
-          ${p.creator === myUsername
-            ? `<button class="qs-delete-btn" onclick="deletePreset(${p.id})">🗑</button>`
-            : ''}
-        </div>
-      </div>
-    `).join('') + `<button class="qs-add-card" onclick="openSavePreset()">＋ New Preset</button>`;
+    container.innerHTML = presets.map(_renderPresetCard).join('')
+      + `<button class="qs-add-card" onclick="openSavePreset()">＋ New Preset</button>`;
+    // Cache preset data for edit mode
+    window._presetsCache = {};
+    presets.forEach(p => { window._presetsCache[p.id] = p; });
   } catch (_) {}
 }
 
@@ -1548,7 +1555,7 @@ async function launchPreset(id, btn) {
   btn.textContent = 'Launching…';
   try {
     const res = await apiPost(`/presets/${id}/launch`, {});
-    showToast(`${res.name} — bracket created!`, 'success');
+    showToast(`${res.name} — lineup phase started!`, 'success');
     setTimeout(() => { window.location.href = `tournament.html?id=${res.id}`; }, 600);
   } catch (e) {
     showToast('Launch failed: ' + e.message, 'error');
@@ -1563,52 +1570,88 @@ async function deletePreset(id) {
     await apiDelete(`/presets/${id}`);
     document.getElementById(`qsCard_${id}`)?.remove();
     showToast('Preset deleted', 'success');
-    // Hide section if no cards left (only the add button remains)
-    const cards = document.querySelectorAll('[id^="qsCard_"]');
-    if (!cards.length) document.getElementById('quickStartSection').style.display = 'none';
+    if (!document.querySelector('[id^="qsCard_"]')) {
+      document.getElementById('quickStartSection').style.display = 'none';
+    }
   } catch (e) {
     showToast('Could not delete: ' + e.message, 'error');
   }
 }
 
-function openSavePreset() {
-  const players = getPlayers();
-  if (!players.length) { showToast('Add players first', 'warn'); return; }
-  document.getElementById('spPlayerList').textContent = players.join(', ');
-  document.getElementById('spName').value = '';
-  // Mirror current sidebar selections into modal defaults
-  const fillMode = document.querySelector('input[name="fillMode"]:checked')?.value || 'elo';
-  const seedMode = document.querySelector('input[name="seedMode"]:checked')?.value || 'elo';
-  const style    = document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong';
-  const cpp      = document.getElementById('charsPerPlayer')?.value || '2';
-  document.getElementById('spFillMode').value = ['elo','kills','winpct'].includes(fillMode) ? fillMode : 'elo';
-  document.getElementById('spSeedMode').value = seedMode;
-  document.getElementById('spBracketStyle').value = style;
-  document.getElementById('spCpp').value = cpp;
+function _openModal(preset = null) {
+  _editingPresetId = preset ? preset.id : null;
+  const isEdit = !!preset;
+
+  document.querySelector('#savePresetModal .sp-box h3').textContent = isEdit ? '✏️ Edit Preset' : '💾 Save as Preset';
+  document.querySelector('#savePresetModal .sp-actions .btn-primary').textContent = isEdit ? 'Update Preset' : 'Save Preset';
+
+  document.getElementById('spName').value = preset ? preset.name : '';
+
+  if (isEdit) {
+    document.getElementById('spPlayerList').textContent = preset.players.join(', ');
+    document.getElementById('spFillMode').value   = preset.fill_mode   || 'elo';
+    document.getElementById('spSeedMode').value   = preset.seed_mode   || 'elo';
+    document.getElementById('spBracketStyle').value = preset.bracket_style || 'strongVsStrong';
+    document.getElementById('spCpp').value         = String(preset.chars_per_player || 2);
+  } else {
+    const players = getPlayers();
+    document.getElementById('spPlayerList').textContent = players.join(', ');
+    const fillMode = document.querySelector('input[name="fillMode"]:checked')?.value || 'elo';
+    const seedMode = document.querySelector('input[name="seedMode"]:checked')?.value || 'elo';
+    const style    = document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong';
+    const cpp      = document.getElementById('charsPerPlayer')?.value || '2';
+    document.getElementById('spFillMode').value   = ['elo','kills','winpct'].includes(fillMode) ? fillMode : 'elo';
+    document.getElementById('spSeedMode').value   = seedMode;
+    document.getElementById('spBracketStyle').value = style;
+    document.getElementById('spCpp').value         = cpp;
+  }
+
   document.getElementById('savePresetModal').classList.add('open');
   setTimeout(() => document.getElementById('spName').focus(), 60);
 }
 
+function openSavePreset() {
+  const players = getPlayers();
+  if (!players.length) { showToast('Add players first', 'warn'); return; }
+  _openModal(null);
+}
+
+function openEditPreset(id) {
+  const preset = window._presetsCache?.[id];
+  if (!preset) { showToast('Preset not found', 'error'); return; }
+  _openModal(preset);
+}
+
 function closePresetModal() {
   document.getElementById('savePresetModal').classList.remove('open');
+  _editingPresetId = null;
 }
 
 async function savePreset() {
   const name = document.getElementById('spName').value.trim();
   if (!name) { showToast('Give the preset a name', 'warn'); return; }
-  const players = getPlayers();
-  if (players.length < 2) { showToast('Need at least 2 players', 'warn'); return; }
+
+  const payload = {
+    name,
+    fill_mode:        document.getElementById('spFillMode').value,
+    seed_mode:        document.getElementById('spSeedMode').value,
+    bracket_style:    document.getElementById('spBracketStyle').value,
+    chars_per_player: parseInt(document.getElementById('spCpp').value, 10),
+  };
+
   try {
-    await apiPost('/presets', {
-      name,
-      players,
-      fill_mode:        document.getElementById('spFillMode').value,
-      seed_mode:        document.getElementById('spSeedMode').value,
-      bracket_style:    document.getElementById('spBracketStyle').value,
-      chars_per_player: parseInt(document.getElementById('spCpp').value, 10),
-    });
+    if (_editingPresetId) {
+      // Edit mode — PATCH, players list stays as-is on the server
+      await apiPatch(`/presets/${_editingPresetId}`, payload);
+      showToast(`"${name}" updated!`, 'success');
+    } else {
+      // Create mode — POST, include current players
+      const players = getPlayers();
+      if (players.length < 2) { showToast('Need at least 2 players', 'warn'); return; }
+      await apiPost('/presets', { ...payload, players });
+      showToast(`"${name}" saved!`, 'success');
+    }
     closePresetModal();
-    showToast(`"${name}" saved!`, 'success');
     loadPresets();
   } catch (e) {
     showToast('Save failed: ' + e.message, 'error');

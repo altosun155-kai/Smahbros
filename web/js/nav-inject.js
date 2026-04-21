@@ -7,7 +7,7 @@
   const NAV = [
     { href: 'index.html',       label: 'Home',         icon: '🏠' },
     { section: 'Compete' },
-    { href: 'bracket.html',     label: 'Bracket',      icon: '🏆' },
+    { href: 'bracket.html',      label: 'Bracket',      icon: '🏆' },
     { href: 'duel.html',        label: '1v1 Duel',     icon: '⚔️' },
     { href: 'roundrobin.html',  label: 'Round Robin',  icon: '🔄' },
     { href: 'my-brackets.html', label: 'My Brackets',  icon: '📁' },
@@ -17,7 +17,7 @@
     { href: 'mastery.html',     label: 'Mastery',      icon: '🎯' },
     { href: 'practice.html',    label: 'Practice',     icon: '🥊' },
     { section: 'My Stuff' },
-    { href: 'tier-list.html',   label: 'Tier List',    icon: '🎖️' },
+    { href: 'tier-list.html',    label: 'Tier List',    icon: '🎖️' },
     { href: 'favorites.html',   label: 'Favorites',    icon: '⭐' },
     { href: 'skins.html',       label: 'Skins',        icon: '🎨' },
     { href: 'invites.html',     label: 'Invites',      icon: '📬' },
@@ -48,8 +48,10 @@
     bnav.id = 'bottomNav';
     bnav.setAttribute('role', 'navigation');
     bnav.setAttribute('aria-label', 'Main navigation');
+    const playPages = ['duel.html', 'tournament.html', 'roundrobin.html'];
     bnav.innerHTML =
       `<a href="index.html" class="bnav-item${currentPage === 'index.html' ? ' active' : ''}"><span class="bnav-icon">🏠</span>Home</a>` +
+      `<a href="duel.html" class="bnav-item${playPages.includes(currentPage) ? ' active' : ''}"><span class="bnav-icon">⚔️</span>Play</a>` +
       `<a href="leaderboard.html" class="bnav-item${currentPage === 'leaderboard.html' ? ' active' : ''}"><span class="bnav-icon">📈</span>Rankings</a>` +
       `<button class="bnav-item" onclick="if(typeof toggleFriendsSidebar==='function')toggleFriendsSidebar()" id="bnavFriends"><span class="bnav-icon">👥</span>Friends</button>` +
       `<a href="profile.html" class="bnav-item${currentPage === 'profile.html' ? ' active' : ''}"><span class="bnav-icon">👤</span>Profile</a>`;

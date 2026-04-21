@@ -422,6 +422,15 @@
     const input = document.querySelector(`#picker-${id} input`);
     if (input) input.value = char;
     document.getElementById(`drop-${id}`)?.classList.remove('open');
+    // Persist last-used character per player
+    const slotUser = {
+      p1Char: () => document.getElementById('p1Select').value,
+      p2Char: () => document.getElementById('p2Select').value,
+      gameP1Char: () => p1,
+      gameP2Char: () => p2,
+    };
+    const getUser = slotUser[id];
+    if (getUser) { const u = getUser(); if (u) localStorage.setItem('lastChar_' + u, char); }
     if (id === 'p1Char' || id === 'p2Char') onCharChange();
     if (id === 'gameP1Char' || id === 'gameP2Char') updateDuelEloPreviews();
   }
@@ -500,6 +509,9 @@
     // Show Quick Start only for P1 when it's the current user
     const qsBtn = document.getElementById('quickStartBtn');
     if (qsBtn && slot === 'p1') qsBtn.style.display = username ? 'block' : 'none';
+    // Restore last-used character for this player
+    const lastChar = username ? localStorage.getItem('lastChar_' + username) : null;
+    if (lastChar && CHARS.includes(lastChar)) initPicker(slot + 'Char', lastChar);
     onPlayerChange();
   }
 

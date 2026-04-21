@@ -193,6 +193,7 @@
           <option value="strongVsStrong">Strong vs Strong</option>
           <option value="strongVsWeak">Strong vs Weak</option>
           <option value="random">Random</option>
+          <option value="freePool">Free Pool</option>
         </select>
       </div>
       <div class="sp-row">
@@ -278,6 +279,10 @@
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
             <input type="radio" name="bracketStyle" value="random" style="accent-color:var(--accent-blue);" />
             <span><strong>Random</strong> — fully shuffled, no repeats until all used</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+            <input type="radio" name="bracketStyle" value="freePool" style="accent-color:var(--accent-blue);" />
+            <span><strong>Free Pool</strong> — all chars ranked globally, best vs worst across the whole pool</span>
           </label>
         </div>
 
@@ -880,6 +885,34 @@ function generateBracketJS(base, teamMode, teamOf) {
     const target = nextPow2(pairs.length);
     while (pairs.length < target) pairs.push([BYE, BYE]);
     return pairs;
+  }
+
+  // ── Free Pool mode: all chars ranked globally, paired strongVsWeak ──
+  if (style === 'freePool') {
+    // All entries sorted by seed globally (not grouped by slot)
+    const flat = [...base].sort((a, b) => getSeedValue(b) - getSeedValue(a));
+    if (flat.length % 2 === 1) flat.push(BYE);
+
+    // Pair: #1 vs last, #2 vs second-to-last, etc.
+    const paired = [];
+    let lo = 0, hi = flat.length - 1;
+    while (lo < hi) paired.push([flat[lo++], flat[hi--]]);
+
+    // Fix same-player matchups by swapping the weaker slot with another pair
+    for (let i = 0; i < paired.length; i++) {
+      if (paired[i][0].player !== 'SYSTEM' && paired[i][0].player === paired[i][1].player) {
+        for (let j = i + 1; j < paired.length; j++) {
+          if (paired[j][1].player !== paired[i][0].player && paired[j][0].player !== paired[i][0].player) {
+            [paired[i][1], paired[j][1]] = [paired[j][1], paired[i][1]];
+            break;
+          }
+        }
+      }
+    }
+
+    const target = nextPow2(paired.length);
+    while (paired.length < target) paired.push([BYE, BYE]);
+    return paired;
   }
 
   // Step 2: For each slot, rank players by seed value (from Rank By selection) then pair by style.
@@ -1512,7 +1545,7 @@ document.addEventListener('keydown', e => {
 // ══════════════════════════════════════════════════════
 const FILL_LABELS  = { elo:'Elo fill', kills:'Kills fill', winpct:'Win% fill', favorites:'Favorites', tierlist:'Tier list' };
 const SEED_LABELS  = { elo:'Elo seed', kills:'Kills seed', winpct:'Win% seed' };
-const STYLE_LABELS = { strongVsStrong:'Strong vs Strong', strongVsWeak:'Strong vs Weak', random:'Random draw' };
+const STYLE_LABELS = { strongVsStrong:'Strong vs Strong', strongVsWeak:'Strong vs Weak', random:'Random draw', freePool:'Free Pool' };
 
 let _editingPresetId = null; // null = create mode, number = edit mode
 

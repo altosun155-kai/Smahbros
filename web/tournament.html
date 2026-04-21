@@ -114,6 +114,10 @@
                 <input type="radio" name="liveBracketStyle" value="random" style="accent-color:var(--accent-blue);" />
                 <span><strong>Random</strong></span>
               </label>
+              <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
+                <input type="radio" name="liveBracketStyle" value="freePool" style="accent-color:var(--accent-blue);" />
+                <span><strong>Free Pool</strong></span>
+              </label>
             </div>
           </div>
           <div style="flex:1;min-width:160px;">
@@ -482,7 +486,7 @@ function entryHtml(label, roundWinners, roundScores, is_live, roundIdx, matchKey
   const myChar = isMe ? label.slice(myUsername.length + 3) : null;
   const parsed = parseLabel(label);
   const charName = parsed ? parsed.character : '';
-  const iconUrl = charName && typeof charImgUrl === 'function' ? charImgUrl(charName) : null;
+  const iconUrl = charName && typeof charHeadUrl === 'function' ? charHeadUrl(charName) : null;
   const icon = iconUrl ? `<img class="match-char-icon" src="${iconUrl}" alt="${charName}" onerror="this.style.display='none'" />` : '';
 
   // Score badge on winner row
@@ -1004,7 +1008,7 @@ async function previewMatchups() {
       const e = flat[flat.length - 1];
       pairs.push({ a: `${e.player} — ${e.character}`, b: 'BYE' });
     }
-  } else {
+  } else if (style !== 'freePool') {
     for (let slot = 0; slot < maxChars; slot++) {
       const slotPlayers = [...players].filter(p => playerGroups[p][slot]);
       slotPlayers.sort((a, b) => getSeed(playerGroups[b][slot]) - getSeed(playerGroups[a][slot]));
@@ -1026,6 +1030,40 @@ async function previewMatchups() {
         }
       }
     }
+  }
+
+  if (style === 'freePool') {
+    // Flatten all confirmed chars across all players into one global pool
+    const flat = [];
+    players.forEach(p => {
+      (playerGroups[p] || []).forEach(entry => flat.push(entry));
+    });
+    // Sort globally by seed value
+    flat.sort((a, b) => getSeed(b) - getSeed(a));
+    if (flat.length % 2 === 1) flat.push({ player: 'SYSTEM', character: 'BYE' });
+
+    // Pair: best vs worst globally
+    const poolPaired = [];
+    let lo2 = 0, hi2 = flat.length - 1;
+    while (lo2 < hi2) poolPaired.push([flat[lo2++], flat[hi2--]]);
+
+    // Fix same-player matchups
+    for (let i = 0; i < poolPaired.length; i++) {
+      if (poolPaired[i][0].player !== 'SYSTEM' && poolPaired[i][0].player === poolPaired[i][1].player) {
+        for (let j = i + 1; j < poolPaired.length; j++) {
+          if (poolPaired[j][1].player !== poolPaired[i][0].player && poolPaired[j][0].player !== poolPaired[i][0].player) {
+            [poolPaired[i][1], poolPaired[j][1]] = [poolPaired[j][1], poolPaired[i][1]];
+            break;
+          }
+        }
+      }
+    }
+
+    poolPaired.forEach(([a, b]) => {
+      const aStr = a.player === 'SYSTEM' ? 'BYE' : `${a.player} — ${a.character}`;
+      const bStr = b.player === 'SYSTEM' ? 'BYE' : `${b.player} — ${b.character}`;
+      pairs.push({ a: aStr, b: bStr });
+    });
   }
 
   const target = nextPow2(pairs.length);
@@ -1090,7 +1128,7 @@ function renderMatchupPreview() {
       let cls = isBye ? ' bye' : '';
       if (!isBye && previewSwapMode) cls += (slot === 0 ? isSelA : isSelB) ? ' swap-selected' : ' swap-hover';
       const charName = val && val.includes(' — ') ? val.split(' — ')[1] : '';
-      const imgUrl = charName && typeof charImgUrl === 'function' ? charImgUrl(charName) : null;
+      const imgUrl = charName && typeof charHeadUrl === 'function' ? charHeadUrl(charName) : null;
       const icon = imgUrl ? `<img class="match-char-icon" src="${imgUrl}" alt="" onerror="this.style.display='none'" />` : '';
       const onclick = (!isBye && previewSwapMode) ? ` onclick="handlePreviewSwap(${pi},${slot})"` : '';
       return `<div class="match-entry${cls}"${onclick}>${icon}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${isBye ? 'BYE' : escHtml(val)}</span></div>`;

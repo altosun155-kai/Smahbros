@@ -873,30 +873,36 @@ function generateBracketJS(base, teamMode, teamOf) {
 
   // ── Free Pool mode: apply chosen style across the entire character pool ──
   if (poolMode === 'freePool') {
-    const flat = [...base];
+    // Sort each player's chars by seed so wave 0 = everyone's best, wave 1 = second best, etc.
+    const sortedGroups = {};
+    players.forEach(p => {
+      sortedGroups[p] = [...playerGroups[p]].sort((a, b) => getSeedValue(b) - getSeedValue(a));
+    });
 
-    if (style === 'random') {
-      shuffle(flat);
-    } else {
-      flat.sort((a, b) => getSeedValue(b) - getSeedValue(a));
+    const pairs = [];
+    for (let wave = 0; wave < maxChars; wave++) {
+      // One char per player for this wave — no player can repeat until next wave
+      let waveEntries = players.filter(p => sortedGroups[p][wave]).map(p => sortedGroups[p][wave]);
+
+      if (style === 'random') {
+        shuffle(waveEntries);
+      } else {
+        waveEntries.sort((a, b) => getSeedValue(b) - getSeedValue(a));
+      }
+      if (waveEntries.length % 2 === 1) waveEntries.push(BYE);
+
+      if (style === 'strongVsWeak') {
+        let lo = 0, hi = waveEntries.length - 1;
+        while (lo < hi) pairs.push([waveEntries[lo++], waveEntries[hi--]]);
+        if (lo === hi) pairs.push([waveEntries[lo], BYE]);
+      } else {
+        for (let i = 0; i + 1 < waveEntries.length; i += 2) pairs.push([waveEntries[i], waveEntries[i + 1]]);
+      }
     }
-    if (flat.length % 2 === 1) flat.push(BYE);
 
-    let paired;
-    if (style === 'strongVsWeak') {
-      paired = [];
-      let lo = 0, hi = flat.length - 1;
-      while (lo < hi) paired.push([flat[lo++], flat[hi--]]);
-    } else {
-      // strongVsStrong or random: pair adjacent
-      paired = [];
-      for (let i = 0; i + 1 < flat.length; i += 2) paired.push([flat[i], flat[i + 1]]);
-    }
-
-    _fixSamePlayer(paired, BYE);
-    const target = nextPow2(paired.length);
-    while (paired.length < target) paired.push([BYE, BYE]);
-    return paired;
+    const target = nextPow2(pairs.length);
+    while (pairs.length < target) pairs.push([BYE, BYE]);
+    return pairs;
   }
 
   // ── Random mode (slot-based): fully random — break slot structure entirely ──

@@ -193,6 +193,12 @@
           <option value="strongVsStrong">Strong vs Strong</option>
           <option value="strongVsWeak">Strong vs Weak</option>
           <option value="random">Random</option>
+        </select>
+      </div>
+      <div class="sp-row">
+        <label>Character Pool</label>
+        <select id="spPoolMode">
+          <option value="slot">Per Slot</option>
           <option value="freePool">Free Pool</option>
         </select>
       </div>
@@ -280,9 +286,17 @@
             <input type="radio" name="bracketStyle" value="random" style="accent-color:var(--accent-blue);" />
             <span><strong>Random</strong> — fully shuffled, no repeats until all used</span>
           </label>
+        </div>
+
+        <h2 style="margin-top:14px;">Character Pool</h2>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;padding:10px;background:var(--card-bg2);border-radius:8px;border:1px solid var(--border);">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
-            <input type="radio" name="bracketStyle" value="freePool" style="accent-color:var(--accent-blue);" />
-            <span><strong>Free Pool</strong> — all chars ranked globally, best vs worst across the whole pool</span>
+            <input type="radio" name="poolMode" value="slot" checked style="accent-color:var(--accent-blue);" />
+            <span><strong>Per Slot</strong> — each player's 1st char faces other 1st chars, etc.</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
+            <input type="radio" name="poolMode" value="freePool" style="accent-color:var(--accent-blue);" />
+            <span><strong>Free Pool</strong> — all characters ranked together globally</span>
           </label>
         </div>
 
@@ -830,9 +844,23 @@ function pairCrossTeam(ordered, getEntry, teamOf) {
   return pairs;
 }
 
+function _fixSamePlayer(paired, BYE) {
+  for (let i = 0; i < paired.length; i++) {
+    if (paired[i][0].player !== 'SYSTEM' && paired[i][0].player === paired[i][1].player) {
+      for (let j = i + 1; j < paired.length; j++) {
+        if (paired[j][1].player !== paired[i][0].player && paired[j][0].player !== paired[i][0].player) {
+          [paired[i][1], paired[j][1]] = [paired[j][1], paired[i][1]];
+          break;
+        }
+      }
+    }
+  }
+}
+
 function generateBracketJS(base, teamMode, teamOf) {
   const BYE = { player: 'SYSTEM', character: 'BYE' };
-  const style = document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong';
+  const style    = document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong';
+  const poolMode = document.querySelector('input[name="poolMode"]:checked')?.value    || 'slot';
 
   // Step 1: Group each player's entries (order = fill-mode priority: slot 0 = top pick)
   const playerGroups = {};
@@ -843,7 +871,35 @@ function generateBracketJS(base, teamMode, teamOf) {
   const players = Object.keys(playerGroups);
   const maxChars = Math.max(...Object.values(playerGroups).map(g => g.length));
 
-  // ── Random mode: fully random — break slot structure entirely ──
+  // ── Free Pool mode: apply chosen style across the entire character pool ──
+  if (poolMode === 'freePool') {
+    const flat = [...base];
+
+    if (style === 'random') {
+      shuffle(flat);
+    } else {
+      flat.sort((a, b) => getSeedValue(b) - getSeedValue(a));
+    }
+    if (flat.length % 2 === 1) flat.push(BYE);
+
+    let paired;
+    if (style === 'strongVsWeak') {
+      paired = [];
+      let lo = 0, hi = flat.length - 1;
+      while (lo < hi) paired.push([flat[lo++], flat[hi--]]);
+    } else {
+      // strongVsStrong or random: pair adjacent
+      paired = [];
+      for (let i = 0; i + 1 < flat.length; i += 2) paired.push([flat[i], flat[i + 1]]);
+    }
+
+    _fixSamePlayer(paired, BYE);
+    const target = nextPow2(paired.length);
+    while (paired.length < target) paired.push([BYE, BYE]);
+    return paired;
+  }
+
+  // ── Random mode (slot-based): fully random — break slot structure entirely ──
   if (style === 'random') {
     // Shuffle each player's own character list so char slot order is random
     const shuffledGroups = {};
@@ -859,14 +915,12 @@ function generateBracketJS(base, teamMode, teamOf) {
 
     let pairs;
     if (teamMode) {
-      // Team-aware: use cross-team pairing on the shuffled flat list
       pairs = pairCrossTeam(
-        flat.map((_, i) => i),          // indices as "players"
+        flat.map((_, i) => i),
         i => flat[i],
         Object.fromEntries(flat.map((e, i) => [i, teamOf[e.player] || '']))
       );
     } else {
-      // Fix any same-player adjacent pairs before pairing
       for (let i = 0; i < flat.length - 1; i++) {
         if (flat[i].player !== 'SYSTEM' && flat[i].player === flat[i + 1].player) {
           for (let j = i + 2; j < flat.length; j++) {
@@ -887,35 +941,7 @@ function generateBracketJS(base, teamMode, teamOf) {
     return pairs;
   }
 
-  // ── Free Pool mode: all chars ranked globally, paired strongVsWeak ──
-  if (style === 'freePool') {
-    // All entries sorted by seed globally (not grouped by slot)
-    const flat = [...base].sort((a, b) => getSeedValue(b) - getSeedValue(a));
-    if (flat.length % 2 === 1) flat.push(BYE);
-
-    // Pair: #1 vs last, #2 vs second-to-last, etc.
-    const paired = [];
-    let lo = 0, hi = flat.length - 1;
-    while (lo < hi) paired.push([flat[lo++], flat[hi--]]);
-
-    // Fix same-player matchups by swapping the weaker slot with another pair
-    for (let i = 0; i < paired.length; i++) {
-      if (paired[i][0].player !== 'SYSTEM' && paired[i][0].player === paired[i][1].player) {
-        for (let j = i + 1; j < paired.length; j++) {
-          if (paired[j][1].player !== paired[i][0].player && paired[j][0].player !== paired[i][0].player) {
-            [paired[i][1], paired[j][1]] = [paired[j][1], paired[i][1]];
-            break;
-          }
-        }
-      }
-    }
-
-    const target = nextPow2(paired.length);
-    while (paired.length < target) paired.push([BYE, BYE]);
-    return paired;
-  }
-
-  // Step 2: For each slot, rank players by seed value (from Rank By selection) then pair by style.
+  // Step 2: Per-slot — rank players by seed value then pair by style.
   const pairs = [];
   for (let slot = 0; slot < maxChars; slot++) {
     const ordered = [...players].sort((a, b) =>
@@ -1237,7 +1263,7 @@ function getBracketPayload(name, isLive, inviteUsernames) {
     players: getPlayers(),
     entries: currentEntries.filter(e => e.character),
     bracket_data: currentBracket.map(([a,b]) => ({a: entryLabel(a), b: entryLabel(b)})),
-    bracket_style: (document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong') + '|' + (document.querySelector('input[name="seedMode"]:checked')?.value || 'elo'),
+    bracket_style: (document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong') + '|' + (document.querySelector('input[name="seedMode"]:checked')?.value || 'elo') + '|' + (document.querySelector('input[name="poolMode"]:checked')?.value || 'slot'),
     is_live: isLive,
     invite_usernames: inviteUsernames,
     chars_per_player: parseInt(document.getElementById('charsPerPlayer').value) || 2,
@@ -1258,7 +1284,7 @@ async function startLineupPhase() {
       players,
       entries: [],
       bracket_data: [],
-      bracket_style: (document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong') + '|' + (document.querySelector('input[name="seedMode"]:checked')?.value || 'elo'),
+      bracket_style: (document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong') + '|' + (document.querySelector('input[name="seedMode"]:checked')?.value || 'elo') + '|' + (document.querySelector('input[name="poolMode"]:checked')?.value || 'slot'),
       is_live: true,
       invite_usernames: invitees,
       chars_per_player: k,
@@ -1545,7 +1571,8 @@ document.addEventListener('keydown', e => {
 // ══════════════════════════════════════════════════════
 const FILL_LABELS  = { elo:'Elo fill', kills:'Kills fill', winpct:'Win% fill', favorites:'Favorites', tierlist:'Tier list' };
 const SEED_LABELS  = { elo:'Elo seed', kills:'Kills seed', winpct:'Win% seed' };
-const STYLE_LABELS = { strongVsStrong:'Strong vs Strong', strongVsWeak:'Strong vs Weak', random:'Random draw', freePool:'Free Pool' };
+const STYLE_LABELS = { strongVsStrong:'Strong vs Strong', strongVsWeak:'Strong vs Weak', random:'Random draw' };
+const POOL_LABELS  = { slot:'Per Slot', freePool:'Free Pool' };
 
 let _editingPresetId = null; // null = create mode, number = edit mode
 
@@ -1557,7 +1584,8 @@ function _renderPresetCard(p) {
       <div class="qs-card-players">${p.players.map(escHtml).join(' · ')}</div>
       <div class="qs-card-meta">
         ${SEED_LABELS[p.seed_mode] || p.seed_mode} &nbsp;·&nbsp;
-        ${STYLE_LABELS[p.bracket_style] || p.bracket_style}<br>
+        ${STYLE_LABELS[p.bracket_style] || p.bracket_style} &nbsp;·&nbsp;
+        ${POOL_LABELS[p.pool_mode || 'slot']}<br>
         ${p.chars_per_player} char${p.chars_per_player !== 1 ? 's' : ''}/player
       </div>
       <div class="qs-card-actions">
@@ -1625,6 +1653,7 @@ function _openModal(preset = null) {
     document.getElementById('spFillMode').value   = preset.fill_mode   || 'elo';
     document.getElementById('spSeedMode').value   = preset.seed_mode   || 'elo';
     document.getElementById('spBracketStyle').value = preset.bracket_style || 'strongVsStrong';
+    document.getElementById('spPoolMode').value     = preset.pool_mode || 'slot';
     document.getElementById('spCpp').value         = String(preset.chars_per_player || 2);
   } else {
     const players = getPlayers();
@@ -1632,11 +1661,13 @@ function _openModal(preset = null) {
     const fillMode = document.querySelector('input[name="fillMode"]:checked')?.value || 'elo';
     const seedMode = document.querySelector('input[name="seedMode"]:checked')?.value || 'elo';
     const style    = document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong';
+    const poolMode = document.querySelector('input[name="poolMode"]:checked')?.value || 'slot';
     const cpp      = document.getElementById('charsPerPlayer')?.value || '2';
-    document.getElementById('spFillMode').value   = ['elo','kills','winpct'].includes(fillMode) ? fillMode : 'elo';
-    document.getElementById('spSeedMode').value   = seedMode;
+    document.getElementById('spFillMode').value     = ['elo','kills','winpct'].includes(fillMode) ? fillMode : 'elo';
+    document.getElementById('spSeedMode').value     = seedMode;
     document.getElementById('spBracketStyle').value = style;
-    document.getElementById('spCpp').value         = cpp;
+    document.getElementById('spPoolMode').value     = poolMode;
+    document.getElementById('spCpp').value          = cpp;
   }
 
   document.getElementById('savePresetModal').classList.add('open');
@@ -1669,6 +1700,7 @@ async function savePreset() {
     fill_mode:        document.getElementById('spFillMode').value,
     seed_mode:        document.getElementById('spSeedMode').value,
     bracket_style:    document.getElementById('spBracketStyle').value,
+    pool_mode:        document.getElementById('spPoolMode').value,
     chars_per_player: parseInt(document.getElementById('spCpp').value, 10),
   };
 

@@ -17,6 +17,7 @@ class PresetCreate(BaseModel):
     fill_mode: str = "elo"
     seed_mode: str = "elo"
     bracket_style: str = "strongVsStrong"
+    pool_mode: str = "slot"
     chars_per_player: int = 2
 
 
@@ -26,6 +27,7 @@ class PresetUpdate(BaseModel):
     fill_mode: Optional[str] = None
     seed_mode: Optional[str] = None
     bracket_style: Optional[str] = None
+    pool_mode: Optional[str] = None
     chars_per_player: Optional[int] = None
 
 
@@ -38,6 +40,7 @@ def _preset_to_dict(p: TournamentPreset) -> dict:
         "fill_mode": p.fill_mode,
         "seed_mode": p.seed_mode,
         "bracket_style": p.bracket_style,
+        "pool_mode": p.pool_mode or "slot",
         "chars_per_player": p.chars_per_player,
         "created_at": p.created_at.isoformat(),
     }
@@ -62,6 +65,7 @@ def create_preset(req: PresetCreate, db: Session = Depends(get_db), current_user
         fill_mode=req.fill_mode,
         seed_mode=req.seed_mode,
         bracket_style=req.bracket_style,
+        pool_mode=req.pool_mode,
         chars_per_player=max(1, min(req.chars_per_player, 5)),
     )
     db.add(preset)
@@ -92,6 +96,8 @@ def update_preset(preset_id: int, req: PresetUpdate, db: Session = Depends(get_d
         preset.seed_mode = req.seed_mode
     if req.bracket_style is not None:
         preset.bracket_style = req.bracket_style
+    if req.pool_mode is not None:
+        preset.pool_mode = req.pool_mode
     if req.chars_per_player is not None:
         preset.chars_per_player = max(1, min(req.chars_per_player, 5))
     db.commit()
@@ -129,7 +135,7 @@ def launch_preset(preset_id: int, req: PresetLaunch = PresetLaunch(), db: Sessio
         raise HTTPException(status_code=400, detail="Need at least 2 players after exclusions")
 
     bracket_name = f"{preset.name} — {datetime.utcnow().strftime('%b %d')}"
-    bracket_style_str = f"{preset.bracket_style}|{preset.seed_mode}"
+    bracket_style_str = f"{preset.bracket_style}|{preset.seed_mode}|{preset.pool_mode or 'slot'}"
 
     bracket = Bracket(
         user_id=current_user.id,

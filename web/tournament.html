@@ -114,8 +114,17 @@
                 <input type="radio" name="liveBracketStyle" value="random" style="accent-color:var(--accent-blue);" />
                 <span><strong>Random</strong></span>
               </label>
+            </div>
+          </div>
+          <div style="flex:1;min-width:160px;">
+            <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Character Pool</div>
+            <div style="display:flex;flex-direction:column;gap:5px;padding:10px;background:var(--card-bg2);border:1px solid var(--border);border-radius:8px;">
               <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
-                <input type="radio" name="liveBracketStyle" value="freePool" style="accent-color:var(--accent-blue);" />
+                <input type="radio" name="livePoolMode" value="slot" checked style="accent-color:var(--accent-blue);" />
+                <span><strong>Per Slot</strong></span>
+              </label>
+              <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
+                <input type="radio" name="livePoolMode" value="freePool" style="accent-color:var(--accent-blue);" />
                 <span><strong>Free Pool</strong></span>
               </label>
             </div>
@@ -930,6 +939,7 @@ async function previewMatchups() {
   const savedStyle = (data.bracket_style || 'strongVsStrong').split('|');
   const style    = document.querySelector('input[name="liveBracketStyle"]:checked')?.value || savedStyle[0] || 'strongVsStrong';
   const seedMode = document.querySelector('input[name="liveSeedMode"]:checked')?.value    || savedStyle[1] || 'elo';
+  const poolMode = document.querySelector('input[name="livePoolMode"]:checked')?.value    || savedStyle[2] || 'slot';
 
   document.getElementById('btnPreviewMatchups').textContent = '⏳ Computing…';
   document.getElementById('btnPreviewMatchups').disabled = true;
@@ -1008,7 +1018,7 @@ async function previewMatchups() {
       const e = flat[flat.length - 1];
       pairs.push({ a: `${e.player} — ${e.character}`, b: 'BYE' });
     }
-  } else if (style !== 'freePool') {
+  } else if (poolMode !== 'freePool') {
     for (let slot = 0; slot < maxChars; slot++) {
       const slotPlayers = [...players].filter(p => playerGroups[p][slot]);
       slotPlayers.sort((a, b) => getSeed(playerGroups[b][slot]) - getSeed(playerGroups[a][slot]));
@@ -1032,20 +1042,28 @@ async function previewMatchups() {
     }
   }
 
-  if (style === 'freePool') {
+  if (poolMode === 'freePool') {
     // Flatten all confirmed chars across all players into one global pool
     const flat = [];
     players.forEach(p => {
       (playerGroups[p] || []).forEach(entry => flat.push(entry));
     });
-    // Sort globally by seed value
-    flat.sort((a, b) => getSeed(b) - getSeed(a));
+
+    if (style === 'random') {
+      shuffleArr(flat);
+    } else {
+      flat.sort((a, b) => getSeed(b) - getSeed(a));
+    }
     if (flat.length % 2 === 1) flat.push({ player: 'SYSTEM', character: 'BYE' });
 
-    // Pair: best vs worst globally
+    // Pair based on style
     const poolPaired = [];
-    let lo2 = 0, hi2 = flat.length - 1;
-    while (lo2 < hi2) poolPaired.push([flat[lo2++], flat[hi2--]]);
+    if (style === 'strongVsWeak') {
+      let lo2 = 0, hi2 = flat.length - 1;
+      while (lo2 < hi2) poolPaired.push([flat[lo2++], flat[hi2--]]);
+    } else {
+      for (let i = 0; i + 1 < flat.length; i += 2) poolPaired.push([flat[i], flat[i + 1]]);
+    }
 
     // Fix same-player matchups
     for (let i = 0; i < poolPaired.length; i++) {
@@ -1191,11 +1209,13 @@ async function fetchAndRender() {
       document.getElementById('hostGenerateSection').style.display = isHost ? 'block' : 'none';
       if (isHost && !liveControlsSet) {
         liveControlsSet = true;
-        const [savedBracketStyle, savedSeedMode = 'elo'] = (data.bracket_style || 'strongVsStrong').split('|');
+        const [savedBracketStyle, savedSeedMode = 'elo', savedPoolMode = 'slot'] = (data.bracket_style || 'strongVsStrong').split('|');
         const bsEl = document.querySelector(`input[name="liveBracketStyle"][value="${savedBracketStyle}"]`);
         if (bsEl) bsEl.checked = true;
         const smEl = document.querySelector(`input[name="liveSeedMode"][value="${savedSeedMode}"]`);
         if (smEl) smEl.checked = true;
+        const pmEl = document.querySelector(`input[name="livePoolMode"][value="${savedPoolMode}"]`);
+        if (pmEl) pmEl.checked = true;
       }
     } else {
       // ── Bracket phase ──

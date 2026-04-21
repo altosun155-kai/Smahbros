@@ -229,6 +229,7 @@ class TournamentPreset(Base):
     fill_mode        = Column(String, default="elo")
     seed_mode        = Column(String, default="elo")
     bracket_style    = Column(String, default="strongVsStrong")
+    pool_mode        = Column(String, default="slot")
     chars_per_player = Column(Integer, default=2)
     created_at       = Column(DateTime, default=datetime.utcnow)
 

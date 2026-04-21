@@ -112,22 +112,30 @@ def delete_preset(preset_id: int, db: Session = Depends(get_db), current_user: U
     return {"ok": True}
 
 
+class PresetLaunch(BaseModel):
+    exclude_players: list[str] = []
+
+
 @router.post("/presets/{preset_id}/launch")
-def launch_preset(preset_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def launch_preset(preset_id: int, req: PresetLaunch = PresetLaunch(), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Create a live bracket in lineup mode — players pick their own characters in tournament.html."""
     preset = db.query(TournamentPreset).filter(TournamentPreset.id == preset_id).first()
     if not preset:
         raise HTTPException(status_code=404, detail="Preset not found")
 
+    excluded = set(req.exclude_players)
+    players = [p for p in preset.players if p not in excluded]
+    if len(players) < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 players after exclusions")
+
     bracket_name = f"{preset.name} — {datetime.utcnow().strftime('%b %d')}"
-    # Pack style|seedMode so tournament.html can restore both settings
     bracket_style_str = f"{preset.bracket_style}|{preset.seed_mode}"
 
     bracket = Bracket(
         user_id=current_user.id,
         name=bracket_name,
         mode="regular",
-        players=preset.players,
+        players=players,
         entries=[],
         bracket_data=[],
         round_winners={},
@@ -140,8 +148,7 @@ def launch_preset(preset_id: int, db: Session = Depends(get_db), current_user: U
     db.commit()
     db.refresh(bracket)
 
-    # Auto-accept invites so all preset players land directly in lineup mode
-    for username in preset.players:
+    for username in players:
         if username == current_user.username:
             continue
         invitee = db.query(User).filter(User.username == username).first()

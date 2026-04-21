@@ -84,15 +84,15 @@
         oninput="filterChips()"
         style="background:var(--card-bg2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 14px;font-size:16px;width:220px;outline:none;transition:border-color .15s;"
         onfocus="this.style.borderColor='var(--accent-blue)'" onblur="this.style.borderColor='var(--border)'" />
-      <button onclick="document.getElementById('chipsSearch').value='';filterChips()"
+      <button type="button" onclick="document.getElementById('chipsSearch').value='';filterChips()"
         style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:0.8rem;">Clear</button>
     </div>
 
     <div class="chips-grid" id="chipsGrid"></div>
 
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:32px;">
-      <button class="btn btn-primary" onclick="saveFavorites()">Save Favorites</button>
-      <button class="btn btn-outline" onclick="clearAll()">Clear All</button>
+      <button type="button" class="btn btn-primary" onclick="saveFavorites()">Save Favorites</button>
+      <button type="button" class="btn btn-outline" onclick="clearAll()">Clear All</button>
     </div>
 
     <div id="currentFavsSection" style="display:none;">
@@ -173,7 +173,7 @@
         <span class="power-rank ${rankClass}">${rankLabel}</span>
         ${img}
         <span class="power-char-name">${c}</span>
-        <button class="power-remove" onclick="toggleChar('${c.replace(/'/g,"\\'")}')">✕</button>
+        <button type="button" class="power-remove" onclick="toggleChar('${c.replace(/'/g,"\\'")}')">✕</button>
       </li>`;
     }).join('');
   }

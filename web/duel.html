@@ -212,7 +212,7 @@
           <input type="text" placeholder="Search character…" autocomplete="off" oninput="filterPicker('p1Char')" onfocus="openPicker('p1Char')" onblur="closePicker('p1Char')" onkeydown="pickerKey(event,'p1Char')" />
           <div class="char-dropdown" id="drop-p1Char"></div>
         </div>
-        <button class="btn btn-outline btn-sm" id="quickStartBtn" onclick="quickStart()" style="display:none;margin-top:4px;font-size:0.78rem;">⚡ Quick Start (top char)</button>
+        <button type="button" class="btn btn-outline btn-sm" id="quickStartBtn" onclick="quickStart()" style="display:none;margin-top:4px;font-size:0.78rem;">⚡ Quick Start (top char)</button>
       </div>
       <div class="duel-divider">VS</div>
       <div class="duel-side p2">
@@ -225,7 +225,7 @@
         </div>
       </div>
     </div>
-    <button class="btn btn-primary" onclick="startSeries()" style="width:100%;">Start Series</button>
+    <button type="button" class="btn btn-primary" onclick="startSeries()" style="width:100%;">Start Series</button>
   </div>
 
   <!-- Pre-series info panel -->
@@ -314,9 +314,9 @@
             <div style="text-align:center;"><span id="dElo_31" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
             <div style="text-align:center;"><span id="dElo_32" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
             <span></span>
-            <button class="score-btn" onclick="recordGame(1,3,0)">3-0</button>
-            <button class="score-btn" onclick="recordGame(1,3,1)">3-1</button>
-            <button class="score-btn" onclick="recordGame(1,3,2)">3-2</button>
+            <button type="button" class="score-btn" onclick="recordGame(1,3,0)">3-0</button>
+            <button type="button" class="score-btn" onclick="recordGame(1,3,1)">3-1</button>
+            <button type="button" class="score-btn" onclick="recordGame(1,3,2)">3-2</button>
           </div>
         </div>
         <!-- Right: P2 -->
@@ -342,9 +342,9 @@
             <div style="text-align:center;"><span id="dElo_13" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
             <div style="text-align:center;"><span id="dElo_23" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
             <span></span>
-            <button class="score-btn" onclick="recordGame(2,3,0)">3-0</button>
-            <button class="score-btn" onclick="recordGame(2,3,1)">3-1</button>
-            <button class="score-btn" onclick="recordGame(2,3,2)">3-2</button>
+            <button type="button" class="score-btn" onclick="recordGame(2,3,0)">3-0</button>
+            <button type="button" class="score-btn" onclick="recordGame(2,3,1)">3-1</button>
+            <button type="button" class="score-btn" onclick="recordGame(2,3,2)">3-2</button>
           </div>
         </div>
       </div>
@@ -358,7 +358,7 @@
       </div>
     </div>
 
-    <button class="btn btn-outline" onclick="resetSeries()" style="width:100%;margin-top:4px;">New Series</button>
+    <button type="button" class="btn btn-outline" onclick="resetSeries()" style="width:100%;margin-top:4px;">New Series</button>
   </div>
 </main>
 

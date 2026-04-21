@@ -233,8 +233,8 @@
         </div>
 
         <div class="tabs" id="profTabs" style="margin-bottom:14px;">
-          <button class="tab-btn active" onclick="switchProfTab('generate')">Generate</button>
-          <button class="tab-btn" onclick="switchProfTab('custom')">Custom URL</button>
+          <button type="button" class="tab-btn active" onclick="switchProfTab('generate')">Generate</button>
+          <button type="button" class="tab-btn" onclick="switchProfTab('custom')">Custom URL</button>
         </div>
 
         <div class="tab-panel active" id="tab-generate">
@@ -244,8 +244,8 @@
           </div>
           <img id="generatePreview" class="avatar-preview" src="" alt="preview" style="margin:8px auto;" />
           <div style="display:flex;gap:8px;">
-            <button class="btn btn-outline btn-sm" onclick="previewGenerated()">Preview</button>
-            <button class="btn btn-primary btn-sm" onclick="saveGeneratedAvatar()">Save</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="previewGenerated()">Preview</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="saveGeneratedAvatar()">Save</button>
           </div>
         </div>
 
@@ -254,7 +254,7 @@
             <input type="text" id="customUrlInput" placeholder="https://…" oninput="previewCustom()" style="font-size:0.85rem;" />
           </div>
           <img id="customPreview" class="avatar-preview" src="" alt="preview" style="display:none;margin:8px auto;" />
-          <button class="btn btn-primary btn-sm" onclick="saveCustomAvatar()">Save</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="saveCustomAvatar()">Save</button>
         </div>
       </div>
 
@@ -289,7 +289,7 @@
             <select id="rivalSelect" style="flex:1;padding:7px 10px;background:var(--card-bg2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:0.88rem;">
               <option value="">Select a rival…</option>
             </select>
-            <button class="btn btn-outline btn-sm" onclick="loadH2H()">Compare</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="loadH2H()">Compare</button>
           </div>
           <div id="h2hResult" style="display:none;margin-top:14px;">
             <div class="h2h-labels">
@@ -360,7 +360,7 @@
           <div id="commentsEmpty" style="display:none;font-size:0.84rem;color:var(--text-muted);margin-bottom:10px;">No comments yet. Be the first!</div>
           <div class="comment-input-row">
             <input type="text" id="commentInput" placeholder="Leave a GG…" maxlength="200" onkeydown="if(event.key==='Enter')postComment()" />
-            <button class="btn btn-primary btn-sm" onclick="postComment()">Post</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="postComment()">Post</button>
           </div>
           <div style="font-size:0.72rem;color:var(--text-muted);margin-top:5px;" id="charCount">0 / 200</div>
         </div>
@@ -373,7 +373,7 @@
 <!-- Badge detail modal -->
 <div id="badgeModal" onclick="if(event.target===this)closeBadgeModal()">
   <div class="badge-modal-box">
-    <button class="badge-modal-close" onclick="closeBadgeModal()">✕</button>
+    <button type="button" class="badge-modal-close" onclick="closeBadgeModal()">✕</button>
     <div class="badge-modal-icon" id="badgeModalIcon"></div>
     <div class="badge-modal-name" id="badgeModalName"></div>
     <div class="badge-modal-stat" id="badgeModalStat"></div>
@@ -837,7 +837,7 @@
             <div class="comment-text">${escHtml(c.content)}</div>
             <div class="comment-meta">${c.created_at ? new Date(c.created_at).toLocaleDateString() : ''}</div>
           </div>
-          ${canDelete ? `<button class="comment-delete" onclick="deleteComment(${c.id})" title="Delete">✕</button>` : ''}
+          ${canDelete ? `<button type="button" class="comment-delete" onclick="deleteComment(${c.id})" title="Delete">✕</button>` : ''}
         </div>`;
     }).join('');
   }
@@ -873,7 +873,7 @@
           <div class="comment-text">${escHtml(c.content)}</div>
           <div class="comment-meta">${c.created_at ? c.created_at.slice(0,10) : 'just now'}</div>
         </div>
-        ${canDelete ? `<button class="comment-delete" onclick="deleteComment(${c.id})" title="Delete">✕</button>` : ''}`;
+        ${canDelete ? `<button type="button" class="comment-delete" onclick="deleteComment(${c.id})" title="Delete">✕</button>` : ''}`;
       document.getElementById('commentsList').prepend(item);
     } catch (err) {
       showToast('Error posting: ' + err.message, 'error');
@@ -900,7 +900,7 @@
   function buildStyleGrid() {
     const grid = document.getElementById('styleGrid');
     grid.innerHTML = DICEBEAR_STYLES.map(s => `
-      <button class="style-btn ${s === selectedStyle ? 'active' : ''}" onclick="selectStyle('${s}')">${s}</button>
+      <button type="button" class="style-btn ${s === selectedStyle ? 'active' : ''}" onclick="selectStyle('${s}')">${s}</button>
     `).join('');
   }
 

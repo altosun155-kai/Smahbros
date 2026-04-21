@@ -121,6 +121,50 @@
     .mobile-only { display: none !important; }
     #bottomNav   { display: none !important; }
 
+    /* ── Quick Start presets ── */
+    .qs-section { margin-bottom: 4px; }
+
+    .qs-who-row { display: flex; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; align-items: flex-start; }
+    .qs-who-bubble { display: flex; flex-direction: column; align-items: center; gap: 5px; background: none; border: none; cursor: pointer; padding: 0; transition: opacity .2s, filter .2s; }
+    .qs-who-bubble.dimmed { opacity: .28; filter: grayscale(1); }
+    .qs-who-av { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,.15); background: rgba(255,255,255,.05); display: block; }
+    .qs-who-name { font-size: 0.6rem; font-weight: 700; color: rgba(255,255,255,.45); letter-spacing: .3px; }
+
+    .qs-scroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .qs-scroll::-webkit-scrollbar { display: none; }
+
+    .qs-card {
+      flex-shrink: 0; width: 158px; border-radius: 16px; padding: 14px 14px 12px;
+      display: flex; flex-direction: column; gap: 9px;
+      cursor: pointer; text-align: left; position: relative; overflow: hidden;
+      transition: transform .12s, box-shadow .12s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .qs-card:hover  { transform: translateY(-3px); }
+    .qs-card:active { transform: scale(0.96); }
+    .qs-card.launching { pointer-events: none; opacity: .6; }
+
+    .qs-card.svs { background: linear-gradient(135deg, rgba(231,76,60,.2), rgba(180,30,20,.1)); border: 1px solid rgba(231,76,60,.35); }
+    .qs-card.svs:hover { box-shadow: 0 0 22px rgba(231,76,60,.28); border-color: rgba(231,76,60,.65); }
+    .qs-card.svw { background: linear-gradient(135deg, rgba(39,174,96,.18), rgba(0,100,60,.1)); border: 1px solid rgba(39,174,96,.3); }
+    .qs-card.svw:hover { box-shadow: 0 0 22px rgba(39,174,96,.22); border-color: rgba(39,174,96,.6); }
+    .qs-card.rnd { background: linear-gradient(135deg, rgba(155,89,182,.2), rgba(80,30,140,.1)); border: 1px solid rgba(155,89,182,.35); }
+    .qs-card.rnd:hover { box-shadow: 0 0 22px rgba(155,89,182,.28); border-color: rgba(155,89,182,.65); }
+
+    .qs-style-chip { font-size: 0.6rem; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; }
+    .qs-card.svs .qs-style-chip { color: rgba(231,76,60,.85); }
+    .qs-card.svw .qs-style-chip { color: rgba(39,174,96,.85); }
+    .qs-card.rnd .qs-style-chip { color: rgba(155,89,182,.9); }
+
+    .qs-name { font-size: 0.9rem; font-weight: 800; color: #fff; line-height: 1.2; }
+
+    .qs-heads { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+    .qs-head { width: 27px; height: 27px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,.06); border: 1.5px solid rgba(255,255,255,.12); transition: opacity .2s, filter .2s; }
+    .qs-head.dimmed { opacity: .2; filter: grayscale(1); }
+
+    .qs-launching-overlay { display: none; position: absolute; inset: 0; background: rgba(13,13,26,.72); border-radius: 16px; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 800; color: rgba(255,255,255,.8); }
+    .qs-card.launching .qs-launching-overlay { display: flex; }
+
     /* ═══════════════════════════════════════════════
        MOBILE  (≤ 700px)
     ═══════════════════════════════════════════════ */
@@ -250,35 +294,7 @@
 
       .section-label { margin: 18px 0 8px; }
 
-      /* ── Quick Start presets ── */
-    .qs-section { margin-bottom: 4px; }
-    .qs-scroll  { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-    .qs-scroll::-webkit-scrollbar { display: none; }
-    .qs-card {
-      flex-shrink: 0;
-      min-width: 160px; max-width: 200px;
-      background: rgba(245,166,35,.08);
-      border: 1px solid rgba(245,166,35,.25);
-      border-radius: 14px;
-      padding: 14px 14px 12px;
-      display: flex; flex-direction: column; gap: 8px;
-    }
-    .qs-name { font-size: 0.88rem; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .qs-players { font-size: 0.68rem; color: rgba(255,255,255,.45); line-height: 1.4; }
-    .qs-launch {
-      margin-top: auto;
-      background: rgba(245,166,35,.18);
-      border: 1px solid rgba(245,166,35,.4);
-      color: #f5a623;
-      border-radius: 8px; padding: 7px 0;
-      font-size: 0.78rem; font-weight: 800;
-      cursor: pointer; width: 100%; text-align: center;
-      transition: background .15s, border-color .15s;
-    }
-    .qs-launch:hover { background: rgba(245,166,35,.3); border-color: rgba(245,166,35,.7); }
-    .qs-launch:disabled { opacity: .5; cursor: default; }
-
-    /* ── Bottom Nav ── */
+      /* ── Bottom Nav ── */
       #bottomNav {
         display: flex !important;
         position: fixed;
@@ -385,6 +401,7 @@
   <!-- ══ QUICK START PRESETS ══ -->
   <div id="homePresetsSection" class="qs-section" style="display:none;">
     <div class="section-label">Quick Start</div>
+    <div class="qs-who-row" id="homeWhoRow"></div>
     <div class="qs-scroll" id="homePresetCards"></div>
   </div>
 
@@ -623,7 +640,7 @@
               </div>
               <div class="invite-actions">
                 <a href="tournament.html?id=${inv.bracket_id}" class="invite-view">View →</a>
-                <button class="invite-dismiss" onclick="dismissInvite(${inv.id},'invCard_${inv.id}')">✕</button>
+                <button type="button" class="invite-dismiss" onclick="dismissInvite(${inv.id},'invCard_${inv.id}')">✕</button>
               </div>
             </div>
           `).join('');
@@ -639,7 +656,7 @@
                 <div class="inv-name">${escHtml(inv.bracket_name)}</div>
               </div>
               <a href="tournament.html?id=${inv.bracket_id}" class="inv-btn">View →</a>
-              <button class="inv-x" onclick="dismissInvite(${inv.id},'mobInv_${inv.id}','invCard_${inv.id}')">✕</button>
+              <button type="button" class="inv-x" onclick="dismissInvite(${inv.id},'mobInv_${inv.id}','invCard_${inv.id}')">✕</button>
             </div>
           `).join('');
 
@@ -689,30 +706,94 @@
     }
   })();
 
+  let _dimmedPlayers = new Set();
+  let _presetsData   = [];
+  let _playerTopChars = {};
+
   (async function loadHomePresets() {
     try {
       const presets = await apiGet('/presets');
       if (!presets || !presets.length) return;
+      _presetsData = presets;
       document.getElementById('homePresetsSection').style.display = 'block';
-      document.getElementById('homePresetCards').innerHTML = presets.map(p => `
-        <div class="qs-card">
-          <div class="qs-name">${escHtml(p.name)}</div>
-          <div class="qs-players">${p.players.map(escHtml).join(', ')}</div>
-          <button class="qs-launch" id="hqsBtn_${p.id}" onclick="homelaunchPreset(${p.id})">▶ Launch</button>
-        </div>
-      `).join('');
+
+      const allPlayers = [...new Set(presets.flatMap(p => p.players))];
+
+      await Promise.all(allPlayers.map(async u => {
+        try {
+          const d = await apiGet('/characters/stats/' + encodeURIComponent(u));
+          const sorted = (d.stats || []).sort((a,b) => (b.elo||1000)-(a.elo||1000));
+          _playerTopChars[u] = sorted[0]?.character || null;
+        } catch(_) { _playerTopChars[u] = null; }
+      }));
+
+      _renderWhoRow(allPlayers);
+      _renderPresetCards();
     } catch (_) {}
   })();
 
-  async function homelaunchPreset(id) {
-    const btn = document.getElementById('hqsBtn_' + id);
-    if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
+  function _renderWhoRow(players) {
+    document.getElementById('homeWhoRow').innerHTML = players.map(u => {
+      const char = _playerTopChars[u];
+      const src = char
+        ? charHeadUrl(char)
+        : `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}`;
+      return `<button type="button" class="qs-who-bubble" id="qsWho_${escHtml(u)}" onclick="homeToggleDim(${JSON.stringify(u)})">
+        <img class="qs-who-av" src="${escHtml(src)}" alt="${escHtml(u)}"
+             onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}'" />
+        <span class="qs-who-name">${escHtml(u)}</span>
+      </button>`;
+    }).join('');
+  }
+
+  function homeToggleDim(u) {
+    if (_dimmedPlayers.has(u)) _dimmedPlayers.delete(u);
+    else _dimmedPlayers.add(u);
+    const el = document.getElementById('qsWho_' + u);
+    if (el) el.classList.toggle('dimmed', _dimmedPlayers.has(u));
+    _renderPresetCards();
+  }
+
+  function _renderPresetCards() {
+    const container = document.getElementById('homePresetCards');
+    const html = _presetsData.map(p => {
+      const activePlayers = p.players.filter(u => !_dimmedPlayers.has(u));
+      if (activePlayers.length < 2) return '';
+
+      const style = (p.bracket_style || 'strongVsStrong').split('|')[0];
+      const cls   = style === 'strongVsStrong' ? 'svs' : style === 'strongVsWeak' ? 'svw' : 'rnd';
+      const chip  = style === 'strongVsStrong' ? '⚡ Sweaty' : style === 'strongVsWeak' ? '📊 Balanced' : '🎲 Chaos';
+
+      const heads = p.players.map(u => {
+        const char = _playerTopChars[u];
+        const src  = char
+          ? charHeadUrl(char)
+          : `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}`;
+        const dm = _dimmedPlayers.has(u) ? ' dimmed' : '';
+        return `<img class="qs-head${dm}" src="${escHtml(src)}" alt="${escHtml(u)}" title="${escHtml(u)}"
+                     onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}'" />`;
+      }).join('');
+
+      return `<div class="qs-card ${cls}" onclick="homelaunchPreset(${p.id},this)" role="button" tabindex="0">
+        <div class="qs-style-chip">${chip}</div>
+        <div class="qs-name">${escHtml(p.name)}</div>
+        <div class="qs-heads">${heads}</div>
+        <div class="qs-launching-overlay">⏳ Launching…</div>
+      </div>`;
+    }).filter(Boolean).join('');
+
+    container.innerHTML = html || '<div style="font-size:0.8rem;color:var(--text-muted);padding:4px 0;">Need at least 2 active players.</div>';
+  }
+
+  async function homelaunchPreset(id, cardEl) {
+    if (cardEl.classList.contains('launching')) return;
+    cardEl.classList.add('launching');
     try {
-      const res = await apiPost('/presets/' + id + '/launch', {});
+      const res = await apiPost('/presets/' + id + '/launch', { exclude_players: [..._dimmedPlayers] });
       window.location.href = 'tournament.html?id=' + res.id;
-    } catch (e) {
-      if (btn) { btn.disabled = false; btn.textContent = '▶ Launch'; }
-      alert(e.message || 'Launch failed');
+    } catch(e) {
+      cardEl.classList.remove('launching');
+      alert(e?.detail || e?.message || 'Launch failed');
     }
   }
 

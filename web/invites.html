@@ -33,8 +33,8 @@
   </div>
 
   <div class="tabs" id="invTabs">
-    <button class="tab-btn active" onclick="switchInvTab('received')">Received</button>
-    <button class="tab-btn" onclick="switchInvTab('sent')">Sent</button>
+    <button type="button" class="tab-btn active" onclick="switchInvTab('received')">Received</button>
+    <button type="button" class="tab-btn" onclick="switchInvTab('sent')">Sent</button>
   </div>
 
   <!-- Received tab -->
@@ -109,8 +109,8 @@
               <div class="invite-meta">From <strong>${escHtml(inv.inviter)}</strong> · ${inv.created_at ? new Date(inv.created_at).toLocaleDateString() : ''}</div>
             </div>
             <div class="invite-actions">
-              <button class="btn btn-primary btn-sm" onclick="respondInvite(${inv.id}, 'accepted', ${inv.bracket_id})">Accept & Join</button>
-              <button class="btn btn-danger btn-sm" onclick="respondInvite(${inv.id}, 'declined', null)">Decline</button>
+              <button type="button" class="btn btn-primary btn-sm" onclick="respondInvite(${inv.id}, 'accepted', ${inv.bracket_id})">Accept & Join</button>
+              <button type="button" class="btn btn-danger btn-sm" onclick="respondInvite(${inv.id}, 'declined', null)">Decline</button>
             </div>
           </div>
         `).join('');
@@ -189,7 +189,7 @@
           ? '<span class="badge badge-accepted">Accepted</span>'
           : '<span class="badge badge-declined">Declined</span>';
         const cancelBtn = inv.status === 'pending'
-          ? `<button class="btn btn-danger btn-sm" onclick="cancelInvite(${inv.id})">Cancel</button>`
+          ? `<button type="button" class="btn btn-danger btn-sm" onclick="cancelInvite(${inv.id})">Cancel</button>`
           : '';
         return `
           <div class="invite-row">

@@ -70,7 +70,7 @@
       </div>
       <div id="statusBadge"></div>
       <div id="eloRewards" style="display:none;background:rgba(255,224,102,0.07);border:1px solid rgba(255,224,102,0.2);border-radius:8px;padding:7px 14px;font-size:0.75rem;font-weight:700;color:rgba(255,255,255,0.7);display:flex;gap:14px;align-items:center;flex-wrap:wrap;"></div>
-      <button id="endTournamentBtn" onclick="confirmEndTournament()" style="display:none;margin-left:auto;background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:6px;padding:6px 14px;font-size:0.82rem;font-weight:700;cursor:pointer;">End Tournament</button>
+      <button type="button" id="endTournamentBtn" onclick="confirmEndTournament()" style="display:none;margin-left:auto;background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:6px;padding:6px 14px;font-size:0.82rem;font-weight:700;cursor:pointer;">End Tournament</button>
     </div>
 
     <!-- ── Lineup phase ── -->
@@ -82,7 +82,7 @@
         <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:16px;">Choose your characters then confirm your lineup.</p>
         <div id="myCharSlots" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;"></div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-          <button class="btn btn-primary" onclick="confirmLineup()" id="confirmBtn">Confirm Lineup</button>
+          <button type="button" class="btn btn-primary" onclick="confirmLineup()" id="confirmBtn">Confirm Lineup</button>
           <span id="myConfirmStatus" style="font-size:0.85rem;color:var(--text-muted);"></span>
         </div>
       </div>
@@ -135,7 +135,7 @@
           </div>
         </div>
 
-        <button class="btn btn-gold" onclick="previewMatchups()" id="btnPreviewMatchups">👁 Preview Matchups</button>
+        <button type="button" class="btn btn-gold" onclick="previewMatchups()" id="btnPreviewMatchups">👁 Preview Matchups</button>
       </div>
 
       <!-- Matchup preview + swap (host only, shown after Preview click) -->
@@ -143,8 +143,8 @@
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
           <h2 style="font-size:1rem;font-weight:700;margin:0;">Matchup Preview</h2>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-outline btn-sm" onclick="toggleMatchupSwap()" id="btnMatchupSwap">✏️ Edit Matchups</button>
-            <button class="btn btn-gold btn-sm" onclick="confirmMatchups()">✅ Confirm &amp; Generate</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="toggleMatchupSwap()" id="btnMatchupSwap">✏️ Edit Matchups</button>
+            <button type="button" class="btn btn-gold btn-sm" onclick="confirmMatchups()">✅ Confirm &amp; Generate</button>
           </div>
         </div>
         <div id="swapBannerPreview" style="display:none;background:rgba(0,119,200,0.12);border:1px solid rgba(0,119,200,0.35);border-radius:8px;padding:10px 14px;font-size:0.85rem;color:var(--accent-blue);margin-bottom:12px;">
@@ -173,7 +173,7 @@
     <!-- Undo last score (host only) -->
     <div id="undoBar" style="display:none;margin-top:14px;display:none;align-items:center;gap:12px;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:10px 16px;">
       <span style="font-size:0.82rem;color:var(--text-muted);flex:1;">Last score: <span id="undoLabel" style="color:var(--text);font-weight:600;"></span></span>
-      <button onclick="undoLastScore()" style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:6px;padding:5px 14px;font-size:0.82rem;font-weight:700;cursor:pointer;">Undo</button>
+      <button type="button" onclick="undoLastScore()" style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:6px;padding:5px 14px;font-size:0.82rem;font-weight:700;cursor:pointer;">Undo</button>
     </div>
 
     <div id="refreshNote" style="margin-top:12px;display:inline-flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--text-muted);">
@@ -197,7 +197,7 @@
     <div class="vs-lightning"></div>
   </div>
 
-  <button class="vs-close" onclick="closeScoreModal()">✕ Close</button>
+  <button type="button" class="vs-close" onclick="closeScoreModal()">✕ Close</button>
 
   <div class="vs-content">
     <div class="vs-player p1-side">
@@ -248,9 +248,9 @@
           <div style="text-align:center;"><span id="tElo_31" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
           <div style="text-align:center;"><span id="tElo_32" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
           <span></span>
-          <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,0)">3-0</button>
-          <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,1)">3-1</button>
-          <button class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,2)">3-2</button>
+          <button type="button" class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,0)">3-0</button>
+          <button type="button" class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,1)">3-1</button>
+          <button type="button" class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,2)">3-2</button>
         </div>
       </div>
       <div style="width:1px;align-self:stretch;background:rgba(255,255,255,0.15);"></div>
@@ -272,9 +272,9 @@
           <div style="text-align:center;"><span id="tElo_13" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
           <div style="text-align:center;"><span id="tElo_23" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
           <span></span>
-          <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(0,3)">0-3</button>
-          <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(1,3)">1-3</button>
-          <button class="score-preset-btn p2-btn" onclick="pickTournamentScore(2,3)">2-3</button>
+          <button type="button" class="score-preset-btn p2-btn" onclick="pickTournamentScore(0,3)">0-3</button>
+          <button type="button" class="score-preset-btn p2-btn" onclick="pickTournamentScore(1,3)">1-3</button>
+          <button type="button" class="score-preset-btn p2-btn" onclick="pickTournamentScore(2,3)">2-3</button>
         </div>
       </div>
     </div>
@@ -282,19 +282,19 @@
     <!-- Mobile winner-first picker (portrait only, toggled via CSS) -->
     <div id="mobileScorePicker" style="display:none;">
       <div style="display:flex;gap:10px;margin-bottom:18px;">
-        <button id="mWinBtn1" class="m-win-btn m-win-p1" onclick="selectMobileWinner('p1')">
+        <button type="button" id="mWinBtn1" class="m-win-btn m-win-p1" onclick="selectMobileWinner('p1')">
           <span id="mWinName1">P1 WON</span>
         </button>
-        <button id="mWinBtn2" class="m-win-btn m-win-p2" onclick="selectMobileWinner('p2')">
+        <button type="button" id="mWinBtn2" class="m-win-btn m-win-p2" onclick="selectMobileWinner('p2')">
           <span id="mWinName2">P2 WON</span>
         </button>
       </div>
       <div id="mobileScoreOptions" style="display:none;">
         <div style="font-size:0.65rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:12px;">Pick score</div>
         <div style="display:flex;gap:10px;">
-          <button class="m-score-card" id="mScoreCard0"></button>
-          <button class="m-score-card" id="mScoreCard1"></button>
-          <button class="m-score-card" id="mScoreCard2"></button>
+          <button type="button" class="m-score-card" id="mScoreCard0"></button>
+          <button type="button" class="m-score-card" id="mScoreCard1"></button>
+          <button type="button" class="m-score-card" id="mScoreCard2"></button>
         </div>
       </div>
     </div>
@@ -308,8 +308,8 @@
     <h2 style="font-size:1.05rem;font-weight:700;margin-bottom:8px;">End Tournament Early?</h2>
     <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:24px;">The tournament will be marked as ended. All stats recorded so far (kills, wins, losses) are already saved and will not be affected.</p>
     <div style="display:flex;gap:10px;">
-      <button class="btn btn-outline btn-sm" onclick="closeEndModal()" style="flex:1;">Cancel</button>
-      <button onclick="endTournamentNow()" style="flex:1;background:#e74c3c;color:#fff;border:none;border-radius:7px;padding:9px;font-size:0.88rem;font-weight:700;cursor:pointer;">Yes, End It</button>
+      <button type="button" class="btn btn-outline btn-sm" onclick="closeEndModal()" style="flex:1;">Cancel</button>
+      <button type="button" onclick="endTournamentNow()" style="flex:1;background:#e74c3c;color:#fff;border:none;border-radius:7px;padding:9px;font-size:0.88rem;font-weight:700;cursor:pointer;">Yes, End It</button>
     </div>
   </div>
 </div>
@@ -321,7 +321,7 @@
     <input type="text" id="charPickerSearch" placeholder="Search…" oninput="filterCharList()" autocomplete="off" />
     <div class="char-list" id="charPickerList"></div>
     <div class="char-picker-actions">
-      <button class="btn btn-outline btn-sm" onclick="closeCharPicker()">Cancel</button>
+      <button type="button" class="btn btn-outline btn-sm" onclick="closeCharPicker()">Cancel</button>
     </div>
   </div>
 </div>
@@ -497,7 +497,7 @@ function entryHtml(label, roundWinners, roundScores, is_live, roundIdx, matchKey
   // Only show edit button in Round 1 while tournament is live and match not yet decided
   const canEdit = isMe && is_live && roundIdx === 0 && !winnerLabel;
   const editBtn = canEdit
-    ? `<button class="edit-char-btn" onclick="openCharPicker('${myChar.replace(/'/g, "\\'")}')">✏️</button>`
+    ? `<button type="button" class="edit-char-btn" onclick="openCharPicker('${myChar.replace(/'/g, "\\'")}')">✏️</button>`
     : '';
 
   const badgeHtml = parsed ? badgeIcon(parsed.player) : '';

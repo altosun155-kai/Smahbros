@@ -88,7 +88,7 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
                  .filter(CharacterStats.elo > 1000)
                  .group_by(CharacterStats.user_id)
                  .order_by(func.max(CharacterStats.elo).desc())
-                 .limit(3).all()}
+                 .limit(1).all()}
 
     result = {}
     for u in all_users_list:
@@ -354,10 +354,10 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
                        .filter(CharacterStats.elo > 1000)
                        .group_by(CharacterStats.user_id)
                        .order_by(func.max(CharacterStats.elo).desc())
-                       .limit(3).all()}
+                       .limit(1).all()}
     if user.id in top3_player_ids:
         badges.append({"id": "top3", "label": "Top Performer",
-                       "desc": "Top 3 on the character leaderboard", "color": "#9b59b6"})
+                       "desc": "#1 on the character leaderboard", "color": "#9b59b6"})
     match_count = db.query(MatchResult).filter(
         or_(MatchResult.winner_id == user.id, MatchResult.loser_id == user.id)
     ).count()

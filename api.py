@@ -7,7 +7,7 @@ import os
 import logging
 
 from database import engine, Base
-from routers import auth, users, brackets, characters, matches, roundrobin, invites, friends, leaderboard, practice
+from routers import auth, users, brackets, characters, matches, roundrobin, invites, friends, leaderboard, practice, presets
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +56,19 @@ def _run_migrations():
                     updated_at TIMESTAMP DEFAULT NOW()
                 )
             """))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS tournament_presets (
+                    id SERIAL PRIMARY KEY,
+                    creator_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    name VARCHAR NOT NULL,
+                    players JSONB DEFAULT '[]',
+                    fill_mode VARCHAR DEFAULT 'elo',
+                    seed_mode VARCHAR DEFAULT 'elo',
+                    bracket_style VARCHAR DEFAULT 'strongVsStrong',
+                    chars_per_player INTEGER DEFAULT 2,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """))
         else:
             cols = {row[1] for row in conn.execute(text("PRAGMA table_info(brackets)"))}
             if "round_winners" not in cols:
@@ -93,6 +106,21 @@ def _run_migrations():
                 conn.execute(text("ALTER TABLE brackets ADD COLUMN chars_per_player INTEGER DEFAULT 2"))
             if "confirmed_lineups" not in b_cols:
                 conn.execute(text("ALTER TABLE brackets ADD COLUMN confirmed_lineups TEXT DEFAULT '{}'"))
+            existing = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))}
+            if "tournament_presets" not in existing:
+                conn.execute(text("""
+                    CREATE TABLE tournament_presets (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        creator_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        name VARCHAR NOT NULL,
+                        players TEXT DEFAULT '[]',
+                        fill_mode VARCHAR DEFAULT 'elo',
+                        seed_mode VARCHAR DEFAULT 'elo',
+                        bracket_style VARCHAR DEFAULT 'strongVsStrong',
+                        chars_per_player INTEGER DEFAULT 2,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
         conn.commit()
 
 
@@ -125,6 +153,7 @@ app.include_router(invites.router)
 app.include_router(friends.router)
 app.include_router(leaderboard.router)
 app.include_router(practice.router)
+app.include_router(presets.router)
 
 
 @app.get("/health")

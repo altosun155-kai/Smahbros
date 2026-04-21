@@ -228,6 +228,29 @@ class MatchResult(Base):
     loser   = relationship("User", foreign_keys=[loser_id])
 
 
+class TournamentPreset(Base):
+    """
+    Saved squad config for one-click bracket launches.
+    players = ["Kai", "Leap", "Rith", "Vyro"]
+    fill_mode = "elo" | "kills" | "winpct" | "favorites" | "tierlist"
+    seed_mode = "elo" | "kills" | "winpct"
+    bracket_style = "strongVsStrong" | "strongVsWeak" | "random"
+    """
+    __tablename__ = "tournament_presets"
+
+    id               = Column(Integer, primary_key=True, index=True)
+    creator_id       = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name             = Column(String, nullable=False)
+    players          = Column(JSON, default=list)
+    fill_mode        = Column(String, default="elo")
+    seed_mode        = Column(String, default="elo")
+    bracket_style    = Column(String, default="strongVsStrong")
+    chars_per_player = Column(Integer, default=2)
+    created_at       = Column(DateTime, default=datetime.utcnow)
+
+    creator = relationship("User")
+
+
 class ProfileComment(Base):
     """
     GG / comment left on a user's profile by another user.

@@ -79,6 +79,54 @@
     .vs-win-btn.p2 { background: #1155cc; color: #fff; }
     .match-box { cursor: pointer; transition: border-color 0.15s; }
     .match-box:hover { border-color: var(--accent-blue); }
+    /* ── Quick Start presets ── */
+    .qs-strip { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; align-items: stretch; }
+    .qs-card {
+      background: linear-gradient(135deg, rgba(0,100,220,.18), rgba(40,0,120,.12));
+      border: 1px solid rgba(0,120,255,.3);
+      border-radius: 14px; padding: 16px 18px;
+      display: flex; flex-direction: column; gap: 8px;
+      min-width: 220px; max-width: 300px; flex: 1;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .qs-card:hover { border-color: rgba(0,140,255,.55); box-shadow: 0 0 20px rgba(0,120,255,.18); }
+    .qs-card-name { font-size: 0.95rem; font-weight: 800; color: #fff; }
+    .qs-card-meta { font-size: 0.72rem; color: rgba(255,255,255,.45); line-height: 1.5; }
+    .qs-card-players { font-size: 0.78rem; color: rgba(255,255,255,.7); font-weight: 600; }
+    .qs-card-actions { display: flex; gap: 8px; margin-top: 4px; }
+    .qs-launch-btn {
+      flex: 1; padding: 9px 0; border: none; border-radius: 8px;
+      background: var(--accent-blue); color: #fff; font-weight: 800;
+      font-size: 0.85rem; cursor: pointer; transition: background .15s, transform .1s;
+    }
+    .qs-launch-btn:hover { background: #0088e0; transform: translateY(-1px); }
+    .qs-launch-btn:disabled { background: #334; color: var(--text-muted); cursor: not-allowed; transform: none; }
+    .qs-delete-btn {
+      padding: 9px 12px; border: 1px solid rgba(255,255,255,.12); border-radius: 8px;
+      background: none; color: rgba(255,255,255,.35); font-size: 0.82rem; cursor: pointer;
+      transition: color .15s, border-color .15s;
+    }
+    .qs-delete-btn:hover { color: #e74c3c; border-color: rgba(231,76,60,.4); }
+    .qs-add-card {
+      border: 1.5px dashed rgba(255,255,255,.15); border-radius: 14px;
+      padding: 16px 18px; display: flex; align-items: center; justify-content: center;
+      gap: 8px; cursor: pointer; color: rgba(255,255,255,.35); font-size: 0.82rem;
+      font-weight: 600; min-width: 160px; transition: border-color .15s, color .15s;
+      background: none;
+    }
+    .qs-add-card:hover { border-color: rgba(255,255,255,.35); color: rgba(255,255,255,.7); }
+
+    /* Save preset modal */
+    #savePresetModal { display:none; position:fixed; inset:0; z-index:400; background:rgba(0,0,0,.6); align-items:center; justify-content:center; padding:20px; }
+    #savePresetModal.open { display:flex; }
+    .sp-box { background:var(--card-bg); border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:26px 22px 20px; max-width:380px; width:100%; }
+    .sp-box h3 { font-size:1rem; font-weight:800; margin-bottom:16px; }
+    .sp-row { margin-bottom:12px; }
+    .sp-row label { display:block; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); margin-bottom:5px; }
+    .sp-row input, .sp-row select { width:100%; padding:9px 12px; background:#0f0f17; border:1px solid rgba(255,255,255,.15); border-radius:7px; color:var(--text); font-size:0.9rem; font-family:inherit; box-sizing:border-box; }
+    .sp-row input:focus, .sp-row select:focus { outline:none; border-color:var(--accent-blue); }
+    .sp-actions { display:flex; gap:10px; margin-top:16px; }
+
     .friend-chip {
       display: flex; align-items: center; gap: 6px;
       background: var(--card-bg2); border: 1px solid var(--border);
@@ -103,6 +151,64 @@
   <div class="page-header">
     <h1>🎮 Bracket Generator</h1>
     <p>Set up players, choose characters, then generate a single-elimination bracket.</p>
+  </div>
+
+  <!-- ══ QUICK START ══ -->
+  <div id="quickStartSection" style="display:none;margin-bottom:8px;">
+    <div style="font-size:0.65rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:10px;">⚡ Quick Start</div>
+    <div class="qs-strip" id="presetCards"></div>
+  </div>
+
+  <!-- Save Preset Modal -->
+  <div id="savePresetModal">
+    <div class="sp-box">
+      <h3>💾 Save as Preset</h3>
+      <div class="sp-row">
+        <label>Preset Name</label>
+        <input type="text" id="spName" placeholder="e.g. Friday Night Smash" maxlength="40" />
+      </div>
+      <div class="sp-row">
+        <label>Players (from current setup)</label>
+        <div id="spPlayerList" style="font-size:0.82rem;color:var(--text-muted);padding:8px 12px;background:var(--card-bg2);border:1px solid var(--border);border-radius:7px;min-height:36px;"></div>
+      </div>
+      <div class="sp-row">
+        <label>Character Fill</label>
+        <select id="spFillMode">
+          <option value="elo">Auto-fill by Elo</option>
+          <option value="kills">Auto-fill by Kills</option>
+          <option value="winpct">Auto-fill by Win %</option>
+        </select>
+      </div>
+      <div class="sp-row">
+        <label>Seeding</label>
+        <select id="spSeedMode">
+          <option value="elo">Elo</option>
+          <option value="kills">Kills</option>
+          <option value="winpct">Win %</option>
+        </select>
+      </div>
+      <div class="sp-row">
+        <label>Bracket Style</label>
+        <select id="spBracketStyle">
+          <option value="strongVsStrong">Strong vs Strong</option>
+          <option value="strongVsWeak">Strong vs Weak</option>
+          <option value="random">Random</option>
+        </select>
+      </div>
+      <div class="sp-row">
+        <label>Characters per Player</label>
+        <select id="spCpp">
+          <option value="1">1</option>
+          <option value="2" selected>2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+        </select>
+      </div>
+      <div class="sp-actions">
+        <button class="btn btn-primary" style="flex:1;" onclick="savePreset()">Save Preset</button>
+        <button class="btn btn-outline" onclick="closePresetModal()">Cancel</button>
+      </div>
+    </div>
   </div>
 
   <div class="bracket-layout">
@@ -232,6 +338,7 @@
           <button class="btn btn-gold btn-sm" onclick="startLiveTournament()">🏆 Start Live Tournament</button>
           <button class="btn btn-sm" style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.5);color:#27ae60;" onclick="startLineupPhase()">📋 Lineup Phase</button>
           <button class="btn btn-outline btn-sm" onclick="saveBracket()">Save Draft</button>
+          <button class="btn btn-sm" style="background:rgba(100,60,255,.15);border:1px solid rgba(100,60,255,.4);color:#a78bfa;" onclick="openSavePreset()">💾 Save Preset</button>
         </div>
         <div id="liveTournamentBanner" style="display:none;margin-top:12px;background:rgba(39,174,96,0.12);border:1px solid rgba(39,174,96,0.35);border-radius:8px;padding:12px 16px;font-size:0.88rem;color:#27ae60;">
           <strong>🟢 Tournament is LIVE</strong> — invited players can watch in real time.
@@ -1397,8 +1504,123 @@ function getPlayerAvatar(username) {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeVsModal();
+  if (e.key === 'Escape') { closeVsModal(); closePresetModal(); }
 });
+
+// ══════════════════════════════════════════════════════
+//  QUICK START — Preset system
+// ══════════════════════════════════════════════════════
+const FILL_LABELS  = { elo:'Elo fill', kills:'Kills fill', winpct:'Win% fill', favorites:'Favorites', tierlist:'Tier list' };
+const SEED_LABELS  = { elo:'Elo seed', kills:'Kills seed', winpct:'Win% seed' };
+const STYLE_LABELS = { strongVsStrong:'Strong vs Strong', strongVsWeak:'Strong vs Weak', random:'Random draw' };
+
+async function loadPresets() {
+  try {
+    const presets = await apiGet('/presets');
+    const section = document.getElementById('quickStartSection');
+    const container = document.getElementById('presetCards');
+    if (!presets || !presets.length) { section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    container.innerHTML = presets.map(p => `
+      <div class="qs-card" id="qsCard_${p.id}">
+        <div class="qs-card-name">${escHtml(p.name)}</div>
+        <div class="qs-card-players">${p.players.map(escHtml).join(' · ')}</div>
+        <div class="qs-card-meta">
+          ${FILL_LABELS[p.fill_mode] || p.fill_mode} &nbsp;·&nbsp;
+          ${SEED_LABELS[p.seed_mode] || p.seed_mode} &nbsp;·&nbsp;
+          ${STYLE_LABELS[p.bracket_style] || p.bracket_style}<br>
+          ${p.chars_per_player} char${p.chars_per_player !== 1 ? 's' : ''}/player
+          ${p.creator === myUsername ? ' · <span style="color:rgba(255,255,255,.3);">yours</span>' : ''}
+        </div>
+        <div class="qs-card-actions">
+          <button class="qs-launch-btn" onclick="launchPreset(${p.id},this)">⚡ Launch</button>
+          ${p.creator === myUsername
+            ? `<button class="qs-delete-btn" onclick="deletePreset(${p.id})">🗑</button>`
+            : ''}
+        </div>
+      </div>
+    `).join('') + `<button class="qs-add-card" onclick="openSavePreset()">＋ New Preset</button>`;
+  } catch (_) {}
+}
+
+async function launchPreset(id, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Launching…';
+  try {
+    const res = await apiPost(`/presets/${id}/launch`, {});
+    showToast(`${res.name} — bracket created!`, 'success');
+    setTimeout(() => { window.location.href = `tournament.html?id=${res.id}`; }, 600);
+  } catch (e) {
+    showToast('Launch failed: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = '⚡ Launch';
+  }
+}
+
+async function deletePreset(id) {
+  if (!confirm('Delete this preset?')) return;
+  try {
+    await apiDelete(`/presets/${id}`);
+    document.getElementById(`qsCard_${id}`)?.remove();
+    showToast('Preset deleted', 'success');
+    // Hide section if no cards left (only the add button remains)
+    const cards = document.querySelectorAll('[id^="qsCard_"]');
+    if (!cards.length) document.getElementById('quickStartSection').style.display = 'none';
+  } catch (e) {
+    showToast('Could not delete: ' + e.message, 'error');
+  }
+}
+
+function openSavePreset() {
+  const players = getPlayers();
+  if (!players.length) { showToast('Add players first', 'warn'); return; }
+  document.getElementById('spPlayerList').textContent = players.join(', ');
+  document.getElementById('spName').value = '';
+  // Mirror current sidebar selections into modal defaults
+  const fillMode = document.querySelector('input[name="fillMode"]:checked')?.value || 'elo';
+  const seedMode = document.querySelector('input[name="seedMode"]:checked')?.value || 'elo';
+  const style    = document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong';
+  const cpp      = document.getElementById('charsPerPlayer')?.value || '2';
+  document.getElementById('spFillMode').value = ['elo','kills','winpct'].includes(fillMode) ? fillMode : 'elo';
+  document.getElementById('spSeedMode').value = seedMode;
+  document.getElementById('spBracketStyle').value = style;
+  document.getElementById('spCpp').value = cpp;
+  document.getElementById('savePresetModal').classList.add('open');
+  setTimeout(() => document.getElementById('spName').focus(), 60);
+}
+
+function closePresetModal() {
+  document.getElementById('savePresetModal').classList.remove('open');
+}
+
+async function savePreset() {
+  const name = document.getElementById('spName').value.trim();
+  if (!name) { showToast('Give the preset a name', 'warn'); return; }
+  const players = getPlayers();
+  if (players.length < 2) { showToast('Need at least 2 players', 'warn'); return; }
+  try {
+    await apiPost('/presets', {
+      name,
+      players,
+      fill_mode:        document.getElementById('spFillMode').value,
+      seed_mode:        document.getElementById('spSeedMode').value,
+      bracket_style:    document.getElementById('spBracketStyle').value,
+      chars_per_player: parseInt(document.getElementById('spCpp').value, 10),
+    });
+    closePresetModal();
+    showToast(`"${name}" saved!`, 'success');
+    loadPresets();
+  } catch (e) {
+    showToast('Save failed: ' + e.message, 'error');
+  }
+}
+
+document.getElementById('savePresetModal').addEventListener('click', function(e) {
+  if (e.target === this) closePresetModal();
+});
+
+// Load presets on page init (after apiGet is available)
+window.addEventListener('DOMContentLoaded', () => { loadPresets(); });
 </script>
 
 <!-- VS Modal -->

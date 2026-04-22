@@ -1308,6 +1308,7 @@ function toggleEntries() {
 }
 
 let liveTournamentId = null;
+let _launchingTournament = false;
 
 function getBracketPayload(name, isLive, inviteUsernames) {
   return {
@@ -1325,10 +1326,12 @@ function getBracketPayload(name, isLive, inviteUsernames) {
 }
 
 async function startLineupPhase() {
+  if (_launchingTournament) return;
   const name = document.getElementById('bracketName').value.trim();
   if (!name) { showToast('Enter a tournament name first.', 'warn'); return; }
   const players = getPlayers();
   if (players.length < 2) { showToast('Add at least 2 players first.', 'warn'); return; }
+  _launchingTournament = true;
   const invitees = players.filter(p => p !== myUsername);
   const k = parseInt(document.getElementById('charsPerPlayer').value) || 2;
   try {
@@ -1347,6 +1350,7 @@ async function startLineupPhase() {
     liveTournamentId = res.id;
     window.location.href = `tournament.html?id=${res.id}`;
   } catch (err) {
+    _launchingTournament = false;
     showToast('Error starting lineup phase: ' + err.message, 'error');
   }
 }
@@ -1363,9 +1367,11 @@ async function saveBracket() {
 }
 
 async function startLiveTournament() {
+  if (_launchingTournament) return;
   const name = document.getElementById('bracketName').value.trim();
   if (!name) { showToast('Enter a tournament name first.', 'warn'); return; }
   if (currentBracket.length === 0) { showToast('Generate a bracket first.', 'warn'); return; }
+  _launchingTournament = true;
 
   // Collect all players except yourself as invitees
   const invitees = getPlayers().filter(p => p !== myUsername);
@@ -1378,6 +1384,7 @@ async function startLiveTournament() {
     document.getElementById('liveTournamentLink').innerHTML =
       `<a href="tournament.html?id=${res.id}" style="color:#27ae60;text-decoration:underline;">Open live view →</a>`;
   } catch (err) {
+    _launchingTournament = false;
     showToast('Error starting tournament: ' + err.message, 'error');
   }
 }

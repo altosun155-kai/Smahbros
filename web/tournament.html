@@ -833,15 +833,11 @@ async function buildMyCharSlots(k, confirmedLineups) {
   container.innerHTML = '';
   lineupSlotValues = [];
 
-  // Fetch top chars once and cache
+  // Fetch favourites once and cache
   if (!_myTopChars.length && myUsername) {
     try {
-      const d = await apiGet(`/characters/stats/${encodeURIComponent(myUsername)}`);
-      _myTopChars = (d.stats || [])
-        .filter(s => (s.wins || 0) + (s.losses || 0) >= 1)
-        .sort((a, b) => (b.elo || 1000) - (a.elo || 1000))
-        .slice(0, 8)
-        .map(s => s.character);
+      const d = await apiGet('/characters/favorites');
+      _myTopChars = (d.characters || []).slice(0, 8);
     } catch (_) {}
   }
 

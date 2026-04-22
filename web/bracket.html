@@ -400,6 +400,7 @@
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/chars.js"></script>
+<script src="js/bracket-engine.js"></script>
 <script>
 // ── Roster ────────────────────────────────────────
 const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];
@@ -682,13 +683,7 @@ function autofillChars() {
   renderEntryGrid();
 }
 
-// ── Bracket algorithm ─────────────────────────────
-function nextPow2(n) {
-  if (n <= 1) return 1;
-  let p = 1;
-  while (p < n) p <<= 1;
-  return p;
-}
+// ── Bracket algorithm (logic lives in bracket-engine.js) ──────────────────
 
 function getTeamOf(player) {
   if (currentMode !== 'teams') return '';
@@ -713,7 +708,10 @@ function generateBracket() {
   // Snapshot team assignments so they're available when recording match results
   currentTeamOf = { ...teamOf };
 
-  const pairs = generateBracketJS(base, currentMode === 'teams', teamOf);
+  const style    = document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong';
+  const poolMode = document.querySelector('input[name="poolMode"]:checked')?.value    || 'slot';
+  const seedMode = document.querySelector('input[name="seedMode"]:checked')?.value    || 'elo';
+  const pairs = buildBracketPairs({ entries: base, style, poolMode, seedMode, teamMode: currentMode === 'teams', teamOf, statsMap: allUserStats });
   if (!pairs.length) { showToast('Could not build a valid bracket with those constraints.', 'error'); return; }
 
   currentBracket = pairs;
@@ -766,263 +764,6 @@ function getEntryPoints(entry) {
     return 0;
   }
   return 0;
-}
-
-// Always uses actual win/loss points for seeding regardless of fill mode
-function getSeedPoints(entry) {
-  if (!entry || entry.player === 'SYSTEM') return -1;
-  const stats = allUserStats[entry.player] || [];
-  const match = stats.find(s => s.character === entry.character);
-  return match ? match.points : 0;
-}
-
-// Returns total kills for a player/character pair
-function getSeedKills(entry) {
-  if (!entry || entry.player === 'SYSTEM') return -1;
-  const stats = allUserStats[entry.player] || [];
-  const match = stats.find(s => s.character === entry.character);
-  return match ? (match.kills || 0) : 0;
-}
-
-function getSeedWinPct(entry) {
-  if (!entry || entry.player === 'SYSTEM') return -1;
-  const stats = allUserStats[entry.player] || [];
-  const match = stats.find(s => s.character === entry.character);
-  if (!match) return 0;
-  const total = (match.wins || 0) + (match.losses || 0);
-  return total >= 3 ? (match.wins || 0) / total : 0;
-}
-
-function getSeedElo(entry) {
-  if (!entry || entry.player === 'SYSTEM') return -1;
-  const stats = allUserStats[entry.player] || [];
-  const match = stats.find(s => s.character === entry.character);
-  return match ? (match.elo || 1000) : 1000;
-}
-
-// Returns the seeding value based on the Seeding (Rank By) selection
-function getSeedValue(entry) {
-  const seedMode = document.querySelector('input[name="seedMode"]:checked')?.value || 'elo';
-  if (seedMode === 'kills') return getSeedKills(entry);
-  if (seedMode === 'winpct') return getSeedWinPct(entry);
-  if (seedMode === 'elo') return getSeedElo(entry);
-  return getSeedPoints(entry);
-}
-
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
-// Pair an ordered player list ensuring different teams face each other.
-// For each unpaired player (in order), finds the first unpaired opponent
-// from a different team. Falls back to same team if no cross-team option exists.
-function pairCrossTeam(ordered, getEntry, teamOf) {
-  const BYE = { player: 'SYSTEM', character: 'BYE' };
-  const pairs = [];
-  const used = new Set();
-
-  for (let i = 0; i < ordered.length; i++) {
-    if (used.has(i)) continue;
-    used.add(i);
-    const pa = ordered[i];
-    const teamA = teamOf[pa] || '';
-
-    // Find nearest unpaired opponent from a different team
-    let found = -1;
-    for (let j = i + 1; j < ordered.length; j++) {
-      if (used.has(j)) continue;
-      const teamB = teamOf[ordered[j]] || '';
-      if (!teamA || !teamB || teamA !== teamB) { found = j; break; }
-    }
-    // Fallback: pair with next available regardless of team
-    if (found === -1) {
-      for (let j = i + 1; j < ordered.length; j++) {
-        if (!used.has(j)) { found = j; break; }
-      }
-    }
-
-    if (found === -1) {
-      pairs.push([getEntry(pa), BYE]);
-    } else {
-      used.add(found);
-      pairs.push([getEntry(pa), getEntry(ordered[found])]);
-    }
-  }
-  return pairs;
-}
-
-function _fixSamePlayer(paired, BYE) {
-  for (let i = 0; i < paired.length; i++) {
-    if (paired[i][0].player !== 'SYSTEM' && paired[i][0].player === paired[i][1].player) {
-      for (let j = i + 1; j < paired.length; j++) {
-        if (paired[j][1].player !== paired[i][0].player && paired[j][0].player !== paired[i][0].player) {
-          [paired[i][1], paired[j][1]] = [paired[j][1], paired[i][1]];
-          break;
-        }
-      }
-    }
-  }
-}
-
-function generateBracketJS(base, teamMode, teamOf) {
-  const BYE = { player: 'SYSTEM', character: 'BYE' };
-  const style    = document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong';
-  const poolMode = document.querySelector('input[name="poolMode"]:checked')?.value    || 'slot';
-
-  // Step 1: Group each player's entries (order = fill-mode priority: slot 0 = top pick)
-  const playerGroups = {};
-  base.forEach(e => {
-    if (!playerGroups[e.player]) playerGroups[e.player] = [];
-    playerGroups[e.player].push(e);
-  });
-  const players = Object.keys(playerGroups);
-  const maxChars = Math.max(...Object.values(playerGroups).map(g => g.length));
-
-  // ── Free Pool mode: apply chosen style across the entire character pool ──
-  if (poolMode === 'freePool') {
-    const pairs = [];
-
-    if (style === 'strongVsStrong') {
-      // Wave-based: each wave = each player's best remaining char, sort globally, pair adjacent
-      const rem = {};
-      players.forEach(p => { rem[p] = [...playerGroups[p]].sort((a, b) => getSeedValue(b) - getSeedValue(a)); });
-      for (let wave = 0; wave < maxChars; wave++) {
-        let w = players.filter(p => rem[p].length > 0).map(p => rem[p].shift());
-        w.sort((a, b) => getSeedValue(b) - getSeedValue(a));
-        if (w.length % 2 === 1) w.push(BYE);
-        for (let i = 0; i + 1 < w.length; i += 2) pairs.push([w[i], w[i + 1]]);
-      }
-    } else if (style === 'random') {
-      // Wave-based: each wave = a random char per player, shuffle, pair adjacent
-      const rem = {};
-      players.forEach(p => { rem[p] = shuffle([...playerGroups[p]]); });
-      for (let wave = 0; wave < maxChars; wave++) {
-        let w = players.filter(p => rem[p].length > 0).map(p => rem[p].shift());
-        shuffle(w);
-        if (w.length % 2 === 1) w.push(BYE);
-        for (let i = 0; i + 1 < w.length; i += 2) pairs.push([w[i], w[i + 1]]);
-      }
-    } else {
-      // strongVsWeak: global sort, pair best vs worst, skip already-used players per wave
-      const pool = [...base].sort((a, b) => getSeedValue(b) - getSeedValue(a));
-      const n = pool.length;
-      const taken = new Array(n).fill(false);
-      let totalPaired = 0;
-
-      while (totalPaired < n) {
-        const usedThisWave = new Set();
-        let madeProgress = true;
-
-        while (madeProgress) {
-          madeProgress = false;
-          let lo = -1, hi = -1;
-          for (let k = 0; k < n; k++) {
-            if (!taken[k] && !usedThisWave.has(pool[k].player)) { lo = k; break; }
-          }
-          if (lo === -1) break;
-          for (let k = n - 1; k > lo; k--) {
-            if (!taken[k] && !usedThisWave.has(pool[k].player) && pool[k].player !== pool[lo].player) { hi = k; break; }
-          }
-          if (hi === -1) break;
-
-          pairs.push([pool[lo], pool[hi]]);
-          taken[lo] = taken[hi] = true;
-          usedThisWave.add(pool[lo].player);
-          usedThisWave.add(pool[hi].player);
-          totalPaired += 2;
-          madeProgress = true;
-        }
-
-        // Only one player's chars remain — pair with BYE
-        if (!madeProgress) {
-          for (let k = 0; k < n; k++) {
-            if (!taken[k]) { pairs.push([pool[k], BYE]); taken[k] = true; totalPaired++; }
-          }
-          break;
-        }
-      }
-    }
-
-    const target = nextPow2(pairs.length);
-    while (pairs.length < target) pairs.push([BYE, BYE]);
-    return pairs;
-  }
-
-  // ── Random mode (slot-based): fully random — break slot structure entirely ──
-  if (style === 'random') {
-    // Shuffle each player's own character list so char slot order is random
-    const shuffledGroups = {};
-    players.forEach(p => { shuffledGroups[p] = shuffle([...playerGroups[p]]); });
-
-    // Deal round-robin: one entry per player per slot, player order shuffled each round
-    const flat = [];
-    for (let slot = 0; slot < maxChars; slot++) {
-      shuffle([...players]).forEach(p => {
-        if (shuffledGroups[p][slot]) flat.push(shuffledGroups[p][slot]);
-      });
-    }
-
-    let pairs;
-    if (teamMode) {
-      pairs = pairCrossTeam(
-        flat.map((_, i) => i),
-        i => flat[i],
-        Object.fromEntries(flat.map((e, i) => [i, teamOf[e.player] || '']))
-      );
-    } else {
-      for (let i = 0; i < flat.length - 1; i++) {
-        if (flat[i].player !== 'SYSTEM' && flat[i].player === flat[i + 1].player) {
-          for (let j = i + 2; j < flat.length; j++) {
-            if (flat[j].player !== flat[i].player) {
-              [flat[i + 1], flat[j]] = [flat[j], flat[i + 1]];
-              break;
-            }
-          }
-        }
-      }
-      if (flat.length % 2 === 1) flat.push(BYE);
-      pairs = [];
-      for (let i = 0; i + 1 < flat.length; i += 2) pairs.push([flat[i], flat[i + 1]]);
-    }
-
-    const target = nextPow2(pairs.length);
-    while (pairs.length < target) pairs.push([BYE, BYE]);
-    return pairs;
-  }
-
-  // Step 2: Per-slot — rank players by seed value then pair by style.
-  const pairs = [];
-  for (let slot = 0; slot < maxChars; slot++) {
-    const ordered = [...players]
-      .filter(p => playerGroups[p][slot])  // only include players who have an entry for this slot
-      .sort((a, b) =>
-        getSeedValue(playerGroups[b][slot]) - getSeedValue(playerGroups[a][slot])
-      );
-    if (ordered.length === 0) continue;
-    const getEntry = p => playerGroups[p][slot] || BYE;
-
-    if (teamMode) {
-      pairs.push(...pairCrossTeam(ordered, getEntry, teamOf));
-    } else if (style === 'strongVsStrong') {
-      for (let i = 0; i + 1 < ordered.length; i += 2) {
-        pairs.push([getEntry(ordered[i]), getEntry(ordered[i + 1])]);
-      }
-      if (ordered.length % 2 === 1) pairs.push([getEntry(ordered[ordered.length - 1]), BYE]);
-    } else {
-      // strongVsWeak
-      let lo = 0, hi = ordered.length - 1;
-      while (lo < hi) { pairs.push([getEntry(ordered[lo++]), getEntry(ordered[hi--])]); }
-      if (lo === hi) pairs.push([getEntry(ordered[lo]), BYE]);
-    }
-  }
-
-  const target = nextPow2(pairs.length);
-  while (pairs.length < target) pairs.push([BYE, BYE]);
-  return pairs;
 }
 
 // ── Swap mode ─────────────────────────────────────
@@ -1576,19 +1317,19 @@ function openVsModal(a, b, key) {
   const seedMode = document.querySelector('input[name="seedMode"]:checked')?.value || 'elo';
   let seedA, seedB;
   if (seedMode === 'kills') {
-    seedA = getSeedKills(a); seedB = getSeedKills(b);
+    seedA = getSeedKills(a, allUserStats); seedB = getSeedKills(b, allUserStats);
     document.getElementById('vsP1Seed').textContent = seedA > 0 ? `${seedA} kills` : '';
     document.getElementById('vsP2Seed').textContent = seedB > 0 ? `${seedB} kills` : '';
   } else if (seedMode === 'winpct') {
-    seedA = getSeedWinPct(a); seedB = getSeedWinPct(b);
+    seedA = getSeedWinPct(a, allUserStats); seedB = getSeedWinPct(b, allUserStats);
     document.getElementById('vsP1Seed').textContent = seedA > 0 ? `${Math.round(seedA * 100)}%` : '';
     document.getElementById('vsP2Seed').textContent = seedB > 0 ? `${Math.round(seedB * 100)}%` : '';
   } else if (seedMode === 'elo') {
-    seedA = getSeedElo(a); seedB = getSeedElo(b);
+    seedA = getSeedElo(a, allUserStats); seedB = getSeedElo(b, allUserStats);
     document.getElementById('vsP1Seed').textContent = `${seedA} elo`;
     document.getElementById('vsP2Seed').textContent = `${seedB} elo`;
   } else {
-    seedA = getSeedPoints(a); seedB = getSeedPoints(b);
+    seedA = getSeedPoints(a, allUserStats); seedB = getSeedPoints(b, allUserStats);
     document.getElementById('vsP1Seed').textContent = seedA > 0 ? `${seedA} pts` : '';
     document.getElementById('vsP2Seed').textContent = seedB > 0 ? `${seedB} pts` : '';
   }
@@ -1598,8 +1339,8 @@ function openVsModal(a, b, key) {
   document.getElementById('vsScoreLabel2').textContent = `${b.player} Wins`;
 
   // Elo gain previews above each score button
-  const eloA = getSeedElo(a);
-  const eloB = getSeedElo(b);
+  const eloA = getSeedElo(a, allUserStats);
+  const eloB = getSeedElo(b, allUserStats);
   document.getElementById('vsElo_30').textContent = `+${previewEloGain(eloA, eloB, 3, 0)}`;
   document.getElementById('vsElo_31').textContent = `+${previewEloGain(eloA, eloB, 3, 1)}`;
   document.getElementById('vsElo_32').textContent = `+${previewEloGain(eloA, eloB, 3, 2)}`;

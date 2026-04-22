@@ -345,6 +345,7 @@
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/chars.js"></script>
+<script src="js/bracket-engine.js"></script>
 <script>
 const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];
 
@@ -984,17 +985,6 @@ function renderLineupStatus(data) {
   }).join('');
 }
 
-// ── Bracket generation (lineup → matchups) ────────
-function nextPow2(n) { if (n<=1) return 1; let p=1; while(p<n) p<<=1; return p; }
-
-function shuffleArr(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
 // ── Matchup preview + swap state ──────────────────
 let pendingPairs   = [];
 let pendingEntries = [];
@@ -1025,163 +1015,21 @@ async function previewMatchups() {
   document.getElementById('btnPreviewMatchups').textContent = '👁 Preview Matchups';
   document.getElementById('btnPreviewMatchups').disabled = false;
 
+  // Sort each player's characters by elo so slot 0 = best char
   const playerGroups = {};
   players.forEach(p => {
     const chars = confirmedLineups[p] || [];
     const stats = playerStats[p] || [];
-    // Sort each player's characters by elo descending so slot 0 = best char,
-    // slot 1 = 2nd best, etc. — prevents a player's worst char landing in the
-    // same pool as everyone else's best.
     const getElo = c => (stats.find(s => s.character === c) || {}).elo || 1000;
     playerGroups[p] = [...chars].sort((a, b) => getElo(b) - getElo(a)).map(c => ({ player: p, character: c }));
   });
-  const maxChars = Math.max(...players.map(p => (playerGroups[p] || []).length), 0);
-  if (maxChars === 0) { showToast('No confirmed lineups yet.', 'warn'); return; }
+  if (!players.some(p => playerGroups[p].length > 0)) { showToast('No confirmed lineups yet.', 'warn'); return; }
 
-  function getSeed(entry) {
-    if (!entry || entry.player === 'SYSTEM') return -1;
-    const stats = playerStats[entry.player] || [];
-    const s = stats.find(x => x.character === entry.character);
-    if (!s) return 0;
-    if (seedMode === 'winpct') {
-      const total = (s.wins || 0) + (s.losses || 0);
-      return total >= 3 ? (s.wins || 0) / total : 0;
-    }
-    if (seedMode === 'kills') return s.kills || 0;
-    if (seedMode === 'elo') return s.elo || 1000;
-    return s.elo || 1000;
-  }
+  const entries = players.flatMap(p => playerGroups[p]);
+  const rawPairs = buildBracketPairs({ entries, style, poolMode, seedMode, statsMap: playerStats });
 
-  const pairs = [];
-
-  if (style === 'random' && poolMode !== 'freePool') {
-    // Shuffle each player's own char list so char slot order is random
-    const shuffledGroups = {};
-    players.forEach(p => {
-      shuffledGroups[p] = [...(playerGroups[p] || [])];
-      shuffleArr(shuffledGroups[p]);
-    });
-
-    // Deal round-robin by slot: slot-0 chars from all players first, then slot-1, etc.
-    // This puts each player's chars in different bracket halves, preventing R2 self-matchups.
-    const flat = [];
-    for (let slot = 0; slot < maxChars; slot++) {
-      const slotOrder = [...players].filter(p => shuffledGroups[p][slot]);
-      shuffleArr(slotOrder);
-      slotOrder.forEach(p => flat.push(shuffledGroups[p][slot]));
-    }
-
-    // Fix any adjacent same-player pairs (prevents R1 self-matchups)
-    for (let i = 0; i < flat.length - 1; i++) {
-      if (flat[i].player === flat[i + 1].player) {
-        for (let j = i + 2; j < flat.length; j++) {
-          if (flat[j].player !== flat[i].player) { [flat[i + 1], flat[j]] = [flat[j], flat[i + 1]]; break; }
-        }
-      }
-    }
-
-    for (let i = 0; i + 1 < flat.length; i += 2) {
-      pairs.push({ a: `${flat[i].player} — ${flat[i].character}`, b: `${flat[i+1].player} — ${flat[i+1].character}` });
-    }
-    if (flat.length % 2 === 1) {
-      const e = flat[flat.length - 1];
-      pairs.push({ a: `${e.player} — ${e.character}`, b: 'BYE' });
-    }
-  } else if (poolMode !== 'freePool') {
-    for (let slot = 0; slot < maxChars; slot++) {
-      const slotPlayers = [...players].filter(p => playerGroups[p][slot]);
-      slotPlayers.sort((a, b) => getSeed(playerGroups[b][slot]) - getSeed(playerGroups[a][slot]));
-      const getEntry = p => playerGroups[p][slot];
-      if (style === 'strongVsWeak') {
-        let lo = 0, hi = slotPlayers.length - 1;
-        while (lo < hi) {
-          pairs.push({ a: `${slotPlayers[lo]} — ${getEntry(slotPlayers[lo]).character}`, b: `${slotPlayers[hi]} — ${getEntry(slotPlayers[hi]).character}` });
-          lo++; hi--;
-        }
-        if (lo === hi) pairs.push({ a: `${slotPlayers[lo]} — ${getEntry(slotPlayers[lo]).character}`, b: 'BYE' });
-      } else {
-        for (let i = 0; i + 1 < slotPlayers.length; i += 2) {
-          pairs.push({ a: `${slotPlayers[i]} — ${getEntry(slotPlayers[i]).character}`, b: `${slotPlayers[i+1]} — ${getEntry(slotPlayers[i+1]).character}` });
-        }
-        if (slotPlayers.length % 2 === 1) {
-          const p = slotPlayers[slotPlayers.length - 1];
-          pairs.push({ a: `${p} — ${getEntry(p).character}`, b: 'BYE' });
-        }
-      }
-    }
-  }
-
-  if (poolMode === 'freePool') {
-    const toLabel = e => e.player === 'SYSTEM' ? 'BYE' : `${e.player} — ${e.character}`;
-
-    if (style === 'strongVsStrong') {
-      // Wave-based: each wave = each player's best remaining char, sort globally, pair adjacent
-      const rem = {};
-      players.forEach(p => { rem[p] = [...(playerGroups[p] || [])].sort((a, b) => getSeed(b) - getSeed(a)); });
-      for (let wave = 0; wave < maxChars; wave++) {
-        let w = players.filter(p => rem[p].length > 0).map(p => rem[p].shift());
-        w.sort((a, b) => getSeed(b) - getSeed(a));
-        if (w.length % 2 === 1) w.push({ player: 'SYSTEM', character: 'BYE' });
-        for (let i = 0; i + 1 < w.length; i += 2) pairs.push({ a: toLabel(w[i]), b: toLabel(w[i + 1]) });
-      }
-    } else if (style === 'random') {
-      // Wave-based: each wave = a random char per player, shuffle, pair adjacent
-      const rem = {};
-      players.forEach(p => { rem[p] = shuffleArr([...(playerGroups[p] || [])]); });
-      for (let wave = 0; wave < maxChars; wave++) {
-        let w = players.filter(p => rem[p].length > 0).map(p => rem[p].shift());
-        shuffleArr(w);
-        if (w.length % 2 === 1) w.push({ player: 'SYSTEM', character: 'BYE' });
-        for (let i = 0; i + 1 < w.length; i += 2) pairs.push({ a: toLabel(w[i]), b: toLabel(w[i + 1]) });
-      }
-    } else {
-      // strongVsWeak: global sort, pair best vs worst, skip already-used players per wave
-      const allEntries = [];
-      players.forEach(p => (playerGroups[p] || []).forEach(e => allEntries.push(e)));
-      allEntries.sort((a, b) => getSeed(b) - getSeed(a));
-      const n = allEntries.length;
-      const taken = new Array(n).fill(false);
-      let totalPaired = 0;
-
-      while (totalPaired < n) {
-        const usedThisWave = new Set();
-        let pairedThisWave = 0;
-
-        let innerProgress = true;
-        while (innerProgress) {
-          innerProgress = false;
-          let lo = -1, hi = -1;
-          for (let k = 0; k < n; k++) {
-            if (!taken[k] && !usedThisWave.has(allEntries[k].player)) { lo = k; break; }
-          }
-          if (lo === -1) break;
-          for (let k = n - 1; k > lo; k--) {
-            if (!taken[k] && !usedThisWave.has(allEntries[k].player) && allEntries[k].player !== allEntries[lo].player) { hi = k; break; }
-          }
-          if (hi === -1) break;
-
-          pairs.push({ a: toLabel(allEntries[lo]), b: toLabel(allEntries[hi]) });
-          taken[lo] = taken[hi] = true;
-          usedThisWave.add(allEntries[lo].player);
-          usedThisWave.add(allEntries[hi].player);
-          totalPaired += 2;
-          pairedThisWave++;
-          innerProgress = true;
-        }
-
-        // Only bail out if the entire wave produced zero pairs (genuinely stuck)
-        if (pairedThisWave === 0) {
-          for (let k = 0; k < n; k++) {
-            if (!taken[k]) { pairs.push({ a: toLabel(allEntries[k]), b: 'BYE' }); taken[k] = true; totalPaired++; }
-          }
-          break;
-        }
-      }
-    }
-  }
-
-  const target = nextPow2(pairs.length);
-  while (pairs.length < target) pairs.push({ a: 'BYE', b: 'BYE' });
+  const toLabel = e => e.player === 'SYSTEM' ? 'BYE' : `${e.player} — ${e.character}`;
+  const pairs = rawPairs.map(([a, b]) => ({ a: toLabel(a), b: toLabel(b) }));
 
   pendingEntries = [];
   players.forEach(p => (confirmedLineups[p] || []).forEach(c => pendingEntries.push({ player: p, character: c })));

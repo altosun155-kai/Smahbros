@@ -990,7 +990,7 @@ async function previewMatchups() {
 
   const pairs = [];
 
-  if (style === 'random') {
+  if (style === 'random' && poolMode !== 'freePool') {
     // Shuffle each player's own char list so char slot order is random
     const shuffledGroups = {};
     players.forEach(p => {

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from database import User, CharacterStats, MatchResult
+from database import User, CharacterStats, MatchResult, Bracket
 from auth import get_db, get_current_user
 
 router = APIRouter(tags=["matches"])
@@ -119,8 +119,13 @@ def shame_feed(
 
 @router.post("/matches/record")
 def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # Allow kai always; allow the host of the specific bracket being played
     if current_user.username != "kai":
-        raise HTTPException(status_code=403, detail="Only kai can record match results")
+        if not req.bracket_id:
+            raise HTTPException(status_code=403, detail="Only kai can record non-bracket match results")
+        bracket = db.query(Bracket).filter(Bracket.id == req.bracket_id).first()
+        if not bracket or bracket.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Only the bracket host can record match results")
     winner = db.query(User).filter(User.username == req.winner_username).first()
     loser  = db.query(User).filter(User.username == req.loser_username).first()
     if not winner or not loser:

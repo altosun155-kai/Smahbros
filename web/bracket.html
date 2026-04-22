@@ -44,7 +44,7 @@
     .char-picker-option:hover, .char-picker-option.focused { background: rgba(0,119,200,0.25); }
     .char-picker-option.selected { color: var(--accent-blue); font-weight: 600; }
     .char-picker-none { padding: 8px 10px; font-size: 0.82rem; color: var(--text-muted); font-style: italic; }
-    .save-bracket-row { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-top: 20px; display: flex; gap: 10px; align-items: center; }
+    .save-bracket-row { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-top: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .save-bracket-row input { flex: 1; }
     .swap-banner { background: rgba(0,119,200,0.12); border: 1px solid rgba(0,119,200,0.35); border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; color: var(--accent-blue); margin-bottom: 10px; display: none; }
     .swap-banner.visible { display: block; }
@@ -382,7 +382,7 @@
       </div>
 
       <!-- Placement Elo rewards -->
-      <div id="bracketEloRewards" style="display:none;background:rgba(255,224,102,0.07);border:1px solid rgba(255,224,102,0.2);border-radius:8px;padding:7px 14px;font-size:0.75rem;font-weight:700;color:rgba(255,255,255,0.7);display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px;"></div>
+      <div id="bracketEloRewards" style="display:none;background:rgba(255,224,102,0.07);border:1px solid rgba(255,224,102,0.2);border-radius:8px;padding:7px 14px;font-size:0.75rem;font-weight:700;color:rgba(255,255,255,0.7);gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px;"></div>
 
       <!-- Sticky action bar -->
       <div class="sticky-bar">

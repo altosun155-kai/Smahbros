@@ -5,7 +5,17 @@ const RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 20000;
 
 // ── Toast helper (used for 502 wakeup message) ────
+let _wakeupToast = null; // deduplicate "API waking up" toasts
+
 function _showToast(message, type = 'info', duration = 5000) {
+  // Only allow one wakeup toast at a time
+  if (message.includes('waking up')) {
+    if (_wakeupToast && _wakeupToast.isConnected) {
+      _wakeupToast.textContent = message;
+      return _wakeupToast;
+    }
+  }
+
   let container = document.getElementById('toast-container');
   if (!container) {
     container = document.createElement('div');
@@ -16,14 +26,16 @@ function _showToast(message, type = 'info', duration = 5000) {
   toast.className = `toast toast-${type}`;
   toast.textContent = message;
   container.appendChild(toast);
-  // Trigger animation
   requestAnimationFrame(() => {
     requestAnimationFrame(() => toast.classList.add('show'));
   });
   setTimeout(() => {
     toast.classList.remove('show');
+    if (_wakeupToast === toast) _wakeupToast = null;
     setTimeout(() => toast.remove(), 300);
   }, duration);
+
+  if (message.includes('waking up')) _wakeupToast = toast;
   return toast;
 }
 

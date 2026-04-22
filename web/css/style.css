@@ -815,7 +815,10 @@ a:hover {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(100,0,0,0.65) 0%, rgba(180,20,20,0.55) 100%);
+  background:
+    linear-gradient(135deg, rgba(100,0,0,0.65) 0%, rgba(180,20,20,0.55) 100%),
+    linear-gradient(to right, rgba(0,0,0,0.5) 0%, transparent 35%),
+    linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 30%, rgba(0,0,0,0.45) 100%);
   pointer-events: none;
 }
 .vs-bg-right {
@@ -828,7 +831,10 @@ a:hover {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(225deg, rgba(0,0,80,0.65) 0%, rgba(20,60,180,0.55) 100%);
+  background:
+    linear-gradient(225deg, rgba(0,0,80,0.65) 0%, rgba(20,60,180,0.55) 100%),
+    linear-gradient(to left, rgba(0,0,0,0.5) 0%, transparent 35%),
+    linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 30%, rgba(0,0,0,0.45) 100%);
   pointer-events: none;
 }
 .vs-bg-center {
@@ -868,7 +874,7 @@ a:hover {
   width: clamp(160px, 24vw, 420px);
   height: clamp(160px, 24vw, 420px);
   object-fit: contain;
-  filter: drop-shadow(0 0 24px rgba(255,255,255,0.25));
+  filter: drop-shadow(0 0 32px rgba(255,255,255,0.3)) drop-shadow(0 12px 28px rgba(0,0,0,0.7));
   flex-shrink: 0;
 }
 .vs-player-info { display: flex; flex-direction: column; gap: 10px; }
@@ -932,6 +938,53 @@ a:hover {
   letter-spacing: -2px;
   line-height: 1;
 }
+/* ── Center glassmorphism scoring panel ───── */
+.vs-center-panel {
+  margin-top: 18px;
+  background: rgba(255,255,255,0.09);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 14px;
+  padding: 14px 18px;
+  white-space: nowrap;
+}
+.vcp-section { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.vcp-label {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+.vcp-p1-label { color: #ff8888; }
+.vcp-p2-label { color: #88aaff; }
+.vcp-btns { display: flex; gap: 7px; }
+.vcp-btn {
+  padding: 9px 13px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  border: 1.5px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.15s, border-color 0.1s;
+  letter-spacing: 0.5px;
+  backdrop-filter: blur(4px);
+}
+.vcp-p1 { background: rgba(160,20,20,0.75); color: #fff; border-color: rgba(255,100,100,0.35); }
+.vcp-p2 { background: rgba(20,50,160,0.75); color: #fff; border-color: rgba(100,140,255,0.35); }
+.vcp-btn:hover { transform: scale(1.1); }
+.vcp-p1:hover { box-shadow: 0 0 18px rgba(255,80,80,0.5); border-color: rgba(255,120,120,0.7); }
+.vcp-p2:hover { box-shadow: 0 0 18px rgba(80,120,255,0.5); border-color: rgba(120,160,255,0.7); }
+
+/* Elo hover display under player name */
+.vcp-elo-display {
+  min-height: 1.5em;
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: opacity 0.15s;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+}
+
 .vs-winner-row {
   position: absolute;
   bottom: 36px;
@@ -1064,6 +1117,8 @@ a:hover {
   #desktopScoreGrid { display: none !important; }
   #mobileScorePicker { display: block !important; }
   #scorePickLabel { display: none !important; }
+  .vs-center-panel { display: none !important; }
+  .vcp-elo-display { display: none !important; }
 
   .vs-close { position: fixed; top: 10px; right: 12px; z-index: 10; }
 }

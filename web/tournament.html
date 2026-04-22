@@ -38,6 +38,22 @@
     .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #27ae60; animation: pulse 1.2s ease-in-out infinite; }
     @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
     .ended-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 0.8rem; color: var(--text-muted); font-weight: 700; }
+    /* ── VS Clash Animations ── */
+    #vsClashLayer { position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:5; }
+    .vsc-flash  { position:absolute;left:50%;top:50%;border-radius:50%;animation:vscFlash 0.55s ease-out forwards; }
+    .vsc-ring   { position:absolute;left:50%;top:50%;border-radius:50%;border:3px solid;animation:vscRing 0.85s ease-out forwards; }
+    .vsc-slash  { position:absolute;left:50%;top:50%;height:6px;transform-origin:center;animation:vscSlash 0.72s ease-out forwards; }
+    .vsc-bolt   { position:absolute;left:50%;top:50%;width:4px;height:150px;margin-left:-2px;margin-top:-75px;transform-origin:center;animation:vscBolt 0.65s ease-out forwards; }
+    .vsc-streak { position:absolute;left:0;right:0;height:3px;animation:vscStreak 0.55s ease-in-out forwards; }
+    .vsc-wave   { position:absolute;left:50%;top:50%;border-radius:50%;border:16px solid;animation:vscWave 1s ease-out forwards; }
+
+    @keyframes vscFlash  { 0%{transform:scale(0.1);opacity:0.9} 25%{transform:scale(1);opacity:0.65} 100%{transform:scale(2.2);opacity:0} }
+    @keyframes vscRing   { 0%{transform:scale(0);opacity:1} 100%{transform:scale(5.5);opacity:0} }
+    @keyframes vscSlash  { 0%{transform:rotate(-38deg) scaleX(0);opacity:1} 45%{transform:rotate(-38deg) scaleX(1);opacity:1} 100%{transform:rotate(-38deg) scaleX(1.15);opacity:0} }
+    @keyframes vscBolt   { 0%{transform:rotate(var(--r,0deg)) scaleY(0);opacity:1} 50%{transform:rotate(var(--r,0deg)) scaleY(1);opacity:1} 100%{transform:rotate(var(--r,0deg)) scaleY(1.5);opacity:0} }
+    @keyframes vscStreak { 0%{transform:translateX(-120%);opacity:0} 20%{opacity:1} 80%{opacity:1} 100%{transform:translateX(120%);opacity:0} }
+    @keyframes vscWave   { 0%{transform:scale(0);opacity:0.9} 100%{transform:scale(7);opacity:0} }
+
     /* Character picker modal */
     #charPickerModal { display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; }
     #charPickerModal.open { display:flex; }
@@ -220,12 +236,37 @@
         <img class="vs-avatar" id="scoreP1Avatar" src="" alt="P1" />
         <div class="vs-name p1" id="scoreP1Name">Player 1</div>
         <div class="vs-char-name" id="scoreP1Char"></div>
+        <div class="vcp-elo-display" id="vcpP1EloDisplay"></div>
       </div>
     </div>
 
     <div class="vs-middle">
       <div class="vs-logo">Super Smash Bros. Ultimate</div>
       <div class="vs-text">VS</div>
+
+      <!-- Center glassmorphism scoring panel -->
+      <div class="vs-center-panel" id="vcpPanel">
+        <div id="vcpViewOnly" style="display:none;font-size:0.6rem;color:rgba(255,255,255,0.4);letter-spacing:1px;text-transform:uppercase;text-align:center;margin-bottom:8px;">Spectating — host picks score</div>
+        <div style="display:flex;gap:10px;align-items:stretch;">
+          <div class="vcp-section">
+            <div class="vcp-label vcp-p1-label" id="vcpLabel1">P1 WINS</div>
+            <div class="vcp-btns">
+              <button class="vcp-btn vcp-p1" onmouseover="hoverScore(3,0)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(3,0)">3-0</button>
+              <button class="vcp-btn vcp-p1" onmouseover="hoverScore(3,1)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(3,1)">3-1</button>
+              <button class="vcp-btn vcp-p1" onmouseover="hoverScore(3,2)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(3,2)">3-2</button>
+            </div>
+          </div>
+          <div style="width:1px;background:rgba(255,255,255,0.18);align-self:stretch;flex-shrink:0;"></div>
+          <div class="vcp-section">
+            <div class="vcp-label vcp-p2-label" id="vcpLabel2">P2 WINS</div>
+            <div class="vcp-btns">
+              <button class="vcp-btn vcp-p2" onmouseover="hoverScore(0,3)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(0,3)">0-3</button>
+              <button class="vcp-btn vcp-p2" onmouseover="hoverScore(1,3)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(1,3)">1-3</button>
+              <button class="vcp-btn vcp-p2" onmouseover="hoverScore(2,3)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(2,3)">2-3</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="vs-player p2-side">
@@ -235,6 +276,7 @@
         <img class="vs-avatar" id="scoreP2Avatar" src="" alt="P2" />
         <div class="vs-name p2" id="scoreP2Name">Player 2</div>
         <div class="vs-char-name" id="scoreP2Char"></div>
+        <div class="vcp-elo-display" id="vcpP2EloDisplay"></div>
       </div>
     </div>
   </div>
@@ -242,7 +284,7 @@
   <div class="vs-winner-row">
     <div id="scorePickLabel" style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);margin-bottom:8px;">Pick Score (stocks)</div>
     <div id="viewOnlyNote" style="display:none;font-size:0.75rem;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.5px;margin-bottom:8px;">Only the host can record results</div>
-    <div id="desktopScoreGrid" style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;">
+    <div id="desktopScoreGrid" style="display:none;">
       <!-- P1 wins -->
       <div>
         <div style="font-size:0.62rem;color:#ff8888;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:3px;" id="scoreLabel1">P1 Wins</div>
@@ -606,6 +648,112 @@ let scoreModalKey = null;
 let scoreModalA = null;
 let scoreModalB = null;
 let _mobileWinner = null; // 'p1' | 'p2' | null
+let _modalEloA = 1000, _modalEloB = 1000, _modalLb = [];
+
+// ── Character clash animation profiles ────────────
+const CHAR_PROFILES = {
+  // Electric
+  'Pikachu':'electric','Pichu':'electric',
+  // Psychic / aura / magic
+  'Mewtwo':'psychic','Ness':'psychic','Lucas':'psychic','Lucario':'psychic',
+  'Hero':'psychic','Robin':'psychic','Rosalina & Luma':'psychic',
+  // Sword fighters
+  'Link':'swordie','Young Link':'swordie','Toon Link':'swordie',
+  'Marth':'swordie','Lucina':'swordie','Ike':'swordie','Roy':'swordie',
+  'Chrom':'swordie','Cloud':'swordie','Corrin':'swordie','Shulk':'swordie',
+  'Byleth':'swordie','Meta Knight':'swordie','Mii Swordfighter':'swordie',
+  'Sephiroth':'swordie',
+  // Speed / rush fighters
+  'Sonic':'speed','Captain Falcon':'speed','Fox':'speed','Falco':'speed',
+  'Sheik':'speed','Zero Suit Samus':'speed','Joker':'speed',
+  'Bayonetta':'speed','Wolf':'speed','Greninja':'speed',
+  // Heavyweights / power
+  'Bowser':'heavy','Donkey Kong':'heavy','King K. Rool':'heavy',
+  'Ganondorf':'heavy','Incineroar':'heavy','King Dedede':'heavy',
+  'Snake':'heavy','Terry':'heavy','Little Mac':'heavy','Ridley':'heavy',
+  'Bowser Jr.':'heavy',
+};
+
+function _mk(layer, cls, inlineStyle, delayMs) {
+  const el = document.createElement('div');
+  el.className = 'vsc-' + cls;
+  if (inlineStyle) el.style.cssText = inlineStyle;
+  if (delayMs) el.style.animationDelay = delayMs + 'ms';
+  layer.appendChild(el);
+}
+
+function _spawnEffect(layer, profile) {
+  switch(profile) {
+    case 'electric':
+      _mk(layer,'flash','width:280px;height:280px;margin-left:-140px;margin-top:-140px;background:radial-gradient(circle,rgba(255,240,0,0.75) 0%,transparent 70%)');
+      _mk(layer,'ring','width:180px;height:180px;margin-left:-90px;margin-top:-90px;border-color:#ffe600;box-shadow:0 0 22px #ffe600,inset 0 0 12px rgba(255,230,0,0.25)');
+      [0,45,90,135,180,225,270,315].forEach((deg,i) =>
+        _mk(layer,'bolt',`--r:${deg}deg;background:#ffe600;box-shadow:0 0 7px #ffe600`,i*18));
+      break;
+    case 'psychic':
+      _mk(layer,'flash','width:260px;height:260px;margin-left:-130px;margin-top:-130px;background:radial-gradient(circle,rgba(180,80,255,0.65) 0%,transparent 70%)');
+      [[0,'#bb44ff'],[200,'#ff44cc'],[400,'#8833ee']].forEach(([d,c]) =>
+        _mk(layer,'ring',`width:160px;height:160px;margin-left:-80px;margin-top:-80px;border-color:${c};box-shadow:0 0 16px ${c}`,d));
+      break;
+    case 'swordie':
+      _mk(layer,'flash','width:320px;height:320px;margin-left:-160px;margin-top:-160px;background:radial-gradient(circle,rgba(200,240,255,0.55) 0%,transparent 70%)');
+      _mk(layer,'slash','width:460px;margin-left:-230px;margin-top:-3px;background:linear-gradient(to right,transparent,#ffffff,transparent);box-shadow:0 0 20px rgba(255,255,255,0.85)');
+      _mk(layer,'slash','width:360px;margin-left:-180px;margin-top:10px;background:linear-gradient(to right,transparent,rgba(140,200,255,0.75),transparent)',90);
+      _mk(layer,'ring','width:160px;height:160px;margin-left:-80px;margin-top:-80px;border-color:rgba(200,235,255,0.75)',130);
+      break;
+    case 'speed':
+      _mk(layer,'flash','width:240px;height:240px;margin-left:-120px;margin-top:-120px;background:radial-gradient(circle,rgba(0,220,255,0.55) 0%,transparent 70%)');
+      [-55,-28,0,28,55].forEach((offset,i) =>
+        _mk(layer,'streak',`top:calc(50% + ${offset}px - ${i===2?2:1}px);background:${i===2?'#00eeff':'rgba(0,200,255,0.45)'};height:${i===2?'4px':'2px'};box-shadow:${i===2?'0 0 10px #00eeff':'none'}`,i*38));
+      break;
+    case 'heavy':
+      _mk(layer,'flash','width:320px;height:320px;margin-left:-160px;margin-top:-160px;background:radial-gradient(circle,rgba(255,80,0,0.6) 0%,transparent 70%)');
+      _mk(layer,'wave','width:70px;height:70px;margin-left:-35px;margin-top:-35px;border-color:#ff5500;box-shadow:0 0 28px rgba(255,80,0,0.75),inset 0 0 14px rgba(255,60,0,0.3)');
+      _mk(layer,'ring','width:120px;height:120px;margin-left:-60px;margin-top:-60px;border-color:rgba(255,200,0,0.55)',220);
+      break;
+    default:
+      _mk(layer,'flash','width:260px;height:260px;margin-left:-130px;margin-top:-130px;background:radial-gradient(circle,rgba(255,255,255,0.4) 0%,transparent 70%)');
+      _mk(layer,'ring','width:180px;height:180px;margin-left:-90px;margin-top:-90px;border-color:rgba(255,255,255,0.7)');
+  }
+}
+
+function spawnClash(charA, charB) {
+  const old = document.getElementById('vsClashLayer');
+  if (old) old.remove();
+  const bg = document.querySelector('#scoreModal .vs-bg');
+  if (!bg) return;
+  const layer = document.createElement('div');
+  layer.id = 'vsClashLayer';
+  bg.appendChild(layer);
+
+  const pA = CHAR_PROFILES[charA] || 'default';
+  const pB = CHAR_PROFILES[charB] || 'default';
+  _spawnEffect(layer, pA);
+  if (pB !== pA) _spawnEffect(layer, pB);
+
+  setTimeout(() => { if (layer.parentNode) layer.remove(); }, 1600);
+}
+
+function hoverScore(p1s, p2s) {
+  const isP1Win = p1s > p2s;
+  const wk = Math.max(p1s, p2s), lk = Math.min(p1s, p2s);
+  const we = isP1Win ? _modalEloA : _modalEloB;
+  const le = isP1Win ? _modalEloB : _modalEloA;
+  const delta = previewEloGain(we, le, wk, lk);
+  const newRankW = _modalLb.length ? _tRankAfter(_modalLb, isP1Win ? scoreModalA.player : scoreModalB.player, isP1Win ? scoreModalA.character : scoreModalB.character, we + delta) : null;
+  const newRankL = _modalLb.length ? _tRankAfter(_modalLb, isP1Win ? scoreModalB.player : scoreModalA.player, isP1Win ? scoreModalB.character : scoreModalA.character, Math.max(100, le - delta)) : null;
+  const winEl  = document.getElementById(isP1Win ? 'vcpP1EloDisplay' : 'vcpP2EloDisplay');
+  const loseEl = document.getElementById(isP1Win ? 'vcpP2EloDisplay' : 'vcpP1EloDisplay');
+  if (winEl)  winEl.innerHTML  = `<span style="color:#4caf50;font-size:1.15em;font-weight:900;">+${delta}</span>${newRankW ? ` <span style="color:#4caf50;font-size:0.8em;">→ #${newRankW}</span>` : ''}`;
+  if (loseEl) loseEl.innerHTML = `<span style="color:#e74c3c;font-size:1.15em;font-weight:900;">−${delta}</span>${newRankL ? ` <span style="color:#e74c3c;font-size:0.8em;">→ #${newRankL}</span>` : ''}`;
+}
+
+function hoverScoreReset() {
+  const p1El = document.getElementById('vcpP1EloDisplay');
+  const p2El = document.getElementById('vcpP2EloDisplay');
+  if (p1El) p1El.innerHTML = `<span style="color:rgba(255,255,255,0.5);font-size:0.78em;">${_modalEloA} elo</span>`;
+  if (p2El) p2El.innerHTML = `<span style="color:rgba(255,255,255,0.5);font-size:0.78em;">${_modalEloB} elo</span>`;
+}
 
 function selectMobileWinner(side) {
   _mobileWinner = side;
@@ -655,6 +803,20 @@ function openScoreModal(a, b, key) {
   document.getElementById('scoreLabel1').textContent = `${scoreModalA.player} Wins`;
   document.getElementById('scoreLabel2').textContent = `${scoreModalB.player} Wins`;
 
+  // Center panel labels
+  document.getElementById('vcpLabel1').textContent = `${scoreModalA.player} Wins`;
+  document.getElementById('vcpLabel2').textContent = `${scoreModalB.player} Wins`;
+  // Host vs spectator for center panel
+  document.querySelectorAll('.vcp-btn').forEach(b => {
+    b.style.pointerEvents = isHost ? '' : 'none';
+    b.style.opacity = isHost ? '' : '0.7';
+    b.style.cursor = isHost ? '' : 'default';
+  });
+  document.getElementById('vcpViewOnly').style.display = isHost ? 'none' : 'block';
+  // Clear elo displays
+  document.getElementById('vcpP1EloDisplay').textContent = '';
+  document.getElementById('vcpP2EloDisplay').textContent = '';
+
   // Mobile winner-first UI — reset state
   _mobileWinner = null;
   document.getElementById('mWinName1').textContent = `${scoreModalA.player} Won`;
@@ -681,6 +843,9 @@ function openScoreModal(a, b, key) {
   if (p1Url) { p1Img.src = p1Url; p1Img.style.display = ''; } else { p1Img.style.display = 'none'; }
   if (p2Url) { p2Img.src = p2Url; p2Img.style.display = ''; } else { p2Img.style.display = 'none'; }
 
+  // Clash animation based on character profiles
+  setTimeout(() => spawnClash(scoreModalA.character, scoreModalB.character), 80);
+
   // Clear elo/rank labels while loading
   ['tElo_30','tElo_31','tElo_32','tElo_03','tElo_13','tElo_23',
    'tRankW_30','tRankW_31','tRankW_32','tRankW_03','tRankW_13','tRankW_23',
@@ -702,6 +867,8 @@ function openScoreModal(a, b, key) {
     getCharElo(scoreModalB.player, scoreModalB.character),
     _getTLb(),
   ]).then(([eloA, eloB, lb]) => {
+    _modalEloA = eloA; _modalEloB = eloB; _modalLb = lb || [];
+    hoverScoreReset(); // populate initial elo display under player names
     const scenarios = [
       { id: '30', aWins: true,  wk: 3, lk: 0 },
       { id: '31', aWins: true,  wk: 3, lk: 1 },

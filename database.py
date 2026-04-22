@@ -63,6 +63,7 @@ class Bracket(Base):
     winner             = Column(String, nullable=True)
     chars_per_player   = Column(Integer, default=2)
     confirmed_lineups  = Column(JSON, default=dict)   # {username: ["char1", ...]}
+    teams              = Column(JSON, nullable=True)   # {username: "Red"|"Blue"|...} — teams mode only
     placements         = Column(JSON, nullable=True)  # {"1st": {"player":"kai","char":"Terry","elo_bonus":64}, "2nd": {...}, "3rd": [...]}
     created_at         = Column(DateTime, default=datetime.utcnow)
 

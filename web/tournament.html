@@ -390,6 +390,7 @@ function _tRankAfter(lb, username, character, newElo) {
 let lastRoundWinners = null;
 let myUsername = '';
 let currentBracketData = null; // latest bracket snapshot
+let tournamentTeams = {};  // {username: teamLabel} — populated when bracket has teams mode
 const allUserAvatars = {};
 let liveControlsSet = false; // only pre-select radios on first lineup load
 
@@ -523,6 +524,7 @@ function renderBracket(data) {
   const roundWinners = round_winners || {};
   const roundScores  = round_scores  || {};
   currentBracketData = data;
+  if (data.teams && Object.keys(data.teams).length > 0) tournamentTeams = data.teams;
   tournamentK = Math.max(32, ((data.players || []).length) * (data.chars_per_player || 2) * 2);
 
   const rounds = computeRounds(bracket_data, roundWinners);
@@ -789,7 +791,10 @@ async function pickTournamentScore(p1Stocks, p2Stocks) {
     const patchBody = { key, winner: winnerLabel, score: scoreStr };
     if (isGrandFinal) patchBody.tournament_winner = winnerEntry.player;
     await apiPatch(`/brackets/${tournamentId}/winner`, patchBody);
-    if (winnerEntry.player !== loserEntry.player) {
+    const wTeam = tournamentTeams[winnerEntry.player] || '';
+    const lTeam = tournamentTeams[loserEntry.player]  || '';
+    const sameTeam = wTeam && lTeam && wTeam === lTeam;
+    if (winnerEntry.player !== loserEntry.player && !sameTeam) {
       await apiPost('/matches/record', {
         winner_username: winnerEntry.player, winner_char: winnerEntry.character, winner_kills: winnerKills,
         loser_username:  loserEntry.player,  loser_char:  loserEntry.character,  loser_kills:  loserKills,

@@ -1309,6 +1309,7 @@ function getBracketPayload(name, isLive, inviteUsernames) {
     is_live: isLive,
     invite_usernames: inviteUsernames,
     chars_per_player: parseInt(document.getElementById('charsPerPlayer').value) || 2,
+    teams: currentMode === 'teams' ? currentTeamOf : {},
   };
 }
 
@@ -1330,6 +1331,7 @@ async function startLineupPhase() {
       is_live: true,
       invite_usernames: invitees,
       chars_per_player: k,
+      teams: currentMode === 'teams' ? currentTeamOf : {},
     });
     liveTournamentId = res.id;
     window.location.href = `tournament.html?id=${res.id}`;

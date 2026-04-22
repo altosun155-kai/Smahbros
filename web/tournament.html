@@ -837,7 +837,7 @@ async function buildMyCharSlots(k, confirmedLineups) {
   if (!_myTopChars.length && myUsername) {
     try {
       const d = await apiGet('/characters/favorites');
-      _myTopChars = (d.characters || []).slice(0, 8);
+      _myTopChars = d.characters || [];
     } catch (_) {}
   }
 

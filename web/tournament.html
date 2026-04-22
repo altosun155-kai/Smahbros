@@ -874,16 +874,19 @@ async function buildMyCharSlots(k, confirmedLineups) {
     container.appendChild(row);
     setupLineupInput(row.querySelector('.lineup-char-input'), row.querySelector('.lineup-char-drop'), i);
   }
+  _updateQuickPickButtons();
 }
 
 function quickPickChar(charName) {
-  // Fill the first empty slot, or cycle to next empty one
+  if (lineupSlotValues.includes(charName)) {
+    showToast(`${charName} is already picked.`, 'warn');
+    return;
+  }
   const inputs = document.querySelectorAll('.lineup-char-input');
   let target = -1;
   for (let i = 0; i < lineupSlotValues.length; i++) {
     if (!lineupSlotValues[i]) { target = i; break; }
   }
-  // If all filled, overwrite the last slot
   if (target === -1) target = lineupSlotValues.length - 1;
   selectLineupChar(target, charName, charName, null);
   if (inputs[target]) inputs[target].value = charName;
@@ -891,7 +894,8 @@ function quickPickChar(charName) {
 
 function setupLineupInput(input, drop, slotIdx) {
   function buildDrop(q) {
-    const matches = ROSTER.filter(c => !q || c.toLowerCase().includes(q.toLowerCase()));
+    const taken = new Set(lineupSlotValues.filter((c, i) => c && i !== slotIdx));
+    const matches = ROSTER.filter(c => (!q || c.toLowerCase().includes(q.toLowerCase())) && !taken.has(c));
     drop.innerHTML = matches.length
       ? matches.map(c => `<div style="padding:7px 10px;cursor:pointer;font-size:0.85rem;color:#e8edf3;" onmousedown="event.preventDefault();selectLineupChar(${slotIdx},'${c.replace(/'/g,"\\'")}','${c.replace(/'/g,"\\'")}',this)">${c}</div>`).join('')
       : '<div style="padding:8px 10px;font-size:0.82rem;color:var(--text-muted);">No match</div>';
@@ -903,11 +907,27 @@ function setupLineupInput(input, drop, slotIdx) {
 }
 
 function selectLineupChar(slotIdx, charName, displayName, el) {
+  const takenSlot = lineupSlotValues.findIndex((c, i) => c === charName && i !== slotIdx);
+  if (takenSlot !== -1) {
+    showToast(`${charName} is already in slot ${takenSlot + 1}.`, 'warn');
+    return;
+  }
   lineupSlotValues[slotIdx] = charName;
   const inputs = document.querySelectorAll('.lineup-char-input');
   if (inputs[slotIdx]) inputs[slotIdx].value = displayName;
   const drops = document.querySelectorAll('.lineup-char-drop');
   if (drops[slotIdx]) drops[slotIdx].style.display = 'none';
+  _updateQuickPickButtons();
+}
+
+function _updateQuickPickButtons() {
+  const taken = new Set(lineupSlotValues.filter(Boolean));
+  document.querySelectorAll('#lineupQuickPick button').forEach(btn => {
+    const charTitle = btn.title || btn.textContent.trim();
+    const used = taken.has(charTitle);
+    btn.style.opacity = used ? '0.35' : '1';
+    btn.style.pointerEvents = used ? 'none' : '';
+  });
 }
 
 async function confirmLineup() {

@@ -663,12 +663,16 @@
       } catch (_) {}
     }
 
-    // Live tournaments
+    // Live tournaments — own brackets + invited ones
     try {
-      const brackets = await apiGet('/brackets');
-      const live = (brackets||[]).filter(b => b.is_live);
-      if (live.length > 0) {
-        const t = live[0];
+      const [ownBrackets, invitedLive] = await Promise.all([
+        apiGet('/brackets').catch(() => []),
+        apiGet('/brackets/live').catch(() => []),
+      ]);
+      const ownLive = (ownBrackets || []).filter(b => b.is_live);
+      const allLive = [...ownLive, ...(invitedLive || [])];
+      if (allLive.length > 0) {
+        const t = allLive[0];
         document.getElementById('liveName').textContent = t.name;
         document.getElementById('liveLink').href = `tournament.html?id=${t.id}`;
         document.getElementById('liveBanner').style.display = 'flex';

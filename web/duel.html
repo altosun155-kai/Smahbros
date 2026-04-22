@@ -212,7 +212,7 @@
           <input type="text" placeholder="Search character…" autocomplete="off" oninput="filterPicker('p1Char')" onfocus="openPicker('p1Char')" onblur="closePicker('p1Char')" onkeydown="pickerKey(event,'p1Char')" />
           <div class="char-dropdown" id="drop-p1Char"></div>
         </div>
-        <button type="button" class="btn btn-outline btn-sm" id="quickStartBtn" onclick="quickStart()" style="display:none;margin-top:4px;font-size:0.78rem;">⚡ Quick Start (top char)</button>
+        <button type="button" class="btn btn-outline btn-sm" id="quickStartBtn" onclick="quickStart('p1')" style="display:none;margin-top:4px;font-size:0.78rem;">⚡ Quick Start (top char)</button>
       </div>
       <div class="duel-divider">VS</div>
       <div class="duel-side p2">
@@ -223,6 +223,7 @@
           <input type="text" placeholder="Search character…" autocomplete="off" oninput="filterPicker('p2Char')" onfocus="openPicker('p2Char')" onblur="closePicker('p2Char')" onkeydown="pickerKey(event,'p2Char')" />
           <div class="char-dropdown" id="drop-p2Char"></div>
         </div>
+        <button type="button" class="btn btn-outline btn-sm" id="quickStartBtn2" onclick="quickStart('p2')" style="display:none;margin-top:4px;font-size:0.78rem;">⚡ Quick Start (top char)</button>
       </div>
     </div>
     <button type="button" class="btn btn-primary" onclick="startSeries()" style="width:100%;">Start Series</button>
@@ -424,8 +425,8 @@
     document.getElementById(`drop-${id}`)?.classList.remove('open');
     // Persist last-used character per player
     const slotUser = {
-      p1Char: () => document.getElementById('p1Select').value,
-      p2Char: () => document.getElementById('p2Select').value,
+      p1Char: () => selectedP1,
+      p2Char: () => selectedP2,
       gameP1Char: () => p1,
       gameP2Char: () => p2,
     };
@@ -469,6 +470,7 @@
 
   let allUsers = [];
   let myUsernameLocal = null;
+  let selectedP1 = '', selectedP2 = '';
 
   async function init() {
     try {
@@ -491,38 +493,52 @@
         ).join('');
       });
 
-      // Auto-select current user as P1
+      // Auto-select current user as P1, show their Quick Start
       if (myUsernameLocal) selectPlayer('p1', myUsernameLocal);
+      document.getElementById('quickStartBtn').style.display = myUsernameLocal ? 'block' : 'none';
     } catch (e) { showToast('Failed to load users', 'error'); }
     initPicker('p1Char', '');
     initPicker('p2Char', '');
   }
 
   function selectPlayer(slot, username) {
-    const sel = document.getElementById(`${slot}Select`);
-    sel.value = username;
-    document.querySelectorAll(`.av-pick`).forEach(c => {
+    if (slot === 'p1') selectedP1 = username;
+    else selectedP2 = username;
+    const otherSlot = slot === 'p1' ? 'p2' : 'p1';
+    const otherUsername = slot === 'p1' ? selectedP2 : selectedP1;
+
+    // Update highlight + dim across both pickers
+    document.querySelectorAll('.av-pick').forEach(c => {
       if (c.dataset.slot === slot) {
         c.classList.toggle(`selected-${slot}`, c.dataset.username === username);
+        // Dim the other slot's selection in this picker
+        c.style.opacity = (c.dataset.username === otherUsername && otherUsername) ? '0.3' : '';
+        c.style.pointerEvents = (c.dataset.username === otherUsername && otherUsername) ? 'none' : '';
+      } else if (c.dataset.slot === otherSlot) {
+        // Dim this slot's selection in the other picker
+        c.style.opacity = (c.dataset.username === username && username) ? '0.3' : '';
+        c.style.pointerEvents = (c.dataset.username === username && username) ? 'none' : '';
       }
     });
-    // Show Quick Start only for P1 when it's the current user
-    const qsBtn = document.getElementById('quickStartBtn');
-    if (qsBtn && slot === 'p1') qsBtn.style.display = username ? 'block' : 'none';
+
+    // Show Quick Start when a player is selected
+    if (slot === 'p1') document.getElementById('quickStartBtn').style.display = username ? 'block' : 'none';
+    if (slot === 'p2') document.getElementById('quickStartBtn2').style.display = username ? 'block' : 'none';
+
     // Restore last-used character for this player
     const lastChar = username ? localStorage.getItem('lastChar_' + username) : null;
     if (lastChar && CHARS.includes(lastChar)) initPicker(slot + 'Char', lastChar);
     onPlayerChange();
   }
 
-  async function quickStart() {
-    const u1 = document.getElementById('p1Select').value;
-    if (!u1) return;
+  async function quickStart(slot) {
+    const username = slot === 'p1' ? selectedP1 : selectedP2;
+    if (!username) return;
     try {
-      const stats = await apiGet(`/characters/stats/${encodeURIComponent(u1)}`);
-      const sorted = (stats || []).filter(s => (s.wins||0)+(s.losses||0) > 0).sort((a,b) => (b.elo||1000)-(a.elo||1000));
+      const data = await apiGet(`/characters/stats/${encodeURIComponent(username)}`);
+      const sorted = (data.stats || data || []).filter(s => (s.wins||0)+(s.losses||0) > 0).sort((a,b) => (b.elo||1000)-(a.elo||1000));
       if (sorted.length) {
-        selectPicker('p1Char', sorted[0].character);
+        selectPicker(slot + 'Char', sorted[0].character);
         showToast(`Auto-filled ${sorted[0].character} (top Elo)`, 'success');
       }
     } catch (_) {}
@@ -532,8 +548,8 @@
   let p1StatsCache = null, p2StatsCache = null;
 
   async function onPlayerChange() {
-    const u1 = document.getElementById('p1Select').value;
-    const u2 = document.getElementById('p2Select').value;
+    const u1 = selectedP1;
+    const u2 = selectedP2;
     if (!u1 || !u2 || u1 === u2) {
       document.getElementById('previewPanel').style.display = 'none';
       return;
@@ -630,8 +646,8 @@
   function onCharChange() {
     const c1 = getPickerValue('p1Char');
     const c2 = getPickerValue('p2Char');
-    const u1 = document.getElementById('p1Select').value;
-    const u2 = document.getElementById('p2Select').value;
+    const u1 = selectedP1;
+    const u2 = selectedP2;
     const card = document.getElementById('matchupCard');
     if (!c1 || !c2 || !h2hCache) { card.style.display = 'none'; return; }
 
@@ -739,8 +755,8 @@
 
   function startSeries() {
     haptic([8]);
-    p1 = document.getElementById('p1Select').value;
-    p2 = document.getElementById('p2Select').value;
+    p1 = selectedP1;
+    p2 = selectedP2;
     p1CharCurrent = getPickerValue('p1Char');
     p2CharCurrent = getPickerValue('p2Char');
     if (!p1 || !p2) { showToast('Select both players', 'warn'); return; }

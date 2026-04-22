@@ -69,7 +69,7 @@
         <p id="tournamentHost" style="color:var(--text-muted);font-size:0.9rem;"></p>
       </div>
       <div id="statusBadge"></div>
-      <div id="eloRewards" style="display:none;background:rgba(255,224,102,0.07);border:1px solid rgba(255,224,102,0.2);border-radius:8px;padding:7px 14px;font-size:0.75rem;font-weight:700;color:rgba(255,255,255,0.7);display:flex;gap:14px;align-items:center;flex-wrap:wrap;"></div>
+      <div id="eloRewards" style="display:none;background:rgba(255,224,102,0.07);border:1px solid rgba(255,224,102,0.2);border-radius:8px;padding:7px 14px;font-size:0.75rem;font-weight:700;color:rgba(255,255,255,0.7);gap:14px;align-items:center;flex-wrap:wrap;"></div>
       <button type="button" id="endTournamentBtn" onclick="confirmEndTournament()" style="display:none;margin-left:auto;background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:6px;padding:6px 14px;font-size:0.82rem;font-weight:700;cursor:pointer;">End Tournament</button>
     </div>
 
@@ -389,6 +389,7 @@ function _tRankAfter(lb, username, character, newElo) {
 
 let lastRoundWinners = null;
 let myUsername = '';
+let isHost = false;
 let currentBracketData = null; // latest bracket snapshot
 let tournamentTeams = {};  // {username: teamLabel} — populated when bracket has teams mode
 const allUserAvatars = {};
@@ -626,9 +627,14 @@ function selectMobileWinner(side) {
       (elo ? `<div class="m-elo-val">${elo}</div>` : '');
     if (isHost) {
       card.onclick = () => pickTournamentScore(picks[i][0], picks[i][1]);
+      card.style.opacity = '';
+      card.style.cursor = '';
+      card.style.pointerEvents = '';
     } else {
       card.onclick = null;
       card.style.cursor = 'default';
+      card.style.opacity = '0.45';
+      card.style.pointerEvents = 'none';
     }
   });
   document.getElementById('mobileScoreOptions').style.display = 'block';
@@ -654,12 +660,9 @@ function openScoreModal(a, b, key) {
   document.getElementById('mWinName2').textContent = `${scoreModalB.player} Won`;
   document.getElementById('mWinBtn1').classList.remove('active');
   document.getElementById('mWinBtn2').classList.remove('active');
+  document.getElementById('mWinBtn1').style.opacity = '';
+  document.getElementById('mWinBtn2').style.opacity = '';
   document.getElementById('mobileScoreOptions').style.display = 'none';
-  // Non-hosts: disable score cards but can still view elo by tapping winner
-  if (!isHost) {
-    document.getElementById('mWinBtn1').style.opacity = '0.85';
-    document.getElementById('mWinBtn2').style.opacity = '0.85';
-  }
 
   // Avatars (use real profile avatars)
   const av1 = getPlayerAvatar(scoreModalA.player);

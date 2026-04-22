@@ -493,9 +493,15 @@
         ).join('');
       });
 
-      // Auto-select current user as P1, show their Quick Start
+      // Auto-select current user as P1
       if (myUsernameLocal) selectPlayer('p1', myUsernameLocal);
       document.getElementById('quickStartBtn').style.display = myUsernameLocal ? 'block' : 'none';
+      // Pre-select P2 from URL param ?vs=username
+      const vsParam = new URLSearchParams(window.location.search).get('vs');
+      if (vsParam && allUsers.find(u => u.username === vsParam)) {
+        selectPlayer('p2', vsParam);
+        document.getElementById('quickStartBtn2').style.display = 'block';
+      }
     } catch (e) { showToast('Failed to load users', 'error'); }
     initPicker('p1Char', '');
     initPicker('p2Char', '');
@@ -525,9 +531,6 @@
     if (slot === 'p1') document.getElementById('quickStartBtn').style.display = username ? 'block' : 'none';
     if (slot === 'p2') document.getElementById('quickStartBtn2').style.display = username ? 'block' : 'none';
 
-    // Restore last-used character for this player
-    const lastChar = username ? localStorage.getItem('lastChar_' + username) : null;
-    if (lastChar && CHARS.includes(lastChar)) initPicker(slot + 'Char', lastChar);
     onPlayerChange();
   }
 

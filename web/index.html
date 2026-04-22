@@ -852,7 +852,7 @@
       const src = char
         ? charHeadUrl(char)
         : `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}`;
-      return `<button type="button" class="qs-who-bubble" id="qsWho_${escHtml(u)}" onclick="homeToggleDim(${JSON.stringify(u)})">
+      return `<button type="button" class="qs-who-bubble" id="qsWho_${escHtml(u)}" onclick="homeClickPlayer(${JSON.stringify(u)})">
         <img class="qs-who-av" src="${escHtml(src)}" alt="${escHtml(u)}"
              onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}'" />
         <span class="qs-who-name">${escHtml(u)}</span>
@@ -860,12 +860,17 @@
     }).join('');
   }
 
-  function homeToggleDim(u) {
-    if (_dimmedPlayers.has(u)) _dimmedPlayers.delete(u);
-    else _dimmedPlayers.add(u);
-    const el = document.getElementById('qsWho_' + u);
-    if (el) el.classList.toggle('dimmed', _dimmedPlayers.has(u));
-    _renderPresetCards();
+  function homeClickPlayer(u) {
+    // Clicking yourself toggles them in/out of preset cards; clicking anyone else opens duel
+    if (u === _meUsername) {
+      if (_dimmedPlayers.has(u)) _dimmedPlayers.delete(u);
+      else _dimmedPlayers.add(u);
+      const el = document.getElementById('qsWho_' + u);
+      if (el) el.classList.toggle('dimmed', _dimmedPlayers.has(u));
+      _renderPresetCards();
+    } else {
+      window.location.href = `duel.html?vs=${encodeURIComponent(u)}`;
+    }
   }
 
   function _renderPresetCards() {

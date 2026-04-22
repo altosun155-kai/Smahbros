@@ -822,15 +822,44 @@ async function pickTournamentScore(p1Stocks, p2Stocks) {
 // ── Lineup phase ──────────────────────────────────
 let charsPerPlayer = 2;
 let lineupSlotValues = []; // current values in my char slot inputs
+let _myTopChars = [];      // cached for quick-pick row
 let lastLineupHash = '';   // prevent re-rendering slots while user is typing
 let lastMyLineupHash = ''; // tracks only THIS user's confirmed lineup (not others')
 
-function buildMyCharSlots(k, confirmedLineups) {
+async function buildMyCharSlots(k, confirmedLineups) {
   charsPerPlayer = k;
   const myConfirmed = (confirmedLineups || {})[myUsername] || [];
   const container = document.getElementById('myCharSlots');
   container.innerHTML = '';
   lineupSlotValues = [];
+
+  // Fetch top chars once and cache
+  if (!_myTopChars.length && myUsername) {
+    try {
+      const d = await apiGet(`/characters/stats/${encodeURIComponent(myUsername)}`);
+      _myTopChars = (d.stats || [])
+        .filter(s => s.games >= 1)
+        .sort((a, b) => (b.elo || 1000) - (a.elo || 1000))
+        .slice(0, 8)
+        .map(s => s.character);
+    } catch (_) {}
+  }
+
+  // Quick-pick row
+  if (_myTopChars.length) {
+    const qrow = document.createElement('div');
+    qrow.id = 'lineupQuickPick';
+    qrow.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;';
+    qrow.innerHTML = `<span style="font-size:0.75rem;color:var(--text-muted);flex-shrink:0;">Favourites:</span>` +
+      _myTopChars.map(c => {
+        const url = typeof charImgUrl === 'function' ? charImgUrl(c) : '';
+        return url
+          ? `<button type="button" title="${c}" onclick="quickPickChar('${c.replace(/'/g, "\\'")}')" style="background:var(--card-bg2);border:1px solid var(--border);border-radius:6px;padding:3px;cursor:pointer;line-height:0;flex-shrink:0;"><img src="${url}" alt="${c}" style="width:30px;height:30px;object-fit:contain;" onerror="this.parentElement.style.display='none'"></button>`
+          : `<button type="button" onclick="quickPickChar('${c.replace(/'/g, "\\'")}')" style="background:var(--card-bg2);border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.78rem;color:var(--text);">${c}</button>`;
+      }).join('');
+    container.appendChild(qrow);
+  }
+
   for (let i = 0; i < k; i++) {
     const val = myConfirmed[i] || '';
     lineupSlotValues.push(val);
@@ -849,6 +878,19 @@ function buildMyCharSlots(k, confirmedLineups) {
     container.appendChild(row);
     setupLineupInput(row.querySelector('.lineup-char-input'), row.querySelector('.lineup-char-drop'), i);
   }
+}
+
+function quickPickChar(charName) {
+  // Fill the first empty slot, or cycle to next empty one
+  const inputs = document.querySelectorAll('.lineup-char-input');
+  let target = -1;
+  for (let i = 0; i < lineupSlotValues.length; i++) {
+    if (!lineupSlotValues[i]) { target = i; break; }
+  }
+  // If all filled, overwrite the last slot
+  if (target === -1) target = lineupSlotValues.length - 1;
+  selectLineupChar(target, charName, charName, null);
+  if (inputs[target]) inputs[target].value = charName;
 }
 
 function setupLineupInput(input, drop, slotIdx) {
@@ -1227,7 +1269,7 @@ async function fetchAndRender() {
       if (myConfirmedNow !== lastMyLineupHash || !slotsBuilt) {
         lastMyLineupHash = myConfirmedNow;
         lastLineupHash = JSON.stringify(data.confirmed_lineups);
-        buildMyCharSlots(data.chars_per_player || 2, data.confirmed_lineups);
+        await buildMyCharSlots(data.chars_per_player || 2, data.confirmed_lineups);
       }
       renderLineupStatus(data);
 

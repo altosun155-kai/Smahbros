@@ -69,6 +69,10 @@
 <script>
   let selectedInvitee = null;
   let searchTimer = null;
+  // Poll for new invites every 12s so invited players see them without reloading
+  setInterval(() => {
+    if (document.getElementById('tab-received')?.classList.contains('active')) loadReceived();
+  }, 12000);
 
   function switchInvTab(tab) {
     ['received','sent'].forEach((t, i) => {
@@ -125,7 +129,7 @@
             </div>
             <div class="invite-actions">
               <span class="badge badge-accepted">Accepted</span>
-              ${inv.bracket_id ? `<a href="tournament.html?id=${inv.bracket_id}" class="btn btn-primary btn-sm">🔴 Watch Live</a>` : ''}
+              ${inv.bracket_id ? `<a href="tournament.html?id=${inv.bracket_id}" class="btn btn-primary btn-sm">Open →</a>` : ''}
             </div>
           </div>
         `).join('');

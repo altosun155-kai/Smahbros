@@ -997,9 +997,12 @@ function generateBracketJS(base, teamMode, teamOf) {
   // Step 2: Per-slot — rank players by seed value then pair by style.
   const pairs = [];
   for (let slot = 0; slot < maxChars; slot++) {
-    const ordered = [...players].sort((a, b) =>
-      getSeedValue(playerGroups[b][slot]) - getSeedValue(playerGroups[a][slot])
-    );
+    const ordered = [...players]
+      .filter(p => playerGroups[p][slot])  // only include players who have an entry for this slot
+      .sort((a, b) =>
+        getSeedValue(playerGroups[b][slot]) - getSeedValue(playerGroups[a][slot])
+      );
+    if (ordered.length === 0) continue;
     const getEntry = p => playerGroups[p][slot] || BYE;
 
     if (teamMode) {

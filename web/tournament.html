@@ -838,7 +838,7 @@ async function buildMyCharSlots(k, confirmedLineups) {
     try {
       const d = await apiGet(`/characters/stats/${encodeURIComponent(myUsername)}`);
       _myTopChars = (d.stats || [])
-        .filter(s => s.games >= 1)
+        .filter(s => (s.wins || 0) + (s.losses || 0) >= 1)
         .sort((a, b) => (b.elo || 1000) - (a.elo || 1000))
         .slice(0, 8)
         .map(s => s.character);

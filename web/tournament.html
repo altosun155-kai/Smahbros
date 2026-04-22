@@ -878,11 +878,15 @@ async function buildMyCharSlots(k, confirmedLineups) {
 }
 
 function quickPickChar(charName) {
-  if (lineupSlotValues.includes(charName)) {
-    showToast(`${charName} is already picked.`, 'warn');
+  const inputs = document.querySelectorAll('.lineup-char-input');
+  // If already picked, clear that slot (toggle off)
+  const existingSlot = lineupSlotValues.indexOf(charName);
+  if (existingSlot !== -1) {
+    lineupSlotValues[existingSlot] = '';
+    if (inputs[existingSlot]) inputs[existingSlot].value = '';
+    _updateQuickPickButtons();
     return;
   }
-  const inputs = document.querySelectorAll('.lineup-char-input');
   let target = -1;
   for (let i = 0; i < lineupSlotValues.length; i++) {
     if (!lineupSlotValues[i]) { target = i; break; }

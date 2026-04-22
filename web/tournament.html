@@ -1145,10 +1145,11 @@ async function previewMatchups() {
 
       while (totalPaired < n) {
         const usedThisWave = new Set();
-        let madeProgress = true;
+        let pairedThisWave = 0;
 
-        while (madeProgress) {
-          madeProgress = false;
+        let innerProgress = true;
+        while (innerProgress) {
+          innerProgress = false;
           let lo = -1, hi = -1;
           for (let k = 0; k < n; k++) {
             if (!taken[k] && !usedThisWave.has(allEntries[k].player)) { lo = k; break; }
@@ -1164,10 +1165,12 @@ async function previewMatchups() {
           usedThisWave.add(allEntries[lo].player);
           usedThisWave.add(allEntries[hi].player);
           totalPaired += 2;
-          madeProgress = true;
+          pairedThisWave++;
+          innerProgress = true;
         }
 
-        if (!madeProgress) {
+        // Only bail out if the entire wave produced zero pairs (genuinely stuck)
+        if (pairedThisWave === 0) {
           for (let k = 0; k < n; k++) {
             if (!taken[k]) { pairs.push({ a: toLabel(allEntries[k]), b: 'BYE' }); taken[k] = true; totalPaired++; }
           }

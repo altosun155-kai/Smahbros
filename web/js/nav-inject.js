@@ -19,7 +19,6 @@
     { section: 'My Stuff' },
     { href: 'tier-list.html',    label: 'Tier List',    icon: '🎖️' },
     { href: 'favorites.html',   label: 'Favorites',    icon: '⭐' },
-    { href: 'invites.html',     label: 'Invites',      icon: '📬' },
     { href: 'profile.html',     label: 'Profile',      icon: '👤' },
   ];
 
@@ -52,7 +51,7 @@
       `<a href="index.html" class="bnav-item${currentPage === 'index.html' ? ' active' : ''}"><span class="bnav-icon">🏠</span>Home</a>` +
       `<a href="duel.html" class="bnav-item${playPages.includes(currentPage) ? ' active' : ''}"><span class="bnav-icon">⚔️</span>Play</a>` +
       `<a href="leaderboard.html" class="bnav-item${currentPage === 'leaderboard.html' ? ' active' : ''}"><span class="bnav-icon">📈</span>Rankings</a>` +
-      `<button class="bnav-item" onclick="if(typeof toggleFriendsSidebar==='function')toggleFriendsSidebar()" id="bnavFriends"><span class="bnav-icon">👥</span>Friends</button>` +
+      `<a href="stats.html" class="bnav-item${currentPage === 'stats.html' ? ' active' : ''}"><span class="bnav-icon">📊</span>Stats</a>` +
       `<a href="profile.html" class="bnav-item${currentPage === 'profile.html' ? ' active' : ''}"><span class="bnav-icon">👤</span>Profile</a>`;
     document.body.appendChild(bnav);
   }

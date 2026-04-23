@@ -278,13 +278,6 @@
     <div id="avgSection">
       <div id="avgToggleRow">
         <div class="section-label" style="margin:0;">User Avg Stats</div>
-        <div class="avg-toggle-btns" style="display:flex;background:var(--card-bg2);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:0.78rem;font-weight:700;">
-          <button id="avgToggleUnweighted" onclick="setAvgMode('unweighted')"
-            style="padding:5px 14px;border:none;cursor:pointer;background:var(--accent-blue);color:#fff;transition:background 0.15s;">Unweighted</button>
-          <button id="avgToggleWeighted" onclick="setAvgMode('weighted')"
-            style="padding:5px 14px;border:none;cursor:pointer;background:transparent;color:var(--text-muted);transition:background 0.15s;">Weighted</button>
-        </div>
-        <span style="font-size:0.75rem;color:var(--text-muted);" id="avgModeDesc">Simple average across all characters</span>
       </div>
       <div id="avgLoading" class="loading-center">
         <div class="spinner"></div><span>Loading…</span>
@@ -340,7 +333,6 @@
 
 <script src="js/api.js"></script>
 <script src="js/badges.js"></script>
-<script src="js/friends-sidebar.js"></script>
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/chars.js"></script>
@@ -608,17 +600,10 @@
 
   // ── User average stats ────────────────────────────
   let allAvgData = [];
-  let avgMode = 'unweighted'; // 'unweighted' | 'weighted'
+  let avgMode = 'weighted';
 
   function setAvgMode(mode) {
     avgMode = mode;
-    document.getElementById('avgToggleUnweighted').style.background = mode === 'unweighted' ? 'var(--accent-blue)' : 'transparent';
-    document.getElementById('avgToggleUnweighted').style.color      = mode === 'unweighted' ? '#fff' : 'var(--text-muted)';
-    document.getElementById('avgToggleWeighted').style.background   = mode === 'weighted'   ? 'var(--accent-blue)' : 'transparent';
-    document.getElementById('avgToggleWeighted').style.color        = mode === 'weighted'   ? '#fff' : 'var(--text-muted)';
-    document.getElementById('avgModeDesc').textContent = mode === 'weighted'
-      ? 'Each character weighted by games played'
-      : 'Simple average across all characters';
     renderAvgTable();
   }
 

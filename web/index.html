@@ -492,17 +492,16 @@
     </a>
   </div>
 
+  <!-- ══ WALL OF SHAME ══ -->
+  <div class="section-label">💀 Wall of Shame</div>
+  <div id="shameFeed"><div style="font-size:0.8rem;color:var(--text-muted);padding:4px 0;">Loading…</div></div>
+
   <!-- ══ RANKINGS ══ -->
   <div class="section-label">Rankings</div>
   <div class="secondary-grid">
     <a href="leaderboard.html" class="secondary-card">
       <span class="sec-icon">📈</span>
-      <div class="sec-text"><h3>Elo Leaderboard</h3><p>Character elo rankings</p></div>
-      <span class="sec-arrow">›</span>
-    </a>
-    <a href="leaderboard.html#global" class="secondary-card">
-      <span class="sec-icon">🌍</span>
-      <div class="sec-text"><h3>Global Rankings</h3><p>Wins, kills & sessions</p></div>
+      <div class="sec-text"><h3>Leaderboard</h3><p>Elo, wins, kills & sessions</p></div>
       <span class="sec-arrow">›</span>
     </a>
     <a href="mastery.html" class="secondary-card">
@@ -525,16 +524,7 @@
       <div class="sec-text"><h3>My Brackets</h3><p>All saved tournaments</p></div>
       <span class="sec-arrow">›</span>
     </a>
-    <a href="invites.html" class="secondary-card">
-      <span class="sec-icon">📬</span>
-      <div class="sec-text"><h3>Invites</h3><p>Pending invitations</p></div>
-      <span class="sec-arrow">›</span>
-    </a>
   </div>
-
-  <!-- ══ WALL OF SHAME ══ -->
-  <div class="section-label">💀 Wall of Shame</div>
-  <div id="shameFeed"><div style="font-size:0.8rem;color:var(--text-muted);padding:4px 0;">Loading…</div></div>
 
   <!-- ══ CUSTOMIZE ══ -->
   <div class="section-label">Customize</div>
@@ -558,16 +548,13 @@
   <a href="index.html"        class="bnav-item active"><span class="bnav-icon">🏠</span>Home</a>
   <a href="duel.html"         class="bnav-item"><span class="bnav-icon">⚔️</span>Play</a>
   <a href="leaderboard.html"  class="bnav-item"><span class="bnav-icon">📈</span>Rankings</a>
-  <a href="#" onclick="toggleFriendsSidebar();return false;" class="bnav-item" id="bnavFriends">
-    <span class="bnav-icon">👥</span>Friends
-  </a>
+  <a href="stats.html"        class="bnav-item"><span class="bnav-icon">📊</span>Stats</a>
   <a href="profile.html"      class="bnav-item"><span class="bnav-icon">👤</span>Profile</a>
 </nav>
 
 <script src="js/api.js"></script>
 <script src="js/badges.js"></script>
 <script src="js/chars.js"></script>
-<script src="js/friends-sidebar.js"></script>
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
 <script>

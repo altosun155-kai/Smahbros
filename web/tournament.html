@@ -288,6 +288,8 @@
     </div>
   </div>
 
+  <div id="matchupBadge" style="display:none;text-align:center;padding:6px 0 2px;font-size:0.72rem;font-weight:600;color:rgba(255,255,255,0.5);letter-spacing:0.3px;"></div>
+
   <div class="vs-winner-row">
     <div id="scorePickLabel" style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);margin-bottom:8px;">Pick Score (stocks)</div>
     <div id="viewOnlyNote" style="display:none;font-size:0.75rem;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.5px;margin-bottom:8px;">Only the host can record results</div>
@@ -909,6 +911,23 @@ function openScoreModal(a, b, key) {
     // Refresh mobile cards if a winner was already tapped before elo loaded
     if (_mobileWinner) selectMobileWinner(_mobileWinner);
   });
+
+  // Fetch historical matchup record for this character pair
+  const mbEl = document.getElementById('matchupBadge');
+  if (mbEl) {
+    mbEl.style.display = 'none';
+    apiGet(`/characters/matchup?a=${encodeURIComponent(scoreModalA.character)}&b=${encodeURIComponent(scoreModalB.character)}`)
+      .then(mu => {
+        if (!mu || mu.total < 3) return;
+        const pctA = Math.round(mu.wins_a / mu.total * 100);
+        const pctB = 100 - pctA;
+        const leader = pctA >= pctB ? scoreModalA.character : scoreModalB.character;
+        const pct    = pctA >= pctB ? pctA : pctB;
+        mbEl.textContent = `${leader} leads this matchup ${pct}% — ${mu.total} game${mu.total === 1 ? '' : 's'}`;
+        mbEl.style.display = '';
+      })
+      .catch(() => {});
+  }
 }
 
 function closeScoreModal() {
@@ -1283,9 +1302,7 @@ async function confirmMatchups() {
   }
 }
 
-async function fetchAndRender() {
-  try {
-    const data = await apiGet(`/brackets/${tournamentId}`);
+async function _applyBracketData(data) {
     currentBracketData = data;
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = 'block';
@@ -1374,16 +1391,50 @@ async function fetchAndRender() {
       ? `<div class="live-badge"><span class="live-dot"></span>LIVE</div>`
       : `<div class="ended-badge">Ended</div>`;
 
-    if (!data.is_live && pollInterval) {
-      clearInterval(pollInterval);
-      pollInterval = null;
+    if (!data.is_live) {
+      if (_ws) { _ws.close(); _ws = null; }
+      if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
       const rn = document.getElementById('refreshNote');
-    if (rn) { rn.querySelector('span:first-child').style.background = '#e74c3c'; rn.querySelector('#refreshNoteText').textContent = 'Tournament ended'; }
+      if (rn) { rn.querySelector('span:first-child').style.background = '#e74c3c'; rn.querySelector('#refreshNoteText').textContent = 'Tournament ended'; }
     }
+}
+
+async function fetchAndRender() {
+  try {
+    const data = await apiGet(`/brackets/${tournamentId}`);
+    await _applyBracketData(data);
   } catch (err) {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('errorState').style.display = 'block';
   }
+}
+
+let _ws = null;
+
+function _connectWs() {
+  const token = typeof getToken === 'function' ? getToken() : null;
+  if (!token || !tournamentId) return;
+  const wsBase = API_BASE.replace(/^https/, 'wss').replace(/^http(?!s)/, 'ws');
+  try { _ws = new WebSocket(`${wsBase}/ws/tournament/${tournamentId}?token=${encodeURIComponent(token)}`); }
+  catch (_) { return; }
+
+  _ws.onopen = () => {
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+    const note = document.getElementById('refreshNoteText');
+    if (note) note.textContent = 'Live · real-time';
+  };
+
+  _ws.onmessage = evt => {
+    try { _applyBracketData(JSON.parse(evt.data)).catch(() => {}); } catch (_) {}
+  };
+
+  _ws.onclose = () => {
+    _ws = null;
+    if (currentBracketData && currentBracketData.is_live) {
+      if (!pollInterval) pollInterval = setInterval(fetchAndRender, 5000);
+      setTimeout(_connectWs, 4000);
+    }
+  };
 }
 
 (async function init() {
@@ -1413,8 +1464,7 @@ async function fetchAndRender() {
   await loadAllBadges();
   applyNavBadge(myUsername);
   await fetchAndRender();
-  // Poll every 5s for live updates
-  pollInterval = setInterval(fetchAndRender, 5000);
+  _connectWs(); // switch to WebSocket; falls back to polling on failure
 })();
 
 function showUndoBtn(label) {

@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+import asyncio
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -6,8 +7,11 @@ from sqlalchemy import text
 import os
 import logging
 
-from database import engine, Base
+from database import engine, Base, SessionLocal, Bracket, TournamentInvite
+from auth import decode_token
 from routers import auth, users, brackets, characters, matches, roundrobin, invites, friends, leaderboard, practice, presets
+from routers.brackets import bracket_to_dict
+import ws_manager
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +54,16 @@ def _run_migrations():
                     won BOOLEAN DEFAULT TRUE,
                     notes VARCHAR(500),
                     created_at TIMESTAMP DEFAULT NOW()
+                )
+            """))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS character_matchups (
+                    id SERIAL PRIMARY KEY,
+                    char_a VARCHAR NOT NULL,
+                    char_b VARCHAR NOT NULL,
+                    wins_a INTEGER NOT NULL DEFAULT 0,
+                    wins_b INTEGER NOT NULL DEFAULT 0,
+                    UNIQUE(char_a, char_b)
                 )
             """))
             conn.execute(text("""
@@ -126,6 +140,17 @@ def _run_migrations():
             if "placements" not in b3_cols:
                 conn.execute(text("ALTER TABLE brackets ADD COLUMN placements TEXT DEFAULT NULL"))
             existing = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))}
+            if "character_matchups" not in existing:
+                conn.execute(text("""
+                    CREATE TABLE character_matchups (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        char_a VARCHAR NOT NULL,
+                        char_b VARCHAR NOT NULL,
+                        wins_a INTEGER NOT NULL DEFAULT 0,
+                        wins_b INTEGER NOT NULL DEFAULT 0,
+                        UNIQUE(char_a, char_b)
+                    )
+                """))
             if "tournament_presets" not in existing:
                 conn.execute(text("""
                     CREATE TABLE tournament_presets (
@@ -173,6 +198,66 @@ app.include_router(friends.router)
 app.include_router(leaderboard.router)
 app.include_router(practice.router)
 app.include_router(presets.router)
+
+
+@app.on_event("startup")
+async def _startup():
+    ws_manager.set_loop(asyncio.get_running_loop())
+
+
+@app.websocket("/ws/tournament/{tournament_id}")
+async def ws_tournament(tournament_id: int, websocket: WebSocket, token: str = ""):
+    user_id = decode_token(token)
+    if not user_id:
+        await websocket.close(code=1008)
+        return
+
+    db = SessionLocal()
+    try:
+        b = db.query(Bracket).filter(Bracket.id == tournament_id).first()
+        if not b:
+            await websocket.close(code=1008)
+            return
+        is_owner = b.user_id == user_id
+        invite = db.query(TournamentInvite).filter_by(
+            bracket_id=tournament_id, invitee_id=user_id
+        ).first()
+        if not is_owner and not invite:
+            await websocket.close(code=1008)
+            return
+        initial = bracket_to_dict(b)
+    finally:
+        db.close()
+
+    await ws_manager.connect(tournament_id, websocket)
+    try:
+        await websocket.send_json(initial)
+        while True:
+            await websocket.receive_text()  # drain client pings; server pushes via broadcast
+    except WebSocketDisconnect:
+        ws_manager.disconnect(tournament_id, websocket)
+
+
+@app.websocket("/ws/spectate/{tournament_id}")
+async def ws_spectate(tournament_id: int, websocket: WebSocket):
+    """Public read-only feed — no auth required. Same broadcast room as authed clients."""
+    db = SessionLocal()
+    try:
+        b = db.query(Bracket).filter(Bracket.id == tournament_id).first()
+        if not b:
+            await websocket.close(code=1008)
+            return
+        initial = bracket_to_dict(b)
+    finally:
+        db.close()
+
+    await ws_manager.connect(tournament_id, websocket)
+    try:
+        await websocket.send_json(initial)
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        ws_manager.disconnect(tournament_id, websocket)
 
 
 @app.get("/health")

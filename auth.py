@@ -35,6 +35,15 @@ def verify_password(plain: str, hashed: str) -> bool:
     return check_password_hash(hashed, plain)
 
 
+def decode_token(token: str) -> int | None:
+    """Return user_id from a raw JWT string, None if invalid/expired."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        return payload.get("user_id")
+    except Exception:
+        return None
+
+
 def get_current_user(authorization: str = Header(default=None), db: Session = Depends(get_db)) -> User:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Not authenticated")

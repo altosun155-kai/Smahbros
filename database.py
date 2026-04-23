@@ -214,6 +214,21 @@ class MatchResult(Base):
     loser   = relationship("User", foreign_keys=[loser_id])
 
 
+class CharacterMatchup(Base):
+    """
+    Aggregate win counts per character pairing across all players.
+    char_a / char_b are stored in alphabetical order so each pair has
+    exactly one row.  wins_a = wins for the alphabetically-first character.
+    """
+    __tablename__ = "character_matchups"
+
+    id     = Column(Integer, primary_key=True, index=True)
+    char_a = Column(String, nullable=False)
+    char_b = Column(String, nullable=False)
+    wins_a = Column(Integer, default=0, nullable=False)
+    wins_b = Column(Integer, default=0, nullable=False)
+
+
 class TournamentPreset(Base):
     """
     Saved squad config for one-click bracket launches.

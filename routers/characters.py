@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from datetime import datetime
 
 from sqlalchemy import or_, and_
-from database import User, CharacterRanking, CharacterStats, FavoriteCharacters, Friendship
+from database import User, CharacterRanking, CharacterStats, FavoriteCharacters, Friendship, CharacterMatchup
 from auth import get_db, get_current_user
 
 router = APIRouter(tags=["characters"])
@@ -434,6 +434,20 @@ def record_stat_for(req: StatRecordFor, db: Session = Depends(get_db), current_u
         row.losses = (row.losses or 0) + 1
     db.commit()
     return {"character": row.character, "points": row.points}
+
+
+@router.get("/characters/matchup")
+def get_matchup(a: str, b: str, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    """Win counts for a character pair across all recorded matches (a's perspective)."""
+    ca, cb = sorted([a, b])
+    mu = db.query(CharacterMatchup).filter(
+        CharacterMatchup.char_a == ca, CharacterMatchup.char_b == cb
+    ).first()
+    wa = (mu.wins_a or 0) if mu else 0
+    wb = (mu.wins_b or 0) if mu else 0
+    total = wa + wb
+    wins_for_a, wins_for_b = (wa, wb) if a == ca else (wb, wa)
+    return {"char_a": a, "char_b": b, "wins_a": wins_for_a, "wins_b": wins_for_b, "total": total}
 
 
 @router.post("/characters/stats/record")

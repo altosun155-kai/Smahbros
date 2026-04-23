@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from database import User, Bracket, TournamentInvite, CharacterStats, MatchResult
 from auth import get_db, get_current_user
+import ws_manager
 
 
 def _parse_label(val: str):
@@ -220,6 +221,7 @@ def set_bracket_winner(bracket_id: int, req: WinnerUpdate, db: Session = Depends
     if req.tournament_winner:
         b.winner = req.tournament_winner
     db.commit()
+    ws_manager.push(bracket_id, bracket_to_dict(b))
     return {"ok": True}
 
 
@@ -264,6 +266,7 @@ def confirm_lineup(bracket_id: int, req: LineupConfirm, db: Session = Depends(ge
     b.confirmed_lineups = lineups
     flag_modified(b, "confirmed_lineups")
     db.commit()
+    ws_manager.push(bracket_id, bracket_to_dict(b))
     return {"ok": True}
 
 
@@ -277,6 +280,7 @@ def generate_from_lineups(bracket_id: int, req: GenerateBracketData, db: Session
     flag_modified(b, "bracket_data")
     flag_modified(b, "entries")
     db.commit()
+    ws_manager.push(bracket_id, bracket_to_dict(b))
     return {"ok": True}
 
 
@@ -387,9 +391,66 @@ def end_tournament(bracket_id: int, db: Session = Depends(get_db), current_user:
         flag_modified(b, "placements")
 
     db.commit()
+    ws_manager.push(bracket_id, bracket_to_dict(b))
     return {
         "ok": True,
-        "bonuses": [{"player": p, "char": c, "bonus": b, "place": pl} for p, c, b, pl in bonuses],
+        "bonuses": [{"player": p, "char": c, "bonus": bon, "place": pl} for p, c, bon, pl in bonuses],
+    }
+
+
+@router.get("/brackets/{bracket_id}/recap")
+def get_recap(bracket_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Post-tournament summary: upsets, kill leaders, Elo changes, sweeps."""
+    b = db.query(Bracket).filter(Bracket.id == bracket_id).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="Bracket not found")
+    invite = db.query(TournamentInvite).filter(
+        TournamentInvite.bracket_id == bracket_id,
+        TournamentInvite.invitee_id == current_user.id,
+    ).first()
+    if b.user_id != current_user.id and not invite:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    matches = db.query(MatchResult).filter(MatchResult.bracket_id == bracket_id).all()
+
+    elo_changes: dict[str, int] = {}
+    kill_totals: dict[str, int] = {}
+    for m in matches:
+        w, l = m.winner.username, m.loser.username
+        elo_changes[w] = elo_changes.get(w, 0) + (m.elo_delta or 0)
+        elo_changes[l] = elo_changes.get(l, 0) - (m.elo_delta or 0)
+        kill_totals[w] = kill_totals.get(w, 0) + (m.winner_kills or 0)
+        kill_totals[l] = kill_totals.get(l, 0) + (m.loser_kills or 0)
+
+    # Biggest upsets = largest elo_delta (underdog won → higher reward)
+    upsets = [
+        {
+            "winner": m.winner.username, "winner_char": m.winner_char,
+            "loser": m.loser.username,   "loser_char": m.loser_char,
+            "elo_delta": m.elo_delta or 0,
+            "score": f"{m.winner_kills or 0}-{m.loser_kills or 0}",
+        }
+        for m in sorted(matches, key=lambda x: -(x.elo_delta or 0))[:3]
+    ]
+
+    sweeps = [
+        {"winner": m.winner.username, "winner_char": m.winner_char,
+         "loser": m.loser.username,   "loser_char": m.loser_char}
+        for m in matches if (m.winner_kills or 0) >= 3 and (m.loser_kills or 0) == 0
+    ]
+
+    kill_leaders = sorted(
+        [{"player": p, "kills": k} for p, k in kill_totals.items()],
+        key=lambda x: -x["kills"]
+    )[:5]
+
+    return {
+        "placements": b.placements or {},
+        "elo_changes": elo_changes,
+        "upsets": upsets,
+        "sweeps": sweeps,
+        "kill_leaders": kill_leaders,
+        "total_matches": len(matches),
     }
 
 

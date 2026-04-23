@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from database import User, CharacterStats, MatchResult, Bracket
+from database import User, CharacterStats, MatchResult, Bracket, CharacterMatchup
 from auth import get_db, get_current_user
 
 router = APIRouter(tags=["matches"])
@@ -163,5 +163,20 @@ def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: 
         elo_delta=delta,
     )
     db.add(mr)
+
+    # Update global character-vs-character matchup record
+    ca, cb = sorted([req.winner_char, req.loser_char])
+    mu = db.query(CharacterMatchup).filter(
+        CharacterMatchup.char_a == ca, CharacterMatchup.char_b == cb
+    ).first()
+    if not mu:
+        mu = CharacterMatchup(char_a=ca, char_b=cb, wins_a=0, wins_b=0)
+        db.add(mu)
+        db.flush()
+    if req.winner_char == ca:
+        mu.wins_a = (mu.wins_a or 0) + 1
+    else:
+        mu.wins_b = (mu.wins_b or 0) + 1
+
     db.commit()
     return {"ok": True, "elo_delta": delta}

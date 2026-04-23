@@ -38,6 +38,22 @@
     .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #27ae60; animation: pulse 1.2s ease-in-out infinite; }
     @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
     .ended-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 0.8rem; color: var(--text-muted); font-weight: 700; }
+    /* ── VS Clash Animations ── */
+    #vsClashLayer { position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:5; }
+    .vsc-flash  { position:absolute;left:50%;top:50%;border-radius:50%;animation:vscFlash 0.55s ease-out forwards; }
+    .vsc-ring   { position:absolute;left:50%;top:50%;border-radius:50%;border:3px solid;animation:vscRing 0.85s ease-out forwards; }
+    .vsc-slash  { position:absolute;left:50%;top:50%;height:6px;transform-origin:center;animation:vscSlash 0.72s ease-out forwards; }
+    .vsc-bolt   { position:absolute;left:50%;top:50%;width:4px;height:150px;margin-left:-2px;margin-top:-75px;transform-origin:center;animation:vscBolt 0.65s ease-out forwards; }
+    .vsc-streak { position:absolute;left:0;right:0;height:3px;animation:vscStreak 0.55s ease-in-out forwards; }
+    .vsc-wave   { position:absolute;left:50%;top:50%;border-radius:50%;border:16px solid;animation:vscWave 1s ease-out forwards; }
+
+    @keyframes vscFlash  { 0%{transform:scale(0.1);opacity:0.9} 25%{transform:scale(1);opacity:0.65} 100%{transform:scale(2.2);opacity:0} }
+    @keyframes vscRing   { 0%{transform:scale(0);opacity:1} 100%{transform:scale(5.5);opacity:0} }
+    @keyframes vscSlash  { 0%{transform:rotate(-38deg) scaleX(0);opacity:1} 45%{transform:rotate(-38deg) scaleX(1);opacity:1} 100%{transform:rotate(-38deg) scaleX(1.15);opacity:0} }
+    @keyframes vscBolt   { 0%{transform:rotate(var(--r,0deg)) scaleY(0);opacity:1} 50%{transform:rotate(var(--r,0deg)) scaleY(1);opacity:1} 100%{transform:rotate(var(--r,0deg)) scaleY(1.5);opacity:0} }
+    @keyframes vscStreak { 0%{transform:translateX(-120%);opacity:0} 20%{opacity:1} 80%{opacity:1} 100%{transform:translateX(120%);opacity:0} }
+    @keyframes vscWave   { 0%{transform:scale(0);opacity:0.9} 100%{transform:scale(7);opacity:0} }
+
     /* Character picker modal */
     #charPickerModal { display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; }
     #charPickerModal.open { display:flex; }
@@ -75,6 +91,13 @@
 
     <!-- ── Lineup phase ── -->
     <div id="lineupPhase" style="display:none;">
+
+      <!-- Host share link -->
+      <div id="hostShareBar" style="display:none;background:rgba(39,174,96,0.08);border:1px solid rgba(39,174,96,0.3);border-radius:8px;padding:10px 14px;margin-bottom:16px;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="font-size:0.82rem;color:#27ae60;font-weight:600;">Share link with players:</span>
+        <input id="hostShareUrl" readonly style="flex:1;min-width:200px;background:rgba(0,0,0,0.3);border:1px solid rgba(39,174,96,0.35);color:#ccc;border-radius:4px;padding:3px 8px;font-size:0.8rem;">
+        <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('hostShareUrl').value).then(()=>showToast('Link copied!','success'))" style="background:rgba(39,174,96,0.2);border:1px solid rgba(39,174,96,0.4);color:#27ae60;border-radius:4px;padding:3px 10px;font-size:0.8rem;cursor:pointer;white-space:nowrap;">Copy</button>
+      </div>
 
       <!-- My character picks -->
       <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;">
@@ -220,12 +243,37 @@
         <img class="vs-avatar" id="scoreP1Avatar" src="" alt="P1" />
         <div class="vs-name p1" id="scoreP1Name">Player 1</div>
         <div class="vs-char-name" id="scoreP1Char"></div>
+        <div class="vcp-elo-display" id="vcpP1EloDisplay"></div>
       </div>
     </div>
 
     <div class="vs-middle">
       <div class="vs-logo">Super Smash Bros. Ultimate</div>
       <div class="vs-text">VS</div>
+
+      <!-- Center glassmorphism scoring panel -->
+      <div class="vs-center-panel" id="vcpPanel">
+        <div id="vcpViewOnly" style="display:none;font-size:0.6rem;color:rgba(255,255,255,0.4);letter-spacing:1px;text-transform:uppercase;text-align:center;margin-bottom:8px;">Spectating — host picks score</div>
+        <div style="display:flex;gap:10px;align-items:stretch;">
+          <div class="vcp-section">
+            <div class="vcp-label vcp-p1-label" id="vcpLabel1">P1 WINS</div>
+            <div class="vcp-btns">
+              <button class="vcp-btn vcp-p1" onmouseover="hoverScore(3,0)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(3,0)">3-0</button>
+              <button class="vcp-btn vcp-p1" onmouseover="hoverScore(3,1)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(3,1)">3-1</button>
+              <button class="vcp-btn vcp-p1" onmouseover="hoverScore(3,2)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(3,2)">3-2</button>
+            </div>
+          </div>
+          <div style="width:1px;background:rgba(255,255,255,0.18);align-self:stretch;flex-shrink:0;"></div>
+          <div class="vcp-section">
+            <div class="vcp-label vcp-p2-label" id="vcpLabel2">P2 WINS</div>
+            <div class="vcp-btns">
+              <button class="vcp-btn vcp-p2" onmouseover="hoverScore(0,3)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(0,3)">0-3</button>
+              <button class="vcp-btn vcp-p2" onmouseover="hoverScore(1,3)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(1,3)">1-3</button>
+              <button class="vcp-btn vcp-p2" onmouseover="hoverScore(2,3)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(2,3)">2-3</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="vs-player p2-side">
@@ -235,6 +283,7 @@
         <img class="vs-avatar" id="scoreP2Avatar" src="" alt="P2" />
         <div class="vs-name p2" id="scoreP2Name">Player 2</div>
         <div class="vs-char-name" id="scoreP2Char"></div>
+        <div class="vcp-elo-display" id="vcpP2EloDisplay"></div>
       </div>
     </div>
   </div>
@@ -242,7 +291,7 @@
   <div class="vs-winner-row">
     <div id="scorePickLabel" style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);margin-bottom:8px;">Pick Score (stocks)</div>
     <div id="viewOnlyNote" style="display:none;font-size:0.75rem;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.5px;margin-bottom:8px;">Only the host can record results</div>
-    <div id="desktopScoreGrid" style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;">
+    <div id="desktopScoreGrid" style="display:none;">
       <!-- P1 wins -->
       <div>
         <div style="font-size:0.62rem;color:#ff8888;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:3px;" id="scoreLabel1">P1 Wins</div>
@@ -345,9 +394,8 @@
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/chars.js"></script>
+<script src="js/bracket-engine.js"></script>
 <script>
-const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];
-
 const params = new URLSearchParams(window.location.search);
 const tournamentId = params.get('id');
 let pollInterval = null;
@@ -418,7 +466,7 @@ function closeCharPicker() {
 function filterCharList() {
   const q = document.getElementById('charPickerSearch').value.toLowerCase();
   const list = document.getElementById('charPickerList');
-  list.innerHTML = ROSTER
+  list.innerHTML = SMASH_ROSTER
     .filter(c => !q || c.toLowerCase().includes(q))
     .map(c => `<div class="char-list-item" onclick="selectChar('${c.replace(/'/g, "\\'")}')">${c}</div>`)
     .join('');
@@ -605,6 +653,112 @@ let scoreModalKey = null;
 let scoreModalA = null;
 let scoreModalB = null;
 let _mobileWinner = null; // 'p1' | 'p2' | null
+let _modalEloA = 1000, _modalEloB = 1000, _modalLb = [];
+
+// ── Character clash animation profiles ────────────
+const CHAR_PROFILES = {
+  // Electric
+  'Pikachu':'electric','Pichu':'electric',
+  // Psychic / aura / magic
+  'Mewtwo':'psychic','Ness':'psychic','Lucas':'psychic','Lucario':'psychic',
+  'Hero':'psychic','Robin':'psychic','Rosalina & Luma':'psychic',
+  // Sword fighters
+  'Link':'swordie','Young Link':'swordie','Toon Link':'swordie',
+  'Marth':'swordie','Lucina':'swordie','Ike':'swordie','Roy':'swordie',
+  'Chrom':'swordie','Cloud':'swordie','Corrin':'swordie','Shulk':'swordie',
+  'Byleth':'swordie','Meta Knight':'swordie','Mii Swordfighter':'swordie',
+  'Sephiroth':'swordie',
+  // Speed / rush fighters
+  'Sonic':'speed','Captain Falcon':'speed','Fox':'speed','Falco':'speed',
+  'Sheik':'speed','Zero Suit Samus':'speed','Joker':'speed',
+  'Bayonetta':'speed','Wolf':'speed','Greninja':'speed',
+  // Heavyweights / power
+  'Bowser':'heavy','Donkey Kong':'heavy','King K. Rool':'heavy',
+  'Ganondorf':'heavy','Incineroar':'heavy','King Dedede':'heavy',
+  'Snake':'heavy','Terry':'heavy','Little Mac':'heavy','Ridley':'heavy',
+  'Bowser Jr.':'heavy',
+};
+
+function _mk(layer, cls, inlineStyle, delayMs) {
+  const el = document.createElement('div');
+  el.className = 'vsc-' + cls;
+  if (inlineStyle) el.style.cssText = inlineStyle;
+  if (delayMs) el.style.animationDelay = delayMs + 'ms';
+  layer.appendChild(el);
+}
+
+function _spawnEffect(layer, profile) {
+  switch(profile) {
+    case 'electric':
+      _mk(layer,'flash','width:280px;height:280px;margin-left:-140px;margin-top:-140px;background:radial-gradient(circle,rgba(255,240,0,0.75) 0%,transparent 70%)');
+      _mk(layer,'ring','width:180px;height:180px;margin-left:-90px;margin-top:-90px;border-color:#ffe600;box-shadow:0 0 22px #ffe600,inset 0 0 12px rgba(255,230,0,0.25)');
+      [0,45,90,135,180,225,270,315].forEach((deg,i) =>
+        _mk(layer,'bolt',`--r:${deg}deg;background:#ffe600;box-shadow:0 0 7px #ffe600`,i*18));
+      break;
+    case 'psychic':
+      _mk(layer,'flash','width:260px;height:260px;margin-left:-130px;margin-top:-130px;background:radial-gradient(circle,rgba(180,80,255,0.65) 0%,transparent 70%)');
+      [[0,'#bb44ff'],[200,'#ff44cc'],[400,'#8833ee']].forEach(([d,c]) =>
+        _mk(layer,'ring',`width:160px;height:160px;margin-left:-80px;margin-top:-80px;border-color:${c};box-shadow:0 0 16px ${c}`,d));
+      break;
+    case 'swordie':
+      _mk(layer,'flash','width:320px;height:320px;margin-left:-160px;margin-top:-160px;background:radial-gradient(circle,rgba(200,240,255,0.55) 0%,transparent 70%)');
+      _mk(layer,'slash','width:460px;margin-left:-230px;margin-top:-3px;background:linear-gradient(to right,transparent,#ffffff,transparent);box-shadow:0 0 20px rgba(255,255,255,0.85)');
+      _mk(layer,'slash','width:360px;margin-left:-180px;margin-top:10px;background:linear-gradient(to right,transparent,rgba(140,200,255,0.75),transparent)',90);
+      _mk(layer,'ring','width:160px;height:160px;margin-left:-80px;margin-top:-80px;border-color:rgba(200,235,255,0.75)',130);
+      break;
+    case 'speed':
+      _mk(layer,'flash','width:240px;height:240px;margin-left:-120px;margin-top:-120px;background:radial-gradient(circle,rgba(0,220,255,0.55) 0%,transparent 70%)');
+      [-55,-28,0,28,55].forEach((offset,i) =>
+        _mk(layer,'streak',`top:calc(50% + ${offset}px - ${i===2?2:1}px);background:${i===2?'#00eeff':'rgba(0,200,255,0.45)'};height:${i===2?'4px':'2px'};box-shadow:${i===2?'0 0 10px #00eeff':'none'}`,i*38));
+      break;
+    case 'heavy':
+      _mk(layer,'flash','width:320px;height:320px;margin-left:-160px;margin-top:-160px;background:radial-gradient(circle,rgba(255,80,0,0.6) 0%,transparent 70%)');
+      _mk(layer,'wave','width:70px;height:70px;margin-left:-35px;margin-top:-35px;border-color:#ff5500;box-shadow:0 0 28px rgba(255,80,0,0.75),inset 0 0 14px rgba(255,60,0,0.3)');
+      _mk(layer,'ring','width:120px;height:120px;margin-left:-60px;margin-top:-60px;border-color:rgba(255,200,0,0.55)',220);
+      break;
+    default:
+      _mk(layer,'flash','width:260px;height:260px;margin-left:-130px;margin-top:-130px;background:radial-gradient(circle,rgba(255,255,255,0.4) 0%,transparent 70%)');
+      _mk(layer,'ring','width:180px;height:180px;margin-left:-90px;margin-top:-90px;border-color:rgba(255,255,255,0.7)');
+  }
+}
+
+function spawnClash(charA, charB) {
+  const old = document.getElementById('vsClashLayer');
+  if (old) old.remove();
+  const bg = document.querySelector('#scoreModal .vs-bg');
+  if (!bg) return;
+  const layer = document.createElement('div');
+  layer.id = 'vsClashLayer';
+  bg.appendChild(layer);
+
+  const pA = CHAR_PROFILES[charA] || 'default';
+  const pB = CHAR_PROFILES[charB] || 'default';
+  _spawnEffect(layer, pA);
+  if (pB !== pA) _spawnEffect(layer, pB);
+
+  setTimeout(() => { if (layer.parentNode) layer.remove(); }, 1600);
+}
+
+function hoverScore(p1s, p2s) {
+  const isP1Win = p1s > p2s;
+  const wk = Math.max(p1s, p2s), lk = Math.min(p1s, p2s);
+  const we = isP1Win ? _modalEloA : _modalEloB;
+  const le = isP1Win ? _modalEloB : _modalEloA;
+  const delta = previewEloGain(we, le, wk, lk);
+  const newRankW = _modalLb.length ? _tRankAfter(_modalLb, isP1Win ? scoreModalA.player : scoreModalB.player, isP1Win ? scoreModalA.character : scoreModalB.character, we + delta) : null;
+  const newRankL = _modalLb.length ? _tRankAfter(_modalLb, isP1Win ? scoreModalB.player : scoreModalA.player, isP1Win ? scoreModalB.character : scoreModalA.character, Math.max(100, le - delta)) : null;
+  const winEl  = document.getElementById(isP1Win ? 'vcpP1EloDisplay' : 'vcpP2EloDisplay');
+  const loseEl = document.getElementById(isP1Win ? 'vcpP2EloDisplay' : 'vcpP1EloDisplay');
+  if (winEl)  winEl.innerHTML  = `<span style="color:#4caf50;font-size:1.15em;font-weight:900;">+${delta}</span>${newRankW ? ` <span style="color:#4caf50;font-size:0.8em;">→ #${newRankW}</span>` : ''}`;
+  if (loseEl) loseEl.innerHTML = `<span style="color:#e74c3c;font-size:1.15em;font-weight:900;">−${delta}</span>${newRankL ? ` <span style="color:#e74c3c;font-size:0.8em;">→ #${newRankL}</span>` : ''}`;
+}
+
+function hoverScoreReset() {
+  const p1El = document.getElementById('vcpP1EloDisplay');
+  const p2El = document.getElementById('vcpP2EloDisplay');
+  if (p1El) p1El.innerHTML = `<span style="color:rgba(255,255,255,0.5);font-size:0.78em;">${_modalEloA} elo</span>`;
+  if (p2El) p2El.innerHTML = `<span style="color:rgba(255,255,255,0.5);font-size:0.78em;">${_modalEloB} elo</span>`;
+}
 
 function selectMobileWinner(side) {
   _mobileWinner = side;
@@ -654,6 +808,20 @@ function openScoreModal(a, b, key) {
   document.getElementById('scoreLabel1').textContent = `${scoreModalA.player} Wins`;
   document.getElementById('scoreLabel2').textContent = `${scoreModalB.player} Wins`;
 
+  // Center panel labels
+  document.getElementById('vcpLabel1').textContent = `${scoreModalA.player} Wins`;
+  document.getElementById('vcpLabel2').textContent = `${scoreModalB.player} Wins`;
+  // Host vs spectator for center panel
+  document.querySelectorAll('.vcp-btn').forEach(b => {
+    b.style.pointerEvents = isHost ? '' : 'none';
+    b.style.opacity = isHost ? '' : '0.7';
+    b.style.cursor = isHost ? '' : 'default';
+  });
+  document.getElementById('vcpViewOnly').style.display = isHost ? 'none' : 'block';
+  // Clear elo displays
+  document.getElementById('vcpP1EloDisplay').textContent = '';
+  document.getElementById('vcpP2EloDisplay').textContent = '';
+
   // Mobile winner-first UI — reset state
   _mobileWinner = null;
   document.getElementById('mWinName1').textContent = `${scoreModalA.player} Won`;
@@ -680,6 +848,9 @@ function openScoreModal(a, b, key) {
   if (p1Url) { p1Img.src = p1Url; p1Img.style.display = ''; } else { p1Img.style.display = 'none'; }
   if (p2Url) { p2Img.src = p2Url; p2Img.style.display = ''; } else { p2Img.style.display = 'none'; }
 
+  // Clash animation based on character profiles
+  setTimeout(() => spawnClash(scoreModalA.character, scoreModalB.character), 80);
+
   // Clear elo/rank labels while loading
   ['tElo_30','tElo_31','tElo_32','tElo_03','tElo_13','tElo_23',
    'tRankW_30','tRankW_31','tRankW_32','tRankW_03','tRankW_13','tRankW_23',
@@ -701,6 +872,8 @@ function openScoreModal(a, b, key) {
     getCharElo(scoreModalB.player, scoreModalB.character),
     _getTLb(),
   ]).then(([eloA, eloB, lb]) => {
+    _modalEloA = eloA; _modalEloB = eloB; _modalLb = lb || [];
+    hoverScoreReset(); // populate initial elo display under player names
     const scenarios = [
       { id: '30', aWins: true,  wk: 3, lk: 0 },
       { id: '31', aWins: true,  wk: 3, lk: 1 },
@@ -899,7 +1072,7 @@ function quickPickChar(charName) {
 function setupLineupInput(input, drop, slotIdx) {
   function buildDrop(q) {
     const taken = new Set(lineupSlotValues.filter((c, i) => c && i !== slotIdx));
-    const matches = ROSTER.filter(c => (!q || c.toLowerCase().includes(q.toLowerCase())) && !taken.has(c));
+    const matches = SMASH_ROSTER.filter(c => (!q || c.toLowerCase().includes(q.toLowerCase())) && !taken.has(c));
     drop.innerHTML = matches.length
       ? matches.map(c => `<div style="padding:7px 10px;cursor:pointer;font-size:0.85rem;color:#e8edf3;" onmousedown="event.preventDefault();selectLineupChar(${slotIdx},'${c.replace(/'/g,"\\'")}','${c.replace(/'/g,"\\'")}',this)">${c}</div>`).join('')
       : '<div style="padding:8px 10px;font-size:0.82rem;color:var(--text-muted);">No match</div>';
@@ -937,9 +1110,9 @@ function _updateQuickPickButtons() {
 async function confirmLineup() {
   // Sync values from inputs
   document.querySelectorAll('.lineup-char-input').forEach((inp, i) => {
-    if (ROSTER.includes(inp.value)) lineupSlotValues[i] = inp.value;
+    if (SMASH_ROSTER.includes(inp.value)) lineupSlotValues[i] = inp.value;
   });
-  const chars = lineupSlotValues.filter(c => c && ROSTER.includes(c));
+  const chars = lineupSlotValues.filter(c => c && SMASH_ROSTER.includes(c));
   if (!chars.length) { showToast('Pick at least one character.', 'warn'); return; }
   try {
     await apiPatch(`/brackets/${tournamentId}/confirm-lineup`, { characters: chars });
@@ -984,17 +1157,6 @@ function renderLineupStatus(data) {
   }).join('');
 }
 
-// ── Bracket generation (lineup → matchups) ────────
-function nextPow2(n) { if (n<=1) return 1; let p=1; while(p<n) p<<=1; return p; }
-
-function shuffleArr(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
 // ── Matchup preview + swap state ──────────────────
 let pendingPairs   = [];
 let pendingEntries = [];
@@ -1025,163 +1187,22 @@ async function previewMatchups() {
   document.getElementById('btnPreviewMatchups').textContent = '👁 Preview Matchups';
   document.getElementById('btnPreviewMatchups').disabled = false;
 
+  // Sort each player's characters by elo so slot 0 = best char
   const playerGroups = {};
   players.forEach(p => {
     const chars = confirmedLineups[p] || [];
     const stats = playerStats[p] || [];
-    // Sort each player's characters by elo descending so slot 0 = best char,
-    // slot 1 = 2nd best, etc. — prevents a player's worst char landing in the
-    // same pool as everyone else's best.
     const getElo = c => (stats.find(s => s.character === c) || {}).elo || 1000;
     playerGroups[p] = [...chars].sort((a, b) => getElo(b) - getElo(a)).map(c => ({ player: p, character: c }));
   });
-  const maxChars = Math.max(...players.map(p => (playerGroups[p] || []).length), 0);
-  if (maxChars === 0) { showToast('No confirmed lineups yet.', 'warn'); return; }
+  if (!players.some(p => playerGroups[p].length > 0)) { showToast('No confirmed lineups yet.', 'warn'); return; }
 
-  function getSeed(entry) {
-    if (!entry || entry.player === 'SYSTEM') return -1;
-    const stats = playerStats[entry.player] || [];
-    const s = stats.find(x => x.character === entry.character);
-    if (!s) return 0;
-    if (seedMode === 'winpct') {
-      const total = (s.wins || 0) + (s.losses || 0);
-      return total >= 3 ? (s.wins || 0) / total : 0;
-    }
-    if (seedMode === 'kills') return s.kills || 0;
-    if (seedMode === 'elo') return s.elo || 1000;
-    return s.elo || 1000;
-  }
+  const entries = players.flatMap(p => playerGroups[p]);
+  const isTeams = Object.keys(tournamentTeams).length > 0;
+  const rawPairs = buildBracketPairs({ entries, style, poolMode, seedMode, teamMode: isTeams, teamOf: tournamentTeams, statsMap: playerStats });
 
-  const pairs = [];
-
-  if (style === 'random' && poolMode !== 'freePool') {
-    // Shuffle each player's own char list so char slot order is random
-    const shuffledGroups = {};
-    players.forEach(p => {
-      shuffledGroups[p] = [...(playerGroups[p] || [])];
-      shuffleArr(shuffledGroups[p]);
-    });
-
-    // Deal round-robin by slot: slot-0 chars from all players first, then slot-1, etc.
-    // This puts each player's chars in different bracket halves, preventing R2 self-matchups.
-    const flat = [];
-    for (let slot = 0; slot < maxChars; slot++) {
-      const slotOrder = [...players].filter(p => shuffledGroups[p][slot]);
-      shuffleArr(slotOrder);
-      slotOrder.forEach(p => flat.push(shuffledGroups[p][slot]));
-    }
-
-    // Fix any adjacent same-player pairs (prevents R1 self-matchups)
-    for (let i = 0; i < flat.length - 1; i++) {
-      if (flat[i].player === flat[i + 1].player) {
-        for (let j = i + 2; j < flat.length; j++) {
-          if (flat[j].player !== flat[i].player) { [flat[i + 1], flat[j]] = [flat[j], flat[i + 1]]; break; }
-        }
-      }
-    }
-
-    for (let i = 0; i + 1 < flat.length; i += 2) {
-      pairs.push({ a: `${flat[i].player} — ${flat[i].character}`, b: `${flat[i+1].player} — ${flat[i+1].character}` });
-    }
-    if (flat.length % 2 === 1) {
-      const e = flat[flat.length - 1];
-      pairs.push({ a: `${e.player} — ${e.character}`, b: 'BYE' });
-    }
-  } else if (poolMode !== 'freePool') {
-    for (let slot = 0; slot < maxChars; slot++) {
-      const slotPlayers = [...players].filter(p => playerGroups[p][slot]);
-      slotPlayers.sort((a, b) => getSeed(playerGroups[b][slot]) - getSeed(playerGroups[a][slot]));
-      const getEntry = p => playerGroups[p][slot];
-      if (style === 'strongVsWeak') {
-        let lo = 0, hi = slotPlayers.length - 1;
-        while (lo < hi) {
-          pairs.push({ a: `${slotPlayers[lo]} — ${getEntry(slotPlayers[lo]).character}`, b: `${slotPlayers[hi]} — ${getEntry(slotPlayers[hi]).character}` });
-          lo++; hi--;
-        }
-        if (lo === hi) pairs.push({ a: `${slotPlayers[lo]} — ${getEntry(slotPlayers[lo]).character}`, b: 'BYE' });
-      } else {
-        for (let i = 0; i + 1 < slotPlayers.length; i += 2) {
-          pairs.push({ a: `${slotPlayers[i]} — ${getEntry(slotPlayers[i]).character}`, b: `${slotPlayers[i+1]} — ${getEntry(slotPlayers[i+1]).character}` });
-        }
-        if (slotPlayers.length % 2 === 1) {
-          const p = slotPlayers[slotPlayers.length - 1];
-          pairs.push({ a: `${p} — ${getEntry(p).character}`, b: 'BYE' });
-        }
-      }
-    }
-  }
-
-  if (poolMode === 'freePool') {
-    const toLabel = e => e.player === 'SYSTEM' ? 'BYE' : `${e.player} — ${e.character}`;
-
-    if (style === 'strongVsStrong') {
-      // Wave-based: each wave = each player's best remaining char, sort globally, pair adjacent
-      const rem = {};
-      players.forEach(p => { rem[p] = [...(playerGroups[p] || [])].sort((a, b) => getSeed(b) - getSeed(a)); });
-      for (let wave = 0; wave < maxChars; wave++) {
-        let w = players.filter(p => rem[p].length > 0).map(p => rem[p].shift());
-        w.sort((a, b) => getSeed(b) - getSeed(a));
-        if (w.length % 2 === 1) w.push({ player: 'SYSTEM', character: 'BYE' });
-        for (let i = 0; i + 1 < w.length; i += 2) pairs.push({ a: toLabel(w[i]), b: toLabel(w[i + 1]) });
-      }
-    } else if (style === 'random') {
-      // Wave-based: each wave = a random char per player, shuffle, pair adjacent
-      const rem = {};
-      players.forEach(p => { rem[p] = shuffleArr([...(playerGroups[p] || [])]); });
-      for (let wave = 0; wave < maxChars; wave++) {
-        let w = players.filter(p => rem[p].length > 0).map(p => rem[p].shift());
-        shuffleArr(w);
-        if (w.length % 2 === 1) w.push({ player: 'SYSTEM', character: 'BYE' });
-        for (let i = 0; i + 1 < w.length; i += 2) pairs.push({ a: toLabel(w[i]), b: toLabel(w[i + 1]) });
-      }
-    } else {
-      // strongVsWeak: global sort, pair best vs worst, skip already-used players per wave
-      const allEntries = [];
-      players.forEach(p => (playerGroups[p] || []).forEach(e => allEntries.push(e)));
-      allEntries.sort((a, b) => getSeed(b) - getSeed(a));
-      const n = allEntries.length;
-      const taken = new Array(n).fill(false);
-      let totalPaired = 0;
-
-      while (totalPaired < n) {
-        const usedThisWave = new Set();
-        let pairedThisWave = 0;
-
-        let innerProgress = true;
-        while (innerProgress) {
-          innerProgress = false;
-          let lo = -1, hi = -1;
-          for (let k = 0; k < n; k++) {
-            if (!taken[k] && !usedThisWave.has(allEntries[k].player)) { lo = k; break; }
-          }
-          if (lo === -1) break;
-          for (let k = n - 1; k > lo; k--) {
-            if (!taken[k] && !usedThisWave.has(allEntries[k].player) && allEntries[k].player !== allEntries[lo].player) { hi = k; break; }
-          }
-          if (hi === -1) break;
-
-          pairs.push({ a: toLabel(allEntries[lo]), b: toLabel(allEntries[hi]) });
-          taken[lo] = taken[hi] = true;
-          usedThisWave.add(allEntries[lo].player);
-          usedThisWave.add(allEntries[hi].player);
-          totalPaired += 2;
-          pairedThisWave++;
-          innerProgress = true;
-        }
-
-        // Only bail out if the entire wave produced zero pairs (genuinely stuck)
-        if (pairedThisWave === 0) {
-          for (let k = 0; k < n; k++) {
-            if (!taken[k]) { pairs.push({ a: toLabel(allEntries[k]), b: 'BYE' }); taken[k] = true; totalPaired++; }
-          }
-          break;
-        }
-      }
-    }
-  }
-
-  const target = nextPow2(pairs.length);
-  while (pairs.length < target) pairs.push({ a: 'BYE', b: 'BYE' });
+  const toLabel = e => e.player === 'SYSTEM' ? 'BYE' : `${e.player} — ${e.character}`;
+  const pairs = rawPairs.map(([a, b]) => ({ a: toLabel(a), b: toLabel(b) }));
 
   pendingEntries = [];
   players.forEach(p => (confirmedLineups[p] || []).forEach(c => pendingEntries.push({ player: p, character: c })));
@@ -1303,6 +1324,11 @@ async function fetchAndRender() {
       }
 
       document.getElementById('hostGenerateSection').style.display = isHost ? 'block' : 'none';
+      const shareBar = document.getElementById('hostShareBar');
+      if (isHost) {
+        shareBar.style.display = 'flex';
+        document.getElementById('hostShareUrl').value = window.location.href;
+      }
       if (isHost && !liveControlsSet) {
         liveControlsSet = true;
         const [savedBracketStyle, savedSeedMode = 'elo', savedPoolMode = 'slot'] = (data.bracket_style || 'strongVsStrong').split('|');

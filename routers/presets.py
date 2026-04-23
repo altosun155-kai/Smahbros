@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from database import Bracket, TournamentInvite, TournamentPreset, User
+from database import Bracket, TournamentPreset, User
 from auth import get_db, get_current_user
 
 router = APIRouter(tags=["presets"])
@@ -154,17 +154,6 @@ def launch_preset(preset_id: int, req: PresetLaunch = PresetLaunch(), db: Sessio
     db.commit()
     db.refresh(bracket)
 
-    for username in players:
-        if username == current_user.username:
-            continue
-        invitee = db.query(User).filter(User.username == username).first()
-        if invitee:
-            db.add(TournamentInvite(
-                bracket_id=bracket.id,
-                inviter_id=current_user.id,
-                invitee_id=invitee.id,
-                status="accepted",
-            ))
     db.commit()
 
     return {"id": bracket.id, "name": bracket.name}

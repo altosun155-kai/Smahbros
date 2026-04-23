@@ -132,7 +132,7 @@ def list_brackets(db: Session = Depends(get_db), current_user: User = Depends(ge
         .order_by(Bracket.created_at.desc())
         .all()
     )
-    return [{"id": b.id, "name": b.name, "mode": b.mode, "is_live": b.is_live, "winner": b.winner, "created_at": b.created_at.isoformat()} for b in brackets]
+    return [{"id": b.id, "name": b.name, "mode": b.mode, "is_live": b.is_live, "winner": b.winner, "placements": b.placements, "created_at": b.created_at.isoformat()} for b in brackets]
 
 
 @router.post("/brackets")
@@ -191,9 +191,13 @@ def get_bracket(bracket_id: int, db: Session = Depends(get_db), current_user: Us
         TournamentInvite.invitee_id == current_user.id,
     ).first()
     if not is_owner and not invite:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    # Auto-accept a pending invite when the user opens the tournament
-    if invite and invite.status == "pending":
+        if not b.is_live:
+            raise HTTPException(status_code=403, detail="Not authorized")
+        # Live tournament: any authenticated user can join via link — create invite row for tracking
+        invite = TournamentInvite(bracket_id=bracket_id, inviter_id=b.user_id, invitee_id=current_user.id, status="accepted")
+        db.add(invite)
+        db.commit()
+    elif invite and invite.status == "pending":
         invite.status = "accepted"
         db.commit()
     return bracket_to_dict(b, include_invites=is_owner)
@@ -376,6 +380,11 @@ def end_tournament(bracket_id: int, db: Session = Depends(get_db), current_user:
                     continue
                 stat = _get_or_create_stat(db, user.id, char)
                 stat.elo = (stat.elo or ELO_DEFAULT) + bonus
+
+    # Always mark placements so list_brackets can distinguish ended-early from drafts
+    if b.placements is None:
+        b.placements = {}
+        flag_modified(b, "placements")
 
     db.commit()
     return {

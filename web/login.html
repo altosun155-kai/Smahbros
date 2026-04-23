@@ -180,7 +180,9 @@
 
       setToken(data.token);
       setUsername(data.username);
-      window.location.href = 'index.html';
+      const returnUrl = localStorage.getItem('loginReturnUrl');
+      localStorage.removeItem('loginReturnUrl');
+      window.location.href = returnUrl || 'index.html';
     } catch (err) {
       errorBanner.textContent = err.message || 'Invalid username or password.';
       errorBanner.classList.add('visible');

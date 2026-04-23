@@ -195,7 +195,6 @@
       <div id="playersSection" style="margin-bottom:24px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
         <span style="font-size:0.85rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Players:</span>
         <div id="playerChips"></div>
-        <a id="tvModeLink" href="" target="_blank" rel="noopener" style="margin-left:auto;font-size:0.78rem;font-weight:700;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:4px 11px;white-space:nowrap;" title="Open full-screen TV view">📺 TV Mode</a>
       </div>
       <div class="bracket-rounds" id="bracketRounds"></div>
     </div>
@@ -222,7 +221,7 @@
     </div>
 
     <!-- Undo last score (host only) -->
-    <div id="undoBar" style="display:none;margin-top:14px;display:none;align-items:center;gap:12px;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:10px 16px;">
+    <div id="undoBar" style="display:none;margin-top:14px;align-items:center;gap:12px;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:10px 16px;">
       <span style="font-size:0.82rem;color:var(--text-muted);flex:1;">Last score: <span id="undoLabel" style="color:var(--text);font-weight:600;"></span></span>
       <button type="button" onclick="undoLastScore()" style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:6px;padding:5px 14px;font-size:0.82rem;font-weight:700;cursor:pointer;">Undo</button>
     </div>
@@ -303,12 +302,10 @@
     </div>
   </div>
 
-  <div id="matchupBadge" style="display:none;text-align:center;padding:6px 0 2px;font-size:0.72rem;font-weight:600;color:rgba(255,255,255,0.5);letter-spacing:0.3px;"></div>
-
   <div class="vs-winner-row">
     <div id="scorePickLabel" style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);margin-bottom:8px;">Pick Score (stocks)</div>
     <div id="viewOnlyNote" style="display:none;font-size:0.75rem;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.5px;margin-bottom:8px;">Only the host can record results</div>
-    <div id="desktopScoreGrid" style="display:none;">
+    <div id="desktopScoreGrid" style="display:flex;gap:24px;justify-content:center;">
       <!-- P1 wins -->
       <div>
         <div style="font-size:0.62rem;color:#ff8888;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:3px;" id="scoreLabel1">P1 Wins</div>
@@ -926,23 +923,6 @@ function openScoreModal(a, b, key) {
     // Refresh mobile cards if a winner was already tapped before elo loaded
     if (_mobileWinner) selectMobileWinner(_mobileWinner);
   });
-
-  // Fetch historical matchup record for this character pair
-  const mbEl = document.getElementById('matchupBadge');
-  if (mbEl) {
-    mbEl.style.display = 'none';
-    apiGet(`/characters/matchup?a=${encodeURIComponent(scoreModalA.character)}&b=${encodeURIComponent(scoreModalB.character)}`)
-      .then(mu => {
-        if (!mu || mu.total < 3) return;
-        const pctA = Math.round(mu.wins_a / mu.total * 100);
-        const pctB = 100 - pctA;
-        const leader = pctA >= pctB ? scoreModalA.character : scoreModalB.character;
-        const pct    = pctA >= pctB ? pctA : pctB;
-        mbEl.textContent = `${leader} leads this matchup ${pct}% — ${mu.total} game${mu.total === 1 ? '' : 's'}`;
-        mbEl.style.display = '';
-      })
-      .catch(() => {});
-  }
 }
 
 function closeScoreModal() {
@@ -1329,6 +1309,14 @@ async function _applyBracketData(data) {
     const endBtn = document.getElementById('endTournamentBtn');
     if (endBtn) endBtn.style.display = (isHost && data.is_live) ? 'block' : 'none';
 
+    // Auto-show undo bar for host whenever there are recorded results
+    if (isHost && data.round_winners && Object.keys(data.round_winners).length > 0) {
+      const lastKey = Object.keys(data.round_winners).pop();
+      showUndoBtn(data.round_winners[lastKey]);
+    } else if (isHost) {
+      document.getElementById('undoBar').style.display = 'none';
+    }
+
     const hasBracket = data.bracket_data && data.bracket_data.length > 0;
 
     if (data.is_live && !hasBracket) {
@@ -1375,8 +1363,6 @@ async function _applyBracketData(data) {
       document.getElementById('lineupPhase').style.display = 'none';
       document.getElementById('bracketPhase').style.display = 'block';
 
-      const tvLink = document.getElementById('tvModeLink');
-      if (tvLink && tournamentId) tvLink.href = `tv.html?id=${tournamentId}`;
 
       const chips = document.getElementById('playerChips');
       if (chips.children.length === 0) {

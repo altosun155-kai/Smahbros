@@ -949,6 +949,8 @@ a:hover {
   padding: 14px 18px;
   white-space: nowrap;
 }
+/* vcpPanel (center quick-buttons) is mobile-only; desktop uses desktopScoreGrid */
+.vs-center-panel { display: none; }
 .vcp-section { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .vcp-label {
   font-size: 0.58rem;

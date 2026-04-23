@@ -238,28 +238,6 @@ async def ws_tournament(tournament_id: int, websocket: WebSocket, token: str = "
         ws_manager.disconnect(tournament_id, websocket)
 
 
-@app.websocket("/ws/spectate/{tournament_id}")
-async def ws_spectate(tournament_id: int, websocket: WebSocket):
-    """Public read-only feed — no auth required. Same broadcast room as authed clients."""
-    db = SessionLocal()
-    try:
-        b = db.query(Bracket).filter(Bracket.id == tournament_id).first()
-        if not b:
-            await websocket.close(code=1008)
-            return
-        initial = bracket_to_dict(b)
-    finally:
-        db.close()
-
-    await ws_manager.connect(tournament_id, websocket)
-    try:
-        await websocket.send_json(initial)
-        while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        ws_manager.disconnect(tournament_id, websocket)
-
-
 @app.get("/health")
 def health():
     return {"ok": True}

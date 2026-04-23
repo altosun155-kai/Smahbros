@@ -389,8 +389,6 @@
 <script src="js/chars.js"></script>
 <script src="js/bracket-engine.js"></script>
 <script>
-const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];
-
 const params = new URLSearchParams(window.location.search);
 const tournamentId = params.get('id');
 let pollInterval = null;
@@ -461,7 +459,7 @@ function closeCharPicker() {
 function filterCharList() {
   const q = document.getElementById('charPickerSearch').value.toLowerCase();
   const list = document.getElementById('charPickerList');
-  list.innerHTML = ROSTER
+  list.innerHTML = SMASH_ROSTER
     .filter(c => !q || c.toLowerCase().includes(q))
     .map(c => `<div class="char-list-item" onclick="selectChar('${c.replace(/'/g, "\\'")}')">${c}</div>`)
     .join('');
@@ -1067,7 +1065,7 @@ function quickPickChar(charName) {
 function setupLineupInput(input, drop, slotIdx) {
   function buildDrop(q) {
     const taken = new Set(lineupSlotValues.filter((c, i) => c && i !== slotIdx));
-    const matches = ROSTER.filter(c => (!q || c.toLowerCase().includes(q.toLowerCase())) && !taken.has(c));
+    const matches = SMASH_ROSTER.filter(c => (!q || c.toLowerCase().includes(q.toLowerCase())) && !taken.has(c));
     drop.innerHTML = matches.length
       ? matches.map(c => `<div style="padding:7px 10px;cursor:pointer;font-size:0.85rem;color:#e8edf3;" onmousedown="event.preventDefault();selectLineupChar(${slotIdx},'${c.replace(/'/g,"\\'")}','${c.replace(/'/g,"\\'")}',this)">${c}</div>`).join('')
       : '<div style="padding:8px 10px;font-size:0.82rem;color:var(--text-muted);">No match</div>';
@@ -1105,9 +1103,9 @@ function _updateQuickPickButtons() {
 async function confirmLineup() {
   // Sync values from inputs
   document.querySelectorAll('.lineup-char-input').forEach((inp, i) => {
-    if (ROSTER.includes(inp.value)) lineupSlotValues[i] = inp.value;
+    if (SMASH_ROSTER.includes(inp.value)) lineupSlotValues[i] = inp.value;
   });
-  const chars = lineupSlotValues.filter(c => c && ROSTER.includes(c));
+  const chars = lineupSlotValues.filter(c => c && SMASH_ROSTER.includes(c));
   if (!chars.length) { showToast('Pick at least one character.', 'warn'); return; }
   try {
     await apiPatch(`/brackets/${tournamentId}/confirm-lineup`, { characters: chars });
@@ -1193,7 +1191,8 @@ async function previewMatchups() {
   if (!players.some(p => playerGroups[p].length > 0)) { showToast('No confirmed lineups yet.', 'warn'); return; }
 
   const entries = players.flatMap(p => playerGroups[p]);
-  const rawPairs = buildBracketPairs({ entries, style, poolMode, seedMode, statsMap: playerStats });
+  const isTeams = Object.keys(tournamentTeams).length > 0;
+  const rawPairs = buildBracketPairs({ entries, style, poolMode, seedMode, teamMode: isTeams, teamOf: tournamentTeams, statsMap: playerStats });
 
   const toLabel = e => e.player === 'SYSTEM' ? 'BYE' : `${e.player} — ${e.character}`;
   const pairs = rawPairs.map(([a, b]) => ({ a: toLabel(a), b: toLabel(b) }));

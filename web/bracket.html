@@ -402,8 +402,6 @@
 <script src="js/chars.js"></script>
 <script src="js/bracket-engine.js"></script>
 <script>
-// ── Roster ────────────────────────────────────────
-const ROSTER = ["Mario","Donkey Kong","Link","Samus","Dark Samus","Yoshi","Kirby","Fox","Pikachu","Luigi","Ness","Captain Falcon","Jigglypuff","Peach","Daisy","Bowser","Ice Climbers","Sheik","Zelda","Dr. Mario","Pichu","Falco","Marth","Lucina","Young Link","Ganondorf","Mewtwo","Roy","Chrom","Mr. Game & Watch","Meta Knight","Pit","Dark Pit","Zero Suit Samus","Wario","Snake","Ike","Pokémon Trainer","Diddy Kong","Lucas","Sonic","King Dedede","Olimar","Lucario","R.O.B.","Toon Link","Wolf","Villager","Mega Man","Wii Fit Trainer","Rosalina & Luma","Little Mac","Greninja","Mii Brawler","Mii Swordfighter","Mii Gunner","Palutena","Pac-Man","Robin","Shulk","Bowser Jr.","Duck Hunt","Ryu","Ken","Cloud","Corrin","Bayonetta","Inkling","Ridley","Simon","Richter","King K. Rool","Isabelle","Incineroar","Piranha Plant","Joker","Hero","Banjo & Kazooie","Terry","Byleth","Min Min","Steve","Sephiroth","Pyra/Mythra","Kazuya","Sora"];
 
 let currentMode = 'regular';
 let currentEntries = []; // [{player, character}]
@@ -597,7 +595,7 @@ function makeCharPicker(idx, selected) {
 
   function buildList(query) {
     const q = query.toLowerCase();
-    const matches = ROSTER.filter(c => !q || c.toLowerCase().includes(q));
+    const matches = SMASH_ROSTER.filter(c => !q || c.toLowerCase().includes(q));
     drop.innerHTML = '';
     focusedIdx = -1;
     if (!matches.length) {
@@ -663,7 +661,7 @@ function makeCharPicker(idx, selected) {
     setTimeout(() => {
       drop.classList.remove('open');
       // If input doesn't match a real character, revert
-      if (!ROSTER.includes(input.value)) {
+      if (!SMASH_ROSTER.includes(input.value)) {
         input.value = currentEntries[idx].character || '';
       }
     }, 150);
@@ -677,7 +675,7 @@ function makeCharPicker(idx, selected) {
 function autofillChars() {
   currentEntries.forEach((entry, idx) => {
     if (!entry.character) {
-      entry.character = ROSTER[Math.floor(Math.random() * ROSTER.length)];
+      entry.character = SMASH_ROSTER[Math.floor(Math.random() * SMASH_ROSTER.length)];
     }
   });
   renderEntryGrid();

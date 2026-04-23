@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smahbros Live</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #080810;
+      color: #fff;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── Header ──────────────────────────────────────── */
+    .tv-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 40px;
+      background: rgba(0,0,0,0.55);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .tv-logo {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.25);
+    }
+    .tv-name {
+      font-size: 1.5rem;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .tv-live-badge {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #4ade80;
+    }
+    .tv-live-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #4ade80;
+      animation: tvpulse 2s ease-in-out infinite;
+    }
+    .tv-ended-badge {
+      margin-left: auto;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: rgba(255,255,255,0.3);
+    }
+    .tv-share {
+      font-size: 0.65rem;
+      color: rgba(255,255,255,0.2);
+      text-decoration: none;
+      letter-spacing: 1px;
+      margin-left: 20px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      transition: color 0.2s;
+    }
+    .tv-share:hover { color: rgba(255,255,255,0.5); }
+
+    /* ── Champion banner ──────────────────────────── */
+    .tv-champion {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 20px 40px;
+      background: linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,165,0,0.05));
+      border-bottom: 1px solid rgba(255,215,0,0.2);
+    }
+    .tv-champion-trophy { font-size: 2rem; }
+    .tv-champion-inner { display: flex; flex-direction: column; gap: 2px; }
+    .tv-champion-label {
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: rgba(255,215,0,0.55);
+    }
+    .tv-champion-name {
+      font-size: 2rem;
+      font-weight: 900;
+      color: #ffd700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    /* ── Now Playing ──────────────────────────────── */
+    .now-playing {
+      position: relative;
+      display: flex;
+      align-items: stretch;
+      min-height: 270px;
+      overflow: hidden;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .np-side {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 20px 32px 24px;
+      gap: 8px;
+    }
+    .np-side.left  { background: linear-gradient(135deg, rgba(180,20,20,0.2) 0%, transparent 55%); }
+    .np-side.right { background: linear-gradient(225deg, rgba(20,40,180,0.2) 0%, transparent 55%); }
+    .np-char-art {
+      height: 180px;
+      width: auto;
+      max-width: 220px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 24px rgba(255,255,255,0.12));
+    }
+    .np-char-art.flip { transform: scaleX(-1); }
+    .np-player-name {
+      font-size: 1.3rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+    .np-char-name { font-size: 0.78rem; color: rgba(255,255,255,0.45); font-weight: 600; }
+    .np-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 16px;
+      gap: 8px;
+      min-width: 140px;
+    }
+    .np-label {
+      font-size: 0.55rem;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.28);
+    }
+    .np-vs {
+      font-size: 3rem;
+      font-weight: 900;
+      color: #ffd700;
+      text-shadow: 0 0 32px rgba(255,215,0,0.45);
+      line-height: 1;
+    }
+    .np-winner-chip {
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #4ade80;
+      border: 1px solid rgba(74,222,128,0.4);
+      background: rgba(74,222,128,0.08);
+      border-radius: 4px;
+      padding: 3px 10px;
+    }
+
+    /* ── Bracket ──────────────────────────────────── */
+    .tv-bracket-wrap {
+      padding: 28px 40px 40px;
+      overflow-x: auto;
+    }
+    .tv-bracket {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      min-width: max-content;
+    }
+    .tv-round-col { display: flex; flex-direction: column; min-width: 190px; }
+    .tv-round-label {
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.25);
+      padding: 0 8px 10px;
+    }
+    .tv-match-box {
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px;
+      margin: 4px 4px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.025);
+      transition: border-color 0.3s;
+    }
+    .tv-match-box.current {
+      border-color: rgba(255,215,0,0.45);
+      background: rgba(255,215,0,0.03);
+      box-shadow: 0 0 14px rgba(255,215,0,0.07);
+    }
+    .tv-match-entry {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 11px;
+      font-size: 0.8rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      transition: opacity 0.2s;
+    }
+    .tv-match-entry:last-child { border-bottom: none; }
+    .tv-match-entry.winner { color: #ffd700; font-weight: 700; }
+    .tv-match-entry.loser  { opacity: 0.3; }
+    .tv-match-entry.bye    { opacity: 0.2; font-style: italic; }
+    .tv-match-entry.pending { color: rgba(255,255,255,0.28); font-style: italic; }
+    .tv-icon {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .tv-entry-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tv-score {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: rgba(255,255,255,0.35);
+      margin-left: 2px;
+      flex-shrink: 0;
+    }
+    .tv-score.winner { color: #4ade80; }
+
+    /* ── Waiting / loading ────────────────────────── */
+    .tv-waiting {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 60vh;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .tv-wait-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      animation: tvpulse 1.4s ease-in-out infinite;
+    }
+    .tv-wait-text {
+      font-size: 0.8rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.2);
+    }
+
+    @keyframes tvpulse { 0%,100% { opacity:1; } 50% { opacity:0.25; } }
+  </style>
+</head>
+<body>
+
+<div id="tvWaiting" class="tv-waiting">
+  <div class="tv-wait-dot"></div>
+  <div class="tv-wait-text">Connecting…</div>
+</div>
+
+<div id="tvContent" style="display:none;">
+
+  <!-- Header -->
+  <div class="tv-header">
+    <div class="tv-logo">Smahbros</div>
+    <div class="tv-name" id="tvName"></div>
+    <div id="tvLiveBadge" class="tv-live-badge" style="display:none;">
+      <div class="tv-live-dot"></div>LIVE
+    </div>
+    <div id="tvEndedBadge" class="tv-ended-badge" style="display:none;">ENDED</div>
+    <button class="tv-share" onclick="copyLink()" title="Copy TV link">📋 Copy link</button>
+  </div>
+
+  <!-- Champion -->
+  <div id="tvChampion" class="tv-champion" style="display:none;">
+    <div class="tv-champion-trophy">🏆</div>
+    <div class="tv-champion-inner">
+      <div class="tv-champion-label">Tournament Champion</div>
+      <div class="tv-champion-name" id="tvChampionName"></div>
+    </div>
+  </div>
+
+  <!-- Now Playing -->
+  <div id="tvNowPlaying" class="now-playing" style="display:none;">
+    <div class="np-side left">
+      <img id="npArtL" class="np-char-art" src="" alt="" onerror="this.style.display='none'" />
+      <div id="npNameL" class="np-player-name"></div>
+      <div id="npCharL" class="np-char-name"></div>
+    </div>
+    <div class="np-center">
+      <div class="np-label">Now Playing</div>
+      <div class="np-vs" id="npVs">VS</div>
+      <div id="npWinner" class="np-winner-chip" style="display:none;"></div>
+    </div>
+    <div class="np-side right">
+      <img id="npArtR" class="np-char-art flip" src="" alt="" onerror="this.style.display='none'" />
+      <div id="npNameR" class="np-player-name" style="text-align:right;"></div>
+      <div id="npCharR" class="np-char-name" style="text-align:right;"></div>
+    </div>
+  </div>
+
+  <!-- Bracket -->
+  <div class="tv-bracket-wrap">
+    <div id="tvBracket" class="tv-bracket"></div>
+  </div>
+
+</div>
+
+<script src="js/chars.js"></script>
+<script>
+const API_BASE = 'https://smash-bracket-api.onrender.com';
+const params   = new URLSearchParams(location.search);
+const tid      = params.get('id');
+let _ws        = null;
+
+// ── WebSocket ──────────────────────────────────────────────────────────────
+
+function connectWs() {
+  if (!tid) {
+    document.querySelector('.tv-wait-text').textContent = 'No ?id= in URL';
+    return;
+  }
+  const wsBase = API_BASE.replace(/^https/, 'wss').replace(/^http(?!s)/, 'ws');
+  try { _ws = new WebSocket(`${wsBase}/ws/spectate/${tid}`); }
+  catch (_) { setTimeout(connectWs, 4000); return; }
+
+  _ws.onmessage = evt => {
+    try { apply(JSON.parse(evt.data)); } catch (_) {}
+  };
+  _ws.onclose = () => { _ws = null; setTimeout(connectWs, 4000); };
+}
+
+// ── Data helpers ───────────────────────────────────────────────────────────
+
+function playerOf(label) {
+  if (!label || label === 'BYE' || label === '?') return null;
+  return label.split(' — ')[0];
+}
+function charOf(label) {
+  if (!label || label === 'BYE' || label === '?') return null;
+  const p = label.split(' — ');
+  return p.length > 1 ? p[1] : null;
+}
+
+function buildRounds(data) {
+  const bd = data.bracket_data || [];
+  const rw = data.round_winners || {};
+  const rs = data.round_scores  || {};
+  if (!bd.length) return [];
+
+  const rounds = [];
+  rounds.push(bd.map((m, i) => ({
+    key: `r0_m${i}`, a: m.a, b: m.b,
+    winner: rw[`r0_m${i}`] || null,
+    score:  rs[`r0_m${i}`] || null,
+  })));
+
+  let ri = 0;
+  while (rounds[ri].length > 1) {
+    const prev = rounds[ri];
+    const next = [];
+    for (let i = 0; i + 1 < prev.length; i += 2) {
+      const key = `r${ri + 1}_m${Math.floor(i / 2)}`;
+      next.push({
+        key,
+        a: prev[i].winner    || (prev[i].a   === 'BYE' && prev[i].b   === 'BYE' ? 'BYE' : '?'),
+        b: prev[i+1].winner  || (prev[i+1].a === 'BYE' && prev[i+1].b === 'BYE' ? 'BYE' : '?'),
+        winner: rw[key] || null,
+        score:  rs[key] || null,
+      });
+    }
+    rounds.push(next);
+    ri++;
+  }
+  return rounds;
+}
+
+function findActive(rounds) {
+  for (const round of rounds) {
+    for (const m of round) {
+      if (!m.winner && m.a && m.a !== '?' && m.a !== 'BYE'
+                    && m.b && m.b !== '?' && m.b !== 'BYE') return m;
+    }
+  }
+  return null;
+}
+
+function roundLabel(rounds, ri) {
+  const n = rounds.length;
+  if (ri === n - 1) return 'Grand Final';
+  if (ri === n - 2) return n > 2 ? 'Semifinal' : 'Final';
+  if (ri === n - 3) return 'Quarterfinal';
+  return `Round ${ri + 1}`;
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+
+function apply(data) {
+  document.getElementById('tvWaiting').style.display  = 'none';
+  document.getElementById('tvContent').style.display  = '';
+  document.getElementById('tvName').textContent       = data.name || '';
+  document.title = (data.name || 'Smahbros') + ' — Live';
+
+  document.getElementById('tvLiveBadge').style.display  = data.is_live ? '' : 'none';
+  document.getElementById('tvEndedBadge').style.display = data.is_live ? 'none' : '';
+
+  if (data.winner) {
+    document.getElementById('tvChampion').style.display = '';
+    document.getElementById('tvChampionName').textContent = data.winner;
+  } else {
+    document.getElementById('tvChampion').style.display = 'none';
+  }
+
+  const hasBracket = (data.bracket_data || []).length > 0;
+  if (!hasBracket) {
+    document.getElementById('tvNowPlaying').style.display = 'none';
+    document.getElementById('tvBracket').innerHTML =
+      '<div style="color:rgba(255,255,255,0.25);font-size:0.82rem;letter-spacing:1px;">Waiting for lineups…</div>';
+    return;
+  }
+
+  const rounds = buildRounds(data);
+  const active = data.winner ? null : findActive(rounds);
+  renderNowPlaying(active);
+  renderBracket(rounds, active);
+}
+
+function renderNowPlaying(match) {
+  const el = document.getElementById('tvNowPlaying');
+  if (!match) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+
+  const pL = playerOf(match.a), cL = charOf(match.a);
+  const pR = playerOf(match.b), cR = charOf(match.b);
+
+  document.getElementById('npNameL').textContent = pL || 'TBD';
+  document.getElementById('npCharL').textContent = cL || '';
+  document.getElementById('npNameR').textContent = pR || 'TBD';
+  document.getElementById('npCharR').textContent = cR || '';
+
+  const setArt = (id, char) => {
+    const img = document.getElementById(id);
+    if (char && typeof charImgUrl === 'function') {
+      img.src = charImgUrl(char);
+      img.style.display = '';
+    } else {
+      img.style.display = 'none';
+    }
+  };
+  setArt('npArtL', cL);
+  setArt('npArtR', cR);
+
+  const winEl = document.getElementById('npWinner');
+  if (match.winner) {
+    winEl.textContent = `${playerOf(match.winner)} wins  ${match.score || ''}`.trim();
+    winEl.style.display = '';
+    document.getElementById('npVs').style.color = '#4ade80';
+  } else {
+    winEl.style.display = 'none';
+    document.getElementById('npVs').style.color = '#ffd700';
+  }
+}
+
+function renderBracket(rounds, active) {
+  const container = document.getElementById('tvBracket');
+  container.innerHTML = '';
+
+  rounds.forEach((round, ri) => {
+    const col = document.createElement('div');
+    col.className = 'tv-round-col';
+
+    const lbl = document.createElement('div');
+    lbl.className = 'tv-round-label';
+    lbl.textContent = roundLabel(rounds, ri);
+    col.appendChild(lbl);
+
+    round.forEach(m => {
+      const box = document.createElement('div');
+      box.className = 'tv-match-box' + (active && m.key === active.key ? ' current' : '');
+
+      [m.a, m.b].forEach(side => {
+        const isBye     = side === 'BYE';
+        const isPending = side === '?';
+        const isWinner  = !!m.winner && side === m.winner;
+        const isLoser   = !!m.winner && !isWinner && !isBye && !isPending;
+
+        const row = document.createElement('div');
+        row.className = 'tv-match-entry' +
+          (isWinner  ? ' winner'  : '') +
+          (isLoser   ? ' loser'   : '') +
+          (isBye     ? ' bye'     : '') +
+          (isPending ? ' pending' : '');
+
+        const ch = charOf(side);
+        const pl = playerOf(side);
+
+        if (ch && !isPending && !isBye && typeof charHeadUrl === 'function') {
+          const img = document.createElement('img');
+          img.className = 'tv-icon';
+          img.src = charHeadUrl(ch);
+          img.onerror = () => img.style.display = 'none';
+          row.appendChild(img);
+        }
+
+        const name = document.createElement('span');
+        name.className = 'tv-entry-name';
+        name.textContent = isBye ? 'BYE' : isPending ? '—' : (pl || '?');
+        row.appendChild(name);
+
+        if (m.score && isWinner) {
+          const sc = document.createElement('span');
+          sc.className = 'tv-score winner';
+          sc.textContent = m.score;
+          row.appendChild(sc);
+        }
+
+        box.appendChild(row);
+      });
+
+      col.appendChild(box);
+    });
+
+    container.appendChild(col);
+  });
+}
+
+// ── Copy link ──────────────────────────────────────────────────────────────
+
+function copyLink() {
+  navigator.clipboard.writeText(location.href).then(() => {
+    const btn = document.querySelector('.tv-share');
+    const prev = btn.textContent;
+    btn.textContent = '✓ Copied';
+    setTimeout(() => btn.textContent = prev, 1500);
+  }).catch(() => {});
+}
+
+connectWs();
+</script>
+</body>
+</html>

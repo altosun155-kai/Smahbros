@@ -191,9 +191,13 @@ def get_bracket(bracket_id: int, db: Session = Depends(get_db), current_user: Us
         TournamentInvite.invitee_id == current_user.id,
     ).first()
     if not is_owner and not invite:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    # Auto-accept a pending invite when the user opens the tournament
-    if invite and invite.status == "pending":
+        if not b.is_live:
+            raise HTTPException(status_code=403, detail="Not authorized")
+        # Live tournament: any authenticated user can join via link — create invite row for tracking
+        invite = TournamentInvite(bracket_id=bracket_id, inviter_id=b.user_id, invitee_id=current_user.id, status="accepted")
+        db.add(invite)
+        db.commit()
+    elif invite and invite.status == "pending":
         invite.status = "accepted"
         db.commit()
     return bracket_to_dict(b, include_invites=is_owner)

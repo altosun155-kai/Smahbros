@@ -371,7 +371,7 @@
           <button type="button" class="btn btn-sm" style="background:rgba(100,60,255,.15);border:1px solid rgba(100,60,255,.4);color:#a78bfa;" onclick="openSavePreset()">💾 Save Preset</button>
         </div>
         <div id="liveTournamentBanner" style="display:none;margin-top:12px;background:rgba(39,174,96,0.12);border:1px solid rgba(39,174,96,0.35);border-radius:8px;padding:12px 16px;font-size:0.88rem;color:#27ae60;">
-          <strong>🟢 Tournament is LIVE</strong> — invited players can watch in real time.
+          <strong>🟢 Tournament is LIVE</strong> — share the link so players can join.
           <span id="liveTournamentLink" style="margin-left:8px;"></span>
           <button type="button" class="btn btn-sm btn-danger" style="margin-left:12px;" onclick="endTournament()">End Tournament</button>
         </div>
@@ -1052,7 +1052,7 @@ function toggleEntries() {
 let liveTournamentId = null;
 let _launchingTournament = false;
 
-function getBracketPayload(name, isLive, inviteUsernames) {
+function getBracketPayload(name, isLive) {
   return {
     name,
     mode: currentMode,
@@ -1061,7 +1061,7 @@ function getBracketPayload(name, isLive, inviteUsernames) {
     bracket_data: currentBracket.map(([a,b]) => ({a: entryLabel(a), b: entryLabel(b)})),
     bracket_style: (document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong') + '|' + (document.querySelector('input[name="seedMode"]:checked')?.value || 'elo') + '|' + (document.querySelector('input[name="poolMode"]:checked')?.value || 'slot'),
     is_live: isLive,
-    invite_usernames: inviteUsernames,
+    invite_usernames: [],
     chars_per_player: parseInt(document.getElementById('charsPerPlayer').value) || 2,
     teams: currentMode === 'teams' ? currentTeamOf : {},
   };
@@ -1074,7 +1074,6 @@ async function startLineupPhase() {
   const players = getPlayers();
   if (players.length < 2) { showToast('Add at least 2 players first.', 'warn'); return; }
   _launchingTournament = true;
-  const invitees = players.filter(p => p !== myUsername);
   const k = parseInt(document.getElementById('charsPerPlayer').value) || 2;
   try {
     const res = await apiPost('/brackets', {
@@ -1085,7 +1084,7 @@ async function startLineupPhase() {
       bracket_data: [],
       bracket_style: (document.querySelector('input[name="bracketStyle"]:checked')?.value || 'strongVsStrong') + '|' + (document.querySelector('input[name="seedMode"]:checked')?.value || 'elo') + '|' + (document.querySelector('input[name="poolMode"]:checked')?.value || 'slot'),
       is_live: true,
-      invite_usernames: invitees,
+      invite_usernames: [],
       chars_per_player: k,
       teams: currentMode === 'teams' ? currentTeamOf : {},
     });
@@ -1101,7 +1100,7 @@ async function saveBracket() {
   const name = document.getElementById('bracketName').value.trim();
   if (!name) { showToast('Enter a tournament name first.', 'warn'); return; }
   try {
-    await apiPost('/brackets', getBracketPayload(name, false, []));
+    await apiPost('/brackets', getBracketPayload(name, false));
     showToast(`Saved "${name}" as draft!`, 'success');
   } catch (err) {
     showToast('Error saving bracket: ' + err.message, 'error');
@@ -1115,16 +1114,16 @@ async function startLiveTournament() {
   if (currentBracket.length === 0) { showToast('Generate a bracket first.', 'warn'); return; }
   _launchingTournament = true;
 
-  // Collect all players except yourself as invitees
-  const invitees = getPlayers().filter(p => p !== myUsername);
-
   try {
-    const res = await apiPost('/brackets', getBracketPayload(name, true, invitees));
+    const res = await apiPost('/brackets', getBracketPayload(name, true));
     liveTournamentId = res.id;
-    showToast(`"${name}" is now LIVE! Invites sent to ${invitees.length} player(s).`, 'success');
+    const tournamentUrl = `${location.origin}${location.pathname.replace('bracket.html', '')}tournament.html?id=${res.id}`;
+    showToast(`"${name}" is now LIVE!`, 'success');
     document.getElementById('liveTournamentBanner').style.display = 'block';
     document.getElementById('liveTournamentLink').innerHTML =
-      `<a href="tournament.html?id=${res.id}" style="color:#27ae60;text-decoration:underline;">Open live view →</a>`;
+      `<a href="tournament.html?id=${res.id}" style="color:#27ae60;text-decoration:underline;">Open →</a>
+       <input id="tournamentShareUrl" value="${tournamentUrl}" readonly style="margin-left:10px;background:rgba(0,0,0,0.3);border:1px solid rgba(39,174,96,0.4);color:#ccc;border-radius:4px;padding:2px 6px;font-size:0.8rem;width:260px;">
+       <button type="button" onclick="navigator.clipboard.writeText('${tournamentUrl}').then(()=>showToast('Link copied!','success'))" style="margin-left:6px;background:rgba(39,174,96,0.2);border:1px solid rgba(39,174,96,0.4);color:#27ae60;border-radius:4px;padding:2px 8px;font-size:0.8rem;cursor:pointer;">Copy</button>`;
   } catch (err) {
     _launchingTournament = false;
     showToast('Error starting tournament: ' + err.message, 'error');

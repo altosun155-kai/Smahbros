@@ -18,6 +18,7 @@
     .status-live     { background: rgba(39,174,96,0.15); border: 1px solid rgba(39,174,96,0.45); color: #27ae60; }
     .status-done     { background: rgba(255,215,0,0.1);  border: 1px solid rgba(255,215,0,0.3);  color: #ffd700; }
     .status-progress { background: rgba(0,119,200,0.12); border: 1px solid rgba(0,119,200,0.35); color: #4da6ff; }
+    .status-ended    { background: rgba(150,150,150,0.1); border: 1px solid rgba(150,150,150,0.3); color: #888; }
     .btn-trash { background: none; border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.35); border-radius: 6px; padding: 5px 8px; cursor: pointer; font-size: 0.85rem; line-height: 1; transition: border-color 0.15s, color 0.15s; }
     .btn-trash:hover { border-color: rgba(231,76,60,0.6); color: #e74c3c; }
     .expand-icon { color: var(--text-muted); font-size: 1.1rem; transition: transform 0.2s; }
@@ -95,6 +96,7 @@
       const isLive    = b.is_live;
       const hasWinner = !!b.winner;
       const hasLineup = isLive && !(b.bracket_data && b.bracket_data.length);
+      const endedEarly = !isLive && !hasWinner && b.placements !== null && b.placements !== undefined;
 
       // Status badge
       let statusBadge = '';
@@ -104,6 +106,8 @@
         statusBadge = `<span class="status-badge status-live">🔴 Live</span>`;
       } else if (hasWinner) {
         statusBadge = `<span class="status-badge status-done">🏆 ${escHtml(b.winner)}</span>`;
+      } else if (endedEarly) {
+        statusBadge = `<span class="status-badge status-ended">Ended</span>`;
       } else {
         statusBadge = `<span class="status-badge status-progress">In Progress</span>`;
       }

@@ -31,6 +31,7 @@ function isLoggedIn() {
 // Redirect to login if not authenticated
 function requireAuth() {
   if (!isLoggedIn()) {
+    localStorage.setItem('loginReturnUrl', window.location.href);
     window.location.href = 'login.html';
   }
 }

@@ -132,7 +132,7 @@ def list_brackets(db: Session = Depends(get_db), current_user: User = Depends(ge
         .order_by(Bracket.created_at.desc())
         .all()
     )
-    return [{"id": b.id, "name": b.name, "mode": b.mode, "is_live": b.is_live, "winner": b.winner, "created_at": b.created_at.isoformat()} for b in brackets]
+    return [{"id": b.id, "name": b.name, "mode": b.mode, "is_live": b.is_live, "winner": b.winner, "placements": b.placements, "created_at": b.created_at.isoformat()} for b in brackets]
 
 
 @router.post("/brackets")
@@ -380,6 +380,11 @@ def end_tournament(bracket_id: int, db: Session = Depends(get_db), current_user:
                     continue
                 stat = _get_or_create_stat(db, user.id, char)
                 stat.elo = (stat.elo or ELO_DEFAULT) + bonus
+
+    # Always mark placements so list_brackets can distinguish ended-early from drafts
+    if b.placements is None:
+        b.placements = {}
+        flag_modified(b, "placements")
 
     db.commit()
     return {

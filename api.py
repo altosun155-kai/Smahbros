@@ -249,7 +249,7 @@ WEB_DIR = os.path.join(os.path.dirname(__file__), "web")
 
 @app.get("/")
 def root():
-    return FileResponse(os.path.join(WEB_DIR, "index.html"))
+    return FileResponse(os.path.join(WEB_DIR, "login.html"))
 
 
 app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="frontend")

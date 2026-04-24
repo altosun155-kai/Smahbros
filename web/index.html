@@ -3,110 +3,505 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Smahbros</title>
+  <title>Smash Bracket — Dashboard</title>
   <link rel="stylesheet" href="css/reset.css" />
-  <link rel="stylesheet" href="css/os.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/auth.js"></script>
+  <style>
+    /* ═══════════════════════════════════════════════
+       SHARED
+    ═══════════════════════════════════════════════ */
+    body {
+      background:
+        radial-gradient(ellipse 120% 45% at 50% -8%, rgba(0,55,140,0.38) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 30% at 90% 20%, rgba(80,0,160,0.15) 0%, transparent 55%),
+        var(--bg, #0d0d1a);
+    }
+    .glass {
+      background: rgba(255,255,255,0.035);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,0.09);
+    }
+
+    /* ═══════════════════════════════════════════════
+       DESKTOP  (≥ 701px)
+    ═══════════════════════════════════════════════ */
+    /* Hero card */
+    .hero-card {
+      border-radius: 20px;
+      padding: 28px;
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      min-height: 180px;
+    }
+    .hero-card::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(0,80,180,0.22) 0%, rgba(60,0,120,0.14) 100%);
+      pointer-events: none;
+    }
+    .hero-left  { flex: 1; min-width: 0; position: relative; z-index: 1; }
+    .hero-avatar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .hero-avatar { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.2); flex-shrink: 0; }
+    .hero-name  { font-size: 1.5rem; font-weight: 800; color: #fff; line-height: 1.1; }
+    .hero-badge-row { margin-top: 3px; }
+    .hero-stats-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .hero-stat {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px; padding: 6px 14px;
+      display: flex; flex-direction: column; gap: 1px;
+    }
+    .hero-stat-label { font-size: 0.58rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: rgba(255,255,255,0.45); }
+    .hero-stat-val   { font-size: 1.05rem; font-weight: 800; color: #fff; }
+    .hero-stat-sub   { font-size: 0.65rem; color: rgba(255,255,255,0.45); }
+    .hero-right { flex-shrink: 0; position: relative; z-index: 1; width: 130px; display: flex; align-items: center; justify-content: center; }
+    .hero-char-art { width: 130px; height: 130px; object-fit: contain; filter: drop-shadow(0 0 20px rgba(100,160,255,0.5)); image-rendering: pixelated; }
+    .hero-char-name { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: rgba(255,255,255,0.4); white-space: nowrap; }
+
+    /* Live + invite banners */
+    .live-banner { border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; gap: 14px; margin-bottom: 18px; background: linear-gradient(135deg, rgba(231,76,60,0.18), rgba(192,57,43,0.1)); border: 1.5px solid rgba(231,76,60,0.45); }
+    .live-dot { width: 9px; height: 9px; background: #e74c3c; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 8px #e74c3c; animation: pulseDot 1.2s ease-in-out infinite; }
+    .live-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: rgba(231,76,60,0.9); }
+    .live-name  { font-size: 1rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .live-open  { flex-shrink: 0; background: #e74c3c; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; text-decoration: none; white-space: nowrap; }
+    .invite-card { border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+    .invite-dot  { width: 10px; height: 10px; background: #e74c3c; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 8px #e74c3c; animation: pulseDot 1.6s ease-in-out infinite; }
+    .invite-info { flex: 1; min-width: 0; }
+    .invite-from { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: rgba(120,180,255,0.8); margin-bottom: 2px; }
+    .invite-name { font-size: 0.95rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .invite-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .invite-view { background: #0077c8; color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 700; font-size: 0.82rem; cursor: pointer; text-decoration: none; }
+    .invite-view:hover { background: #0088e0; }
+    .invite-dismiss { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.45); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px 12px; font-size: 0.82rem; cursor: pointer; }
+    .invite-dismiss:hover { color: #e74c3c; border-color: rgba(231,76,60,0.4); }
+    @keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(.8)} }
+
+    /* Wall of Shame */
+    .shame-item { display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--card-bg); border:1px solid var(--border); border-radius:10px; margin-bottom:8px; font-size:0.84rem; }
+    .shame-item.fresh { border-color:rgba(231,76,60,0.4); background:rgba(231,76,60,0.06); }
+    .shame-av { width:32px; height:32px; border-radius:50%; object-fit:cover; flex-shrink:0; }
+    .shame-text { flex:1; line-height:1.5; }
+    .shame-skull { font-size:1.2rem; flex-shrink:0; }
+    .shame-time { font-size:0.72rem; color:var(--text-muted); white-space:nowrap; flex-shrink:0; }
+
+    /* Section label */
+    .section-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.3); margin: 24px 0 10px; }
+
+    /* Primary cards */
+    .primary-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 12px; }
+    .primary-card { text-decoration: none; border-radius: 16px; padding: 22px 20px; display: flex; flex-direction: column; gap: 10px; position: relative; overflow: hidden; transition: transform 0.15s, box-shadow 0.15s; }
+    .primary-card:hover { transform: translateY(-3px); }
+    .primary-card.duel    { background: linear-gradient(135deg, rgba(0,100,220,.25), rgba(0,60,140,.15));  border: 1px solid rgba(0,120,255,.3); }
+    .primary-card.bracket { background: linear-gradient(135deg, rgba(245,166,35,.2),  rgba(180,100,0,.12)); border: 1px solid rgba(245,166,35,.3); }
+    .primary-card.rr      { background: linear-gradient(135deg, rgba(39,174,96,.2),   rgba(0,100,60,.12));  border: 1px solid rgba(39,174,96,.3); }
+    .primary-card.duel:hover    { box-shadow: 0 0 28px rgba(0,120,255,.25); border-color: rgba(0,140,255,.5); }
+    .primary-card.bracket:hover { box-shadow: 0 0 28px rgba(245,166,35,.2); border-color: rgba(245,166,35,.55); }
+    .primary-card.rr:hover      { box-shadow: 0 0 28px rgba(39,174,96,.2);  border-color: rgba(39,174,96,.55); }
+    .primary-icon  { font-size: 2rem; line-height: 1; }
+    .primary-title { font-size: 1rem; font-weight: 800; color: #fff; }
+    .primary-desc  { font-size: 0.75rem; color: rgba(255,255,255,.5); line-height: 1.4; }
+    .primary-arrow { position: absolute; top: 18px; right: 18px; font-size: 1rem; color: rgba(255,255,255,.25); }
+
+    /* Secondary cards */
+    .secondary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 10px; }
+    .secondary-card { text-decoration: none; border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; transition: transform .12s, box-shadow .12s, border-color .12s; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07); }
+    .secondary-card:hover { transform: translateY(-2px); background: rgba(255,255,255,.055); border-color: rgba(255,255,255,.14); box-shadow: 0 4px 20px rgba(0,0,0,.3); }
+    .sec-icon { font-size: 1.35rem; flex-shrink: 0; }
+    .sec-text h3 { font-size: 0.88rem; font-weight: 700; color: rgba(255,255,255,.88); margin-bottom: 2px; }
+    .sec-text p  { font-size: 0.72rem; color: rgba(255,255,255,.38); line-height: 1.35; margin: 0; }
+    .sec-arrow   { color: rgba(255,255,255,.2); font-size: 1rem; margin-left: auto; flex-shrink: 0; padding-left: 6px; }
+
+    /* Hide mobile-only elements on desktop */
+    .mobile-only { display: none !important; }
+    #bottomNav   { display: none !important; }
+
+    /* ── Hero char picker ── */
+    .hero-right { cursor: pointer; }
+    .hero-edit-hint {
+      position: absolute; bottom: 6px; right: 6px;
+      background: rgba(0,0,0,.65); border-radius: 50%;
+      width: 22px; height: 22px;
+      display: none; align-items: center; justify-content: center;
+      font-size: 0.7rem; pointer-events: none;
+    }
+    .hero-right:hover .hero-edit-hint { display: flex; }
+
+    #heroCharPicker {
+      display: none; position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,.72); align-items: center; justify-content: center;
+    }
+    #heroCharPicker.open { display: flex; }
+    .hcp-box {
+      background: #1a1a2e; border: 1px solid rgba(255,255,255,.1);
+      border-radius: 20px; padding: 20px;
+      width: min(480px, 94vw); max-height: 82vh;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .hcp-header { display: flex; align-items: center; justify-content: space-between; }
+    .hcp-title  { font-size: 1rem; font-weight: 800; color: #fff; }
+    .hcp-close  { background: none; border: none; color: rgba(255,255,255,.4); font-size: 1.3rem; cursor: pointer; line-height: 1; padding: 0; }
+    .hcp-search {
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+      border-radius: 10px; color: #fff; padding: 9px 14px;
+      font-size: 0.88rem; width: 100%; outline: none; box-sizing: border-box;
+    }
+    .hcp-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+      gap: 6px; overflow-y: auto; max-height: 52vh; padding: 2px;
+    }
+    .hcp-tile {
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      cursor: pointer; border-radius: 10px; padding: 6px 4px;
+      border: 1.5px solid transparent; background: none;
+      transition: background .1s, border-color .1s;
+    }
+    .hcp-tile:hover   { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.15); }
+    .hcp-tile.sel     { border-color: #0077c8; background: rgba(0,119,200,.15); }
+    .hcp-tile img     { width: 46px; height: 46px; object-fit: contain; }
+    .hcp-tile-name    { font-size: 0.5rem; color: rgba(255,255,255,.4); text-align: center; line-height: 1.2; }
+
+    /* ── Quick Start presets ── */
+    .qs-section { margin-bottom: 4px; }
+
+    .qs-who-row { display: flex; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; align-items: flex-start; }
+    .qs-who-bubble { display: flex; flex-direction: column; align-items: center; gap: 5px; background: none; border: none; cursor: pointer; padding: 0; transition: opacity .2s, filter .2s; }
+    .qs-who-bubble.dimmed { opacity: .28; filter: grayscale(1); }
+    .qs-who-av { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,.15); background: rgba(255,255,255,.05); display: block; }
+    .qs-who-name { font-size: 0.6rem; font-weight: 700; color: rgba(255,255,255,.45); letter-spacing: .3px; }
+
+    .qs-scroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .qs-scroll::-webkit-scrollbar { display: none; }
+
+    .qs-card {
+      flex-shrink: 0; width: 158px; border-radius: 16px; padding: 14px 14px 12px;
+      display: flex; flex-direction: column; gap: 9px;
+      cursor: pointer; text-align: left; position: relative; overflow: hidden;
+      transition: transform .12s, box-shadow .12s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .qs-card:hover  { transform: translateY(-3px); }
+    .qs-card:active { transform: scale(0.96); }
+    .qs-card.launching { pointer-events: none; opacity: .6; }
+
+    .qs-card.svs { background: linear-gradient(135deg, rgba(231,76,60,.2), rgba(180,30,20,.1)); border: 1px solid rgba(231,76,60,.35); }
+    .qs-card.svs:hover { box-shadow: 0 0 22px rgba(231,76,60,.28); border-color: rgba(231,76,60,.65); }
+    .qs-card.svw { background: linear-gradient(135deg, rgba(39,174,96,.18), rgba(0,100,60,.1)); border: 1px solid rgba(39,174,96,.3); }
+    .qs-card.svw:hover { box-shadow: 0 0 22px rgba(39,174,96,.22); border-color: rgba(39,174,96,.6); }
+    .qs-card.rnd { background: linear-gradient(135deg, rgba(155,89,182,.2), rgba(80,30,140,.1)); border: 1px solid rgba(155,89,182,.35); }
+    .qs-card.rnd:hover { box-shadow: 0 0 22px rgba(155,89,182,.28); border-color: rgba(155,89,182,.65); }
+
+    .qs-style-chip { font-size: 0.6rem; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; }
+    .qs-card.svs .qs-style-chip { color: rgba(231,76,60,.85); }
+    .qs-card.svw .qs-style-chip { color: rgba(39,174,96,.85); }
+    .qs-card.rnd .qs-style-chip { color: rgba(155,89,182,.9); }
+
+    .qs-name { font-size: 0.9rem; font-weight: 800; color: #fff; line-height: 1.2; }
+
+    .qs-heads { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+    .qs-head { width: 27px; height: 27px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,.06); border: 1.5px solid rgba(255,255,255,.12); transition: opacity .2s, filter .2s; }
+    .qs-head.dimmed { opacity: .2; filter: grayscale(1); }
+
+    .qs-launching-overlay { display: none; position: absolute; inset: 0; background: rgba(13,13,26,.72); border-radius: 16px; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 800; color: rgba(255,255,255,.8); }
+    .qs-card.launching .qs-launching-overlay { display: flex; }
+
+    /* ═══════════════════════════════════════════════
+       MOBILE  (≤ 700px)
+    ═══════════════════════════════════════════════ */
+    @media (max-width: 700px) {
+      /* Hide desktop elements on mobile */
+      .desktop-only { display: none !important; }
+      .mobile-only  { display: block !important; }
+
+      /* Make room for fixed bottom nav */
+      main.page-container { padding-bottom: 80px !important; padding-top: 0 !important; }
+
+      /* ── Mobile hero card ── */
+      .hero-card {
+        border-radius: 0;
+        margin: 0 -16px 0;   /* bleed to edges */
+        padding: 18px 16px 22px;
+        min-height: unset;
+        gap: 0;
+        position: relative;
+        overflow: hidden;
+        background:
+          linear-gradient(105deg, rgba(0,50,140,.55) 0%, rgba(40,0,100,.45) 60%, transparent 100%),
+          var(--card-bg, #1a1a2e);
+        border: none;
+        border-bottom: 1px solid rgba(255,255,255,.08);
+        border-radius: 0 0 20px 20px;
+      }
+      .hero-card::before { display: none; }
+
+      /* Avatar row */
+      .hero-avatar-row { gap: 10px; margin-bottom: 6px; }
+      .hero-avatar { width: 44px; height: 44px; }
+      .hero-name   { font-size: 1.25rem; }
+
+      /* Stats in a row of 2 */
+      .hero-stats-row { gap: 6px; margin-top: 10px; }
+      .hero-stat { padding: 5px 12px; border-radius: 8px; }
+      .hero-stat-val { font-size: 0.95rem; }
+
+      /* Character art — peeks from top-right corner */
+      .hero-right {
+        position: absolute;
+        right: -12px;
+        top: -10px;
+        bottom: -10px;
+        width: 130px;
+        display: flex !important;
+        align-items: center;
+        justify-content: flex-end;
+        pointer-events: none;
+        overflow: visible;
+      }
+      .hero-char-art {
+        width: 130px;
+        height: 130px;
+        object-fit: contain;
+        opacity: 0.65;
+        mask-image: linear-gradient(to left, rgba(0,0,0,.95) 45%, transparent 100%);
+        -webkit-mask-image: linear-gradient(to left, rgba(0,0,0,.95) 45%, transparent 100%);
+        filter: drop-shadow(0 0 16px rgba(100,160,255,0.4));
+      }
+      .hero-char-name { display: none; }
+      /* Push left content away from the art */
+      .hero-left { padding-right: 90px; }
+
+      /* ── Mobile invite banner ── */
+      #mobileInviteBanner {
+        margin: 12px 0 0;
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      .mobile-invite-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px;
+        background: linear-gradient(90deg, rgba(0,100,210,.2), rgba(60,0,140,.12));
+        border: 1.5px solid rgba(0,120,255,.35);
+        border-radius: 14px;
+        margin-bottom: 8px;
+      }
+      .mobile-invite-item .inv-dot {
+        width: 8px; height: 8px; border-radius: 50%; background: #e74c3c;
+        box-shadow: 0 0 6px #e74c3c;
+        animation: pulseDot 1.4s ease-in-out infinite;
+        flex-shrink: 0;
+      }
+      .mobile-invite-item .inv-text { flex: 1; min-width: 0; }
+      .mobile-invite-item .inv-by   { font-size: 0.6rem; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: rgba(120,180,255,.8); }
+      .mobile-invite-item .inv-name { font-size: 0.9rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .mobile-invite-item .inv-btn  { flex-shrink: 0; background: #0077c8; color: #fff; border: none; border-radius: 8px; padding: 9px 16px; font-weight: 800; font-size: 0.82rem; cursor: pointer; text-decoration: none; }
+      .mobile-invite-item .inv-x    { flex-shrink: 0; background: none; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; color: rgba(255,255,255,.4); padding: 9px 10px; font-size: 0.8rem; cursor: pointer; }
+
+      /* ── Live banner mobile ── */
+      .live-banner {
+        border-radius: 12px;
+        padding: 12px 14px;
+        margin-bottom: 12px;
+      }
+
+      /* ── Mobile action bars ── */
+      .primary-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .primary-card {
+        border-radius: 14px;
+        flex-direction: row !important;
+        align-items: center;
+        padding: 0 20px;
+        height: 76px;
+        gap: 16px;
+      }
+      .primary-icon  { font-size: 1.8rem; flex-shrink: 0; order: -1; }
+      .primary-title { font-size: 1rem; font-weight: 800; }
+      .primary-desc  { display: none; }
+      .primary-arrow { position: static; order: 99; margin-left: auto; color: rgba(255,255,255,.35); font-size: 1.2rem; }
+
+      /* ── Mobile secondary ── */
+      .secondary-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .secondary-card { padding: 12px 12px; border-radius: 12px; gap: 10px; }
+      .sec-icon { font-size: 1.2rem; }
+      .sec-text h3 { font-size: 0.8rem; }
+      .sec-text p  { display: none; }
+      .sec-arrow   { display: none; }
+
+      .section-label { margin: 18px 0 8px; }
+
+      /* ── Bottom Nav ── */
+      #bottomNav {
+        display: flex !important;
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        height: 60px;
+        background: rgba(13,13,26,.96);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border-top: 1px solid rgba(255,255,255,.1);
+        z-index: 600;
+        align-items: stretch;
+      }
+      .bnav-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        text-decoration: none;
+        color: rgba(255,255,255,.38);
+        font-size: 0.58rem;
+        font-weight: 700;
+        letter-spacing: .3px;
+        text-transform: uppercase;
+        transition: color .15s;
+        cursor: pointer;
+        border: none;
+        background: none;
+        padding: 0;
+      }
+      .bnav-item.active, .bnav-item:active { color: var(--accent-blue, #0077c8); }
+      .bnav-icon { font-size: 1.35rem; line-height: 1; }
+    }
+  </style>
 </head>
 <body>
+<script>requireAuth();</script>
 
-<!-- Background grid -->
-<div class="os-bg"></div>
+<div id="toast-container"></div>
+<nav class="navbar" id="main-nav"></nav>
 
-<!-- ── Login Screen ───────────────────────────────────────────────────── -->
-<div class="login-screen" id="loginScreen">
-  <div class="login-panel">
-    <div class="login-title">Smahbros</div>
-    <div class="login-sub">sign in to continue</div>
-    <div class="os-field">
-      <label class="os-label" for="loginUser">Username</label>
-      <input class="os-input" id="loginUser" type="text" placeholder="your username" autocomplete="username" />
-    </div>
-    <div class="os-field">
-      <label class="os-label" for="loginPass">Password</label>
-      <input class="os-input" id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password" />
-    </div>
-    <button class="os-btn os-btn-primary" style="width:100%;padding:11px;" onclick="doLogin()">Sign In</button>
-    <div class="login-error" id="loginErr"></div>
-  </div>
-</div>
+<main class="page-container" style="padding-top:20px;">
 
-<!-- ── Top Bar ────────────────────────────────────────────────────────── -->
-<header class="os-topbar" id="osTopbar" style="display:none;">
-  <span class="os-topbar-brand">Smahbros</span>
-  <div class="os-topbar-right">
-    <span id="topbarUser" style="color:rgba(255,255,255,0.6);font-weight:600;"></span>
-    <button class="os-btn" onclick="doLogout()">Log out</button>
-  </div>
-</header>
-
-<!-- ── Desktop ────────────────────────────────────────────────────────── -->
-<div class="os-desktop" id="osDesktop" style="display:none;">
-
-  <!-- Window: Brackets -->
-  <div class="os-window" id="win-brackets" style="width:460px;height:540px;transform:translate(40px,24px);">
-    <div class="os-win-header">
-      <div class="os-win-dots">
-        <div class="os-win-dot d-close"></div>
-        <div class="os-win-dot d-minimize"></div>
-        <div class="os-win-dot d-expand"></div>
+  <!-- ══ HERO CARD (shared, but styled differently per breakpoint) ══ -->
+  <div class="hero-card glass" id="heroCard">
+    <div class="hero-left">
+      <div class="hero-avatar-row">
+        <img class="hero-avatar" id="heroAvatar" src="" alt="avatar" style="display:none;" />
+        <div>
+          <div class="hero-name" id="heroName">—</div>
+          <div class="hero-badge-row" id="heroBadgeRow"></div>
+        </div>
       </div>
-      <div class="os-win-title">Tournaments</div>
-    </div>
-    <div class="os-win-body">
-      <div class="win-toolbar">
-        <button class="os-btn os-btn-primary" onclick="openNewTournament()">+ New</button>
-        <button class="os-btn" onclick="loadBrackets()" title="Refresh">↻</button>
-        <a href="my-brackets.html" class="os-btn" style="text-decoration:none;margin-left:auto;">All →</a>
+      <div class="hero-stats-row">
+        <div class="hero-stat">
+          <span class="hero-stat-label">Top Elo</span>
+          <span class="hero-stat-val" id="heroElo">—</span>
+          <span class="hero-stat-sub" id="heroEloChar">—</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-label">Best Rank</span>
+          <span class="hero-stat-val" id="heroRank">—</span>
+          <span class="hero-stat-sub" id="heroRankChar">—</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-label">Total Wins</span>
+          <span class="hero-stat-val" id="heroWins">—</span>
+          <span class="hero-stat-sub">all characters</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-label">Best Win%</span>
+          <span class="hero-stat-val" id="heroWinPct">—</span>
+          <span class="hero-stat-sub" id="heroWinPctChar">—</span>
+        </div>
       </div>
-      <div id="winBracketList"><div class="os-empty">Loading…</div></div>
+    </div>
+    <!-- Character art: visible on desktop normally, on mobile as peek -->
+    <div class="hero-right" id="heroRight" style="display:none;" onclick="openHeroCharPicker()" title="Click to change">
+      <img class="hero-char-art" id="heroCharArt" src="" alt="" />
+      <div class="hero-char-name" id="heroCharName"></div>
+      <div class="hero-edit-hint">✏️</div>
     </div>
   </div>
 
-  <!-- Window: Leaderboard -->
-  <div class="os-window" id="win-leaderboard" style="width:340px;height:540px;transform:translate(524px,24px);">
-    <div class="os-win-header">
-      <div class="os-win-dots">
-        <div class="os-win-dot d-close"></div>
-        <div class="os-win-dot d-minimize"></div>
-        <div class="os-win-dot d-expand"></div>
-      </div>
-      <div class="os-win-title">Leaderboard — Elo</div>
+  <!-- ══ MOBILE INVITES (below hero, mobile only) ══ -->
+  <div id="mobileInviteBanner" class="mobile-only" style="display:none !important;"></div>
+
+  <!-- ══ LIVE TOURNAMENT BANNER ══ -->
+  <div id="liveBanner" style="display:none;" class="live-banner">
+    <div class="live-dot"></div>
+    <div style="flex:1;min-width:0;">
+      <div class="live-label">Live Tournament</div>
+      <div class="live-name" id="liveName"></div>
     </div>
-    <div class="os-win-body">
-      <div id="winLbList"><div class="os-empty">Loading…</div></div>
+    <a id="liveLink" href="#" class="live-open">Open →</a>
+  </div>
+
+  <!-- ══ DESKTOP INVITE SECTION ══ -->
+  <div id="inviteSection" style="display:none;" class="desktop-only">
+    <div class="section-label">🎟 Tournament Invites</div>
+    <div id="inviteList"></div>
+  </div>
+
+  <!-- ══ HERO CHAR PICKER ══ -->
+  <div id="heroCharPicker">
+    <div class="hcp-box">
+      <div class="hcp-header">
+        <div class="hcp-title">Choose Your Icon</div>
+        <button type="button" class="hcp-close" onclick="closeHeroCharPicker()">✕</button>
+      </div>
+      <input type="text" class="hcp-search" id="hcpSearch" placeholder="Search characters…" oninput="renderHcpGrid()" />
+      <div class="hcp-grid" id="hcpGrid"></div>
     </div>
   </div>
 
-  <!-- Window: Quick Play -->
-  <div class="os-window" id="win-quickplay" style="width:280px;height:260px;transform:translate(40px,588px);">
-    <div class="os-win-header">
-      <div class="os-win-dots">
-        <div class="os-win-dot d-close"></div>
-        <div class="os-win-dot d-minimize"></div>
-        <div class="os-win-dot d-expand"></div>
-      </div>
-      <div class="os-win-title">Quick Play</div>
-    </div>
-    <div class="os-win-body" style="display:flex;flex-direction:column;gap:9px;padding:14px;">
-      <a href="duel.html"       class="os-btn" style="text-decoration:none;text-align:center;padding:11px;">⚔️  1v1 Duel</a>
-      <a href="bracket.html"   class="os-btn" style="text-decoration:none;text-align:center;padding:11px;">🏆  Tournament</a>
-      <a href="roundrobin.html" class="os-btn" style="text-decoration:none;text-align:center;padding:11px;">🔄  Round Robin</a>
-      <a href="practice.html"  class="os-btn" style="text-decoration:none;text-align:center;padding:11px;">🎮  Practice</a>
-    </div>
+  <!-- ══ QUICK START PRESETS ══ -->
+  <div id="homePresetsSection" class="qs-section" style="display:none;">
+    <div class="section-label">Quick Start</div>
+    <div class="qs-who-row" id="homeWhoRow"></div>
+    <div class="qs-scroll" id="homePresetCards"></div>
   </div>
 
-<<<<<<< Updated upstream
+  <!-- ══ PLAY ══ -->
+  <div class="section-label">Play</div>
+  <div class="primary-grid">
+    <a href="duel.html" class="primary-card duel">
+      <span class="primary-arrow">›</span>
+      <div class="primary-icon">⚔️</div>
+      <div>
+        <div class="primary-title">1v1 Duel</div>
+        <div class="primary-desc">Head-to-head with live elo and stock multipliers.</div>
+      </div>
+    </a>
+    <a href="bracket.html" class="primary-card bracket">
+      <span class="primary-arrow">›</span>
+      <div class="primary-icon">🏆</div>
+      <div>
+        <div class="primary-title">Tournament</div>
+        <div class="primary-desc">Single-elimination with elo rewards.</div>
+      </div>
+    </a>
+    <a href="roundrobin.html" class="primary-card rr">
+      <span class="primary-arrow">›</span>
+      <div class="primary-icon">🔄</div>
+      <div>
+        <div class="primary-title">Round Robin</div>
+        <div class="primary-desc">Everyone plays everyone.</div>
+      </div>
+    </a>
+  </div>
+
+  <!-- ══ WALL OF SHAME ══ -->
+  <div class="section-label">💀 Wall of Shame</div>
+  <div id="shameFeed"><div style="font-size:0.8rem;color:var(--text-muted);padding:4px 0;">Loading…</div></div>
+
   <!-- ══ RANKINGS ══ -->
   <div class="section-label">Rankings</div>
   <div class="secondary-grid">
     <a href="leaderboard.html" class="secondary-card">
       <span class="sec-icon">📈</span>
-      <div class="sec-text"><h3>Elo Leaderboard</h3><p>Character elo rankings</p></div>
-      <span class="sec-arrow">›</span>
-    </a>
-    <a href="leaderboard.html#global" class="secondary-card">
-      <span class="sec-icon">🌍</span>
-      <div class="sec-text"><h3>Global Rankings</h3><p>Wins, kills & sessions</p></div>
+      <div class="sec-text"><h3>Leaderboard</h3><p>Elo, wins, kills & sessions</p></div>
       <span class="sec-arrow">›</span>
     </a>
     <a href="mastery.html" class="secondary-card">
@@ -129,16 +524,7 @@
       <div class="sec-text"><h3>My Brackets</h3><p>All saved tournaments</p></div>
       <span class="sec-arrow">›</span>
     </a>
-    <a href="invites.html" class="secondary-card">
-      <span class="sec-icon">📬</span>
-      <div class="sec-text"><h3>Invites</h3><p>Pending invitations</p></div>
-      <span class="sec-arrow">›</span>
-    </a>
   </div>
-
-  <!-- ══ WALL OF SHAME ══ -->
-  <div class="section-label">💀 Wall of Shame</div>
-  <div id="shameFeed"><div style="font-size:0.8rem;color:var(--text-muted);padding:4px 0;">Loading…</div></div>
 
   <!-- ══ CUSTOMIZE ══ -->
   <div class="section-label">Customize</div>
@@ -162,207 +548,371 @@
   <a href="index.html"        class="bnav-item active"><span class="bnav-icon">🏠</span>Home</a>
   <a href="duel.html"         class="bnav-item"><span class="bnav-icon">⚔️</span>Play</a>
   <a href="leaderboard.html"  class="bnav-item"><span class="bnav-icon">📈</span>Rankings</a>
-  <a href="#" onclick="toggleFriendsSidebar();return false;" class="bnav-item" id="bnavFriends">
-    <span class="bnav-icon">👥</span>Friends
-  </a>
+  <a href="stats.html"        class="bnav-item"><span class="bnav-icon">📊</span>Stats</a>
   <a href="profile.html"      class="bnav-item"><span class="bnav-icon">👤</span>Profile</a>
-=======
-</div>
-
-<!-- ── Bottom Dock (mobile) ───────────────────────────────────────────── -->
-<nav class="os-bottom-dock" id="osDock">
-  <button class="dock-btn dock-active" data-win="win-brackets"  onclick="OS.scrollToPanel('win-brackets')">
-    🏆<span class="dock-label">Brackets</span>
-  </button>
-  <button class="dock-btn" data-win="win-leaderboard" onclick="OS.scrollToPanel('win-leaderboard')">
-    📈<span class="dock-label">Rankings</span>
-  </button>
-  <button class="dock-btn" data-win="win-quickplay"   onclick="OS.scrollToPanel('win-quickplay')">
-    ⚔️<span class="dock-label">Play</span>
-  </button>
->>>>>>> Stashed changes
 </nav>
 
-<!-- ── System Override ────────────────────────────────────────────────── -->
-<div class="system-override" id="systemOverride">
-  <div class="override-panel" id="overridePanel"></div>
-</div>
-
-<!-- ── Scripts ────────────────────────────────────────────────────────── -->
-<script src="js/auth.js"></script>
 <script src="js/api.js"></script>
+<script src="js/badges.js"></script>
 <script src="js/chars.js"></script>
-<<<<<<< Updated upstream
-<script src="js/friends-sidebar.js"></script>
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
-=======
-<script src="js/os.js"></script>
->>>>>>> Stashed changes
 <script>
-// ── Auth helpers ──────────────────────────────────────────────────────
-async function doLogin() {
-  const user = document.getElementById('loginUser').value.trim();
-  const pass = document.getElementById('loginPass').value;
-  const err  = document.getElementById('loginErr');
-  err.textContent = '';
-  if (!user || !pass) { err.textContent = 'Enter username and password.'; return; }
-
-  try {
-    const form = new URLSearchParams({ username: user, password: pass });
-    const res  = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: form,
-    });
-    if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
-      throw new Error(d.detail || `HTTP ${res.status}`);
-    }
-    const data = await res.json();
-    setToken(data.access_token);
-    setUsername(user);
-    bootOS(user);
-  } catch (e) {
-    err.textContent = e.message;
-  }
-}
-
-function doLogout() {
-  clearToken();
-  document.getElementById('loginScreen').style.display = 'flex';
-  document.getElementById('osTopbar').style.display    = 'none';
-  document.getElementById('osDesktop').style.display   = 'none';
-}
-
-function bootOS(username) {
-  document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('osTopbar').style.display    = '';
-  document.getElementById('osDesktop').style.display   = '';
-  document.getElementById('topbarUser').textContent     = username;
-  OS.init();
-  loadBrackets();
-  loadLeaderboard();
-}
-
-// ── Startup ───────────────────────────────────────────────────────────
-(async function startup() {
-  const token    = getToken();
-  const username = getUsername();
-
-  if (!token) return; // stay on login screen
-
-  if (username) {
-    bootOS(username);
-    return;
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  try {
-    const me = await apiGet('/users/me');
-    if (me && me.username) {
-      setUsername(me.username);
-      bootOS(me.username);
+  const isMobile = () => window.innerWidth <= 700;
+
+  (async function init() {
+    let me = null;
+    try {
+      me = await apiGet('/users/me');
+      if (me) {
+        _meUsername = me.username;
+        document.getElementById('navUsername').textContent = me.username;
+        const avatarUrl = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
+        const navAv = document.getElementById('navAvatar');
+        navAv.src = avatarUrl; navAv.style.display = 'block';
+        document.getElementById('heroName').textContent = me.username;
+        const heroAv = document.getElementById('heroAvatar');
+        heroAv.src = avatarUrl; heroAv.style.display = 'block';
+      }
+    } catch (_) {}
+
+    // Badge
+    if (me) {
+      try {
+        await loadAllBadges();
+        const b = _allBadges[me.username];
+        if (b) {
+          const icon = b.id === 'char_king'
+            ? (CHAR_EMOJIS[b.label.replace(/ King$/,'')] || '👾')
+            : (BADGE_ICONS[b.id] || '🏅');
+          document.getElementById('heroBadgeRow').innerHTML =
+            `<span style="display:inline-flex;align-items:center;gap:4px;background:${b.color}22;border:1px solid ${b.color}44;color:${b.color};border-radius:8px;padding:2px 9px;font-size:0.7rem;font-weight:700;">${icon} ${b.label}</span>`;
+        }
+      } catch (_) {}
     }
-  } catch (_) {
-    // token invalid — stay on login screen
+
+    // Stats + hero art
+    if (me) {
+      try {
+        const stats = await apiGet('/characters/stats');
+        if (Array.isArray(stats) && stats.length) {
+          const byElo = [...stats].sort((a,b) => (b.elo||1000)-(a.elo||1000));
+          const top = byElo[0];
+          document.getElementById('heroElo').textContent = top.elo || 1000;
+          document.getElementById('heroEloChar').textContent = top.character;
+
+          // Determine hero char: localStorage → first favorite → top elo
+          let heroChar = localStorage.getItem('heroChar_' + me.username);
+          if (!heroChar || !SMASH_ROSTER.includes(heroChar)) {
+            try {
+              const favs = await apiGet('/characters/favorites');
+              heroChar = (favs.characters || [])[0] || null;
+            } catch(_) {}
+          }
+          if (!heroChar) heroChar = top.character;
+          _heroCharChoice = heroChar;
+          setHeroChar(heroChar);
+
+          const totalWins = stats.reduce((acc,r) => acc+(r.wins||0), 0);
+          document.getElementById('heroWins').textContent = totalWins;
+
+          const qualified = stats.filter(s => (s.wins||0)+(s.losses||0) >= 3);
+          if (qualified.length) {
+            const best = qualified.sort((a,b)=> (b.wins/(b.wins+b.losses)) - (a.wins/(a.wins+a.losses)))[0];
+            const pct = Math.round(best.wins/(best.wins+best.losses)*100);
+            document.getElementById('heroWinPct').textContent = `${pct}%`;
+            document.getElementById('heroWinPctChar').textContent = best.character;
+          }
+
+          try {
+            const lb = await apiGet('/characters/stats/leaderboard/elo');
+            if (lb && lb.length) {
+              let bestRank = Infinity, bestRankChar = '';
+              for (const s of stats) {
+                let rank = 1;
+                for (const e of lb) {
+                  if (e.username === me.username && e.character === s.character) continue;
+                  if ((e.elo||1000) > (s.elo||1000)) rank++;
+                }
+                if (rank < bestRank) { bestRank = rank; bestRankChar = s.character; }
+              }
+              if (bestRank !== Infinity) {
+                document.getElementById('heroRank').textContent = `#${bestRank}`;
+                document.getElementById('heroRankChar').textContent = bestRankChar;
+              }
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
+
+    // Live tournaments — own brackets + invited ones
+    try {
+      const [ownBrackets, invitedLive] = await Promise.all([
+        apiGet('/brackets').catch(() => []),
+        apiGet('/brackets/live').catch(() => []),
+      ]);
+      const ownLive = (ownBrackets || []).filter(b => b.is_live);
+      const allLive = [...ownLive, ...(invitedLive || [])];
+      if (allLive.length > 0) {
+        const t = allLive[0];
+        document.getElementById('liveName').textContent = t.name;
+        document.getElementById('liveLink').href = `tournament.html?id=${t.id}`;
+        document.getElementById('liveBanner').style.display = 'flex';
+      }
+    } catch (_) {}
+
+    // Invites
+    try {
+      const invites = await apiGet('/invites/received');
+      if (invites) {
+        const pending = invites.filter(i => i.status === 'pending');
+        if (pending.length > 0) {
+          // Desktop cards
+          document.getElementById('inviteSection').style.display = 'block';
+          document.getElementById('inviteList').innerHTML = pending.map(inv => `
+            <div class="invite-card glass" id="invCard_${inv.id}">
+              <div class="invite-dot"></div>
+              <div class="invite-info">
+                <div class="invite-from">Invited by ${escHtml(inv.inviter)}</div>
+                <div class="invite-name">${escHtml(inv.bracket_name)}</div>
+              </div>
+              <div class="invite-actions">
+                <a href="tournament.html?id=${inv.bracket_id}" class="invite-view">View →</a>
+                <button type="button" class="invite-dismiss" onclick="dismissInvite(${inv.id},'invCard_${inv.id}')">✕</button>
+              </div>
+            </div>
+          `).join('');
+
+          // Mobile invite items (below hero)
+          const mob = document.getElementById('mobileInviteBanner');
+          mob.style.cssText = 'display:block !important;';
+          mob.innerHTML = pending.map(inv => `
+            <div class="mobile-invite-item" id="mobInv_${inv.id}">
+              <div class="inv-dot"></div>
+              <div class="inv-text">
+                <div class="inv-by">From ${escHtml(inv.inviter)}</div>
+                <div class="inv-name">${escHtml(inv.bracket_name)}</div>
+              </div>
+              <a href="tournament.html?id=${inv.bracket_id}" class="inv-btn">View →</a>
+              <button type="button" class="inv-x" onclick="dismissInvite(${inv.id},'mobInv_${inv.id}','invCard_${inv.id}')">✕</button>
+            </div>
+          `).join('');
+
+          // Badge on bottom nav friends? No — put it on invites
+          const bnavItem = document.querySelector('.bnav-item[href="index.html"]');
+          if (bnavItem && pending.length) {
+            bnavItem.querySelector('.bnav-icon').textContent = '🏠';
+          }
+        }
+      }
+    } catch (_) {}
+  })();
+
+  (async function loadShame() {
+    try {
+      const data = await apiGet('/matches/shame?limit=6');
+      const feed = document.getElementById('shameFeed');
+      if (!data || !data.length) { feed.innerHTML = '<div style="font-size:0.8rem;color:var(--text-muted);padding:4px 0;">No 3-stocks yet — stay strapped.</div>'; return; }
+      const now = Date.now();
+      const avFallback = u => `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}`;
+      const timeAgo = iso => {
+        const s = Math.floor((now - new Date(iso)) / 1000);
+        if (s < 60) return 'just now';
+        if (s < 3600) return `${Math.floor(s/60)}m ago`;
+        if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+        return `${Math.floor(s/86400)}d ago`;
+      };
+      feed.innerHTML = data.map(r => {
+        const fresh = (now - new Date(r.created_at)) < 86400000;
+        const loserAv = r.loser_avatar || avFallback(r.loser);
+        const winnerAv = r.winner_avatar || avFallback(r.winner);
+        return `<div class="shame-item${fresh ? ' fresh' : ''}">
+          <span class="shame-skull">💀</span>
+          <img class="shame-av" src="${loserAv}" alt="${escHtml(r.loser)}" onerror="this.src='${avFallback(r.loser)}'" />
+          <div class="shame-text">
+            <strong style="color:#e74c3c;">${escHtml(r.loser)}</strong>
+            <span style="color:var(--text-muted);"> (${escHtml(r.loser_char)}) got 3-stocked by </span>
+            <img class="shame-av" src="${winnerAv}" alt="${escHtml(r.winner)}" onerror="this.src='${avFallback(r.winner)}'" style="width:20px;height:20px;vertical-align:middle;margin:0 2px;" />
+            <strong style="color:#4caf50;">${escHtml(r.winner)}</strong>
+            <span style="color:var(--text-muted);"> (${escHtml(r.winner_char)})</span>
+          </div>
+          <span class="shame-time">${timeAgo(r.created_at)}</span>
+        </div>`;
+      }).join('');
+    } catch (_) {
+      document.getElementById('shameFeed').innerHTML = '';
+    }
+  })();
+
+  let _meUsername = null;
+  let _heroCharChoice = null;
+
+  function setHeroChar(char) {
+    if (!char || typeof charImgUrl !== 'function') return;
+    const heroRight = document.getElementById('heroRight');
+    const heroArt   = document.getElementById('heroCharArt');
+    heroArt.src = charImgUrl(char);
+    heroArt.alt = char;
+    document.getElementById('heroCharName').textContent = char;
+    heroRight.style.display = 'flex';
+    heroArt.onerror = () => { heroRight.style.display = 'none'; };
+    const statEl = document.getElementById('heroEloChar');
+    // keep top-elo label; glow is accent blue for chosen chars
+    heroArt.style.filter = 'drop-shadow(0 0 22px rgba(100,160,255,.5))';
   }
-})();
 
-// Allow Enter key on login form
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && document.getElementById('loginScreen').style.display !== 'none') doLogin();
-});
+  function openHeroCharPicker() {
+    document.getElementById('heroCharPicker').classList.add('open');
+    document.getElementById('hcpSearch').value = '';
+    renderHcpGrid();
+    setTimeout(() => document.getElementById('hcpSearch').focus(), 50);
+  }
+  function closeHeroCharPicker() {
+    document.getElementById('heroCharPicker').classList.remove('open');
+  }
+  document.getElementById('heroCharPicker').addEventListener('click', e => {
+    if (e.target === document.getElementById('heroCharPicker')) closeHeroCharPicker();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeHeroCharPicker();
+  });
 
-// ── Load Brackets ─────────────────────────────────────────────────────
-async function loadBrackets() {
-  const el = document.getElementById('winBracketList');
-  el.innerHTML = '<div class="os-empty">Loading…</div>';
-  try {
-    const [own, live] = await Promise.all([
-      apiGet('/brackets').catch(() => []),
-      apiGet('/brackets/live').catch(() => []),
-    ]);
-    const seen = new Set();
-    const all  = [];
-    for (const b of [...(live || []), ...(own || [])]) {
-      if (!seen.has(b.id)) { seen.add(b.id); all.push(b); }
-    }
-    all.sort((a, b) => {
-      if (a.is_live && !b.is_live) return -1;
-      if (!a.is_live && b.is_live) return 1;
-      return b.id - a.id;
-    });
+  function renderHcpGrid() {
+    const q = document.getElementById('hcpSearch').value.toLowerCase();
+    const chars = (typeof SMASH_ROSTER !== 'undefined' ? SMASH_ROSTER : [])
+      .filter(c => !q || c.toLowerCase().includes(q));
+    document.getElementById('hcpGrid').innerHTML = chars.map(c =>
+      `<button type="button" class="hcp-tile${c === _heroCharChoice ? ' sel' : ''}" onclick="pickHeroChar(${JSON.stringify(c)})">
+        <img src="${charImgUrl(c)}" alt="${escHtml(c)}" onerror="this.style.opacity='0.2'" />
+        <div class="hcp-tile-name">${escHtml(c)}</div>
+      </button>`
+    ).join('');
+  }
 
-    if (!all.length) {
-      el.innerHTML = '<div class="os-empty">No tournaments yet.<br>Hit + New to create one.</div>';
-      return;
-    }
+  function pickHeroChar(char) {
+    _heroCharChoice = char;
+    if (_meUsername) localStorage.setItem('heroChar_' + _meUsername, char);
+    closeHeroCharPicker();
+    setHeroChar(char);
+  }
 
-    el.innerHTML = all.slice(0, 20).map(b => {
-      const live   = b.is_live;
-      const ended  = b.winner;
-      const status = live
-        ? '<span class="status-pill s-live">Live</span>'
-        : ended
-          ? `<span class="status-pill s-ended">Winner: ${_esc(ended)}</span>`
-          : '<span class="status-pill s-ended">Setup</span>';
-      const players = (b.players || []).slice(0, 6).map(p =>
-        `<span class="b-player-chip">${_esc(p)}</span>`
-      ).join('') + (b.players && b.players.length > 6 ? `<span class="b-player-chip">+${b.players.length - 6}</span>` : '');
+  let _dimmedPlayers = new Set();
+  let _presetsData   = [];
+  let _playerTopChars = {};
 
-      return `<div class="bracket-card" onclick="location.href='tournament.html?id=${b.id}'">
-        <div class="bracket-card-name">${_esc(b.name)}</div>
-        <div class="bracket-card-meta">${status}</div>
-        <div class="bracket-players">${players}</div>
-      </div>`;
+  (async function loadHomePresets() {
+    try {
+      const presets = await apiGet('/presets');
+      if (!presets || !presets.length) return;
+      _presetsData = presets;
+      document.getElementById('homePresetsSection').style.display = 'block';
+
+      const allPlayers = [...new Set(presets.flatMap(p => p.players))];
+
+      await Promise.all(allPlayers.map(async u => {
+        try {
+          const d = await apiGet('/characters/favorites/' + encodeURIComponent(u));
+          _playerTopChars[u] = (d.characters || [])[0] || null;
+        } catch(_) {}
+        if (!_playerTopChars[u]) {
+          try {
+            const d = await apiGet('/characters/stats/' + encodeURIComponent(u));
+            const sorted = (d.stats || []).sort((a,b) => (b.elo||1000)-(a.elo||1000));
+            _playerTopChars[u] = sorted[0]?.character || null;
+          } catch(_) { _playerTopChars[u] = null; }
+        }
+      }));
+
+      _renderWhoRow(allPlayers);
+      _renderPresetCards();
+    } catch (_) {}
+  })();
+
+  function _renderWhoRow(players) {
+    document.getElementById('homeWhoRow').innerHTML = players.map(u => {
+      const char = _playerTopChars[u];
+      const src = char
+        ? charHeadUrl(char)
+        : `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}`;
+      return `<button type="button" class="qs-who-bubble" id="qsWho_${escHtml(u)}" onclick="homeClickPlayer(${escHtml(JSON.stringify(u))})">
+        <img class="qs-who-av" src="${escHtml(src)}" alt="${escHtml(u)}"
+             onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}'" />
+        <span class="qs-who-name">${escHtml(u)}</span>
+      </button>`;
     }).join('');
-  } catch (e) {
-    el.innerHTML = `<div class="os-empty">Failed to load.<br>${_esc(e.message)}</div>`;
   }
-}
 
-// ── Load Leaderboard ──────────────────────────────────────────────────
-async function loadLeaderboard() {
-  const el = document.getElementById('winLbList');
-  try {
-    const lb = await apiGet('/characters/stats/leaderboard/elo');
-    if (!lb || !lb.length) {
-      el.innerHTML = '<div class="os-empty">No data yet.</div>';
-      return;
+  function homeClickPlayer(u) {
+    // Clicking yourself toggles them in/out of preset cards; clicking anyone else opens duel
+    if (u === _meUsername) {
+      if (_dimmedPlayers.has(u)) _dimmedPlayers.delete(u);
+      else _dimmedPlayers.add(u);
+      const el = document.getElementById('qsWho_' + u);
+      if (el) el.classList.toggle('dimmed', _dimmedPlayers.has(u));
+      _renderPresetCards();
+    } else {
+      window.location.href = `duel.html?vs=${encodeURIComponent(u)}`;
     }
-    el.innerHTML = lb.slice(0, 25).map((e, i) => {
-      const rank   = i + 1;
-      const rankCls = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
-      const img    = typeof charImgUrl === 'function' ? charImgUrl(e.character) : '';
-      return `<div class="lb-row">
-        <div class="lb-rank ${rankCls}">#${rank}</div>
-        ${img ? `<img class="lb-char-img" src="${img}" alt="${_esc(e.character)}" loading="lazy" />` : ''}
-        <div class="lb-info">
-          <div class="lb-char-name">${_esc(e.character)}</div>
-          <div class="lb-player">${_esc(e.username)}</div>
-        </div>
-        <div class="lb-elo">${e.elo || 1000}</div>
-      </div>`;
-    }).join('');
-  } catch (_) {
-    el.innerHTML = '<div class="os-empty">Failed to load.</div>';
   }
-}
 
-// ── New Tournament ────────────────────────────────────────────────────
-async function openNewTournament() {
-  let friends = [];
-  try {
-    const data = await apiGet('/users/me/friends');
-    friends = (data || []).map(f => f.username || f).filter(Boolean);
-  } catch (_) {}
-  Override.open('newTournament', { friends });
-}
+  function _renderPresetCards() {
+    const container = document.getElementById('homePresetCards');
+    const html = _presetsData.map(p => {
+      const activePlayers = p.players.filter(u => !_dimmedPlayers.has(u));
+      if (activePlayers.length < 2) return '';
 
-// ── Util ──────────────────────────────────────────────────────────────
-function _esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+      const style = (p.bracket_style || 'strongVsStrong').split('|')[0];
+      const cls   = style === 'strongVsStrong' ? 'svs' : style === 'strongVsWeak' ? 'svw' : 'rnd';
+      const chip  = style === 'strongVsStrong' ? '⚡ Sweaty' : style === 'strongVsWeak' ? '📊 Balanced' : '🎲 Chaos';
+
+      const heads = p.players.map(u => {
+        const char = _playerTopChars[u];
+        const src  = char
+          ? charHeadUrl(char)
+          : `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}`;
+        const dm = _dimmedPlayers.has(u) ? ' dimmed' : '';
+        return `<img class="qs-head${dm}" src="${escHtml(src)}" alt="${escHtml(u)}" title="${escHtml(u)}"
+                     onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}'" />`;
+      }).join('');
+
+      return `<div class="qs-card ${cls}" onclick="homelaunchPreset(${p.id},this)" role="button" tabindex="0">
+        <div class="qs-style-chip">${chip}</div>
+        <div class="qs-name">${escHtml(p.name)}</div>
+        <div class="qs-heads">${heads}</div>
+        <div class="qs-launching-overlay">⏳ Launching…</div>
+      </div>`;
+    }).filter(Boolean).join('');
+
+    container.innerHTML = html || '<div style="font-size:0.8rem;color:var(--text-muted);padding:4px 0;">Need at least 2 active players.</div>';
+  }
+
+  async function homelaunchPreset(id, cardEl) {
+    if (cardEl.classList.contains('launching')) return;
+    cardEl.classList.add('launching');
+    try {
+      const res = await apiPost('/presets/' + id + '/launch', { exclude_players: [..._dimmedPlayers] });
+      window.location.href = 'tournament.html?id=' + res.id;
+    } catch(e) {
+      cardEl.classList.remove('launching');
+      alert(e?.detail || e?.message || 'Launch failed');
+    }
+  }
+
+  function dismissInvite(id, ...elIds) {
+    elIds.forEach(elId => document.getElementById(elId)?.remove());
+    apiPatch(`/invites/${id}`, { status: 'declined' }).catch(() => {});
+    // hide sections if empty
+    const list = document.getElementById('inviteList');
+    if (list && !list.children.length) document.getElementById('inviteSection').style.display = 'none';
+    const mob = document.getElementById('mobileInviteBanner');
+    if (mob && !mob.children.length) mob.style.cssText = 'display:none !important;';
+  }
 </script>
+
 </body>
 </html>

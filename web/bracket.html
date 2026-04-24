@@ -1074,6 +1074,11 @@ async function startLineupPhase() {
   if (players.length < 2) { showToast('Add at least 2 players first.', 'warn'); return; }
   _launchingTournament = true;
   const k = parseInt(document.getElementById('charsPerPlayer').value) || 2;
+  // Read team assignments directly from dropdowns (currentTeamOf not set yet in lineup flow)
+  const lineupTeams = {};
+  if (currentMode === 'teams') {
+    players.forEach(p => { lineupTeams[p] = getTeamOf(p); });
+  }
   try {
     const res = await apiPost('/brackets', {
       name,
@@ -1085,7 +1090,7 @@ async function startLineupPhase() {
       is_live: true,
       invite_usernames: [],
       chars_per_player: k,
-      teams: currentMode === 'teams' ? currentTeamOf : {},
+      teams: currentMode === 'teams' ? lineupTeams : {},
     });
     liveTournamentId = res.id;
     window.location.href = `tournament.html?id=${res.id}`;

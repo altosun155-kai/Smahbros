@@ -549,10 +549,16 @@ function renderBracket(data) {
   if (data.teams && Object.keys(data.teams).length > 0) tournamentTeams = data.teams;
   tournamentK = Math.max(32, ((data.players || []).length) * (data.chars_per_player || 2) * 2);
 
-  const rounds = computeRounds(bracket_data, roundWinners);
-  lastRenderedRounds = rounds;
   const container = document.getElementById('bracketRounds');
   container.innerHTML = '';
+
+  if (!bracket_data || bracket_data.length === 0) {
+    container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:60px 20px;font-size:0.9rem;">No bracket data for this tournament.</div>';
+    return;
+  }
+
+  const rounds = computeRounds(bracket_data, roundWinners);
+  lastRenderedRounds = rounds;
 
   rounds.forEach((round, ri) => {
     const col = document.createElement('div');

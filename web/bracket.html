@@ -1334,17 +1334,59 @@ function openVsModal(a, b, key) {
   document.getElementById('vsScoreLabel1').textContent = `${a.player} Wins`;
   document.getElementById('vsScoreLabel2').textContent = `${b.player} Wins`;
 
-  // Elo gain previews above each score button
+  // Clear stale elo/rank from previous match
+  ['vsBtn_30','vsBtn_31','vsBtn_32','vsBtn_03','vsBtn_13','vsBtn_23'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.querySelectorAll('.sbtn-elo,.sbtn-rank').forEach(el => el.remove());
+  });
+
   const eloA = getSeedElo(a, allUserStats);
   const eloB = getSeedElo(b, allUserStats);
-  document.getElementById('vsElo_30').textContent = `+${previewEloGain(eloA, eloB, 3, 0)}`;
-  document.getElementById('vsElo_31').textContent = `+${previewEloGain(eloA, eloB, 3, 1)}`;
-  document.getElementById('vsElo_32').textContent = `+${previewEloGain(eloA, eloB, 3, 2)}`;
-  document.getElementById('vsElo_03').textContent = `+${previewEloGain(eloB, eloA, 3, 0)}`;
-  document.getElementById('vsElo_13').textContent = `+${previewEloGain(eloB, eloA, 3, 1)}`;
-  document.getElementById('vsElo_23').textContent = `+${previewEloGain(eloB, eloA, 3, 2)}`;
+
+  // Populate elo on buttons immediately (no network needed)
+  const _bScenarios = [
+    { id: '30', we: eloA, le: eloB, wk: 3, lk: 0, wEntry: a, lEntry: b },
+    { id: '31', we: eloA, le: eloB, wk: 3, lk: 1, wEntry: a, lEntry: b },
+    { id: '32', we: eloA, le: eloB, wk: 3, lk: 2, wEntry: a, lEntry: b },
+    { id: '03', we: eloB, le: eloA, wk: 3, lk: 0, wEntry: b, lEntry: a },
+    { id: '13', we: eloB, le: eloA, wk: 3, lk: 1, wEntry: b, lEntry: a },
+    { id: '23', we: eloB, le: eloA, wk: 3, lk: 2, wEntry: b, lEntry: a },
+  ];
+  for (const s of _bScenarios) {
+    const delta = previewEloGain(s.we, s.le, s.wk, s.lk);
+    const btn = document.getElementById(`vsBtn_${s.id}`);
+    if (!btn) continue;
+    const eloSpan = document.createElement('span');
+    eloSpan.className = 'sbtn-elo';
+    eloSpan.textContent = `+${delta}`;
+    btn.appendChild(eloSpan);
+  }
 
   modal.classList.add('open');
+
+  // Fetch leaderboard async and add rank changes to buttons
+  apiGet('/characters/stats/leaderboard/elo').then(lb => {
+    if (!lb || !lb.length) return;
+    function _bRankAfter(player, character, newElo) {
+      let rank = 1;
+      for (const e of lb) {
+        if (e.username === player && e.character === character) continue;
+        if ((e.elo || 1000) > newElo) rank++;
+      }
+      return rank;
+    }
+    for (const s of _bScenarios) {
+      const delta = previewEloGain(s.we, s.le, s.wk, s.lk);
+      const wRank = _bRankAfter(s.wEntry.player, s.wEntry.character, s.we + delta);
+      const lRank = _bRankAfter(s.lEntry.player, s.lEntry.character, Math.max(100, s.le - delta));
+      const btn = document.getElementById(`vsBtn_${s.id}`);
+      if (!btn) continue;
+      const rankSpan = document.createElement('span');
+      rankSpan.className = 'sbtn-rank';
+      rankSpan.innerHTML = `<span style="color:#7fff9a;">↑#${wRank}</span> <span style="color:#ff8888;">↓#${lRank}</span>`;
+      btn.appendChild(rankSpan);
+    }
+  }).catch(() => {});
 }
 
 function closeVsModal() {
@@ -1596,42 +1638,29 @@ document.getElementById('savePresetModal').addEventListener('click', function(e)
   <!-- Score preset buttons (3-stock) -->
   <div class="vs-winner-row" style="flex-direction:column;align-items:center;gap:10px;">
     <div style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);">Pick Score (stocks)</div>
-    <div style="display:flex;gap:18px;align-items:center;">
+    <div style="display:flex;gap:18px;align-items:flex-start;">
       <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
         <div style="font-size:0.62rem;color:#ff8888;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;" id="vsScoreLabel1">P1 Wins</div>
-        <div style="display:flex;gap:6px;align-items:flex-end;">
-          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            <span id="vsElo_30" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
-            <button type="button" class="score-preset-btn p1-btn" onclick="pickScore(3,0)">3-0</button>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            <span id="vsElo_31" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
-            <button type="button" class="score-preset-btn p1-btn" onclick="pickScore(3,1)">3-1</button>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            <span id="vsElo_32" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
-            <button type="button" class="score-preset-btn p1-btn" onclick="pickScore(3,2)">3-2</button>
-          </div>
+        <div style="display:flex;gap:6px;">
+          <button type="button" class="score-preset-btn p1-btn" id="vsBtn_30" onclick="pickScore(3,0)"><span class="sbtn-score">3-0</span></button>
+          <button type="button" class="score-preset-btn p1-btn" id="vsBtn_31" onclick="pickScore(3,1)"><span class="sbtn-score">3-1</span></button>
+          <button type="button" class="score-preset-btn p1-btn" id="vsBtn_32" onclick="pickScore(3,2)"><span class="sbtn-score">3-2</span></button>
         </div>
       </div>
-      <div style="width:1px;height:50px;background:rgba(255,255,255,0.15);"></div>
+      <div style="width:1px;height:80px;background:rgba(255,255,255,0.15);align-self:center;"></div>
       <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
         <div style="font-size:0.62rem;color:#88aaff;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;" id="vsScoreLabel2">P2 Wins</div>
-        <div style="display:flex;gap:6px;align-items:flex-end;">
-          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            <span id="vsElo_03" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
-            <button type="button" class="score-preset-btn p2-btn" onclick="pickScore(0,3)">0-3</button>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            <span id="vsElo_13" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
-            <button type="button" class="score-preset-btn p2-btn" onclick="pickScore(1,3)">1-3</button>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            <span id="vsElo_23" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
-            <button type="button" class="score-preset-btn p2-btn" onclick="pickScore(2,3)">2-3</button>
-          </div>
+        <div style="display:flex;gap:6px;">
+          <button type="button" class="score-preset-btn p2-btn" id="vsBtn_03" onclick="pickScore(0,3)"><span class="sbtn-score">0-3</span></button>
+          <button type="button" class="score-preset-btn p2-btn" id="vsBtn_13" onclick="pickScore(1,3)"><span class="sbtn-score">1-3</span></button>
+          <button type="button" class="score-preset-btn p2-btn" id="vsBtn_23" onclick="pickScore(2,3)"><span class="sbtn-score">2-3</span></button>
         </div>
       </div>
+    </div>
+    <!-- Hidden: keep vsElo_* IDs in case referenced elsewhere -->
+    <div style="display:none;">
+      <span id="vsElo_30"></span><span id="vsElo_31"></span><span id="vsElo_32"></span>
+      <span id="vsElo_03"></span><span id="vsElo_13"></span><span id="vsElo_23"></span>
     </div>
   </div>
 </div>

@@ -49,10 +49,8 @@
       <div>
         <div class="card" style="margin-bottom:16px;">
           <h2 style="font-size:0.9rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Players</h2>
-          <div class="form-group">
-            <textarea id="rrPlayersInput" rows="6" placeholder="You&#10;Friend1&#10;Friend2">You
-Friend1
-Friend2</textarea>
+          <div id="rrPlayerChecklist" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+            <div style="font-size:0.82rem;color:var(--text-muted);">Loading players…</div>
           </div>
           <button class="btn btn-gold" style="width:100%;" onclick="generateRR()">Generate Schedule</button>
         </div>
@@ -109,7 +107,6 @@ Friend2</textarea>
 </main>
 
 <script src="js/api.js"></script>
-<script src="js/friends-sidebar.js"></script>
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
 <script>
@@ -117,8 +114,22 @@ Friend2</textarea>
   let rrResults = {};
 
   function getPlayers() {
-    return document.getElementById('rrPlayersInput').value
-      .split('\n').map(p => p.trim()).filter(p => p && p.toUpperCase() !== 'BYE');
+    return Array.from(document.querySelectorAll('#rrPlayerChecklist input[type=checkbox]:checked'))
+      .map(cb => cb.value);
+  }
+
+  async function loadRRPlayers() {
+    try {
+      const me = await apiGet('/users/me');
+      const res = await apiGet('/users/all');
+      const checklist = document.getElementById('rrPlayerChecklist');
+      checklist.innerHTML = (res || []).map(u => `
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:6px 8px;border-radius:6px;background:var(--card-bg2);border:1px solid var(--border);">
+          <input type="checkbox" value="${u.username}" ${me && u.username === me.username ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--accent-blue);cursor:pointer;" />
+          <span style="font-size:0.9rem;">${u.username}</span>
+        </label>
+      `).join('');
+    } catch (_) {}
   }
 
   function generateRR() {
@@ -356,6 +367,8 @@ Friend2</textarea>
         av.src = url; av.style.display = 'block';
       }
     } catch (_) {}
+
+    loadRRPlayers();
 
     // Check if opened with #saved hash
     if (window.location.hash === '#saved') {

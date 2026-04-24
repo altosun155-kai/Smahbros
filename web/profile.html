@@ -213,7 +213,7 @@
       <div class="profile-card">
         <img class="profile-avatar" id="currentAvatar" src="" alt="avatar" />
         <div class="profile-username" id="profileUsername"></div>
-        <div class="profile-id" id="profileId"></div>
+
         <div class="badges-row" id="badgesRow"></div>
         <div id="profileStats" style="display:none;margin-bottom:14px;border-top:1px solid var(--border);padding-top:12px;">
           <div style="display:flex;flex-direction:column;gap:6px;font-size:0.82rem;">
@@ -385,7 +385,6 @@
 <script src="js/chars.js"></script>
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
-<script src="js/friends-sidebar.js"></script>
 <script>
   const DICEBEAR_STYLES = ['pixel-art','adventurer','bottts','fun-emoji','shapes','identicon'];
   let selectedStyle = 'pixel-art';
@@ -1006,7 +1005,6 @@
         const u = await apiGet(`/users/${encodeURIComponent(viewParam)}/profile`);
         currentUsername = u.username;
         document.getElementById('profileUsername').textContent = u.username;
-        document.getElementById('profileId').textContent = `Member #${u.id}`;
         document.getElementById('currentAvatar').src = u.avatar_url || dicebearUrl('pixel-art', u.username);
         // Hide avatar editor, show back link
         document.getElementById('profTabs').style.display = 'none';
@@ -1025,7 +1023,6 @@
       // Own profile — reuse already-fetched me
       currentUsername = myUsername;
       document.getElementById('profileUsername').textContent = myUsername;
-      document.getElementById('profileId').textContent = `Member #${myId}`;
       if (me) {
         const avatarUrl = me.avatar_url || dicebearUrl('pixel-art', me.username);
         document.getElementById('currentAvatar').src = avatarUrl;

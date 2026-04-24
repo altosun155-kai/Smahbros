@@ -264,30 +264,6 @@
     <div class="vs-middle">
       <div class="vs-logo">Super Smash Bros. Ultimate</div>
       <div class="vs-text">VS</div>
-
-      <!-- Center glassmorphism scoring panel -->
-      <div class="vs-center-panel" id="vcpPanel">
-        <div id="vcpViewOnly" style="display:none;font-size:0.6rem;color:rgba(255,255,255,0.4);letter-spacing:1px;text-transform:uppercase;text-align:center;margin-bottom:8px;">Spectating — host picks score</div>
-        <div style="display:flex;gap:10px;align-items:stretch;">
-          <div class="vcp-section">
-            <div class="vcp-label vcp-p1-label" id="vcpLabel1">P1 WINS</div>
-            <div class="vcp-btns">
-              <button class="vcp-btn vcp-p1" onmouseover="hoverScore(3,0)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(3,0)">3-0</button>
-              <button class="vcp-btn vcp-p1" onmouseover="hoverScore(3,1)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(3,1)">3-1</button>
-              <button class="vcp-btn vcp-p1" onmouseover="hoverScore(3,2)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(3,2)">3-2</button>
-            </div>
-          </div>
-          <div style="width:1px;background:rgba(255,255,255,0.18);align-self:stretch;flex-shrink:0;"></div>
-          <div class="vcp-section">
-            <div class="vcp-label vcp-p2-label" id="vcpLabel2">P2 WINS</div>
-            <div class="vcp-btns">
-              <button class="vcp-btn vcp-p2" onmouseover="hoverScore(0,3)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(0,3)">0-3</button>
-              <button class="vcp-btn vcp-p2" onmouseover="hoverScore(1,3)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(1,3)">1-3</button>
-              <button class="vcp-btn vcp-p2" onmouseover="hoverScore(2,3)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(2,3)">2-3</button>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="vs-player p2-side">
@@ -302,60 +278,44 @@
     </div>
   </div>
 
-  <div class="vs-winner-row">
-    <div id="scorePickLabel" style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);margin-bottom:8px;">Pick Score (stocks)</div>
-    <div id="viewOnlyNote" style="display:none;font-size:0.75rem;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.5px;margin-bottom:8px;">Only the host can record results</div>
-    <div id="desktopScoreGrid" style="display:flex;gap:24px;justify-content:center;">
+  <div class="vs-winner-row" style="flex-direction:column;align-items:center;gap:10px;">
+    <div id="scorePickLabel" style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);">Pick Score (stocks)</div>
+    <div id="viewOnlyNote" style="display:none;font-size:0.75rem;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.5px;">Spectating — host picks score</div>
+    <div style="display:flex;gap:18px;align-items:flex-start;">
       <!-- P1 wins -->
-      <div>
-        <div style="font-size:0.62rem;color:#ff8888;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:3px;" id="scoreLabel1">P1 Wins</div>
-        <div id="tCurrentRankP1" style="font-size:0.68rem;color:rgba(255,255,255,0.5);margin-bottom:8px;"></div>
-        <div style="display:grid;grid-template-columns:auto repeat(3,1fr);gap:4px 12px;align-items:center;">
-          <span></span>
-          <div style="text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.55);font-weight:700;">3-0</div>
-          <div style="text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.55);font-weight:700;">3-1</div>
-          <div style="text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.55);font-weight:700;">3-2</div>
-          <span style="font-size:0.55rem;color:rgba(255,255,255,0.4);font-weight:600;white-space:nowrap;">Rank</span>
-          <div style="text-align:center;"><span id="tRankW_30" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_30" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
-          <div style="text-align:center;"><span id="tRankW_31" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_31" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
-          <div style="text-align:center;"><span id="tRankW_32" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_32" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
-          <span style="font-size:0.55rem;color:rgba(255,255,255,0.4);font-weight:600;">Elo</span>
-          <div style="text-align:center;"><span id="tElo_30" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
-          <div style="text-align:center;"><span id="tElo_31" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
-          <div style="text-align:center;"><span id="tElo_32" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
-          <span></span>
+      <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
+        <div style="font-size:0.62rem;color:#ff8888;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;" id="scoreLabel1">P1 Wins</div>
+        <div id="tCurrentRankP1" style="font-size:0.68rem;color:rgba(255,255,255,0.5);min-height:1em;"></div>
+        <div style="display:flex;gap:6px;">
           <button type="button" class="score-preset-btn p1-btn" id="scoreBtn_30" onclick="pickTournamentScore(3,0)"><span class="sbtn-score">3-0</span></button>
           <button type="button" class="score-preset-btn p1-btn" id="scoreBtn_31" onclick="pickTournamentScore(3,1)"><span class="sbtn-score">3-1</span></button>
           <button type="button" class="score-preset-btn p1-btn" id="scoreBtn_32" onclick="pickTournamentScore(3,2)"><span class="sbtn-score">3-2</span></button>
         </div>
       </div>
-      <div style="width:1px;align-self:stretch;background:rgba(255,255,255,0.15);"></div>
+      <div style="width:1px;height:80px;background:rgba(255,255,255,0.15);align-self:center;"></div>
       <!-- P2 wins -->
-      <div>
-        <div style="font-size:0.62rem;color:#88aaff;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:3px;" id="scoreLabel2">P2 Wins</div>
-        <div id="tCurrentRankP2" style="font-size:0.68rem;color:rgba(255,255,255,0.5);margin-bottom:8px;"></div>
-        <div style="display:grid;grid-template-columns:auto repeat(3,1fr);gap:4px 12px;align-items:center;">
-          <span></span>
-          <div style="text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.55);font-weight:700;">0-3</div>
-          <div style="text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.55);font-weight:700;">1-3</div>
-          <div style="text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.55);font-weight:700;">2-3</div>
-          <span style="font-size:0.55rem;color:rgba(255,255,255,0.4);font-weight:600;white-space:nowrap;">Rank</span>
-          <div style="text-align:center;"><span id="tRankW_03" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_03" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
-          <div style="text-align:center;"><span id="tRankW_13" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_13" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
-          <div style="text-align:center;"><span id="tRankW_23" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_23" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
-          <span style="font-size:0.55rem;color:rgba(255,255,255,0.4);font-weight:600;">Elo</span>
-          <div style="text-align:center;"><span id="tElo_03" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
-          <div style="text-align:center;"><span id="tElo_13" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
-          <div style="text-align:center;"><span id="tElo_23" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
-          <span></span>
+      <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
+        <div style="font-size:0.62rem;color:#88aaff;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;" id="scoreLabel2">P2 Wins</div>
+        <div id="tCurrentRankP2" style="font-size:0.68rem;color:rgba(255,255,255,0.5);min-height:1em;"></div>
+        <div style="display:flex;gap:6px;">
           <button type="button" class="score-preset-btn p2-btn" id="scoreBtn_03" onclick="pickTournamentScore(0,3)"><span class="sbtn-score">0-3</span></button>
           <button type="button" class="score-preset-btn p2-btn" id="scoreBtn_13" onclick="pickTournamentScore(1,3)"><span class="sbtn-score">1-3</span></button>
           <button type="button" class="score-preset-btn p2-btn" id="scoreBtn_23" onclick="pickTournamentScore(2,3)"><span class="sbtn-score">2-3</span></button>
         </div>
       </div>
     </div>
-
-    <!-- Mobile winner-first picker (portrait only, toggled via CSS) -->
+    <!-- Hidden: still needed by mobile card JS -->
+    <div style="display:none;">
+      <span id="tElo_30"></span><span id="tElo_31"></span><span id="tElo_32"></span>
+      <span id="tElo_03"></span><span id="tElo_13"></span><span id="tElo_23"></span>
+      <span id="tRankW_30"></span><span id="tRankL_30"></span>
+      <span id="tRankW_31"></span><span id="tRankL_31"></span>
+      <span id="tRankW_32"></span><span id="tRankL_32"></span>
+      <span id="tRankW_03"></span><span id="tRankL_03"></span>
+      <span id="tRankW_13"></span><span id="tRankL_13"></span>
+      <span id="tRankW_23"></span><span id="tRankL_23"></span>
+    </div>
+    <!-- Mobile winner-first picker -->
     <div id="mobileScorePicker" style="display:none;">
       <div style="display:flex;gap:10px;margin-bottom:18px;">
         <button type="button" id="mWinBtn1" class="m-win-btn m-win-p1" onclick="selectMobileWinner('p1')">
@@ -821,17 +781,7 @@ function openScoreModal(a, b, key) {
   document.getElementById('scoreLabel1').textContent = `${scoreModalA.player} Wins`;
   document.getElementById('scoreLabel2').textContent = `${scoreModalB.player} Wins`;
 
-  // Center panel labels
-  document.getElementById('vcpLabel1').textContent = `${scoreModalA.player} Wins`;
-  document.getElementById('vcpLabel2').textContent = `${scoreModalB.player} Wins`;
-  // Host vs spectator for center panel
-  document.querySelectorAll('.vcp-btn').forEach(b => {
-    b.style.pointerEvents = isHost ? '' : 'none';
-    b.style.opacity = isHost ? '' : '0.7';
-    b.style.cursor = isHost ? '' : 'default';
-  });
-  document.getElementById('vcpViewOnly').style.display = isHost ? 'none' : 'block';
-  // Clear elo displays
+  // Clear elo displays under player names
   document.getElementById('vcpP1EloDisplay').textContent = '';
   document.getElementById('vcpP2EloDisplay').textContent = '';
 
@@ -875,9 +825,13 @@ function openScoreModal(a, b, key) {
     if (btn) btn.querySelectorAll('.sbtn-elo,.sbtn-rank').forEach(el => el.remove());
   });
 
-  // Show score buttons for host only; spectators see elo previews but can't pick
+  // Disable score buttons for spectators
   const scoreButtons = document.querySelectorAll('.score-preset-btn');
-  scoreButtons.forEach(btn => btn.style.display = isHost ? '' : 'none');
+  scoreButtons.forEach(btn => {
+    btn.style.opacity = isHost ? '' : '0.45';
+    btn.style.pointerEvents = isHost ? '' : 'none';
+    btn.style.cursor = isHost ? '' : 'default';
+  });
   document.getElementById('scorePickLabel').style.display = isHost ? '' : 'none';
   document.getElementById('viewOnlyNote').style.display = isHost ? 'none' : '';
 

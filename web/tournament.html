@@ -324,9 +324,9 @@
           <div style="text-align:center;"><span id="tElo_31" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
           <div style="text-align:center;"><span id="tElo_32" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
           <span></span>
-          <button type="button" class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,0)">3-0</button>
-          <button type="button" class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,1)">3-1</button>
-          <button type="button" class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,2)">3-2</button>
+          <button type="button" class="score-preset-btn p1-btn" id="scoreBtn_30" onclick="pickTournamentScore(3,0)"><span class="sbtn-score">3-0</span></button>
+          <button type="button" class="score-preset-btn p1-btn" id="scoreBtn_31" onclick="pickTournamentScore(3,1)"><span class="sbtn-score">3-1</span></button>
+          <button type="button" class="score-preset-btn p1-btn" id="scoreBtn_32" onclick="pickTournamentScore(3,2)"><span class="sbtn-score">3-2</span></button>
         </div>
       </div>
       <div style="width:1px;align-self:stretch;background:rgba(255,255,255,0.15);"></div>
@@ -348,9 +348,9 @@
           <div style="text-align:center;"><span id="tElo_13" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
           <div style="text-align:center;"><span id="tElo_23" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
           <span></span>
-          <button type="button" class="score-preset-btn p2-btn" onclick="pickTournamentScore(0,3)">0-3</button>
-          <button type="button" class="score-preset-btn p2-btn" onclick="pickTournamentScore(1,3)">1-3</button>
-          <button type="button" class="score-preset-btn p2-btn" onclick="pickTournamentScore(2,3)">2-3</button>
+          <button type="button" class="score-preset-btn p2-btn" id="scoreBtn_03" onclick="pickTournamentScore(0,3)"><span class="sbtn-score">0-3</span></button>
+          <button type="button" class="score-preset-btn p2-btn" id="scoreBtn_13" onclick="pickTournamentScore(1,3)"><span class="sbtn-score">1-3</span></button>
+          <button type="button" class="score-preset-btn p2-btn" id="scoreBtn_23" onclick="pickTournamentScore(2,3)"><span class="sbtn-score">2-3</span></button>
         </div>
       </div>
     </div>
@@ -870,6 +870,10 @@ function openScoreModal(a, b, key) {
    'tRankL_30','tRankL_31','tRankL_32','tRankL_03','tRankL_13','tRankL_23',
    'tCurrentRankP1','tCurrentRankP2',
   ].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+  ['scoreBtn_30','scoreBtn_31','scoreBtn_32','scoreBtn_03','scoreBtn_13','scoreBtn_23'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.querySelectorAll('.sbtn-elo,.sbtn-rank').forEach(el => el.remove());
+  });
 
   // Show score buttons for host only; spectators see elo previews but can't pick
   const scoreButtons = document.querySelectorAll('.score-preset-btn');
@@ -901,7 +905,28 @@ function openScoreModal(a, b, key) {
       const lEntry = s.aWins ? scoreModalB : scoreModalA;
       const delta = previewEloGain(we, le, s.wk, s.lk);
       document.getElementById(`tElo_${s.id}`).textContent = `+${delta}`;
-      if (lb && lb.length) {
+
+      const btn = document.getElementById(`scoreBtn_${s.id}`);
+      const scoreLabel = btn ? btn.querySelector('.sbtn-score') : null;
+      if (btn && scoreLabel) {
+        // Remove any existing elo/rank spans before re-adding
+        btn.querySelectorAll('.sbtn-elo,.sbtn-rank').forEach(el => el.remove());
+        const eloSpan = document.createElement('span');
+        eloSpan.className = 'sbtn-elo';
+        eloSpan.textContent = `+${delta}`;
+        btn.appendChild(eloSpan);
+
+        if (lb && lb.length) {
+          const wRank = _tRankAfter(lb, wEntry.player, wEntry.character, we + delta);
+          const lRank = _tRankAfter(lb, lEntry.player, lEntry.character, Math.max(100, le - delta));
+          document.getElementById(`tRankW_${s.id}`).textContent = `↑#${wRank}`;
+          document.getElementById(`tRankL_${s.id}`).textContent = `↓#${lRank}`;
+          const rankSpan = document.createElement('span');
+          rankSpan.className = 'sbtn-rank';
+          rankSpan.innerHTML = `<span style="color:#7fff9a;">↑#${wRank}</span> <span style="color:#ff8888;">↓#${lRank}</span>`;
+          btn.appendChild(rankSpan);
+        }
+      } else if (lb && lb.length) {
         const wRank = _tRankAfter(lb, wEntry.player, wEntry.character, we + delta);
         const lRank = _tRankAfter(lb, lEntry.player, lEntry.character, Math.max(100, le - delta));
         document.getElementById(`tRankW_${s.id}`).textContent = `↑#${wRank}`;

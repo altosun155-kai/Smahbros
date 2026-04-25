@@ -204,24 +204,10 @@
       <div style="font-size:2rem;margin-bottom:6px;">🏆</div>
       <div style="font-size:0.7rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,215,0,0.7);margin-bottom:4px;">Tournament Champion</div>
       <div id="winnerBannerName" style="font-size:1.6rem;font-weight:900;color:#ffd700;text-transform:uppercase;letter-spacing:1px;"></div>
-      <button type="button" onclick="openRecap()" style="margin-top:14px;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.35);color:#ffd700;border-radius:6px;padding:7px 18px;font-size:0.82rem;font-weight:700;cursor:pointer;letter-spacing:0.5px;">📊 Session Recap</button>
-    </div>
-
-    <!-- Recap modal -->
-    <div id="recapModal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);overflow-y:auto;padding:40px 16px;">
-      <div style="max-width:540px;margin:0 auto;background:var(--card-bg);border:1px solid var(--border);border-radius:14px;overflow:hidden;">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border);">
-          <div style="font-size:1rem;font-weight:800;">📊 Session Recap</div>
-          <button type="button" onclick="closeRecap()" style="background:none;border:none;color:var(--text-muted);font-size:1.1rem;cursor:pointer;line-height:1;">✕</button>
-        </div>
-        <div id="recapBody" style="padding:20px 22px;display:flex;flex-direction:column;gap:20px;">
-          <div style="color:var(--text-muted);font-size:0.85rem;">Loading…</div>
-        </div>
-      </div>
     </div>
 
     <!-- Undo last score (host only) -->
-    <div id="undoBar" style="display:none;margin-top:14px;align-items:center;gap:12px;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:10px 16px;">
+    <div id="undoBar" style="display:none;margin-top:14px;display:none;align-items:center;gap:12px;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:10px 16px;">
       <span style="font-size:0.82rem;color:var(--text-muted);flex:1;">Last score: <span id="undoLabel" style="color:var(--text);font-weight:600;"></span></span>
       <button type="button" onclick="undoLastScore()" style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:6px;padding:5px 14px;font-size:0.82rem;font-weight:700;cursor:pointer;">Undo</button>
     </div>
@@ -264,6 +250,30 @@
     <div class="vs-middle">
       <div class="vs-logo">Super Smash Bros. Ultimate</div>
       <div class="vs-text">VS</div>
+
+      <!-- Center glassmorphism scoring panel -->
+      <div class="vs-center-panel" id="vcpPanel">
+        <div id="vcpViewOnly" style="display:none;font-size:0.6rem;color:rgba(255,255,255,0.4);letter-spacing:1px;text-transform:uppercase;text-align:center;margin-bottom:8px;">Spectating — host picks score</div>
+        <div style="display:flex;gap:10px;align-items:stretch;">
+          <div class="vcp-section">
+            <div class="vcp-label vcp-p1-label" id="vcpLabel1">P1 WINS</div>
+            <div class="vcp-btns">
+              <button class="vcp-btn vcp-p1" onmouseover="hoverScore(3,0)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(3,0)">3-0</button>
+              <button class="vcp-btn vcp-p1" onmouseover="hoverScore(3,1)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(3,1)">3-1</button>
+              <button class="vcp-btn vcp-p1" onmouseover="hoverScore(3,2)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(3,2)">3-2</button>
+            </div>
+          </div>
+          <div style="width:1px;background:rgba(255,255,255,0.18);align-self:stretch;flex-shrink:0;"></div>
+          <div class="vcp-section">
+            <div class="vcp-label vcp-p2-label" id="vcpLabel2">P2 WINS</div>
+            <div class="vcp-btns">
+              <button class="vcp-btn vcp-p2" onmouseover="hoverScore(0,3)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(0,3)">0-3</button>
+              <button class="vcp-btn vcp-p2" onmouseover="hoverScore(1,3)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(1,3)">1-3</button>
+              <button class="vcp-btn vcp-p2" onmouseover="hoverScore(2,3)" onmouseout="hoverScoreReset()" onclick="pickTournamentScore(2,3)">2-3</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="vs-player p2-side">
@@ -278,44 +288,60 @@
     </div>
   </div>
 
-  <div class="vs-winner-row" style="flex-direction:column;align-items:center;gap:10px;">
-    <div id="scorePickLabel" style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);">Pick Score (stocks)</div>
-    <div id="viewOnlyNote" style="display:none;font-size:0.75rem;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.5px;">Spectating — host picks score</div>
-    <div id="desktopScoreGrid" class="vs-score-cols" style="display:flex;gap:18px;align-items:flex-start;">
+  <div class="vs-winner-row">
+    <div id="scorePickLabel" style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);margin-bottom:8px;">Pick Score (stocks)</div>
+    <div id="viewOnlyNote" style="display:none;font-size:0.75rem;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.5px;margin-bottom:8px;">Only the host can record results</div>
+    <div id="desktopScoreGrid" style="display:none;">
       <!-- P1 wins -->
-      <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
-        <div style="font-size:0.62rem;color:#ff8888;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;" id="scoreLabel1">P1 Wins</div>
-        <div id="tCurrentRankP1" style="font-size:0.68rem;color:rgba(255,255,255,0.5);min-height:1em;"></div>
-        <div style="display:flex;gap:6px;">
-          <button type="button" class="score-preset-btn p1-btn" id="scoreBtn_30" onclick="pickTournamentScore(3,0)"><span class="sbtn-score">3-0</span></button>
-          <button type="button" class="score-preset-btn p1-btn" id="scoreBtn_31" onclick="pickTournamentScore(3,1)"><span class="sbtn-score">3-1</span></button>
-          <button type="button" class="score-preset-btn p1-btn" id="scoreBtn_32" onclick="pickTournamentScore(3,2)"><span class="sbtn-score">3-2</span></button>
+      <div>
+        <div style="font-size:0.62rem;color:#ff8888;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:3px;" id="scoreLabel1">P1 Wins</div>
+        <div id="tCurrentRankP1" style="font-size:0.68rem;color:rgba(255,255,255,0.5);margin-bottom:8px;"></div>
+        <div style="display:grid;grid-template-columns:auto repeat(3,1fr);gap:4px 12px;align-items:center;">
+          <span></span>
+          <div style="text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.55);font-weight:700;">3-0</div>
+          <div style="text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.55);font-weight:700;">3-1</div>
+          <div style="text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.55);font-weight:700;">3-2</div>
+          <span style="font-size:0.55rem;color:rgba(255,255,255,0.4);font-weight:600;white-space:nowrap;">Rank</span>
+          <div style="text-align:center;"><span id="tRankW_30" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_30" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
+          <div style="text-align:center;"><span id="tRankW_31" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_31" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
+          <div style="text-align:center;"><span id="tRankW_32" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_32" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
+          <span style="font-size:0.55rem;color:rgba(255,255,255,0.4);font-weight:600;">Elo</span>
+          <div style="text-align:center;"><span id="tElo_30" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
+          <div style="text-align:center;"><span id="tElo_31" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
+          <div style="text-align:center;"><span id="tElo_32" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
+          <span></span>
+          <button type="button" class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,0)">3-0</button>
+          <button type="button" class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,1)">3-1</button>
+          <button type="button" class="score-preset-btn p1-btn" onclick="pickTournamentScore(3,2)">3-2</button>
         </div>
       </div>
-      <div style="width:1px;height:80px;background:rgba(255,255,255,0.15);align-self:center;"></div>
+      <div style="width:1px;align-self:stretch;background:rgba(255,255,255,0.15);"></div>
       <!-- P2 wins -->
-      <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
-        <div style="font-size:0.62rem;color:#88aaff;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;" id="scoreLabel2">P2 Wins</div>
-        <div id="tCurrentRankP2" style="font-size:0.68rem;color:rgba(255,255,255,0.5);min-height:1em;"></div>
-        <div style="display:flex;gap:6px;">
-          <button type="button" class="score-preset-btn p2-btn" id="scoreBtn_03" onclick="pickTournamentScore(0,3)"><span class="sbtn-score">0-3</span></button>
-          <button type="button" class="score-preset-btn p2-btn" id="scoreBtn_13" onclick="pickTournamentScore(1,3)"><span class="sbtn-score">1-3</span></button>
-          <button type="button" class="score-preset-btn p2-btn" id="scoreBtn_23" onclick="pickTournamentScore(2,3)"><span class="sbtn-score">2-3</span></button>
+      <div>
+        <div style="font-size:0.62rem;color:#88aaff;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:3px;" id="scoreLabel2">P2 Wins</div>
+        <div id="tCurrentRankP2" style="font-size:0.68rem;color:rgba(255,255,255,0.5);margin-bottom:8px;"></div>
+        <div style="display:grid;grid-template-columns:auto repeat(3,1fr);gap:4px 12px;align-items:center;">
+          <span></span>
+          <div style="text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.55);font-weight:700;">0-3</div>
+          <div style="text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.55);font-weight:700;">1-3</div>
+          <div style="text-align:center;font-size:0.6rem;color:rgba(255,255,255,0.55);font-weight:700;">2-3</div>
+          <span style="font-size:0.55rem;color:rgba(255,255,255,0.4);font-weight:600;white-space:nowrap;">Rank</span>
+          <div style="text-align:center;"><span id="tRankW_03" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_03" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
+          <div style="text-align:center;"><span id="tRankW_13" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_13" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
+          <div style="text-align:center;"><span id="tRankW_23" style="font-size:0.55rem;color:#4caf50;font-weight:700;"></span> <span id="tRankL_23" style="font-size:0.55rem;color:#e74c3c;font-weight:700;"></span></div>
+          <span style="font-size:0.55rem;color:rgba(255,255,255,0.4);font-weight:600;">Elo</span>
+          <div style="text-align:center;"><span id="tElo_03" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
+          <div style="text-align:center;"><span id="tElo_13" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
+          <div style="text-align:center;"><span id="tElo_23" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span></div>
+          <span></span>
+          <button type="button" class="score-preset-btn p2-btn" onclick="pickTournamentScore(0,3)">0-3</button>
+          <button type="button" class="score-preset-btn p2-btn" onclick="pickTournamentScore(1,3)">1-3</button>
+          <button type="button" class="score-preset-btn p2-btn" onclick="pickTournamentScore(2,3)">2-3</button>
         </div>
       </div>
     </div>
-    <!-- Hidden: still needed by mobile card JS -->
-    <div style="display:none;">
-      <span id="tElo_30"></span><span id="tElo_31"></span><span id="tElo_32"></span>
-      <span id="tElo_03"></span><span id="tElo_13"></span><span id="tElo_23"></span>
-      <span id="tRankW_30"></span><span id="tRankL_30"></span>
-      <span id="tRankW_31"></span><span id="tRankL_31"></span>
-      <span id="tRankW_32"></span><span id="tRankL_32"></span>
-      <span id="tRankW_03"></span><span id="tRankL_03"></span>
-      <span id="tRankW_13"></span><span id="tRankL_13"></span>
-      <span id="tRankW_23"></span><span id="tRankL_23"></span>
-    </div>
-    <!-- Mobile winner-first picker -->
+
+    <!-- Mobile winner-first picker (portrait only, toggled via CSS) -->
     <div id="mobileScorePicker" style="display:none;">
       <div style="display:flex;gap:10px;margin-bottom:18px;">
         <button type="button" id="mWinBtn1" class="m-win-btn m-win-p1" onclick="selectMobileWinner('p1')">
@@ -364,6 +390,7 @@
 
 <script src="js/api.js"></script>
 <script src="js/badges.js"></script>
+<script src="js/friends-sidebar.js"></script>
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/chars.js"></script>
@@ -549,16 +576,10 @@ function renderBracket(data) {
   if (data.teams && Object.keys(data.teams).length > 0) tournamentTeams = data.teams;
   tournamentK = Math.max(32, ((data.players || []).length) * (data.chars_per_player || 2) * 2);
 
-  const container = document.getElementById('bracketRounds');
-  container.innerHTML = '';
-
-  if (!bracket_data || bracket_data.length === 0) {
-    container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:60px 20px;font-size:0.9rem;">No bracket data for this tournament.</div>';
-    return;
-  }
-
   const rounds = computeRounds(bracket_data, roundWinners);
   lastRenderedRounds = rounds;
+  const container = document.getElementById('bracketRounds');
+  container.innerHTML = '';
 
   rounds.forEach((round, ri) => {
     const col = document.createElement('div');
@@ -787,7 +808,17 @@ function openScoreModal(a, b, key) {
   document.getElementById('scoreLabel1').textContent = `${scoreModalA.player} Wins`;
   document.getElementById('scoreLabel2').textContent = `${scoreModalB.player} Wins`;
 
-  // Clear elo displays under player names
+  // Center panel labels
+  document.getElementById('vcpLabel1').textContent = `${scoreModalA.player} Wins`;
+  document.getElementById('vcpLabel2').textContent = `${scoreModalB.player} Wins`;
+  // Host vs spectator for center panel
+  document.querySelectorAll('.vcp-btn').forEach(b => {
+    b.style.pointerEvents = isHost ? '' : 'none';
+    b.style.opacity = isHost ? '' : '0.7';
+    b.style.cursor = isHost ? '' : 'default';
+  });
+  document.getElementById('vcpViewOnly').style.display = isHost ? 'none' : 'block';
+  // Clear elo displays
   document.getElementById('vcpP1EloDisplay').textContent = '';
   document.getElementById('vcpP2EloDisplay').textContent = '';
 
@@ -826,18 +857,10 @@ function openScoreModal(a, b, key) {
    'tRankL_30','tRankL_31','tRankL_32','tRankL_03','tRankL_13','tRankL_23',
    'tCurrentRankP1','tCurrentRankP2',
   ].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
-  ['scoreBtn_30','scoreBtn_31','scoreBtn_32','scoreBtn_03','scoreBtn_13','scoreBtn_23'].forEach(id => {
-    const btn = document.getElementById(id);
-    if (btn) btn.querySelectorAll('.sbtn-elo,.sbtn-rank').forEach(el => el.remove());
-  });
 
-  // Disable score buttons for spectators
+  // Show score buttons for host only; spectators see elo previews but can't pick
   const scoreButtons = document.querySelectorAll('.score-preset-btn');
-  scoreButtons.forEach(btn => {
-    btn.style.opacity = isHost ? '' : '0.45';
-    btn.style.pointerEvents = isHost ? '' : 'none';
-    btn.style.cursor = isHost ? '' : 'default';
-  });
+  scoreButtons.forEach(btn => btn.style.display = isHost ? '' : 'none');
   document.getElementById('scorePickLabel').style.display = isHost ? '' : 'none';
   document.getElementById('viewOnlyNote').style.display = isHost ? 'none' : '';
 
@@ -865,28 +888,7 @@ function openScoreModal(a, b, key) {
       const lEntry = s.aWins ? scoreModalB : scoreModalA;
       const delta = previewEloGain(we, le, s.wk, s.lk);
       document.getElementById(`tElo_${s.id}`).textContent = `+${delta}`;
-
-      const btn = document.getElementById(`scoreBtn_${s.id}`);
-      const scoreLabel = btn ? btn.querySelector('.sbtn-score') : null;
-      if (btn && scoreLabel) {
-        // Remove any existing elo/rank spans before re-adding
-        btn.querySelectorAll('.sbtn-elo,.sbtn-rank').forEach(el => el.remove());
-        const eloSpan = document.createElement('span');
-        eloSpan.className = 'sbtn-elo';
-        eloSpan.textContent = `+${delta}`;
-        btn.appendChild(eloSpan);
-
-        if (lb && lb.length) {
-          const wRank = _tRankAfter(lb, wEntry.player, wEntry.character, we + delta);
-          const lRank = _tRankAfter(lb, lEntry.player, lEntry.character, Math.max(100, le - delta));
-          document.getElementById(`tRankW_${s.id}`).textContent = `↑#${wRank}`;
-          document.getElementById(`tRankL_${s.id}`).textContent = `↓#${lRank}`;
-          const rankSpan = document.createElement('span');
-          rankSpan.className = 'sbtn-rank';
-          rankSpan.innerHTML = `<span style="color:#7fff9a;">↑#${wRank}</span> <span style="color:#ff8888;">↓#${lRank}</span>`;
-          btn.appendChild(rankSpan);
-        }
-      } else if (lb && lb.length) {
+      if (lb && lb.length) {
         const wRank = _tRankAfter(lb, wEntry.player, wEntry.character, we + delta);
         const lRank = _tRankAfter(lb, lEntry.player, lEntry.character, Math.max(100, le - delta));
         document.getElementById(`tRankW_${s.id}`).textContent = `↑#${wRank}`;
@@ -1282,7 +1284,9 @@ async function confirmMatchups() {
   }
 }
 
-async function _applyBracketData(data) {
+async function fetchAndRender() {
+  try {
+    const data = await apiGet(`/brackets/${tournamentId}`);
     currentBracketData = data;
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = 'block';
@@ -1293,14 +1297,6 @@ async function _applyBracketData(data) {
     // Show End Tournament button for host while tournament is live
     const endBtn = document.getElementById('endTournamentBtn');
     if (endBtn) endBtn.style.display = (isHost && data.is_live) ? 'block' : 'none';
-
-    // Auto-show undo bar for host whenever there are recorded results
-    if (isHost && data.round_winners && Object.keys(data.round_winners).length > 0) {
-      const lastKey = Object.keys(data.round_winners).pop();
-      showUndoBtn(data.round_winners[lastKey]);
-    } else if (isHost) {
-      document.getElementById('undoBar').style.display = 'none';
-    }
 
     const hasBracket = data.bracket_data && data.bracket_data.length > 0;
 
@@ -1348,7 +1344,6 @@ async function _applyBracketData(data) {
       document.getElementById('lineupPhase').style.display = 'none';
       document.getElementById('bracketPhase').style.display = 'block';
 
-
       const chips = document.getElementById('playerChips');
       if (chips.children.length === 0) {
         (data.players || []).forEach(p => {
@@ -1380,50 +1375,16 @@ async function _applyBracketData(data) {
       ? `<div class="live-badge"><span class="live-dot"></span>LIVE</div>`
       : `<div class="ended-badge">Ended</div>`;
 
-    if (!data.is_live) {
-      if (_ws) { _ws.close(); _ws = null; }
-      if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+    if (!data.is_live && pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
       const rn = document.getElementById('refreshNote');
-      if (rn) { rn.querySelector('span:first-child').style.background = '#e74c3c'; rn.querySelector('#refreshNoteText').textContent = 'Tournament ended'; }
+    if (rn) { rn.querySelector('span:first-child').style.background = '#e74c3c'; rn.querySelector('#refreshNoteText').textContent = 'Tournament ended'; }
     }
-}
-
-async function fetchAndRender() {
-  try {
-    const data = await apiGet(`/brackets/${tournamentId}`);
-    await _applyBracketData(data);
   } catch (err) {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('errorState').style.display = 'block';
   }
-}
-
-let _ws = null;
-
-function _connectWs() {
-  const token = typeof getToken === 'function' ? getToken() : null;
-  if (!token || !tournamentId) return;
-  const wsBase = API_BASE.replace(/^https/, 'wss').replace(/^http(?!s)/, 'ws');
-  try { _ws = new WebSocket(`${wsBase}/ws/tournament/${tournamentId}?token=${encodeURIComponent(token)}`); }
-  catch (_) { return; }
-
-  _ws.onopen = () => {
-    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
-    const note = document.getElementById('refreshNoteText');
-    if (note) note.textContent = 'Live · real-time';
-  };
-
-  _ws.onmessage = evt => {
-    try { _applyBracketData(JSON.parse(evt.data)).catch(() => {}); } catch (_) {}
-  };
-
-  _ws.onclose = () => {
-    _ws = null;
-    if (currentBracketData && currentBracketData.is_live) {
-      if (!pollInterval) pollInterval = setInterval(fetchAndRender, 5000);
-      setTimeout(_connectWs, 4000);
-    }
-  };
 }
 
 (async function init() {
@@ -1453,7 +1414,8 @@ function _connectWs() {
   await loadAllBadges();
   applyNavBadge(myUsername);
   await fetchAndRender();
-  _connectWs(); // switch to WebSocket; falls back to polling on failure
+  // Poll every 5s for live updates
+  pollInterval = setInterval(fetchAndRender, 5000);
 })();
 
 function showUndoBtn(label) {
@@ -1461,132 +1423,6 @@ function showUndoBtn(label) {
   const bar = document.getElementById('undoBar');
   document.getElementById('undoLabel').textContent = label;
   bar.style.display = 'flex';
-}
-
-// ── Session Recap ──────────────────────────────────
-
-async function openRecap() {
-  document.getElementById('recapModal').style.display = 'block';
-  const body = document.getElementById('recapBody');
-  body.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;">Loading…</div>';
-  try {
-    const r = await apiGet(`/brackets/${tournamentId}/recap`);
-    body.innerHTML = buildRecapHtml(r);
-  } catch (err) {
-    body.innerHTML = `<div style="color:var(--text-muted);">Could not load recap: ${escHtml(err.message)}</div>`;
-  }
-}
-
-function closeRecap() {
-  document.getElementById('recapModal').style.display = 'none';
-}
-
-function buildRecapHtml(r) {
-  const sec = (title, html) =>
-    `<div><div style="font-size:0.65rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">${title}</div>${html}</div>`;
-
-  const parts = [];
-
-  // Placements
-  const pl = r.placements || {};
-  if (pl['1st'] || pl['2nd'] || pl['3rd']) {
-    const medals = [
-      { key: '1st', icon: '🥇', color: '#ffd700' },
-      { key: '2nd', icon: '🥈', color: '#c0c0c0' },
-      { key: '3rd', icon: '🥉', color: '#cd7f32' },
-    ];
-    let plHtml = '<div style="display:flex;flex-direction:column;gap:8px;">';
-    for (const { key, icon, color } of medals) {
-      const e = pl[key];
-      if (!e) continue;
-      if (Array.isArray(e)) {
-        for (const tie of e) {
-          plHtml += `<div style="display:flex;align-items:center;gap:10px;">
-            <span style="font-size:1.3rem;">${icon}</span>
-            <span style="font-weight:700;color:${color};">${escHtml(tie.player)}</span>
-            <span style="font-size:0.8rem;color:var(--text-muted);">${escHtml(tie.char)}</span>
-            <span style="margin-left:auto;font-size:0.78rem;font-weight:700;color:${color};">+${tie.elo_bonus} Elo</span>
-          </div>`;
-        }
-      } else {
-        plHtml += `<div style="display:flex;align-items:center;gap:10px;">
-          <span style="font-size:1.3rem;">${icon}</span>
-          <span style="font-weight:700;color:${color};">${escHtml(e.player)}</span>
-          <span style="font-size:0.8rem;color:var(--text-muted);">${escHtml(e.char)}</span>
-          <span style="margin-left:auto;font-size:0.78rem;font-weight:700;color:${color};">+${e.elo_bonus} Elo</span>
-        </div>`;
-      }
-    }
-    plHtml += '</div>';
-    parts.push(sec('Placements', plHtml));
-  }
-
-  // Elo changes
-  const elo = r.elo_changes || {};
-  const eloEntries = Object.entries(elo).sort((a, b) => b[1] - a[1]);
-  if (eloEntries.length) {
-    let eloHtml = '<div style="display:flex;flex-direction:column;gap:6px;">';
-    for (const [player, delta] of eloEntries) {
-      const sign = delta >= 0 ? '+' : '';
-      const col  = delta >= 0 ? '#4ade80' : '#f87171';
-      eloHtml += `<div style="display:flex;align-items:center;gap:8px;font-size:0.85rem;">
-        <span style="flex:1;">${escHtml(player)}</span>
-        <span style="font-weight:700;color:${col};">${sign}${delta} Elo</span>
-      </div>`;
-    }
-    eloHtml += '</div>';
-    parts.push(sec('Elo Changes (this session)', eloHtml));
-  }
-
-  // Kill leaders
-  if ((r.kill_leaders || []).length) {
-    let klHtml = '<div style="display:flex;flex-direction:column;gap:6px;">';
-    r.kill_leaders.forEach((e, i) => {
-      klHtml += `<div style="display:flex;align-items:center;gap:8px;font-size:0.85rem;">
-        <span style="color:var(--text-muted);font-size:0.7rem;width:16px;">#${i+1}</span>
-        <span style="flex:1;">${escHtml(e.player)}</span>
-        <span style="font-weight:700;color:var(--text);">${e.kills} stocks taken</span>
-      </div>`;
-    });
-    klHtml += '</div>';
-    parts.push(sec('Kill Leaders', klHtml));
-  }
-
-  // Biggest upsets
-  if ((r.upsets || []).length) {
-    let upHtml = '<div style="display:flex;flex-direction:column;gap:8px;">';
-    r.upsets.forEach(u => {
-      upHtml += `<div style="font-size:0.83rem;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:7px;padding:9px 12px;">
-        <span style="font-weight:700;">${escHtml(u.winner)}</span>
-        <span style="color:var(--text-muted);font-size:0.75rem;"> (${escHtml(u.winner_char)})</span>
-        def.
-        <span style="font-weight:700;">${escHtml(u.loser)}</span>
-        <span style="color:var(--text-muted);font-size:0.75rem;"> (${escHtml(u.loser_char)})</span>
-        <span style="float:right;color:#4ade80;font-weight:700;font-size:0.78rem;">${u.score} · +${u.elo_delta} Elo</span>
-      </div>`;
-    });
-    upHtml += '</div>';
-    parts.push(sec('Biggest Upsets', upHtml));
-  }
-
-  // Clean sweeps
-  if ((r.sweeps || []).length) {
-    let swHtml = '<div style="display:flex;flex-direction:column;gap:6px;">';
-    r.sweeps.forEach(s => {
-      swHtml += `<div style="font-size:0.83rem;">
-        💀 <span style="font-weight:700;">${escHtml(s.winner)}</span>
-        <span style="color:var(--text-muted);font-size:0.75rem;">(${escHtml(s.winner_char)})</span>
-        3-stocked
-        <span style="font-weight:700;">${escHtml(s.loser)}</span>
-        <span style="color:var(--text-muted);font-size:0.75rem;">(${escHtml(s.loser_char)})</span>
-      </div>`;
-    });
-    swHtml += '</div>';
-    parts.push(sec('3-Stocks', swHtml));
-  }
-
-  if (!parts.length) return '<div style="color:var(--text-muted);font-size:0.85rem;">No match data recorded for this tournament.</div>';
-  return parts.join('');
 }
 
 async function undoLastScore() {

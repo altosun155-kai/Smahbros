@@ -63,49 +63,6 @@ function getSeedByMode(entry, statsMap, seedMode) {
   return getSeedPoints(entry, statsMap);
 }
 
-// ── Standard bracket seeding ──────────────────────────────────────────────────
-
-// Standard single-elimination seeding sequence for a bracket of size n (power of 2).
-// Recursively folds so top seeds are kept apart until the final rounds.
-// Example: _seedSeq(8) → [1, 8, 4, 5, 2, 7, 3, 6]
-function _seedSeq(n) {
-  if (n === 1) return [1];
-  const half = _seedSeq(n / 2);
-  const result = [];
-  for (const s of half) result.push(s, n + 1 - s);
-  return result;
-}
-
-// Pair a ranked (descending score) array of entries using the standard seeding sequence.
-// Any position in the sequence beyond ranked.length receives BYE — so the highest seeds
-// absorb all byes, which is the correct proactive bye distribution.
-function _pairsFromSeedSeq(ranked, BYE) {
-  const n = ranked.length;
-  const size = nextPow2(n);
-  const seq = _seedSeq(size);
-  const pairs = [];
-  for (let i = 0; i < seq.length; i += 2) {
-    const a = seq[i]     <= n ? ranked[seq[i] - 1]     : BYE;
-    const b = seq[i + 1] <= n ? ranked[seq[i + 1] - 1] : BYE;
-    pairs.push([a, b]);
-  }
-  return pairs;
-}
-
-// Pair a ranked array where adjacent seeds meet immediately (strongVsStrong intent).
-// Byes are padded at the end so lower seeds absorb them, keeping top-seed matchups real.
-function _pairsFromAdjacent(ranked, BYE) {
-  const n = ranked.length;
-  const size = nextPow2(n);
-  const pairs = [];
-  for (let i = 0; i < size; i += 2) {
-    const a = i     < n ? ranked[i]     : BYE;
-    const b = i + 1 < n ? ranked[i + 1] : BYE;
-    pairs.push([a, b]);
-  }
-  return pairs;
-}
-
 // ── Pair helpers ──────────────────────────────────────────────────────────────
 
 // Pair an ordered player list ensuring different teams face each other.
@@ -170,11 +127,7 @@ function _fixSamePlayer(paired) {
 
 function buildBracketPairs({ entries, style, poolMode, seedMode = 'elo', teamMode = false, teamOf = {}, statsMap = {} }) {
   const BYE = BYE_ENTRY;
-
-  // Enrichment phase: compute each entry's seed score exactly once before any sorting.
-  // All comparators below use this Map — O(1) lookups instead of repeated stat searches.
-  const _score = new Map(entries.map(e => [e, getSeedByMode(e, statsMap, seedMode)]));
-  const seed = e => _score.get(e) ?? -1;
+  const seed = e => getSeedByMode(e, statsMap, seedMode);
 
   // Group entries by player, preserving order (index = slot)
   const playerGroups = {};
@@ -289,27 +242,27 @@ function buildBracketPairs({ entries, style, poolMode, seedMode = 'elo', teamMod
   // ── Per-Slot, Seeded ───────────────────────────────────────────────────────
   } else {
     for (let slot = 0; slot < maxChars; slot++) {
-      // Rank players for this slot by descending seed score (enriched, O(1) lookup)
-      const slotPlayers = [...players]
+      const ordered = [...players]
         .filter(p => playerGroups[p][slot])
         .sort((a, b) => seed(playerGroups[b][slot]) - seed(playerGroups[a][slot]));
-
-      if (slotPlayers.length === 0) continue;
-      const ranked = slotPlayers.map(p => playerGroups[p][slot]);
+      if (ordered.length === 0) continue;
+      const getEntry = p => playerGroups[p][slot] || BYE;
 
       if (teamMode) {
-        pairs.push(...pairCrossTeam(slotPlayers, p => playerGroups[p][slot] || BYE, teamOf));
+        pairs.push(...pairCrossTeam(ordered, getEntry, teamOf));
       } else if (style === 'strongVsStrong') {
-        // Adjacent seeds meet first; byes fall to lower seeds at the tail
-        pairs.push(..._pairsFromAdjacent(ranked, BYE));
+        for (let i = 0; i + 1 < ordered.length; i += 2) pairs.push([getEntry(ordered[i]), getEntry(ordered[i + 1])]);
+        if (ordered.length % 2 === 1) pairs.push([getEntry(ordered[ordered.length - 1]), BYE]);
       } else {
-        // strongVsWeak: standard bracket folding — top seeds get byes and stay apart
-        pairs.push(..._pairsFromSeedSeq(ranked, BYE));
+        // strongVsWeak
+        let lo = 0, hi = ordered.length - 1;
+        while (lo < hi) pairs.push([getEntry(ordered[lo++]), getEntry(ordered[hi--])]);
+        if (lo === hi) pairs.push([getEntry(ordered[lo]), BYE]);
       }
     }
   }
 
-  // Align total pair count to the next power of 2 (handles cross-slot remainders)
+  // Pad to next power of 2
   const target = nextPow2(pairs.length);
   while (pairs.length < target) pairs.push([BYE, BYE]);
   return pairs;

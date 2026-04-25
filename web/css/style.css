@@ -949,8 +949,6 @@ a:hover {
   padding: 14px 18px;
   white-space: nowrap;
 }
-/* vcpPanel (center quick-buttons) is mobile-only; desktop uses desktopScoreGrid */
-.vs-center-panel { display: none; }
 .vcp-section { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .vcp-label {
   font-size: 0.58rem;
@@ -1013,10 +1011,6 @@ a:hover {
 }
 .vs-close:hover { background: rgba(255,255,255,0.2); }
 .score-preset-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
   padding: 9px 16px;
   font-size: 0.92rem;
   font-weight: 800;
@@ -1026,9 +1020,6 @@ a:hover {
   transition: transform 0.1s, opacity 0.1s;
   letter-spacing: 0.5px;
 }
-.sbtn-score { font-size: 0.92rem; font-weight: 800; }
-.sbtn-elo   { font-size: 0.68rem; font-weight: 700; opacity: 0.9; }
-.sbtn-rank  { font-size: 0.6rem;  font-weight: 700; opacity: 0.75; }
 .score-preset-btn:hover { transform: scale(1.08); opacity: 0.9; }
 .score-preset-btn.p1-btn { background: rgba(180,20,20,0.85); color: #fff; border: 2px solid rgba(255,120,120,0.4); }
 .score-preset-btn.p2-btn { background: rgba(20,60,180,0.85); color: #fff; border: 2px solid rgba(100,150,255,0.4); }
@@ -1128,19 +1119,6 @@ a:hover {
   #scorePickLabel { display: none !important; }
   .vs-center-panel { display: none !important; }
   .vcp-elo-display { display: none !important; }
-
-  /* vsModal (bracket.html) — same column layout as scoreModal */
-  #vsModal.open {
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: stretch;
-    overflow-y: auto;
-  }
-
-  /* Hide desktop score grid in vsModal; show winner-first picker */
-  #vsModal .vs-score-cols { display: none !important; }
-  #vsModal .vs-score-divider { display: none !important; }
-  #vsMobileScorePicker { display: block !important; }
 
   .vs-close { position: fixed; top: 10px; right: 12px; z-index: 10; }
 }

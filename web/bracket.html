@@ -396,6 +396,7 @@
 
 <script src="js/api.js"></script>
 <script src="js/badges.js"></script>
+<script src="js/friends-sidebar.js"></script>
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/chars.js"></script>
@@ -1074,11 +1075,6 @@ async function startLineupPhase() {
   if (players.length < 2) { showToast('Add at least 2 players first.', 'warn'); return; }
   _launchingTournament = true;
   const k = parseInt(document.getElementById('charsPerPlayer').value) || 2;
-  // Read team assignments directly from dropdowns (currentTeamOf not set yet in lineup flow)
-  const lineupTeams = {};
-  if (currentMode === 'teams') {
-    players.forEach(p => { lineupTeams[p] = getTeamOf(p); });
-  }
   try {
     const res = await apiPost('/brackets', {
       name,
@@ -1090,7 +1086,7 @@ async function startLineupPhase() {
       is_live: true,
       invite_usernames: [],
       chars_per_player: k,
-      teams: currentMode === 'teams' ? lineupTeams : {},
+      teams: currentMode === 'teams' ? currentTeamOf : {},
     });
     liveTournamentId = res.id;
     window.location.href = `tournament.html?id=${res.id}`;
@@ -1267,31 +1263,6 @@ function previewEloGain(winnerElo, loserElo, wk, lk) {
 let vsCurrentKey = null;
 let vsCurrentLabelA = '';
 let vsCurrentLabelB = '';
-let _vsMobileWinner = null;
-let _vsScenarioData = {}; // id -> { elo, wRank, lRank }
-
-function selectVsMobileWinner(side) {
-  _vsMobileWinner = side;
-  document.getElementById('vsMWinBtn1').classList.toggle('active', side === 'p1');
-  document.getElementById('vsMWinBtn2').classList.toggle('active', side === 'p2');
-
-  const isP1   = side === 'p1';
-  const ids    = isP1 ? ['30','31','32'] : ['03','13','23'];
-  const labels = isP1 ? ['3-0','3-1','3-2'] : ['0-3','1-3','2-3'];
-  const picks  = isP1 ? [[3,0],[3,1],[3,2]] : [[0,3],[1,3],[2,3]];
-
-  ids.forEach((id, i) => {
-    const d    = _vsScenarioData[id] || {};
-    const card = document.getElementById(`vsMScoreCard${i}`);
-    card.innerHTML =
-      `<div class="m-score-name">${labels[i]}</div>` +
-      (d.elo != null ? `<div class="m-elo-val">+${d.elo}</div>` : '') +
-      (d.wRank && d.lRank ? `<div class="m-rank-row"><span style="color:#7fff9a;">↑#${d.wRank}</span><span style="color:#ff8888;">↓#${d.lRank}</span></div>` : '');
-    card.onclick = () => pickScore(picks[i][0], picks[i][1]);
-  });
-
-  document.getElementById('vsMobileScoreOptions').style.display = 'block';
-}
 
 function pickScore(p1Stocks, p2Stocks) {
   if (!vsCurrentKey) return;
@@ -1364,74 +1335,17 @@ function openVsModal(a, b, key) {
   document.getElementById('vsScoreLabel1').textContent = `${a.player} Wins`;
   document.getElementById('vsScoreLabel2').textContent = `${b.player} Wins`;
 
-  // Reset mobile picker state
-  _vsMobileWinner = null;
-  _vsScenarioData = {};
-  document.getElementById('vsMWinName1').textContent = `${a.player} Won`;
-  document.getElementById('vsMWinName2').textContent = `${b.player} Won`;
-  document.getElementById('vsMWinBtn1').classList.remove('active');
-  document.getElementById('vsMWinBtn2').classList.remove('active');
-  document.getElementById('vsMobileScoreOptions').style.display = 'none';
-
-  // Clear stale elo/rank from previous match
-  ['vsBtn_30','vsBtn_31','vsBtn_32','vsBtn_03','vsBtn_13','vsBtn_23'].forEach(id => {
-    const btn = document.getElementById(id);
-    if (btn) btn.querySelectorAll('.sbtn-elo,.sbtn-rank').forEach(el => el.remove());
-  });
-
+  // Elo gain previews above each score button
   const eloA = getSeedElo(a, allUserStats);
   const eloB = getSeedElo(b, allUserStats);
-
-  const _bScenarios = [
-    { id: '30', we: eloA, le: eloB, wk: 3, lk: 0, wEntry: a, lEntry: b },
-    { id: '31', we: eloA, le: eloB, wk: 3, lk: 1, wEntry: a, lEntry: b },
-    { id: '32', we: eloA, le: eloB, wk: 3, lk: 2, wEntry: a, lEntry: b },
-    { id: '03', we: eloB, le: eloA, wk: 3, lk: 0, wEntry: b, lEntry: a },
-    { id: '13', we: eloB, le: eloA, wk: 3, lk: 1, wEntry: b, lEntry: a },
-    { id: '23', we: eloB, le: eloA, wk: 3, lk: 2, wEntry: b, lEntry: a },
-  ];
-
-  // Populate elo on desktop buttons and store in scenario data
-  for (const s of _bScenarios) {
-    const delta = previewEloGain(s.we, s.le, s.wk, s.lk);
-    _vsScenarioData[s.id] = { elo: delta };
-    const btn = document.getElementById(`vsBtn_${s.id}`);
-    if (!btn) continue;
-    const eloSpan = document.createElement('span');
-    eloSpan.className = 'sbtn-elo';
-    eloSpan.textContent = `+${delta}`;
-    btn.appendChild(eloSpan);
-  }
+  document.getElementById('vsElo_30').textContent = `+${previewEloGain(eloA, eloB, 3, 0)}`;
+  document.getElementById('vsElo_31').textContent = `+${previewEloGain(eloA, eloB, 3, 1)}`;
+  document.getElementById('vsElo_32').textContent = `+${previewEloGain(eloA, eloB, 3, 2)}`;
+  document.getElementById('vsElo_03').textContent = `+${previewEloGain(eloB, eloA, 3, 0)}`;
+  document.getElementById('vsElo_13').textContent = `+${previewEloGain(eloB, eloA, 3, 1)}`;
+  document.getElementById('vsElo_23').textContent = `+${previewEloGain(eloB, eloA, 3, 2)}`;
 
   modal.classList.add('open');
-
-  // Fetch leaderboard async and add rank changes
-  apiGet('/characters/stats/leaderboard/elo').then(lb => {
-    if (!lb || !lb.length) return;
-    function _bRankAfter(player, character, newElo) {
-      let rank = 1;
-      for (const e of lb) {
-        if (e.username === player && e.character === character) continue;
-        if ((e.elo || 1000) > newElo) rank++;
-      }
-      return rank;
-    }
-    for (const s of _bScenarios) {
-      const delta = previewEloGain(s.we, s.le, s.wk, s.lk);
-      const wRank = _bRankAfter(s.wEntry.player, s.wEntry.character, s.we + delta);
-      const lRank = _bRankAfter(s.lEntry.player, s.lEntry.character, Math.max(100, s.le - delta));
-      _vsScenarioData[s.id].wRank = wRank;
-      _vsScenarioData[s.id].lRank = lRank;
-      const btn = document.getElementById(`vsBtn_${s.id}`);
-      if (!btn) continue;
-      const rankSpan = document.createElement('span');
-      rankSpan.className = 'sbtn-rank';
-      rankSpan.innerHTML = `<span style="color:#7fff9a;">↑#${wRank}</span> <span style="color:#ff8888;">↓#${lRank}</span>`;
-      btn.appendChild(rankSpan);
-    }
-    // Refresh mobile cards if winner already selected
-    if (_vsMobileWinner) selectVsMobileWinner(_vsMobileWinner);
-  }).catch(() => {});
 }
 
 function closeVsModal() {
@@ -1683,48 +1597,42 @@ document.getElementById('savePresetModal').addEventListener('click', function(e)
   <!-- Score preset buttons (3-stock) -->
   <div class="vs-winner-row" style="flex-direction:column;align-items:center;gap:10px;">
     <div style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.38);">Pick Score (stocks)</div>
-    <div class="vs-score-cols" style="display:flex;gap:18px;align-items:flex-start;">
+    <div style="display:flex;gap:18px;align-items:center;">
       <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
         <div style="font-size:0.62rem;color:#ff8888;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;" id="vsScoreLabel1">P1 Wins</div>
-        <div style="display:flex;gap:6px;">
-          <button type="button" class="score-preset-btn p1-btn" id="vsBtn_30" onclick="pickScore(3,0)"><span class="sbtn-score">3-0</span></button>
-          <button type="button" class="score-preset-btn p1-btn" id="vsBtn_31" onclick="pickScore(3,1)"><span class="sbtn-score">3-1</span></button>
-          <button type="button" class="score-preset-btn p1-btn" id="vsBtn_32" onclick="pickScore(3,2)"><span class="sbtn-score">3-2</span></button>
+        <div style="display:flex;gap:6px;align-items:flex-end;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span id="vsElo_30" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
+            <button type="button" class="score-preset-btn p1-btn" onclick="pickScore(3,0)">3-0</button>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span id="vsElo_31" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
+            <button type="button" class="score-preset-btn p1-btn" onclick="pickScore(3,1)">3-1</button>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span id="vsElo_32" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
+            <button type="button" class="score-preset-btn p1-btn" onclick="pickScore(3,2)">3-2</button>
+          </div>
         </div>
       </div>
-      <div class="vs-score-divider" style="width:1px;height:80px;background:rgba(255,255,255,0.15);align-self:center;"></div>
+      <div style="width:1px;height:50px;background:rgba(255,255,255,0.15);"></div>
       <div style="display:flex;flex-direction:column;gap:5px;align-items:center;">
         <div style="font-size:0.62rem;color:#88aaff;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;" id="vsScoreLabel2">P2 Wins</div>
-        <div style="display:flex;gap:6px;">
-          <button type="button" class="score-preset-btn p2-btn" id="vsBtn_03" onclick="pickScore(0,3)"><span class="sbtn-score">0-3</span></button>
-          <button type="button" class="score-preset-btn p2-btn" id="vsBtn_13" onclick="pickScore(1,3)"><span class="sbtn-score">1-3</span></button>
-          <button type="button" class="score-preset-btn p2-btn" id="vsBtn_23" onclick="pickScore(2,3)"><span class="sbtn-score">2-3</span></button>
+        <div style="display:flex;gap:6px;align-items:flex-end;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span id="vsElo_03" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
+            <button type="button" class="score-preset-btn p2-btn" onclick="pickScore(0,3)">0-3</button>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span id="vsElo_13" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
+            <button type="button" class="score-preset-btn p2-btn" onclick="pickScore(1,3)">1-3</button>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <span id="vsElo_23" style="font-size:0.6rem;color:#4caf50;font-weight:700;"></span>
+            <button type="button" class="score-preset-btn p2-btn" onclick="pickScore(2,3)">2-3</button>
+          </div>
         </div>
       </div>
-    </div>
-    <!-- Mobile winner-first picker -->
-    <div id="vsMobileScorePicker" style="display:none;">
-      <div style="display:flex;gap:10px;margin-bottom:18px;">
-        <button type="button" id="vsMWinBtn1" class="m-win-btn m-win-p1" onclick="selectVsMobileWinner('p1')">
-          <span id="vsMWinName1">P1 WON</span>
-        </button>
-        <button type="button" id="vsMWinBtn2" class="m-win-btn m-win-p2" onclick="selectVsMobileWinner('p2')">
-          <span id="vsMWinName2">P2 WON</span>
-        </button>
-      </div>
-      <div id="vsMobileScoreOptions" style="display:none;">
-        <div style="font-size:0.65rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:12px;">Pick score</div>
-        <div style="display:flex;gap:10px;">
-          <button type="button" class="m-score-card" id="vsMScoreCard0"></button>
-          <button type="button" class="m-score-card" id="vsMScoreCard1"></button>
-          <button type="button" class="m-score-card" id="vsMScoreCard2"></button>
-        </div>
-      </div>
-    </div>
-    <!-- Hidden: keep vsElo_* IDs in case referenced elsewhere -->
-    <div style="display:none;">
-      <span id="vsElo_30"></span><span id="vsElo_31"></span><span id="vsElo_32"></span>
-      <span id="vsElo_03"></span><span id="vsElo_13"></span><span id="vsElo_23"></span>
     </div>
   </div>
 </div>

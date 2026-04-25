@@ -151,6 +151,7 @@ class CharacterStats(Base):
     deaths     = Column(Integer, default=0, nullable=False)
     wins       = Column(Integer, default=0, nullable=False)
     losses     = Column(Integer, default=0, nullable=False)
+    sacrifices = Column(Integer, default=0, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     owner = relationship("User", back_populates="character_stats")

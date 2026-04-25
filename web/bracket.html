@@ -77,6 +77,22 @@
     .vs-win-btn:hover { transform: scale(1.06); opacity: 0.9; }
     .vs-win-btn.p1 { background: #cc1111; color: #fff; }
     .vs-win-btn.p2 { background: #1155cc; color: #fff; }
+    .sac-btn {
+      background: rgba(180,80,0,0.22);
+      border: 1.5px solid rgba(255,140,40,0.55);
+      border-radius: 10px;
+      color: #ffa830;
+      font-size: 0.85rem;
+      font-weight: 800;
+      padding: 14px 22px;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      line-height: 1.5;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+      text-align: center;
+      min-width: 140px;
+    }
+    .sac-btn:hover { background: rgba(220,100,0,0.38); border-color: #ffa830; transform: scale(1.04); }
     .match-box { cursor: pointer; transition: border-color 0.15s; }
     .match-box:hover { border-color: var(--accent-blue); }
     /* ── Quick Start presets ── */
@@ -267,49 +283,7 @@
           </label>
         </div>
 
-        <h2 style="margin-top:14px;">Seeding (Rank By)</h2>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;padding:10px;background:var(--card-bg2);border-radius:8px;border:1px solid var(--border);">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
-            <input type="radio" name="seedMode" value="elo" checked style="accent-color:var(--accent-blue);" />
-            <span><strong>Elo</strong> — rank by Elo rating</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
-            <input type="radio" name="seedMode" value="kills" style="accent-color:var(--accent-blue);" />
-            <span><strong>Kills</strong> — rank by total stocks taken</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
-            <input type="radio" name="seedMode" value="winpct" style="accent-color:var(--accent-blue);" />
-            <span><strong>Win %</strong> — rank by win rate (min 3 games)</span>
-          </label>
-        </div>
-
-        <h2 style="margin-top:14px;">Bracket Style</h2>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;padding:10px;background:var(--card-bg2);border-radius:8px;border:1px solid var(--border);">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
-            <input type="radio" name="bracketStyle" value="strongVsStrong" checked style="accent-color:var(--accent-blue);" />
-            <span><strong>Strong vs Strong</strong> — highest seed plays highest</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
-            <input type="radio" name="bracketStyle" value="strongVsWeak" style="accent-color:var(--accent-blue);" />
-            <span><strong>Strong vs Weak</strong> — highest seed plays lowest</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
-            <input type="radio" name="bracketStyle" value="random" style="accent-color:var(--accent-blue);" />
-            <span><strong>Random</strong> — fully shuffled, no repeats until all used</span>
-          </label>
-        </div>
-
-        <h2 style="margin-top:14px;">Character Pool</h2>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;padding:10px;background:var(--card-bg2);border-radius:8px;border:1px solid var(--border);">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
-            <input type="radio" name="poolMode" value="slot" checked style="accent-color:var(--accent-blue);" />
-            <span><strong>Per Slot</strong> — each player's 1st char faces other 1st chars, etc.</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
-            <input type="radio" name="poolMode" value="freePool" style="accent-color:var(--accent-blue);" />
-            <span><strong>Free Pool</strong> — all characters ranked together globally</span>
-          </label>
-        </div>
+        <div id="bracketOptionsContainer" style="margin-bottom:14px;"></div>
 
         <h2>Players (one per line)</h2>
         <div class="form-group" style="margin-bottom:12px;">
@@ -400,6 +374,7 @@
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/chars.js"></script>
+<script src="js/bracket-options.js"></script>
 <script src="js/bracket-engine.js"></script>
 <script>
 
@@ -1150,6 +1125,7 @@ async function endTournament() {
 
 // ── Init ──────────────────────────────────────────
 (async function init() {
+  renderBracketOptions(document.getElementById('bracketOptionsContainer'));
   try {
     const me = await apiGet('/users/me');
     if (me) {
@@ -1263,11 +1239,18 @@ function previewEloGain(winnerElo, loserElo, wk, lk) {
 let vsCurrentKey = null;
 let vsCurrentLabelA = '';
 let vsCurrentLabelB = '';
+let vsCurrentEntryA = null;
+let vsCurrentEntryB = null;
 
 function pickScore(p1Stocks, p2Stocks) {
   if (!vsCurrentKey) return;
+  const isSacMode = document.getElementById('vsSacrificeSection').style.display !== 'none';
+  if (isSacMode) {
+    const sacrificed = p1Stocks < p2Stocks ? vsCurrentEntryA : vsCurrentEntryB;
+    if (sacrificed) apiPost('/matches/sacrifice', { username: sacrificed.player, character: sacrificed.character }).catch(() => {});
+  }
   const winner = p1Stocks > p2Stocks ? vsCurrentLabelA : vsCurrentLabelB;
-  const winnerKills = Math.max(p1Stocks, p2Stocks); // always 3
+  const winnerKills = Math.max(p1Stocks, p2Stocks);
   const loserKills  = Math.min(p1Stocks, p2Stocks);
   setWinner(vsCurrentKey, winner, winnerKills, loserKills);
   advanceVsModal();
@@ -1275,6 +1258,8 @@ function pickScore(p1Stocks, p2Stocks) {
 
 function openVsModal(a, b, key) {
   vsCurrentKey = key;
+  vsCurrentEntryA = a;
+  vsCurrentEntryB = b;
   const cur = roundWinners[key] || '';
   const la = entryLabel(a), lb = entryLabel(b);
   vsCurrentLabelA = la;
@@ -1344,6 +1329,17 @@ function openVsModal(a, b, key) {
   document.getElementById('vsElo_03').textContent = `+${previewEloGain(eloB, eloA, 3, 0)}`;
   document.getElementById('vsElo_13').textContent = `+${previewEloGain(eloB, eloA, 3, 1)}`;
   document.getElementById('vsElo_23').textContent = `+${previewEloGain(eloB, eloA, 3, 2)}`;
+
+  // Sacrifice mode: same-team matchup — hide score picker, show sacrifice section
+  const teamA = currentTeamOf[a.player] || '';
+  const teamB = currentTeamOf[b.player] || '';
+  const isSacrifice = currentMode === 'teams' && teamA && teamB && teamA === teamB;
+  document.getElementById('vsSacrificeSection').style.display = isSacrifice ? 'block' : 'none';
+  document.querySelector('#vsModal .vs-winner-row').style.display = isSacrifice ? 'none' : '';
+  if (isSacrifice) {
+    document.getElementById('vsSacChar1').textContent = `${a.player} (${a.character})`;
+    document.getElementById('vsSacChar2').textContent = `${b.player} (${b.character})`;
+  }
 
   modal.classList.add('open');
 }
@@ -1591,6 +1587,15 @@ document.getElementById('savePresetModal').addEventListener('click', function(e)
         <div class="vs-char-name" id="vsP2Char"></div>
         <div style="font-size:0.78rem;font-weight:700;color:var(--accent-gold);text-align:right;" id="vsP2Seed"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- Sacrifice section — teams mode, same-team matchup only -->
+  <div id="vsSacrificeSection" style="display:none;padding:20px 24px 14px;text-align:center;">
+    <div style="font-size:0.6rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,160,50,0.65);margin-bottom:14px;">&#9876; Sacrifice &mdash; No Elo Changes</div>
+    <div style="display:flex;gap:14px;justify-content:center;">
+      <button type="button" class="sac-btn" onclick="pickScore(0,3)">Sacrifice<br/><span id="vsSacChar1" style="font-size:0.78rem;opacity:0.85;"></span></button>
+      <button type="button" class="sac-btn" onclick="pickScore(3,0)">Sacrifice<br/><span id="vsSacChar2" style="font-size:0.78rem;opacity:0.85;"></span></button>
     </div>
   </div>
 

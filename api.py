@@ -42,6 +42,7 @@ def _run_migrations():
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS featured_badge VARCHAR"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS teams JSONB DEFAULT NULL"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS placements JSONB DEFAULT NULL"))
+            conn.execute(text("ALTER TABLE character_stats ADD COLUMN IF NOT EXISTS sacrifices INTEGER DEFAULT 0"))
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS practice_sessions (
                     id SERIAL PRIMARY KEY,

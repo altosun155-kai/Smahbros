@@ -690,7 +690,7 @@
 
           // Mobile invite items (below hero)
           const mob = document.getElementById('mobileInviteBanner');
-          mob.style.cssText = 'display:block !important;';
+          mob.removeAttribute('style');
           mob.innerHTML = pending.map(inv => `
             <div class="mobile-invite-item" id="mobInv_${inv.id}">
               <div class="inv-dot"></div>

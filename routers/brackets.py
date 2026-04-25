@@ -289,7 +289,13 @@ def end_tournament(bracket_id: int, db: Session = Depends(get_db), current_user:
     already_ended = not b.is_live
     b.is_live = False
 
-    # Infer winner from Grand Final if not set
+    # Snapshot whether the Grand Final winner was declared before this call.
+    # b.winner is only set via set_bracket_winner (tournament_winner field)
+    # when the actual Grand Final match is recorded. If it's null here, the
+    # tournament is being ended early and placement bonuses must not be given.
+    gf_completed = bool(b.winner)
+
+    # Infer winner from Grand Final if not set (for display purposes only)
     if not b.winner and b.round_winners:
         best_ri, gf_val = -1, None
         for key, v in b.round_winners.items():
@@ -301,9 +307,10 @@ def end_tournament(bracket_id: int, db: Session = Depends(get_db), current_user:
         if gf_val and " — " in gf_val:
             b.winner = gf_val.split(" — ")[0]
 
-    # Award placement bonuses only once (skip if already ended)
+    # Award placement bonuses only if the Grand Final was completed and
+    # this is the first time ending (not already_ended).
     bonuses = []
-    if not already_ended and b.round_winners and b.bracket_data:
+    if not already_ended and gf_completed and b.round_winners and b.bracket_data:
         from routers.matches import _get_or_create_stat, ELO_DEFAULT, K_FACTOR
         num_players = len(b.players or [])
         k = num_players * 4  # 4p=16, 8p=32, 16p=64
@@ -326,7 +333,7 @@ def end_tournament(bracket_id: int, db: Session = Depends(get_db), current_user:
         gf_winner_label = rw.get(f"r{expected_gf_ri}_m0", "")
         max_ri = expected_gf_ri
 
-        if gf_winner_label and " — " in gf_winner_label and b.winner:
+        if gf_winner_label and " — " in gf_winner_label:
             participants = _compute_round_participants(b.bracket_data, rw)
 
             # 1st place: Grand Final winner

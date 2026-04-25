@@ -180,3 +180,27 @@ def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: 
 
     db.commit()
     return {"ok": True, "elo_delta": delta}
+
+
+class SacrificeRecord(BaseModel):
+    username: str
+    character: str
+    bracket_id: int | None = None
+
+
+@router.post("/matches/sacrifice")
+def record_sacrifice(req: SacrificeRecord, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Increment the sacrifice count for a character. No elo change."""
+    if current_user.username != "kai":
+        if not req.bracket_id:
+            raise HTTPException(status_code=403, detail="Only the bracket host can record sacrifices")
+        bracket = db.query(Bracket).filter(Bracket.id == req.bracket_id).first()
+        if not bracket or bracket.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Only the bracket host can record sacrifices")
+    user = db.query(User).filter(User.username == req.username).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Unknown username")
+    stat = _get_or_create_stat(db, user.id, req.character)
+    stat.sacrifices = (stat.sacrifices or 0) + 1
+    db.commit()
+    return {"ok": True}

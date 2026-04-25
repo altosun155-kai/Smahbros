@@ -265,5 +265,41 @@ function buildBracketPairs({ entries, style, poolMode, seedMode = 'elo', teamMod
   // Pad to next power of 2
   const target = nextPow2(pairs.length);
   while (pairs.length < target) pairs.push([BYE, BYE]);
+
+  // Post-process: fix any remaining same-team matchups by swapping with a later pair
+  if (teamMode) _fixSameTeamPairs(pairs, teamOf);
+
   return pairs;
+}
+
+// Scan pairs and swap entries to break up same-team matchups.
+function _fixSameTeamPairs(pairs, teamOf) {
+  for (let i = 0; i < pairs.length; i++) {
+    const [a, b] = pairs[i];
+    if (a.player === 'SYSTEM' || b.player === 'SYSTEM') continue;
+    const teamA = teamOf[a.player] || '';
+    const teamB = teamOf[b.player] || '';
+    if (!teamA || !teamB || teamA !== teamB) continue;
+
+    // Same-team pair — find another pair's entry to swap with b
+    let fixed = false;
+    for (let j = i + 1; j < pairs.length && !fixed; j++) {
+      for (let slot = 0; slot < 2 && !fixed; slot++) {
+        const cand  = pairs[j][slot];
+        const other = pairs[j][1 - slot];
+        if (cand.player === 'SYSTEM') continue;
+        const candTeam  = teamOf[cand.player]  || '';
+        const otherTeam = teamOf[other.player] || '';
+        // After swap: pair[i]=[a,cand] must be cross-team,
+        //             pair[j][slot]=b must be cross-team with other
+        const pairIOk = candTeam  !== teamA;
+        const pairJOk = other.player === 'SYSTEM' || otherTeam !== teamB;
+        if (pairIOk && pairJOk) {
+          pairs[i][1]   = cand;
+          pairs[j][slot] = b;
+          fixed = true;
+        }
+      }
+    }
+  }
 }

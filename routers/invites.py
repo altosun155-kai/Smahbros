@@ -21,7 +21,8 @@ class InviteUpdate(BaseModel):
 def get_received_invites(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     invites = (
         db.query(TournamentInvite)
-        .filter(TournamentInvite.invitee_id == current_user.id)
+        .join(Bracket, TournamentInvite.bracket_id == Bracket.id)
+        .filter(TournamentInvite.invitee_id == current_user.id, Bracket.is_live == True)
         .order_by(TournamentInvite.created_at.desc())
         .all()
     )

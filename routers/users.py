@@ -58,7 +58,7 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
         'executioner','clutch_factor','the_wall','unstoppable','serial_champ',
         'champion','bronze_bomber','silver_lining','top3','char_legend',
         'roster_master','old_reliable','jack_of_all','veteran','tax_collector',
-        'consistent','allrounder','specialist','pacifist',
+        'consistent','allrounder','specialist','pacifist','sacrificer',
     ]
 
     all_users_list = db.query(User).all()
@@ -204,6 +204,11 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
                   for uid, wins in total_wins_uid.items() if wins >= 5]
     pacifist_uid = min(candidates, key=lambda x: x[1])[0] if candidates else None
 
+    # Sacrificer: most total sacrifices (at least 1)
+    total_sacs_uid = {uid: sum(s.sacrifices or 0 for s in stats) for uid, stats in all_stats_by_user.items()}
+    sac_candidates = [(uid, cnt) for uid, cnt in total_sacs_uid.items() if cnt >= 1]
+    sacrificer_uid = max(sac_candidates, key=lambda x: x[1])[0] if sac_candidates else None
+
     # Flawless Run: won a bracket without losing any recorded match in it
     flawless_uids: set = set()
     for b in completed_brackets:
@@ -280,6 +285,8 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
             earned.append({"id":"tax_collector","label":"Tax Collector","color":"#ff9800"})
         if pacifist_uid == uid:
             earned.append({"id":"pacifist","label":"Pacifist","color":"#8bc34a"})
+        if sacrificer_uid == uid:
+            earned.append({"id":"sacrificer","label":"Sacrificer","color":"#9c27b0"})
 
         if not earned:
             continue
@@ -688,5 +695,17 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
                 badges.append({"id": "pacifist", "label": "Pacifist",
                                "desc": f"Lowest avg kills ({user_avg:.1f}/match) with 5+ wins",
                                "color": "#8bc34a"})
+
+    # Sacrificer: most total sacrifices globally (at least 1)
+    total_user_sacs = sum(s.sacrifices or 0 for s in all_user_cs)
+    if total_user_sacs >= 1:
+        top_sac = (db.query(CharacterStats.user_id, func.sum(CharacterStats.sacrifices).label("s"))
+                   .group_by(CharacterStats.user_id)
+                   .having(func.sum(CharacterStats.sacrifices) >= 1)
+                   .order_by(func.sum(CharacterStats.sacrifices).desc())
+                   .first())
+        if top_sac and top_sac.user_id == user.id:
+            badges.append({"id": "sacrificer", "label": "Sacrificer",
+                           "desc": f"Most sacrifices globally ({total_user_sacs}x)", "color": "#9c27b0"})
 
     return badges

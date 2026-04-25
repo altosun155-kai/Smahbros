@@ -28,6 +28,7 @@ const BADGE_ICONS = {
   // Fun
   tax_collector: '💰',
   pacifist:      '🕊️',
+  sacrificer:    '🩸',
 };
 
 // Badges that only appear on the profile page, never in compact/shared contexts

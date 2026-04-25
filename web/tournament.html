@@ -22,6 +22,28 @@
     /* ── VS Screen Modal ── */
     #scoreModal { display:none; position:fixed; inset:0; z-index:150; overflow:hidden; }
     #scoreModal.open { display:flex; align-items:center; justify-content:center; }
+    .sac-btn {
+      background: rgba(180,80,0,0.22);
+      border: 1.5px solid rgba(255,140,40,0.55);
+      border-radius: 10px;
+      color: #ffa830;
+      font-size: 0.85rem;
+      font-weight: 800;
+      padding: 14px 22px;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      line-height: 1.5;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+      text-align: center;
+      min-width: 140px;
+    }
+    .sac-btn:hover { background: rgba(220,100,0,0.38); border-color: #ffa830; transform: scale(1.04); }
+    /* Sacrifice mode hides normal score UI regardless of media queries */
+    #scoreModal.sacrifice-mode #vcpPanel,
+    #scoreModal.sacrifice-mode #desktopScoreGrid,
+    #scoreModal.sacrifice-mode #mobileScorePicker,
+    #scoreModal.sacrifice-mode #scorePickLabel,
+    #scoreModal.sacrifice-mode #viewOnlyNote { display: none !important; }
     /* tournament score modal: stack winner buttons vertically */
     #scoreModal .vs-winner-row { flex-direction: column; }
     .round-col { min-width: 200px; flex-shrink: 0; }
@@ -121,55 +143,7 @@
         <h2 style="font-size:1rem;font-weight:700;color:var(--accent-gold);margin-bottom:8px;">Ready to generate?</h2>
         <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:14px;">Players who haven't confirmed will get a BYE. You can edit matchups before locking in.</p>
 
-        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;">
-          <div style="flex:1;min-width:160px;">
-            <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Bracket Style</div>
-            <div style="display:flex;flex-direction:column;gap:5px;padding:10px;background:var(--card-bg2);border:1px solid var(--border);border-radius:8px;">
-              <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
-                <input type="radio" name="liveBracketStyle" value="strongVsStrong" checked style="accent-color:var(--accent-blue);" />
-                <span><strong>Strong vs Strong</strong></span>
-              </label>
-              <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
-                <input type="radio" name="liveBracketStyle" value="strongVsWeak" style="accent-color:var(--accent-blue);" />
-                <span><strong>Strong vs Weak</strong></span>
-              </label>
-              <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
-                <input type="radio" name="liveBracketStyle" value="random" style="accent-color:var(--accent-blue);" />
-                <span><strong>Random</strong></span>
-              </label>
-            </div>
-          </div>
-          <div style="flex:1;min-width:160px;">
-            <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Character Pool</div>
-            <div style="display:flex;flex-direction:column;gap:5px;padding:10px;background:var(--card-bg2);border:1px solid var(--border);border-radius:8px;">
-              <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
-                <input type="radio" name="livePoolMode" value="slot" checked style="accent-color:var(--accent-blue);" />
-                <span><strong>Per Slot</strong></span>
-              </label>
-              <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
-                <input type="radio" name="livePoolMode" value="freePool" style="accent-color:var(--accent-blue);" />
-                <span><strong>Free Pool</strong></span>
-              </label>
-            </div>
-          </div>
-          <div style="flex:1;min-width:160px;">
-            <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Seeding (Rank By)</div>
-            <div style="display:flex;flex-direction:column;gap:5px;padding:10px;background:var(--card-bg2);border:1px solid var(--border);border-radius:8px;">
-              <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
-                <input type="radio" name="liveSeedMode" value="elo" checked style="accent-color:var(--accent-blue);" />
-                <span><strong>Elo</strong></span>
-              </label>
-              <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
-                <input type="radio" name="liveSeedMode" value="kills" style="accent-color:var(--accent-blue);" />
-                <span><strong>Kills</strong></span>
-              </label>
-              <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
-                <input type="radio" name="liveSeedMode" value="winpct" style="accent-color:var(--accent-blue);" />
-                <span><strong>Win %</strong> <span style="color:var(--text-muted);font-size:0.75rem;">(min 3 games)</span></span>
-              </label>
-            </div>
-          </div>
-        </div>
+        <div id="bracketOptionsContainer" style="margin-bottom:16px;"></div>
 
         <button type="button" class="btn btn-gold" onclick="previewMatchups()" id="btnPreviewMatchups">👁 Preview Matchups</button>
       </div>
@@ -360,6 +334,15 @@
         </div>
       </div>
     </div>
+
+    <!-- Sacrifice section — teams mode, same-team matchup only -->
+    <div id="tSacrificeSection" style="display:none;padding:20px 24px 14px;text-align:center;">
+      <div style="font-size:0.6rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,160,50,0.65);margin-bottom:14px;">&#9876; Sacrifice &mdash; No Elo Changes</div>
+      <div style="display:flex;gap:14px;justify-content:center;">
+        <button type="button" class="sac-btn" onclick="pickTournamentScore(0,3)">Sacrifice<br/><span id="tSacChar1" style="font-size:0.78rem;opacity:0.85;"></span></button>
+        <button type="button" class="sac-btn" onclick="pickTournamentScore(3,0)">Sacrifice<br/><span id="tSacChar2" style="font-size:0.78rem;opacity:0.85;"></span></button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -394,6 +377,7 @@
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/chars.js"></script>
+<script src="js/bracket-options.js"></script>
 <script src="js/bracket-engine.js"></script>
 <script>
 const params = new URLSearchParams(window.location.search);
@@ -864,6 +848,17 @@ function openScoreModal(a, b, key) {
   document.getElementById('scorePickLabel').style.display = isHost ? '' : 'none';
   document.getElementById('viewOnlyNote').style.display = isHost ? 'none' : '';
 
+  // Sacrifice mode: same-team matchup — replace score UI with sacrifice section
+  const tA = tournamentTeams[scoreModalA.player] || '';
+  const tB = tournamentTeams[scoreModalB.player] || '';
+  const isSacrifice = tA && tB && tA === tB;
+  document.getElementById('scoreModal').classList.toggle('sacrifice-mode', isSacrifice);
+  document.getElementById('tSacrificeSection').style.display = isSacrifice ? 'block' : 'none';
+  if (isSacrifice) {
+    document.getElementById('tSacChar1').textContent = `${scoreModalA.player} (${scoreModalA.character})`;
+    document.getElementById('tSacChar2').textContent = `${scoreModalB.player} (${scoreModalB.character})`;
+  }
+
   document.getElementById('scoreModal').classList.add('open');
 
   // Fetch elos + leaderboard, then populate previews and rank changes
@@ -913,7 +908,8 @@ function openScoreModal(a, b, key) {
 }
 
 function closeScoreModal() {
-  document.getElementById('scoreModal').classList.remove('open');
+  const el = document.getElementById('scoreModal');
+  el.classList.remove('open', 'sacrifice-mode');
   scoreModalKey = null; scoreModalA = null; scoreModalB = null;
 }
 
@@ -945,11 +941,16 @@ async function pickTournamentScore(p1Stocks, p2Stocks) {
   const key = scoreModalKey, a = scoreModalA, b = scoreModalB;
   if (!key || !a || !b) return;
   const finishedKey = key;
+  const wasSacrifice = document.getElementById('scoreModal').classList.contains('sacrifice-mode');
   const wasDecided = !!(currentBracketData && currentBracketData.round_winners && currentBracketData.round_winners[key]);
   closeScoreModal();
 
   const winnerEntry = p1Stocks > p2Stocks ? a : b;
   const loserEntry  = p1Stocks > p2Stocks ? b : a;
+
+  if (wasSacrifice) {
+    apiPost('/matches/sacrifice', { username: loserEntry.player, character: loserEntry.character, bracket_id: parseInt(tournamentId) }).catch(() => {});
+  }
   const winnerKills = Math.max(p1Stocks, p2Stocks);
   const loserKills  = Math.min(p1Stocks, p2Stocks);
   const winnerLabel = `${winnerEntry.player} — ${winnerEntry.character}`;
@@ -1168,9 +1169,10 @@ async function previewMatchups() {
   const confirmedLineups = data.confirmed_lineups || {};
   const players = data.players || [];
   const savedStyle = (data.bracket_style || 'strongVsStrong').split('|');
-  const style    = document.querySelector('input[name="liveBracketStyle"]:checked')?.value || savedStyle[0] || 'strongVsStrong';
-  const seedMode = document.querySelector('input[name="liveSeedMode"]:checked')?.value    || savedStyle[1] || 'elo';
-  const poolMode = document.querySelector('input[name="livePoolMode"]:checked')?.value    || savedStyle[2] || 'slot';
+  const _opts    = readBracketOptions();
+  const style    = _opts.style    || savedStyle[0] || 'strongVsStrong';
+  const seedMode = _opts.seedMode || savedStyle[1] || 'elo';
+  const poolMode = _opts.poolMode || savedStyle[2] || 'slot';
 
   document.getElementById('btnPreviewMatchups').textContent = '⏳ Computing…';
   document.getElementById('btnPreviewMatchups').disabled = true;
@@ -1187,25 +1189,15 @@ async function previewMatchups() {
   document.getElementById('btnPreviewMatchups').textContent = '👁 Preview Matchups';
   document.getElementById('btnPreviewMatchups').disabled = false;
 
-  // Sort each player's characters by elo so slot 0 = best char
-  const playerGroups = {};
-  players.forEach(p => {
-    const chars = confirmedLineups[p] || [];
-    const stats = playerStats[p] || [];
-    const getElo = c => (stats.find(s => s.character === c) || {}).elo || 1000;
-    playerGroups[p] = [...chars].sort((a, b) => getElo(b) - getElo(a)).map(c => ({ player: p, character: c }));
-  });
-  if (!players.some(p => playerGroups[p].length > 0)) { showToast('No confirmed lineups yet.', 'warn'); return; }
-
-  const entries = players.flatMap(p => playerGroups[p]);
+  const entries = buildEntriesFromLineups(confirmedLineups, playerStats, seedMode);
+  if (entries.length === 0) { showToast('No confirmed lineups yet.', 'warn'); return; }
   const isTeams = Object.keys(tournamentTeams).length > 0;
   const rawPairs = buildBracketPairs({ entries, style, poolMode, seedMode, teamMode: isTeams, teamOf: tournamentTeams, statsMap: playerStats });
 
   const toLabel = e => e.player === 'SYSTEM' ? 'BYE' : `${e.player} — ${e.character}`;
   const pairs = rawPairs.map(([a, b]) => ({ a: toLabel(a), b: toLabel(b) }));
 
-  pendingEntries = [];
-  players.forEach(p => (confirmedLineups[p] || []).forEach(c => pendingEntries.push({ player: p, character: c })));
+  pendingEntries = entries.filter(e => e.player !== 'SYSTEM');
   pendingPairs = pairs;
 
   // Reset swap state and show preview
@@ -1298,6 +1290,8 @@ async function fetchAndRender() {
     const endBtn = document.getElementById('endTournamentBtn');
     if (endBtn) endBtn.style.display = (isHost && data.is_live) ? 'block' : 'none';
 
+    if (data.teams && Object.keys(data.teams).length > 0) tournamentTeams = data.teams;
+
     const hasBracket = data.bracket_data && data.bracket_data.length > 0;
 
     if (data.is_live && !hasBracket) {
@@ -1332,12 +1326,7 @@ async function fetchAndRender() {
       if (isHost && !liveControlsSet) {
         liveControlsSet = true;
         const [savedBracketStyle, savedSeedMode = 'elo', savedPoolMode = 'slot'] = (data.bracket_style || 'strongVsStrong').split('|');
-        const bsEl = document.querySelector(`input[name="liveBracketStyle"][value="${savedBracketStyle}"]`);
-        if (bsEl) bsEl.checked = true;
-        const smEl = document.querySelector(`input[name="liveSeedMode"][value="${savedSeedMode}"]`);
-        if (smEl) smEl.checked = true;
-        const pmEl = document.querySelector(`input[name="livePoolMode"][value="${savedPoolMode}"]`);
-        if (pmEl) pmEl.checked = true;
+        renderBracketOptions(document.getElementById('bracketOptionsContainer'), { style: savedBracketStyle, poolMode: savedPoolMode, seedMode: savedSeedMode });
       }
     } else {
       // ── Bracket phase ──

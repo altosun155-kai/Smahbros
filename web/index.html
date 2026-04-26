@@ -371,6 +371,15 @@
   </style>
 </head>
 <body>
+<!-- SVG filter for torn paper edges on WANTED posters -->
+<svg style="display:none;position:absolute" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="torn-paper" x="-6%" y="-6%" width="112%" height="112%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.055 0.04" numOctaves="4" seed="7" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="9" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+</svg>
 <script>requireAuth();</script>
 
 <div id="toast-container"></div>
@@ -723,12 +732,10 @@
         if (s < 86400) return `${Math.floor(s/3600)}h ago`;
         return `${Math.floor(s/86400)}d ago`;
       };
-      const cards = data.flatMap(r => {
+      const cards = data.map(r => {
         const wImg = typeof charImgUrl === 'function' ? charImgUrl(r.winner_char) : '';
-        const lImg = typeof charImgUrl === 'function' ? charImgUrl(r.loser_char)  : '';
         const ago  = timeAgo(r.created_at);
-        return [
-          `<div class="bounty-poster" style="background-image:url('${wImg}')">
+        return `<div class="bounty-poster" style="background-image:url('${wImg}')">
             <div class="bp-top">
               <div class="bp-header">WANTED</div>
               <div class="bp-doa">☠ Dead or Alive ☠</div>
@@ -739,19 +746,7 @@
               <div class="bp-crime">3-Stocked ${escHtml(r.loser)}</div>
               <div class="bp-time">${ago}</div>
             </div>
-          </div>`,
-          `<div class="bounty-poster tombstone-poster" style="background-image:url('${lImg}')">
-            <div class="bp-top">
-              <div class="bp-header">System Offline</div>
-            </div>
-            <div class="bp-bottom">
-              <div class="bp-name">${escHtml(r.loser)}</div>
-              <div class="bp-char">${escHtml(r.loser_char)}</div>
-              <div class="bp-crime">3-Stocked by ${escHtml(r.winner)}</div>
-              <div class="bp-time">${ago}</div>
-            </div>
-          </div>`
-        ];
+          </div>`;
       });
       container.innerHTML = `<div class="bounty-grid">${cards.join('')}</div>`;
     } catch (_) {

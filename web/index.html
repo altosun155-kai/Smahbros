@@ -732,10 +732,12 @@
         if (s < 86400) return `${Math.floor(s/3600)}h ago`;
         return `${Math.floor(s/86400)}d ago`;
       };
-      const cards = data.map(r => {
+      const cards = data.flatMap(r => {
         const wImg = typeof charImgUrl === 'function' ? charImgUrl(r.winner_char) : '';
+        const lImg = typeof charImgUrl === 'function' ? charImgUrl(r.loser_char)  : '';
         const ago  = timeAgo(r.created_at);
-        return `<div class="bounty-poster" style="background-image:url('${wImg}')">
+        return [
+          `<div class="bounty-poster" style="background-image:url('${wImg}')">
             <div class="bp-top">
               <div class="bp-header">WANTED</div>
               <div class="bp-doa">☠ Dead or Alive ☠</div>
@@ -746,7 +748,20 @@
               <div class="bp-crime">3-Stocked ${escHtml(r.loser)}</div>
               <div class="bp-time">${ago}</div>
             </div>
-          </div>`;
+          </div>`,
+          `<div class="bounty-poster tombstone-poster" style="background-image:url('${lImg}')">
+            <div class="bp-top">
+              <div class="bp-header">R.I.P.</div>
+            </div>
+            <div class="bp-bottom">
+              <div class="bp-sublabel">Here lies</div>
+              <div class="bp-name">${escHtml(r.loser)}</div>
+              <div class="bp-char">${escHtml(r.loser_char)}</div>
+              <div class="bp-crime">3-Stocked by ${escHtml(r.winner)}</div>
+              <div class="bp-time">${ago}</div>
+            </div>
+          </div>`
+        ];
       });
       container.innerHTML = `<div class="bounty-grid">${cards.join('')}</div>`;
     } catch (_) {

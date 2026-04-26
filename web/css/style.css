@@ -1344,134 +1344,56 @@ a:hover {
   filter: url(#torn-paper);
 }
 
-/* ── Tombstone variant — actual tombstone shape ── */
+/* ── Tombstone variant — headstone arch shape, ghosted character art ── */
 .tombstone-poster {
-  border-color: #666;
+  border-color: #5a5e62;
   border-width: 3px;
-  /* arch top via border-radius — horizontal 50%, vertical 32% creates headstone silhouette */
-  border-radius: 50% 50% 4px 4px / 32% 32% 4px 4px;
-  background-image: none !important;
-  background: linear-gradient(160deg, #b0b0b0 0%, #8c8c8c 18%, #707070 45%, #5a5a5a 72%, #444 100%);
-  aspect-ratio: 3 / 5;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.15);
+  /* dramatic arch: horizontal 50%, vertical 34% ≈ real headstone silhouette */
+  border-radius: 50% 50% 4px 4px / 34% 34% 4px 4px;
+  /* character art desaturated into the stone via luminosity blend */
+  background-color: #7e868e;
+  background-blend-mode: luminosity;
+  background-size: cover;
+  background-position: center top;
+  aspect-ratio: 3 / 4;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.75),
+              inset 0 2px 0 rgba(255,255,255,0.22),
+              inset 0 -2px 0 rgba(0,0,0,0.4);
 }
 
+/* Stone-coloured gradient overlay — keeps the classic grey-granite look */
 .tombstone-poster::before {
   background: linear-gradient(
-    to bottom,
-    rgba(10,10,12,0.6) 0%,
-    rgba(10,10,12,0.2) 30%,
-    rgba(10,10,12,0.2) 60%,
-    rgba(10,10,12,0.7) 100%
+    170deg,
+    rgba(175,182,188,0.72) 0%,
+    rgba(130,138,144,0.55) 28%,
+    rgba(100,108,114,0.45) 55%,
+    rgba(68,74,80,0.62)   80%,
+    rgba(44,48,52,0.82)   100%
   );
   border-radius: inherit;
 }
 
-.tombstone-poster::after {
-  content: 'K.I.A.';
-  position: absolute;
-  top: 55%; left: 50%;
-  transform: translate(-50%, -50%) rotate(-12deg);
-  color: rgba(200,50,30,0.92);
-  font-size: 1.3rem;
-  font-weight: 900;
-  letter-spacing: 4px;
-  border: 3px solid rgba(200,50,30,0.92);
-  padding: 2px 8px;
-  z-index: 4;
-  pointer-events: none;
-  white-space: nowrap;
-}
+/* No ::after stamp — R.I.P. lives in the markup */
 
 .tombstone-poster .bp-header {
-  color: #e0e0e0;
-  font-size: 0.62rem;
-  letter-spacing: 4px;
-  border-bottom-color: rgba(255,255,255,0.2);
-  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+  color: #111;
+  font-size: 1.35rem;
+  letter-spacing: 6px;
+  border-bottom-color: rgba(0,0,0,0.25);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.18);
 }
 
-.tombstone-poster .bp-name  { text-decoration: line-through; color: #ddd; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
-.tombstone-poster .bp-char  { color: rgba(200,200,200,0.7); }
-.tombstone-poster .bp-crime { color: rgba(180,180,180,0.6); }
+.tombstone-poster .bp-sublabel { color: rgba(20,20,20,0.75); font-style: italic; }
+.tombstone-poster .bp-name  { color: #1a1a1a; text-shadow: 0 1px 0 rgba(255,255,255,0.15); }
+.tombstone-poster .bp-char  { color: rgba(30,30,30,0.65); }
+.tombstone-poster .bp-crime { color: rgba(30,30,30,0.55); }
+.tombstone-poster .bp-time  { color: rgba(30,30,30,0.38); }
 
-/* ── Profile tombstone grid ── */
-.profile-tombstone-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 14px;
-  margin-bottom: 8px;
-}
-
-.profile-tombstone-card {
-  position: relative;
-  aspect-ratio: 3 / 5;
-  border-radius: 50% 50% 4px 4px / 32% 32% 4px 4px;
-  border: 3px solid #666;
-  background: linear-gradient(160deg, #b0b0b0 0%, #8c8c8c 18%, #707070 45%, #5a5a5a 72%, #444 100%);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.12);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 6px 10px;
-  text-align: center;
-  overflow: hidden;
-}
-
-.profile-tombstone-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to bottom, rgba(10,10,12,0.5) 0%, rgba(10,10,12,0.1) 40%, rgba(10,10,12,0.6) 100%);
-  border-radius: inherit;
-}
-
-.profile-tombstone-card > * { position: relative; z-index: 2; }
-
-.ptc-rip {
-  font-size: 0.55rem;
-  font-weight: 900;
-  letter-spacing: 4px;
-  color: #e0e0e0;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
-  border-bottom: 1px solid rgba(255,255,255,0.25);
-  padding-bottom: 3px;
-  width: 100%;
-}
-
-.ptc-name {
-  font-size: 0.72rem;
-  font-weight: 900;
-  color: #eee;
-  text-decoration: line-through;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.9);
-}
-
-.ptc-char {
-  font-size: 0.6rem;
-  color: rgba(200,200,200,0.75);
-  font-weight: 700;
-}
-
-.ptc-kia {
-  font-size: 0.8rem;
-  font-weight: 900;
-  letter-spacing: 3px;
-  color: rgba(200,50,30,0.92);
-  border: 2px solid rgba(200,50,30,0.85);
-  padding: 1px 5px;
-  transform: rotate(-10deg);
-  display: inline-block;
-}
-
-.ptc-killer {
-  font-size: 0.55rem;
-  color: rgba(180,180,180,0.65);
-  line-height: 1.3;
-}
-
-.ptc-time {
-  font-size: 0.5rem;
-  color: rgba(160,160,160,0.5);
+/* ── Shared sublabel (used in tombstone "Here lies") ── */
+.bp-sublabel {
+  font-size: 0.58rem;
+  font-style: italic;
+  color: #4a3a28;
+  margin-bottom: 1px;
 }

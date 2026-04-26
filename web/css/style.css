@@ -1279,10 +1279,11 @@ a:hover {
   inset: 0;
   background: linear-gradient(
     to bottom,
-    rgba(236,220,170,0.95) 0%,
-    rgba(201,168,92,0.55) 22%,
-    rgba(5,2,0,0.05) 50%,
-    rgba(5,2,0,0.92) 100%
+    rgba(236,220,170,0.97) 0%,
+    rgba(201,168,92,0.6)  20%,
+    rgba(5,2,0,0.08)      48%,
+    rgba(5,2,0,0.82)      70%,
+    rgba(2,1,0,0.97)      100%
   );
   z-index: 1;
 }
@@ -1318,26 +1319,26 @@ a:hover {
 }
 
 .bp-name {
-  font-size: 0.82rem;
+  font-size: 0.86rem;
   font-weight: 900;
   color: #fff;
-  text-shadow: 0 1px 6px rgba(0,0,0,0.95);
-  border-top: 1px solid rgba(255,255,255,0.2);
-  border-bottom: 1px solid rgba(255,255,255,0.2);
+  text-shadow: 0 0 8px rgba(0,0,0,1), 0 2px 10px rgba(0,0,0,0.98), 0 1px 0 rgba(0,0,0,0.9);
+  border-top: 1px solid rgba(255,255,255,0.25);
+  border-bottom: 1px solid rgba(255,255,255,0.25);
   padding: 3px 0;
   margin-bottom: 4px;
 }
 
 .bp-char {
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  color: rgba(255,220,140,0.9);
-  text-shadow: 0 1px 4px rgba(0,0,0,0.95);
+  color: rgba(255,228,150,1);
+  text-shadow: 0 0 6px rgba(0,0,0,1), 0 2px 8px rgba(0,0,0,0.98);
   margin-bottom: 3px;
 }
 
-.bp-crime { font-size: 0.6rem;  color: rgba(255,255,255,0.75); text-shadow: 0 1px 4px rgba(0,0,0,0.95); }
-.bp-time  { font-size: 0.55rem; color: rgba(255,255,255,0.45); margin-top: 3px; }
+.bp-crime { font-size: 0.62rem; color: rgba(255,255,255,0.9);  text-shadow: 0 0 6px rgba(0,0,0,1), 0 1px 6px rgba(0,0,0,0.98); }
+.bp-time  { font-size: 0.56rem; color: rgba(255,255,255,0.65); text-shadow: 0 1px 4px rgba(0,0,0,0.95); margin-top: 3px; }
 
 /* ── WANTED poster torn paper edges ── */
 .bounty-poster:not(.tombstone-poster) {
@@ -1361,15 +1362,14 @@ a:hover {
               inset 0 -2px 0 rgba(0,0,0,0.4);
 }
 
-/* Stone-coloured gradient overlay — keeps the classic grey-granite look */
+/* Stone top → rapidly darkening bottom so white text pops */
 .tombstone-poster::before {
   background: linear-gradient(
-    170deg,
-    rgba(175,182,188,0.72) 0%,
-    rgba(130,138,144,0.55) 28%,
-    rgba(100,108,114,0.45) 55%,
-    rgba(68,74,80,0.62)   80%,
-    rgba(44,48,52,0.82)   100%
+    to bottom,
+    rgba(168,176,184,0.82) 0%,
+    rgba(120,128,136,0.65) 25%,
+    rgba(18,20,24,0.72)    55%,
+    rgba(4,5,8,0.96)       100%
   );
   border-radius: inherit;
 }
@@ -1380,15 +1380,23 @@ a:hover {
   color: #111;
   font-size: 1.35rem;
   letter-spacing: 6px;
-  border-bottom-color: rgba(0,0,0,0.25);
-  text-shadow: 0 1px 0 rgba(255,255,255,0.18);
+  border-bottom-color: rgba(0,0,0,0.3);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.3), 0 -1px 0 rgba(0,0,0,0.2);
 }
 
-.tombstone-poster .bp-sublabel { color: rgba(20,20,20,0.75); font-style: italic; }
-.tombstone-poster .bp-name  { color: #1a1a1a; text-shadow: 0 1px 0 rgba(255,255,255,0.15); }
-.tombstone-poster .bp-char  { color: rgba(30,30,30,0.65); }
-.tombstone-poster .bp-crime { color: rgba(30,30,30,0.55); }
-.tombstone-poster .bp-time  { color: rgba(30,30,30,0.38); }
+/* Bottom text: white-on-black like WANTED — not dark-on-grey */
+.tombstone-poster .bp-sublabel {
+  color: rgba(220,220,220,0.92);
+  font-style: italic;
+  text-shadow: 0 0 6px rgba(0,0,0,1), 0 1px 6px rgba(0,0,0,0.98);
+}
+.tombstone-poster .bp-name {
+  color: #f2f2f2;
+  text-shadow: 0 0 8px rgba(0,0,0,1), 0 2px 10px rgba(0,0,0,0.98);
+}
+.tombstone-poster .bp-char  { color: rgba(210,210,210,0.9);  text-shadow: 0 0 6px rgba(0,0,0,1), 0 1px 6px rgba(0,0,0,0.98); }
+.tombstone-poster .bp-crime { color: rgba(195,195,195,0.88); text-shadow: 0 0 6px rgba(0,0,0,1), 0 1px 6px rgba(0,0,0,0.98); }
+.tombstone-poster .bp-time  { color: rgba(170,170,170,0.65); text-shadow: 0 1px 4px rgba(0,0,0,0.95); }
 
 /* ── Shared sublabel (used in tombstone "Here lies") ── */
 .bp-sublabel {

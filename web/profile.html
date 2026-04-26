@@ -285,10 +285,12 @@
         <!-- Rivalry / H2H -->
         <div class="prof-section">
           <div class="prof-section-title">Head-to-Head Rivalry</div>
-          <div style="display:flex;gap:8px;max-width:400px;">
-            <select id="rivalSelect" style="flex:1;padding:7px 10px;background:var(--card-bg2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:0.88rem;">
-              <option value="">Select a rival…</option>
-            </select>
+          <div style="display:flex;gap:8px;max-width:400px;align-items:flex-start;">
+            <div style="flex:1;position:relative;">
+              <input type="text" id="rivalInput" placeholder="Search for a rival…" autocomplete="off"
+                     style="width:100%;padding:7px 10px;background:var(--card-bg2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:0.88rem;box-sizing:border-box;" />
+              <div id="rivalDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--card-bg);border:1px solid var(--border);border-radius:7px;overflow:hidden;margin-top:2px;box-shadow:0 4px 16px rgba(0,0,0,0.3);"></div>
+            </div>
             <button type="button" class="btn btn-outline btn-sm" onclick="loadH2H()">Compare</button>
           </div>
           <div id="h2hResult" style="display:none;margin-top:14px;">
@@ -412,31 +414,31 @@
   };
 
   const BADGE_HOW = {
-    specialist:    'Score 10+ points with a single character.',
-    allrounder:    'Score points with 5 or more different characters.',
-    consistent:    'Maintain 10+ points on 3 or more characters simultaneously.',
+    specialist:    'Score 30+ points with a single character.',
+    allrounder:    'Score points with 10 or more different characters.',
+    consistent:    'Maintain 20+ points on 5 or more characters simultaneously.',
     champion:      'Win a tournament.',
-    serial_champ:  'Win 3 or more tournaments.',
-    tourney_king:  'Win more tournaments than anyone else globally.',
-    top3:          'Hold the #1 spot on the character Elo leaderboard.',
-    veteran:       'Play 20 or more recorded matches.',
-    finisher:      'Land more 3-stocks (perfect wins) than anyone else globally.',
-    punching_bag:  'Get 3-stocked more than anyone else globally.',
-    the_wall:      'Win 75% or more of your last 20 matches.',
-    demon_slayer:  'Defeat the player currently ranked #1 on the leaderboard.',
-    clutch_factor: 'Win 5 consecutive matches, all decided on the last stock.',
-    unstoppable:   'Reach a power-weighted Elo average of 1100+ across all characters played.',
-    char_legend:   'Reach 1200+ Elo on a single character.',
-    roster_master: 'Hold the most points with 10 or more different characters globally.',
-    old_reliable:  'Play 100 total matches with your single most-used character.',
-    jack_of_all:   'Win at least 5 matches with 15 different characters.',
-    bronze_bomber: 'Finish in 3rd place in 3 separate tournaments.',
-    silver_lining: 'Finish in 2nd place in 3 separate tournaments.',
+    serial_champ:  'Win 6 or more tournaments.',
+    tourney_king:  'Have the most tournament wins globally.',
+    top3:          'Hold the #1 spot on the character Elo leaderboard (1100+ Elo).',
+    veteran:       'Play 60 or more recorded matches.',
+    finisher:      'Land more 3-stocks (perfect wins) than anyone else globally (minimum 10).',
+    punching_bag:  'Get 3-stocked more than anyone else globally (minimum 10 times).',
+    the_wall:      'Win 80% or more of your last 20 matches.',
+    demon_slayer:  'Defeat the player currently ranked #1 on the leaderboard at least 3 times.',
+    clutch_factor: 'Win 8 consecutive matches, all decided on the last stock.',
+    unstoppable:   'Reach a power-weighted Elo average of 1150+ across all characters (20+ games played).',
+    char_legend:   'Reach 1350+ Elo on a single character.',
+    roster_master: 'Hold the most points with 20 or more different characters globally.',
+    old_reliable:  'Play 200 total matches with your single most-used character.',
+    jack_of_all:   'Win at least 10 matches with 20 different characters.',
+    bronze_bomber: 'Finish in 3rd place in 6 separate tournaments.',
+    silver_lining: 'Finish in 2nd place in 6 separate tournaments.',
     flawless_run:  'Win a tournament without losing a single recorded match.',
     executioner:   'Directly eliminate the defending champion in the very next tournament.',
-    tax_collector: 'Accumulate 100 or more total kills across all matches.',
-    pacifist:      'Have the lowest average kills per match globally while still having 5+ wins.',
-    sacrificer:    'Make the most sacrifices globally in teams tournaments.',
+    tax_collector: 'Accumulate 300 or more total kills across all matches.',
+    pacifist:      'Have the lowest average kills per match globally while still having 15+ wins.',
+    sacrificer:    'Make the most sacrifices globally in teams tournaments (minimum 5).',
   };
 
 
@@ -521,9 +523,39 @@
 
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeBadgeModal(); });
 
+  // ── H2H rival search ─────────────────────────────
+  let _rivalUsername = '';
+  let _rivalSearchTimer;
+
+  function _renderRivalDropdown(users) {
+    const dd = document.getElementById('rivalDropdown');
+    if (!users || !users.length) { dd.style.display = 'none'; return; }
+    dd.innerHTML = '';
+    users.forEach(u => {
+      const item = document.createElement('div');
+      item.textContent = u.username;
+      item.style.cssText = 'padding:8px 12px;cursor:pointer;font-size:0.88rem;border-bottom:1px solid var(--border);';
+      item.addEventListener('mouseenter', () => item.style.background = 'var(--card-bg2)');
+      item.addEventListener('mouseleave', () => item.style.background = '');
+      item.addEventListener('click', () => {
+        _rivalUsername = u.username;
+        document.getElementById('rivalInput').value = u.username;
+        dd.style.display = 'none';
+      });
+      dd.appendChild(item);
+    });
+    dd.style.display = 'block';
+  }
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('#rivalInput') && !e.target.closest('#rivalDropdown')) {
+      document.getElementById('rivalDropdown').style.display = 'none';
+    }
+  });
+
   // ── H2H ──────────────────────────────────────────
   async function loadH2H() {
-    const rival = document.getElementById('rivalSelect').value;
+    const rival = _rivalUsername;
     if (!rival) { showToast('Select a rival first.', 'warn'); return; }
     try {
       const d = await apiGet(`/users/${encodeURIComponent(currentUsername)}/h2h/${encodeURIComponent(rival)}`);
@@ -832,8 +864,8 @@
           ? `<span class="feed-win">W</span>`
           : `<span class="feed-loss">L</span>`;
         const desc = won
-          ? `<span style="color:var(--text);">${r.winner_char}</span> <span style="color:var(--text-muted);">beat</span> ${r.loser} <span style="color:var(--text-muted);">playing</span> ${r.loser_char}`
-          : `<span style="color:var(--text);">${r.loser_char}</span> <span style="color:var(--text-muted);">lost to</span> ${r.winner} <span style="color:var(--text-muted);">playing</span> ${r.winner_char}`;
+          ? `<span style="color:var(--text);">${escHtml(r.winner_char)}</span> <span style="color:var(--text-muted);">beat</span> ${escHtml(r.loser)} <span style="color:var(--text-muted);">playing</span> ${escHtml(r.loser_char)}`
+          : `<span style="color:var(--text);">${escHtml(r.loser_char)}</span> <span style="color:var(--text-muted);">lost to</span> ${escHtml(r.winner)} <span style="color:var(--text-muted);">playing</span> ${escHtml(r.winner_char)}`;
         const date = r.created_at ? new Date(r.created_at).toLocaleString() : '';
         let eloBadge = '';
         if (r.elo_delta) {
@@ -901,9 +933,9 @@
       item.className = 'comment-item';
       item.id = `cmt-${c.id}`;
       item.innerHTML = `
-        <img class="comment-av" src="${av}" alt="${c.author}" onerror="this.src='${dicebearFallback(c.author)}'" />
+        <img class="comment-av" src="${av}" alt="${escHtml(c.author)}" onerror="this.src='${dicebearFallback(c.author)}'" />
         <div class="comment-body">
-          <div class="comment-author">${c.author}</div>
+          <div class="comment-author">${escHtml(c.author)}</div>
           <div class="comment-text">${escHtml(c.content)}</div>
           <div class="comment-meta">${c.created_at ? c.created_at.slice(0,10) : 'just now'}</div>
         </div>
@@ -1041,13 +1073,12 @@
       document.getElementById('charCount').textContent = `${this.value.length} / 200`;
     });
 
-    // Load badges, stats, activity, comments, and populate rival dropdown in parallel
-    const [, users] = await Promise.allSettled([
+    // Load badges and stats in parallel
+    await Promise.allSettled([
       apiGet(`/users/${encodeURIComponent(currentUsername)}/badges`).then(badges => {
         const featuredId = (!viewingOther && me) ? (me.featured_badge || null) : null;
         renderBadges(badges, featuredId);
       }).catch(() => {}),
-      apiGet('/users/all'),
       apiGet(`/users/${encodeURIComponent(currentUsername)}/stats`).then(s => {
         document.getElementById('statTourneyWins').textContent = s.tournament_wins;
         document.getElementById('statGiven').textContent = s.three_stocks_given;
@@ -1056,19 +1087,26 @@
       }).catch(() => {}),
     ]);
 
-    if (users.status === 'fulfilled' && users.value) {
-      const sel = document.getElementById('rivalSelect');
-      users.value.forEach(u => {
-        if (u.username === currentUsername) return;
-        const opt = document.createElement('option');
-        opt.value = u.username; opt.textContent = u.username;
-        sel.appendChild(opt);
-      });
-      // When viewing another user, auto-select the logged-in user as rival and load H2H
-      if (viewingOther && myUsername) {
-        sel.value = myUsername;
-        loadH2H();
-      }
+    // Rival search — lazy, fires on input
+    const rivalInput = document.getElementById('rivalInput');
+    rivalInput.addEventListener('input', function() {
+      clearTimeout(_rivalSearchTimer);
+      _rivalUsername = '';
+      const q = this.value.trim();
+      if (!q) { document.getElementById('rivalDropdown').style.display = 'none'; return; }
+      _rivalSearchTimer = setTimeout(async () => {
+        try {
+          const users = await apiGet(`/users/search?q=${encodeURIComponent(q)}`);
+          _renderRivalDropdown(users);
+        } catch (_) {}
+      }, 250);
+    });
+
+    // When viewing another user's profile, auto-load H2H against the logged-in user
+    if (viewingOther && myUsername) {
+      _rivalUsername = myUsername;
+      rivalInput.value = myUsername;
+      loadH2H();
     }
 
     loadShowcase();

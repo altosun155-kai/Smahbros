@@ -1,6 +1,6 @@
 // auth.js — shared auth utilities for Smash Bracket
 
-const API_BASE = 'https://smash-bracket-api.onrender.com';
+const API_BASE = '';
 
 // ── Token management ──────────────────────────────
 function getToken() {

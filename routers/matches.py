@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
 
 from database import User, CharacterStats, MatchResult, Bracket, CharacterMatchup
@@ -45,9 +46,13 @@ def _elo_change(winner_elo: int, loser_elo: int, winner_kills: int, loser_kills:
 def _get_or_create_stat(db: Session, user_id: int, character: str) -> CharacterStats:
     row = db.query(CharacterStats).filter_by(user_id=user_id, character=character).first()
     if row is None:
-        row = CharacterStats(user_id=user_id, character=character, points=0, elo=ELO_DEFAULT, kills=0, deaths=0, wins=0, losses=0)
-        db.add(row)
-        db.flush()
+        try:
+            row = CharacterStats(user_id=user_id, character=character, points=0, elo=ELO_DEFAULT, kills=0, deaths=0, wins=0, losses=0)
+            db.add(row)
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            row = db.query(CharacterStats).filter_by(user_id=user_id, character=character).first()
     return row
 
 
@@ -119,10 +124,10 @@ def shame_feed(
 
 @router.post("/matches/record")
 def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # Allow kai always; allow the host of the specific bracket being played
-    if current_user.username != "kai":
+    # Admins can record any match; non-admins can only record matches for brackets they host
+    if not current_user.is_admin:
         if not req.bracket_id:
-            raise HTTPException(status_code=403, detail="Only kai can record non-bracket match results")
+            raise HTTPException(status_code=403, detail="Only admins can record non-bracket match results")
         bracket = db.query(Bracket).filter(Bracket.id == req.bracket_id).first()
         if not bracket or bracket.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Only the bracket host can record match results")

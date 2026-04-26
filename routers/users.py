@@ -1,13 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException
+import time
+import threading
+from collections import Counter
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
+from sqlalchemy import or_, func, and_
 from pydantic import BaseModel
 from datetime import datetime
+from routers.ratelimit import rate_limit
 
 from database import User, Bracket, CharacterStats, MatchResult, ProfileComment
 from auth import get_db, get_current_user
 
 router = APIRouter(tags=["users"])
+
+_badge_cache_data = None
+_badge_cache_ts = 0.0
+_badge_lock = threading.Lock()
+_BADGE_TTL = 30.0
 
 
 class AvatarUpdate(BaseModel):
@@ -32,7 +41,10 @@ def get_me(db: Session = Depends(get_db), current_user: User = Depends(get_curre
 
 @router.put("/users/me/avatar")
 def update_avatar(req: AvatarUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    current_user.avatar_url = req.avatar_url or None
+    url = req.avatar_url or None
+    if url and not url.startswith("https://"):
+        raise HTTPException(status_code=400, detail="Avatar URL must use HTTPS")
+    current_user.avatar_url = url
     db.commit()
     return {"ok": True}
 
@@ -52,7 +64,12 @@ def all_users(db: Session = Depends(get_db), current_user: User = Depends(get_cu
 
 @router.get("/users/badges/all")
 def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_current_user)):
-    """Batch: returns {username: display_badge} for every user. Respects featured_badge."""
+    """Batch: returns {username: display_badge} for every user. Respects featured_badge. Cached 30s."""
+    global _badge_cache_data, _badge_cache_ts
+    now = time.monotonic()
+    with _badge_lock:
+        if _badge_cache_data is not None and now - _badge_cache_ts < _BADGE_TTL:
+            return _badge_cache_data
     PRIORITY = [
         'tourney_king','flawless_run','demon_slayer','finisher','punching_bag',
         'executioner','clutch_factor','the_wall','unstoppable','serial_champ',
@@ -136,25 +153,26 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
     # ── Derived badge sets ───────────────────────────────────────────────────
     top3_uids = {row[0] for row in
                  db.query(CharacterStats.user_id)
-                 .filter(CharacterStats.elo > 1000)
+                 .filter(CharacterStats.elo > 1100)
                  .group_by(CharacterStats.user_id)
                  .order_by(func.max(CharacterStats.elo).desc())
                  .limit(1).all()}
 
-    # Demon Slayer: beat current #1 elo player
+    # Demon Slayer: beat current #1 elo player 3+ times
     demon_slayer_uids: set = set()
     if top3_uids:
         top1_uid = next(iter(top3_uids))
-        demon_slayer_uids = {m.winner_id for m in all_matches if m.loser_id == top1_uid and m.winner_id != top1_uid}
+        demon_counter = Counter(m.winner_id for m in all_matches if m.loser_id == top1_uid and m.winner_id != top1_uid)
+        demon_slayer_uids = {uid for uid, cnt in demon_counter.items() if cnt >= 3}
 
-    # The Wall: ≥75% wins over last 20 matches
+    # The Wall: ≥80% wins over last 20 matches
     the_wall_uids: set = set()
     for uid, history in user_match_history.items():
         last20 = history[-20:]
-        if len(last20) >= 20 and sum(1 for (w, _) in last20 if w) >= 15:
+        if len(last20) >= 20 and sum(1 for (w, _) in last20 if w) >= 16:
             the_wall_uids.add(uid)
 
-    # Clutch Factor: 5 consecutive last-stock wins (loser_kills == winner_kills − 1)
+    # Clutch Factor: 8 consecutive last-stock wins (loser_kills == winner_kills − 1)
     clutch_uids: set = set()
     for uid, history in user_match_history.items():
         streak = 0
@@ -163,50 +181,50 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
             lk = m.loser_kills or 0
             if is_win and wk > 0 and lk == wk - 1:
                 streak += 1
-                if streak >= 5:
+                if streak >= 8:
                     clutch_uids.add(uid)
                     break
             else:
                 streak = 0
 
-    # Unstoppable Force: power-weighted elo ≥ 1100 (weighted avg across all played chars)
+    # Unstoppable Force: power-weighted elo ≥ 1150 (weighted avg across all played chars)
     unstoppable_uids: set = set()
     for uid, stats in all_stats_by_user.items():
         total_g = sum((s.wins or 0) + (s.losses or 0) for s in stats)
-        if total_g >= 5:
+        if total_g >= 20:
             pw = sum(s.elo * ((s.wins or 0) + (s.losses or 0)) for s in stats) / total_g
-            if pw >= 1100:
+            if pw >= 1150:
                 unstoppable_uids.add(uid)
 
-    # Char Legend: any character elo ≥ 1200
-    char_legend_uids: set = {s.user_id for s in all_cs if (s.elo or 1000) >= 1200}
+    # Char Legend: any character elo ≥ 1350
+    char_legend_uids: set = {s.user_id for s in all_cs if (s.elo or 1000) >= 1350}
 
-    # Old Reliable: 100+ matches with single most-played character
+    # Old Reliable: 200+ matches with single most-played character
     old_reliable_uids: set = set()
     for uid, stats in all_stats_by_user.items():
         if stats:
             most = max(stats, key=lambda s: (s.wins or 0) + (s.losses or 0))
-            if (most.wins or 0) + (most.losses or 0) >= 100:
+            if (most.wins or 0) + (most.losses or 0) >= 200:
                 old_reliable_uids.add(uid)
 
-    # Jack of All Trades: 5+ wins with 15 different characters
+    # Jack of All Trades: 10+ wins with 20 different characters
     jack_uids: set = {uid for uid, stats in all_stats_by_user.items()
-                      if len([s for s in stats if (s.wins or 0) >= 5]) >= 15}
+                      if len([s for s in stats if (s.wins or 0) >= 10]) >= 20}
 
-    # Tax Collector: 100+ total kills
+    # Tax Collector: 300+ total kills
     tax_uids: set = {uid for uid, stats in all_stats_by_user.items()
-                     if sum(s.kills or 0 for s in stats) >= 100}
+                     if sum(s.kills or 0 for s in stats) >= 300}
 
-    # Pacifist: lowest kills-per-match with 5+ wins globally
+    # Pacifist: lowest kills-per-match with 15+ wins globally
     total_wins_uid = {uid: sum(s.wins or 0 for s in stats) for uid, stats in all_stats_by_user.items()}
     total_kills_uid = {uid: sum(s.kills or 0 for s in stats) for uid, stats in all_stats_by_user.items()}
     candidates = [(uid, total_kills_uid.get(uid, 0) / max(match_counts.get(uid, 1), 1))
-                  for uid, wins in total_wins_uid.items() if wins >= 5]
+                  for uid, wins in total_wins_uid.items() if wins >= 15]
     pacifist_uid = min(candidates, key=lambda x: x[1])[0] if candidates else None
 
-    # Sacrificer: most total sacrifices (at least 1)
+    # Sacrificer: most total sacrifices (at least 5)
     total_sacs_uid = {uid: sum(s.sacrifices or 0 for s in stats) for uid, stats in all_stats_by_user.items()}
-    sac_candidates = [(uid, cnt) for uid, cnt in total_sacs_uid.items() if cnt >= 1]
+    sac_candidates = [(uid, cnt) for uid, cnt in total_sacs_uid.items() if cnt >= 5]
     sacrificer_uid = max(sac_candidates, key=lambda x: x[1])[0] if sac_candidates else None
 
     # Flawless Run: won a bracket without losing any recorded match in it
@@ -237,25 +255,25 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
         earned = []
         if stats:
             best = max(stats, key=lambda s: s.points)
-            if best.points >= 10:
+            if best.points >= 30:
                 earned.append({"id":"specialist","label":f"{best.character} Specialist","color":"#f5a623"})
-            if len([s for s in stats if s.points > 0]) >= 5:
+            if len([s for s in stats if s.points > 0]) >= 10:
                 earned.append({"id":"allrounder","label":"All-Rounder","color":"#27ae60"})
-            if len([s for s in stats if s.points >= 10]) >= 3:
+            if len([s for s in stats if s.points >= 20]) >= 5:
                 earned.append({"id":"consistent","label":"Consistent","color":"#3498db"})
         if t_wins >= 1:
             earned.append({"id":"champion","label":"Bracket Champion","color":"#e74c3c"})
-        if t_wins >= 3:
+        if t_wins >= 6:
             earned.append({"id":"serial_champ","label":"Serial Champion","color":"#f5a623"})
         if top_tourney == uname and t_wins >= 1:
             earned.append({"id":"tourney_king","label":"Tournament King","color":"#ffe066"})
         if uid in top3_uids:
             earned.append({"id":"top3","label":"Top Performer","color":"#9b59b6"})
-        if matches >= 20:
+        if matches >= 60:
             earned.append({"id":"veteran","label":"Veteran","color":"#1abc9c"})
-        if top_fin_id == uid and tsg.get(uid, 0) >= 3:
+        if top_fin_id == uid and tsg.get(uid, 0) >= 10:
             earned.append({"id":"finisher","label":"The Finisher","color":"#00bcd4"})
-        if top_pb_id == uid and tsr.get(uid, 0) >= 3:
+        if top_pb_id == uid and tsr.get(uid, 0) >= 10:
             earned.append({"id":"punching_bag","label":"Punching Bag","color":"#e74c3c"})
         if uid in the_wall_uids:
             earned.append({"id":"the_wall","label":"The Wall","color":"#607d8b"})
@@ -267,15 +285,15 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
             earned.append({"id":"unstoppable","label":"Unstoppable Force","color":"#e91e63"})
         if uid in char_legend_uids:
             earned.append({"id":"char_legend","label":"Character Legend","color":"#9c27b0"})
-        if roster_master_count.get(uid, 0) >= 10:
+        if roster_master_count.get(uid, 0) >= 20:
             earned.append({"id":"roster_master","label":"Roster Master","color":"#2196f3"})
         if uid in old_reliable_uids:
             earned.append({"id":"old_reliable","label":"Old Reliable","color":"#795548"})
         if uid in jack_uids:
             earned.append({"id":"jack_of_all","label":"Jack of All Trades","color":"#009688"})
-        if place.get("3rd", 0) >= 3:
+        if place.get("3rd", 0) >= 6:
             earned.append({"id":"bronze_bomber","label":"Bronze Bomber","color":"#cd7f32"})
-        if place.get("2nd", 0) >= 3:
+        if place.get("2nd", 0) >= 6:
             earned.append({"id":"silver_lining","label":"Silver Lining","color":"#9e9e9e"})
         if uid in flawless_uids:
             earned.append({"id":"flawless_run","label":"Flawless Run","color":"#4caf50"})
@@ -299,6 +317,9 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
 
         result[uname] = next((by_id[p] for p in PRIORITY if p in by_id), earned[0])
 
+    with _badge_lock:
+        _badge_cache_data = result
+        _badge_cache_ts = time.monotonic()
     return result
 
 
@@ -411,7 +432,8 @@ def get_comments(username: str, db: Session = Depends(get_db), current_user: Use
 
 
 @router.post("/users/{username}/comments")
-def post_comment(username: str, req: CommentCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def post_comment(username: str, req: CommentCreate, request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    rate_limit(request, max_req=10, window=60)
     target = db.query(User).filter(User.username == username).first()
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
@@ -475,49 +497,49 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
     pts_stats = [s for s in all_user_cs if s.points > 0]
     if pts_stats:
         best = max(pts_stats, key=lambda s: s.points)
-        if best.points >= 10:
+        if best.points >= 30:
             badges.append({"id": "specialist", "label": f"{best.character} Specialist",
                            "desc": f"{best.points} pts with {best.character}", "color": "#f5a623",
                            "character": best.character})
-        if len(pts_stats) >= 5:
+        if len(pts_stats) >= 10:
             badges.append({"id": "allrounder", "label": "All-Rounder",
                            "desc": f"Points with {len(pts_stats)} characters", "color": "#27ae60"})
-        if len([s for s in pts_stats if s.points >= 10]) >= 3:
+        if len([s for s in pts_stats if s.points >= 20]) >= 5:
             badges.append({"id": "consistent", "label": "Consistent",
-                           "desc": "3+ characters at 10+ pts each", "color": "#3498db"})
+                           "desc": "5+ characters at 20+ pts each", "color": "#3498db"})
 
-    # Char Legend: any character elo ≥ 1200
-    legend_chars = [s for s in all_user_cs if (s.elo or 1000) >= 1200]
+    # Char Legend: any character elo ≥ 1350
+    legend_chars = [s for s in all_user_cs if (s.elo or 1000) >= 1350]
     if legend_chars:
         top_legend = max(legend_chars, key=lambda s: s.elo)
         badges.append({"id": "char_legend", "label": "Character Legend",
                        "desc": f"{top_legend.character} is at {top_legend.elo} Elo",
                        "color": "#9c27b0", "character": top_legend.character})
 
-    # Unstoppable Force: power-weighted elo ≥ 1100
+    # Unstoppable Force: power-weighted elo ≥ 1150 with 20+ games
     total_g = sum((s.wins or 0) + (s.losses or 0) for s in all_user_cs)
-    if total_g >= 5:
+    if total_g >= 20:
         pw_elo = sum(s.elo * ((s.wins or 0) + (s.losses or 0)) for s in all_user_cs) / total_g
-        if pw_elo >= 1100:
+        if pw_elo >= 1150:
             badges.append({"id": "unstoppable", "label": "Unstoppable Force",
                            "desc": f"Power-weighted Elo: {round(pw_elo)}", "color": "#e91e63"})
 
-    # Old Reliable: 100+ matches with most-played character
+    # Old Reliable: 200+ matches with most-played character
     if all_user_cs:
         most = max(all_user_cs, key=lambda s: (s.wins or 0) + (s.losses or 0))
         most_games = (most.wins or 0) + (most.losses or 0)
-        if most_games >= 100:
+        if most_games >= 200:
             badges.append({"id": "old_reliable", "label": "Old Reliable",
                            "desc": f"{most_games} games with {most.character}",
                            "color": "#795548", "character": most.character})
 
-    # Jack of All Trades: 5+ wins with 15 different characters
-    chars_with_5w = len([s for s in all_user_cs if (s.wins or 0) >= 5])
-    if chars_with_5w >= 15:
+    # Jack of All Trades: 10+ wins with 20 different characters
+    chars_with_10w = len([s for s in all_user_cs if (s.wins or 0) >= 10])
+    if chars_with_10w >= 20:
         badges.append({"id": "jack_of_all", "label": "Jack of All Trades",
-                       "desc": f"5+ wins with {chars_with_5w} different characters", "color": "#009688"})
+                       "desc": f"10+ wins with {chars_with_10w} different characters", "color": "#009688"})
 
-    # Roster Master: points leader for 10+ characters globally
+    # Roster Master: points leader for 20+ characters globally
     all_cs_global = db.query(CharacterStats).filter(CharacterStats.points > 0).all()
     char_pts_leader: dict = {}
     for s in all_cs_global:
@@ -525,14 +547,14 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
         if prev is None or s.points > prev[1]:
             char_pts_leader[s.character] = (s.user_id, s.points)
     king_count = sum(1 for uid, _ in char_pts_leader.values() if uid == user.id)
-    if king_count >= 10:
+    if king_count >= 20:
         badges.append({"id": "roster_master", "label": "Roster Master",
                        "desc": f"Points leader with {king_count} different characters",
                        "color": "#2196f3"})
 
-    # Tax Collector: 100+ total kills
+    # Tax Collector: 300+ total kills
     total_kills = sum(s.kills or 0 for s in all_user_cs)
-    if total_kills >= 100:
+    if total_kills >= 300:
         badges.append({"id": "tax_collector", "label": "Tax Collector",
                        "desc": f"{total_kills} total kills", "color": "#ff9800"})
 
@@ -542,7 +564,7 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
         badges.append({"id": "champion", "label": "Bracket Champion",
                        "desc": f"Won {tournament_wins} tournament{'s' if tournament_wins != 1 else ''}",
                        "color": "#e74c3c"})
-    if tournament_wins >= 3:
+    if tournament_wins >= 6:
         badges.append({"id": "serial_champ", "label": "Serial Champion",
                        "desc": f"Won {tournament_wins} tournaments", "color": "#f5a623"})
     top_winner = (db.query(Bracket.winner, func.count(Bracket.id).label("cnt"))
@@ -566,80 +588,96 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
                 if (item or {}).get("player") == username:
                     if place == "2nd": second_count += 1
                     else: third_count += 1
-    if third_count >= 3:
+    if third_count >= 6:
         badges.append({"id": "bronze_bomber", "label": "Bronze Bomber",
                        "desc": f"3rd place {third_count} times", "color": "#cd7f32"})
-    if second_count >= 3:
+    if second_count >= 6:
         badges.append({"id": "silver_lining", "label": "Silver Lining",
                        "desc": f"Runner-up {second_count} times", "color": "#9e9e9e"})
 
     # Flawless Run: won a bracket without any recorded loss in it
     user_won_brackets = [b for b in completed_brackets if b.winner == username]
-    for b in user_won_brackets:
-        bracket_match_count = db.query(MatchResult).filter(MatchResult.bracket_id == b.id).count()
-        loss_in_bracket = db.query(MatchResult).filter(
-            MatchResult.bracket_id == b.id, MatchResult.loser_id == user.id
-        ).count()
-        if bracket_match_count > 0 and loss_in_bracket == 0:
-            badges.append({"id": "flawless_run", "label": "Flawless Run",
-                           "desc": "Won a tournament without losing a single match", "color": "#4caf50"})
-            break
+    won_ids = [b.id for b in user_won_brackets]
+    if won_ids:
+        bracket_total = dict(
+            db.query(MatchResult.bracket_id, func.count(MatchResult.id))
+            .filter(MatchResult.bracket_id.in_(won_ids))
+            .group_by(MatchResult.bracket_id).all()
+        )
+        bracket_user_losses = dict(
+            db.query(MatchResult.bracket_id, func.count(MatchResult.id))
+            .filter(MatchResult.bracket_id.in_(won_ids), MatchResult.loser_id == user.id)
+            .group_by(MatchResult.bracket_id).all()
+        )
+        for b in user_won_brackets:
+            if bracket_total.get(b.id, 0) > 0 and bracket_user_losses.get(b.id, 0) == 0:
+                badges.append({"id": "flawless_run", "label": "Flawless Run",
+                               "desc": "Won a tournament without losing a single match", "color": "#4caf50"})
+                break
 
     # Executioner: directly eliminated the previous tournament's champion
-    for i in range(1, len(completed_brackets)):
-        prev_winner = completed_brackets[i - 1].winner
-        if prev_winner == username:
-            continue
-        prev_user = db.query(User).filter(User.username == prev_winner).first()
-        if prev_user:
-            elim = db.query(MatchResult).filter(
-                MatchResult.bracket_id == completed_brackets[i].id,
-                MatchResult.winner_id == user.id,
-                MatchResult.loser_id == prev_user.id,
+    champ_pairs = [
+        (completed_brackets[i].id, completed_brackets[i - 1].winner)
+        for i in range(1, len(completed_brackets))
+        if completed_brackets[i - 1].winner and completed_brackets[i - 1].winner != username
+    ]
+    if champ_pairs:
+        prev_names = list({name for _, name in champ_pairs})
+        prev_users = db.query(User).filter(User.username.in_(prev_names)).all()
+        name_to_id = {u.username: u.id for u in prev_users}
+        target_pairs = [(bid, name_to_id[name]) for bid, name in champ_pairs if name in name_to_id]
+        if target_pairs:
+            conditions = [and_(MatchResult.bracket_id == bid, MatchResult.loser_id == lid)
+                          for bid, lid in target_pairs]
+            exec_match = db.query(MatchResult).filter(
+                MatchResult.winner_id == user.id, or_(*conditions)
             ).first()
-            if elim:
+            if exec_match:
+                prev_champ = next(
+                    name for bid, name in champ_pairs
+                    if bid == exec_match.bracket_id and name_to_id.get(name) == exec_match.loser_id
+                )
                 badges.append({"id": "executioner", "label": "Executioner",
-                               "desc": f"Eliminated {prev_winner} (defending champion)",
+                               "desc": f"Eliminated {prev_champ} (defending champion)",
                                "color": "#f44336"})
-                break
 
     # ── Match-based badges ────────────────────────────────────────────────────
     top3_ids = {row[0] for row in
-                db.query(CharacterStats.user_id).filter(CharacterStats.elo > 1000)
+                db.query(CharacterStats.user_id).filter(CharacterStats.elo > 1100)
                 .group_by(CharacterStats.user_id).order_by(func.max(CharacterStats.elo).desc()).limit(1).all()}
     if user.id in top3_ids:
         badges.append({"id": "top3", "label": "Top Performer",
                        "desc": "#1 on the character leaderboard", "color": "#9b59b6"})
 
-    # Demon Slayer: beat current #1
+    # Demon Slayer: beat current #1 at least 3 times
     if top3_ids:
         top1_id = next(iter(top3_ids))
         if top1_id != user.id:
-            slayed = db.query(MatchResult).filter(
+            slayed_count = db.query(MatchResult).filter(
                 MatchResult.winner_id == user.id, MatchResult.loser_id == top1_id
-            ).first()
-            if slayed:
+            ).count()
+            if slayed_count >= 3:
                 badges.append({"id": "demon_slayer", "label": "Demon Slayer",
-                               "desc": "Defeated the #1 ranked player", "color": "#ff5722"})
+                               "desc": f"Defeated the #1 ranked player {slayed_count}x", "color": "#ff5722"})
 
     user_matches = (db.query(MatchResult)
                     .filter(or_(MatchResult.winner_id == user.id, MatchResult.loser_id == user.id))
                     .order_by(MatchResult.created_at).all())
     match_count = len(user_matches)
 
-    if match_count >= 20:
+    if match_count >= 60:
         badges.append({"id": "veteran", "label": "Veteran",
                        "desc": f"{match_count} matches played", "color": "#1abc9c"})
 
-    # The Wall: ≥75% wins over last 20 matches
+    # The Wall: ≥80% wins over last 20 matches
     if match_count >= 20:
         last20 = user_matches[-20:]
         wall_wins = sum(1 for m in last20 if m.winner_id == user.id)
-        if wall_wins >= 15:
+        if wall_wins >= 16:
             badges.append({"id": "the_wall", "label": "The Wall",
                            "desc": f"{wall_wins}/20 wins in last 20 matches", "color": "#607d8b"})
 
-    # Clutch Factor: 5 consecutive last-stock wins
+    # Clutch Factor: 8 consecutive last-stock wins
     streak = 0
     for m in user_matches:
         is_win = m.winner_id == user.id
@@ -649,9 +687,9 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
             streak += 1
         else:
             streak = 0
-        if streak >= 5:
+        if streak >= 8:
             badges.append({"id": "clutch_factor", "label": "Clutch Factor",
-                           "desc": "5 consecutive last-stock wins", "color": "#ff9800"})
+                           "desc": "8 consecutive last-stock wins", "color": "#ff9800"})
             break
 
     # 3-Stock badges
@@ -664,19 +702,19 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
     top_3stocker = (db.query(MatchResult.winner_id, func.count(MatchResult.id).label("cnt"))
                     .filter(MatchResult.winner_kills >= 3, MatchResult.loser_kills == 0)
                     .group_by(MatchResult.winner_id).order_by(func.count(MatchResult.id).desc()).first())
-    if top_3stocker and top_3stocker.winner_id == user.id and tsg >= 3:
+    if top_3stocker and top_3stocker.winner_id == user.id and tsg >= 10:
         badges.append({"id": "finisher", "label": "The Finisher",
                        "desc": f"Most 3-stocks given globally ({tsg})", "color": "#00bcd4"})
     top_stocked = (db.query(MatchResult.loser_id, func.count(MatchResult.id).label("cnt"))
                    .filter(MatchResult.winner_kills >= 3, MatchResult.loser_kills == 0)
                    .group_by(MatchResult.loser_id).order_by(func.count(MatchResult.id).desc()).first())
-    if top_stocked and top_stocked.loser_id == user.id and tsr >= 3:
+    if top_stocked and top_stocked.loser_id == user.id and tsr >= 10:
         badges.append({"id": "punching_bag", "label": "Punching Bag",
                        "desc": f"3-stocked the most globally ({tsr}x)", "color": "#e74c3c"})
 
-    # Pacifist: lowest kills-per-match globally with 5+ wins
+    # Pacifist: lowest kills-per-match globally with 15+ wins
     total_user_wins = sum(s.wins or 0 for s in all_user_cs)
-    if total_user_wins >= 5:
+    if total_user_wins >= 15:
         user_avg = total_kills / max(match_count, 1)
         top_pacifist = (db.query(
                             CharacterStats.user_id,
@@ -684,24 +722,29 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
                             func.sum(CharacterStats.wins).label("w")
                         )
                         .group_by(CharacterStats.user_id)
-                        .having(func.sum(CharacterStats.wins) >= 5)
+                        .having(func.sum(CharacterStats.wins) >= 15)
                         .all())
         if top_pacifist:
-            match_cnt_map = {row[0]: db.query(func.count(MatchResult.id)).filter(
-                or_(MatchResult.winner_id == row[0], MatchResult.loser_id == row[0])
-            ).scalar() or 1 for row in top_pacifist}
-            global_min_avg = min((row[1] or 0) / match_cnt_map[row[0]] for row in top_pacifist)
+            cand_ids = [row[0] for row in top_pacifist]
+            winner_cnts = dict(db.query(MatchResult.winner_id, func.count(MatchResult.id))
+                               .filter(MatchResult.winner_id.in_(cand_ids))
+                               .group_by(MatchResult.winner_id).all())
+            loser_cnts = dict(db.query(MatchResult.loser_id, func.count(MatchResult.id))
+                              .filter(MatchResult.loser_id.in_(cand_ids))
+                              .group_by(MatchResult.loser_id).all())
+            cand_match_counts = {uid: winner_cnts.get(uid, 0) + loser_cnts.get(uid, 0) for uid in cand_ids}
+            global_min_avg = min((row[1] or 0) / max(cand_match_counts.get(row[0], 1), 1) for row in top_pacifist)
             if abs(user_avg - global_min_avg) < 0.01:
                 badges.append({"id": "pacifist", "label": "Pacifist",
                                "desc": f"Lowest avg kills ({user_avg:.1f}/match) with 5+ wins",
                                "color": "#8bc34a"})
 
-    # Sacrificer: most total sacrifices globally (at least 1)
+    # Sacrificer: most total sacrifices globally (at least 5)
     total_user_sacs = sum(s.sacrifices or 0 for s in all_user_cs)
-    if total_user_sacs >= 1:
+    if total_user_sacs >= 5:
         top_sac = (db.query(CharacterStats.user_id, func.sum(CharacterStats.sacrifices).label("s"))
                    .group_by(CharacterStats.user_id)
-                   .having(func.sum(CharacterStats.sacrifices) >= 1)
+                   .having(func.sum(CharacterStats.sacrifices) >= 5)
                    .order_by(func.sum(CharacterStats.sacrifices).desc())
                    .first())
         if top_sac and top_sac.user_id == user.id:

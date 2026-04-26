@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -15,7 +16,6 @@ import ws_manager
 
 logger = logging.getLogger(__name__)
 
-Base.metadata.create_all(bind=engine)
 
 
 def _run_migrations():
@@ -43,6 +43,23 @@ def _run_migrations():
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS teams JSONB DEFAULT NULL"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS placements JSONB DEFAULT NULL"))
             conn.execute(text("ALTER TABLE character_stats ADD COLUMN IF NOT EXISTS sacrifices INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE NOT NULL"))
+            conn.execute(text("UPDATE users SET is_admin = TRUE WHERE username = 'kai'"))
+            # Indexes for hot query paths
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_winner_id  ON match_results(winner_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_loser_id   ON match_results(loser_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_bracket_id ON match_results(bracket_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_created_at ON match_results(created_at)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_cs_user_id    ON character_stats(user_id)"))
+            # Unique constraints (wrapped — fail gracefully if duplicates exist)
+            try:
+                conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_cs_user_char ON character_stats(user_id, character)"))
+            except Exception:
+                pass
+            try:
+                conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_friendship_pair ON friendships(requester_id, addressee_id)"))
+            except Exception:
+                pass
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS practice_sessions (
                     id SERIAL PRIMARY KEY,
@@ -125,6 +142,10 @@ def _run_migrations():
                 conn.execute(text("ALTER TABLE brackets ADD COLUMN chars_per_player INTEGER DEFAULT 2"))
             if "confirmed_lineups" not in b_cols:
                 conn.execute(text("ALTER TABLE brackets ADD COLUMN confirmed_lineups TEXT DEFAULT '{}'"))
+            if "teams" not in b_cols:
+                conn.execute(text("ALTER TABLE brackets ADD COLUMN teams TEXT DEFAULT NULL"))
+            if "placements" not in b_cols:
+                conn.execute(text("ALTER TABLE brackets ADD COLUMN placements TEXT DEFAULT NULL"))
             try:
                 tp_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(tournament_presets)"))}
                 if "pool_mode" not in tp_cols:
@@ -134,12 +155,22 @@ def _run_migrations():
             u_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(users)"))}
             if "featured_badge" not in u_cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN featured_badge VARCHAR"))
-            b2_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(brackets)"))}
-            if "teams" not in b2_cols:
-                conn.execute(text("ALTER TABLE brackets ADD COLUMN teams TEXT DEFAULT NULL"))
-            b3_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(brackets)"))}
-            if "placements" not in b3_cols:
-                conn.execute(text("ALTER TABLE brackets ADD COLUMN placements TEXT DEFAULT NULL"))
+            if "is_admin" not in u_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0"))
+            conn.execute(text("UPDATE users SET is_admin = 1 WHERE username = 'kai'"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_winner_id  ON match_results(winner_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_loser_id   ON match_results(loser_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_bracket_id ON match_results(bracket_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_created_at ON match_results(created_at)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_cs_user_id    ON character_stats(user_id)"))
+            try:
+                conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_cs_user_char ON character_stats(user_id, character)"))
+            except Exception:
+                pass
+            try:
+                conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_friendship_pair ON friendships(requester_id, addressee_id)"))
+            except Exception:
+                pass
             existing = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))}
             if "character_matchups" not in existing:
                 conn.execute(text("""
@@ -169,9 +200,16 @@ def _run_migrations():
         conn.commit()
 
 
-_run_migrations()
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, lambda: Base.metadata.create_all(bind=engine))
+    await loop.run_in_executor(None, _run_migrations)
+    ws_manager.set_loop(loop)
+    yield
 
-app = FastAPI(title="Smash Bracket API")
+
+app = FastAPI(title="Smash Bracket API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -182,10 +220,13 @@ app.add_middleware(
 )
 
 
+_DEBUG = os.environ.get("DEBUG", "").lower() in ("1", "true", "yes")
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     logger.exception("Unhandled error: %s", exc)
-    return JSONResponse(status_code=500, content={"detail": "An unexpected error occurred"})
+    detail = f"{type(exc).__name__}: {exc}" if _DEBUG else "An unexpected error occurred"
+    return JSONResponse(status_code=500, content={"detail": detail})
 
 
 app.include_router(auth.router)
@@ -201,13 +242,14 @@ app.include_router(practice.router)
 app.include_router(presets.router)
 
 
-@app.on_event("startup")
-async def _startup():
-    ws_manager.set_loop(asyncio.get_running_loop())
-
-
 @app.websocket("/ws/tournament/{tournament_id}")
-async def ws_tournament(tournament_id: int, websocket: WebSocket, token: str = ""):
+async def ws_tournament(tournament_id: int, websocket: WebSocket):
+    await websocket.accept()
+    try:
+        token = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
+    except asyncio.TimeoutError:
+        await websocket.close(code=1008)
+        return
     user_id = decode_token(token)
     if not user_id:
         await websocket.close(code=1008)

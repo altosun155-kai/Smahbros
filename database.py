@@ -1,6 +1,6 @@
-from sqlalchemy import create_engine, Column, Integer, String, JSON, DateTime, ForeignKey, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, JSON, DateTime, ForeignKey, Boolean, UniqueConstraint, Index
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./smash.db")
@@ -23,6 +23,10 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
+def _now():
+    return datetime.now(timezone.utc)
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -32,7 +36,8 @@ class User(Base):
     avatar_url      = Column(String, nullable=True)
     last_seen       = Column(DateTime, nullable=True)
     featured_badge  = Column(String, nullable=True)
-    created_at      = Column(DateTime, default=datetime.utcnow)
+    is_admin        = Column(Boolean, default=False, nullable=False)
+    created_at      = Column(DateTime, default=_now)
 
     brackets          = relationship("Bracket", back_populates="owner", cascade="all, delete-orphan")
     rr_sessions       = relationship("RoundRobinResult", back_populates="owner", cascade="all, delete-orphan")
@@ -56,16 +61,16 @@ class Bracket(Base):
     players      = Column(JSON, default=list)
     entries      = Column(JSON, default=list)
     bracket_data  = Column(JSON, default=list)
-    round_winners      = Column(JSON, default=dict)   # {"r0_m0": "player — char", ...}
-    round_scores       = Column(JSON, default=dict)   # {"r0_m0": "3-1", ...}
+    round_winners      = Column(JSON, default=dict)
+    round_scores       = Column(JSON, default=dict)
     bracket_style      = Column(String, default="strongVsStrong")
     is_live            = Column(Boolean, default=False)
     winner             = Column(String, nullable=True)
     chars_per_player   = Column(Integer, default=2)
-    confirmed_lineups  = Column(JSON, default=dict)   # {username: ["char1", ...]}
-    teams              = Column(JSON, nullable=True)   # {username: "Red"|"Blue"|...} — teams mode only
-    placements         = Column(JSON, nullable=True)  # {"1st": {"player":"kai","char":"Terry","elo_bonus":64}, "2nd": {...}, "3rd": [...]}
-    created_at         = Column(DateTime, default=datetime.utcnow)
+    confirmed_lineups  = Column(JSON, default=dict)
+    teams              = Column(JSON, nullable=True)
+    placements         = Column(JSON, nullable=True)
+    created_at         = Column(DateTime, default=_now)
 
     owner   = relationship("User", back_populates="brackets")
     invites = relationship("TournamentInvite", back_populates="bracket", cascade="all, delete-orphan")
@@ -80,43 +85,31 @@ class RoundRobinResult(Base):
     players    = Column(JSON, default=list)
     results    = Column(JSON, default=dict)
     records    = Column(JSON, default=dict)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_now)
 
     owner = relationship("User", back_populates="rr_sessions")
 
 
 class CharacterRanking(Base):
-    """
-    One row per user. Stores their full Smash Ultimate tier list.
-    ranking = {
-      "S": ["Mario", "Pikachu", ...],
-      "A": [...], "B": [...], "C": [...], "D": [...], "F": [...],
-      "unranked": [...]   <- all characters the user hasn't placed yet
-    }
-    """
     __tablename__ = "character_rankings"
 
     id         = Column(Integer, primary_key=True, index=True)
     owner_id   = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
     ranking    = Column(JSON, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
 
     owner = relationship("User", back_populates="character_ranking")
 
 
 class TournamentInvite(Base):
-    """
-    Tracks per-bracket invites from one user to another.
-    status: "pending" | "accepted" | "declined"
-    """
     __tablename__ = "tournament_invites"
 
     id         = Column(Integer, primary_key=True, index=True)
     bracket_id = Column(Integer, ForeignKey("brackets.id"), nullable=False)
     inviter_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     invitee_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    status     = Column(String, default="pending")   # pending | accepted | declined
-    created_at = Column(DateTime, default=datetime.utcnow)
+    status     = Column(String, default="pending")
+    created_at = Column(DateTime, default=_now)
 
     bracket = relationship("Bracket", back_populates="invites")
     inviter = relationship("User", foreign_keys=[inviter_id], back_populates="sent_invites")
@@ -129,21 +122,17 @@ class FavoriteCharacters(Base):
     id         = Column(Integer, primary_key=True, index=True)
     owner_id   = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
     characters = Column(JSON, default=list)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
 
     owner = relationship("User", back_populates="favorite_characters")
 
 
 class CharacterStats(Base):
-    """
-    One row per (user, character). Points start at 0, +1 on win, -1 on loss
-    with a floor of 0. Kills = stock kills (from match scores). Wins/losses
-    are raw counts (never decremented) for win-percentage calculation.
-    """
     __tablename__ = "character_stats"
+    __table_args__ = (UniqueConstraint('user_id', 'character', name='uq_cs_user_char'),)
 
     id         = Column(Integer, primary_key=True, index=True)
-    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     character  = Column(String, nullable=False)
     points     = Column(Integer, default=0, nullable=False)
     elo        = Column(Integer, default=1000, nullable=False)
@@ -152,30 +141,26 @@ class CharacterStats(Base):
     wins       = Column(Integer, default=0, nullable=False)
     losses     = Column(Integer, default=0, nullable=False)
     sacrifices = Column(Integer, default=0, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
 
     owner = relationship("User", back_populates="character_stats")
 
 
 class Friendship(Base):
-    """
-    status: "pending" | "accepted"
-    requester sends the request, addressee receives it.
-    """
     __tablename__ = "friendships"
+    __table_args__ = (UniqueConstraint('requester_id', 'addressee_id', name='uq_friendship_pair'),)
 
     id           = Column(Integer, primary_key=True, index=True)
     requester_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     addressee_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     status       = Column(String, default="pending")
-    created_at   = Column(DateTime, default=datetime.utcnow)
+    created_at   = Column(DateTime, default=_now)
 
     requester = relationship("User", foreign_keys=[requester_id], back_populates="sent_friend_requests")
     addressee = relationship("User", foreign_keys=[addressee_id], back_populates="received_friend_requests")
 
 
 class PracticeSession(Base):
-    """One row per CPU practice game logged by a user."""
     __tablename__ = "practice_sessions"
 
     id         = Column(Integer, primary_key=True, index=True)
@@ -187,17 +172,19 @@ class PracticeSession(Base):
     cpu_stocks = Column(Integer, default=0)
     won        = Column(Boolean, default=True)
     notes      = Column(String(500), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_now)
 
     owner = relationship("User", back_populates="practice_sessions")
 
 
 class MatchResult(Base):
-    """
-    One row per completed match. Recorded when a winner is selected
-    in the bracket or Quick Match.
-    """
     __tablename__ = "match_results"
+    __table_args__ = (
+        Index('idx_mr_winner_id', 'winner_id'),
+        Index('idx_mr_loser_id', 'loser_id'),
+        Index('idx_mr_bracket_id', 'bracket_id'),
+        Index('idx_mr_created_at', 'created_at'),
+    )
 
     id           = Column(Integer, primary_key=True, index=True)
     winner_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
@@ -209,18 +196,13 @@ class MatchResult(Base):
     bracket_id   = Column(Integer, ForeignKey("brackets.id"), nullable=True)
     match_key    = Column(String, nullable=True)
     elo_delta    = Column(Integer, default=0, nullable=False)
-    created_at   = Column(DateTime, default=datetime.utcnow)
+    created_at   = Column(DateTime, default=_now)
 
     winner  = relationship("User", foreign_keys=[winner_id])
     loser   = relationship("User", foreign_keys=[loser_id])
 
 
 class CharacterMatchup(Base):
-    """
-    Aggregate win counts per character pairing across all players.
-    char_a / char_b are stored in alphabetical order so each pair has
-    exactly one row.  wins_a = wins for the alphabetically-first character.
-    """
     __tablename__ = "character_matchups"
 
     id     = Column(Integer, primary_key=True, index=True)
@@ -231,13 +213,6 @@ class CharacterMatchup(Base):
 
 
 class TournamentPreset(Base):
-    """
-    Saved squad config for one-click bracket launches.
-    players = ["Kai", "Leap", "Rith", "Vyro"]
-    fill_mode = "elo" | "kills" | "winpct" | "favorites" | "tierlist"
-    seed_mode = "elo" | "kills" | "winpct"
-    bracket_style = "strongVsStrong" | "strongVsWeak" | "random"
-    """
     __tablename__ = "tournament_presets"
 
     id               = Column(Integer, primary_key=True, index=True)
@@ -249,22 +224,19 @@ class TournamentPreset(Base):
     bracket_style    = Column(String, default="strongVsStrong")
     pool_mode        = Column(String, default="slot")
     chars_per_player = Column(Integer, default=2)
-    created_at       = Column(DateTime, default=datetime.utcnow)
+    created_at       = Column(DateTime, default=_now)
 
     creator = relationship("User")
 
 
 class ProfileComment(Base):
-    """
-    GG / comment left on a user's profile by another user.
-    """
     __tablename__ = "profile_comments"
 
     id         = Column(Integer, primary_key=True, index=True)
     author_id  = Column(Integer, ForeignKey("users.id"), nullable=False)
     target_id  = Column(Integer, ForeignKey("users.id"), nullable=False)
     content    = Column(String(200), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_now)
 
     author = relationship("User", foreign_keys=[author_id])
     target = relationship("User", foreign_keys=[target_id])

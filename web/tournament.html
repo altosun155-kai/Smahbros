@@ -623,7 +623,7 @@ function renderBracket(data) {
 
   // Winner banner
   const wb = document.getElementById('winnerBanner');
-  if (data.winner) {
+  if (data.winner && !data.is_live) {
     document.getElementById('winnerBannerName').textContent = data.winner;
     wb.style.display = 'block';
   } else {

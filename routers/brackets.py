@@ -289,23 +289,10 @@ def end_tournament(bracket_id: int, db: Session = Depends(get_db), current_user:
     already_ended = not b.is_live
     b.is_live = False
 
-    # Snapshot whether the Grand Final winner was declared before this call.
     # b.winner is only set via set_bracket_winner (tournament_winner field)
     # when the actual Grand Final match is recorded. If it's null here, the
-    # tournament is being ended early and placement bonuses must not be given.
+    # tournament is being ended early — do not assign a winner or give bonuses.
     gf_completed = bool(b.winner)
-
-    # Infer winner from Grand Final if not set (for display purposes only)
-    if not b.winner and b.round_winners:
-        best_ri, gf_val = -1, None
-        for key, v in b.round_winners.items():
-            m = _re.match(r"r(\d+)_m(\d+)$", key)
-            if m:
-                ri = int(m.group(1))
-                if ri > best_ri:
-                    best_ri, gf_val = ri, v
-        if gf_val and " — " in gf_val:
-            b.winner = gf_val.split(" — ")[0]
 
     # Award placement bonuses only if the Grand Final was completed and
     # this is the first time ending (not already_ended).

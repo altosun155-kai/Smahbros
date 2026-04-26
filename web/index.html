@@ -723,32 +723,37 @@
         if (s < 86400) return `${Math.floor(s/3600)}h ago`;
         return `${Math.floor(s/86400)}d ago`;
       };
-      container.innerHTML = data.map(r => {
-        const winnerImg = typeof charImgUrl === 'function' ? charImgUrl(r.winner_char) : '';
-        const loserImg  = typeof charImgUrl === 'function' ? charImgUrl(r.loser_char)  : '';
-        const ago = timeAgo(r.created_at);
-        return `
-          <div class="squad-alert-pair">
-            <div class="alert-card alert-wanted">
-              <div class="wanted-header">WANTED</div>
-              <img src="${winnerImg}" alt="${escHtml(r.winner_char)}" onerror="this.style.display='none'" />
-              <div class="wanted-doa">☠ Dead or Alive ☠</div>
-              <div class="wanted-name">${escHtml(r.winner)} · ${escHtml(r.winner_char)}</div>
-              <div class="wanted-crime">Wanted for 3-Stocking ${escHtml(r.loser)}</div>
-              <div class="wanted-time">${ago}</div>
+      const cards = data.flatMap(r => {
+        const wImg = typeof charImgUrl === 'function' ? charImgUrl(r.winner_char) : '';
+        const lImg = typeof charImgUrl === 'function' ? charImgUrl(r.loser_char)  : '';
+        const ago  = timeAgo(r.created_at);
+        return [
+          `<div class="bounty-poster" style="background-image:url('${wImg}')">
+            <div class="bp-top">
+              <div class="bp-header">WANTED</div>
+              <div class="bp-doa">☠ Dead or Alive ☠</div>
             </div>
-            <div class="alert-card alert-tombstone">
-              <img src="${loserImg}" alt="${escHtml(r.loser_char)}" onerror="this.style.display='none'" />
-              <div class="alert-info">
-                <span class="tombstone-title">System Offline</span>
-                <span class="tombstone-player">${escHtml(r.loser)}</span>
-                <span class="tombstone-desc">Character: ${escHtml(r.loser_char)}</span>
-                <span class="tombstone-desc">Cause of Death: 3-Stocked</span>
-                <span class="alert-time">${ago}</span>
-              </div>
+            <div class="bp-bottom">
+              <div class="bp-name">${escHtml(r.winner)}</div>
+              <div class="bp-char">${escHtml(r.winner_char)}</div>
+              <div class="bp-crime">3-Stocked ${escHtml(r.loser)}</div>
+              <div class="bp-time">${ago}</div>
             </div>
-          </div>`;
-      }).join('');
+          </div>`,
+          `<div class="bounty-poster tombstone-poster" style="background-image:url('${lImg}')">
+            <div class="bp-top">
+              <div class="bp-header">System Offline</div>
+            </div>
+            <div class="bp-bottom">
+              <div class="bp-name">${escHtml(r.loser)}</div>
+              <div class="bp-char">${escHtml(r.loser_char)}</div>
+              <div class="bp-crime">3-Stocked by ${escHtml(r.winner)}</div>
+              <div class="bp-time">${ago}</div>
+            </div>
+          </div>`
+        ];
+      });
+      container.innerHTML = `<div class="bounty-grid">${cards.join('')}</div>`;
     } catch (_) {
       container.innerHTML = '';
     }

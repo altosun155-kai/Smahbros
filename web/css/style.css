@@ -1250,3 +1250,134 @@ a:hover {
   gap: 16px;
   margin-bottom: 14px;
 }
+
+/* ── PORTRAIT BOUNTY GRID ── */
+.bounty-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.bounty-poster {
+  position: relative;
+  border: 3px solid #2c1a0e;
+  border-radius: 6px;
+  overflow: hidden;
+  aspect-ratio: 2 / 3;
+  background: #c4a96a center top / cover no-repeat;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+}
+
+/* Parchment top fade → transparent mid → dark bottom */
+.bounty-poster::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(236,220,170,0.95) 0%,
+    rgba(201,168,92,0.55) 22%,
+    rgba(5,2,0,0.05) 50%,
+    rgba(5,2,0,0.92) 100%
+  );
+  z-index: 1;
+}
+
+.bounty-poster .bp-top,
+.bounty-poster .bp-bottom {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+}
+
+.bounty-poster .bp-top  { padding: 10px 8px 5px; }
+.bounty-poster .bp-bottom { padding: 5px 8px 12px; }
+
+.bp-header {
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #1a0a00;
+  line-height: 1;
+  border-bottom: 2px solid rgba(44,26,14,0.6);
+  padding-bottom: 4px;
+}
+
+.bp-doa {
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #3d2204;
+  margin-top: 3px;
+}
+
+.bp-name {
+  font-size: 0.82rem;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.95);
+  border-top: 1px solid rgba(255,255,255,0.2);
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+  padding: 3px 0;
+  margin-bottom: 4px;
+}
+
+.bp-char {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: rgba(255,220,140,0.9);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.95);
+  margin-bottom: 3px;
+}
+
+.bp-crime { font-size: 0.6rem;  color: rgba(255,255,255,0.75); text-shadow: 0 1px 4px rgba(0,0,0,0.95); }
+.bp-time  { font-size: 0.55rem; color: rgba(255,255,255,0.45); margin-top: 3px; }
+
+/* ── Tombstone variant ── */
+.tombstone-poster {
+  border-color: #1a1a1a;
+  background-color: #080808;
+}
+
+.tombstone-poster::before {
+  background: linear-gradient(
+    to bottom,
+    rgba(5,5,8,0.88) 0%,
+    rgba(5,5,8,0.5)  35%,
+    rgba(5,5,8,0.5)  60%,
+    rgba(5,5,8,0.93) 100%
+  );
+}
+
+.tombstone-poster::after {
+  content: 'K.I.A.';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) rotate(-15deg);
+  color: rgba(231,76,60,0.9);
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: 4px;
+  border: 3px solid rgba(231,76,60,0.9);
+  padding: 2px 8px;
+  z-index: 4;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.tombstone-poster .bp-header {
+  color: #e74c3c;
+  font-size: 0.68rem;
+  letter-spacing: 3px;
+  border-bottom-color: rgba(231,76,60,0.35);
+}
+
+.tombstone-poster .bp-name  { text-decoration: line-through; color: #555; text-shadow: none; }
+.tombstone-poster .bp-char  { color: rgba(120,120,120,0.7); }
+.tombstone-poster .bp-crime { color: rgba(150,150,150,0.6); }

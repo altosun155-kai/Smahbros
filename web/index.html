@@ -371,15 +371,6 @@
   </style>
 </head>
 <body>
-<!-- SVG filter for torn paper edges on WANTED posters -->
-<svg style="display:none;position:absolute" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <filter id="torn-paper" x="-6%" y="-6%" width="112%" height="112%" color-interpolation-filters="sRGB">
-      <feTurbulence type="fractalNoise" baseFrequency="0.055 0.04" numOctaves="4" seed="7" result="noise"/>
-      <feDisplacementMap in="SourceGraphic" in2="noise" scale="9" xChannelSelector="R" yChannelSelector="G"/>
-    </filter>
-  </defs>
-</svg>
 <script>requireAuth();</script>
 
 <div id="toast-container"></div>

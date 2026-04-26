@@ -1205,3 +1205,48 @@ a:hover {
 .tombstone-title  { color: #e74c3c; font-weight: 800; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase; }
 .tombstone-player { color: #555; font-size: 1.3rem; font-weight: 700; text-decoration: line-through; }
 .tombstone-desc   { color: #444; font-size: 0.85rem; }
+
+/* ── WANTED poster card ── */
+.alert-wanted {
+  background: linear-gradient(160deg, #ecdcaa 0%, #c9a85c 100%);
+  border: 3px solid #2c1a0e;
+  color: #1a0a00;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 14px 12px 10px;
+  box-shadow: inset 0 0 40px rgba(44,26,14,0.15), 0 4px 16px rgba(0,0,0,0.5);
+}
+.alert-wanted::before { display: none; }
+.alert-wanted img {
+  width: 80px;
+  height: 80px;
+  filter: sepia(40%) contrast(1.1);
+  border: 2px solid #2c1a0e;
+  border-radius: 4px;
+  background: #c4a96a;
+}
+.wanted-header {
+  font-size: 1.6rem;
+  font-weight: 900;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  color: #1a0a00;
+  line-height: 1;
+  width: 100%;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #2c1a0e;
+}
+.wanted-doa   { font-size: 0.6rem; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; color: #3d2204; }
+.wanted-name  { font-size: 0.9rem; font-weight: 900; letter-spacing: 1px; color: #1a0a00; border-top: 2px solid #2c1a0e; border-bottom: 2px solid #2c1a0e; width: 100%; padding: 3px 0; }
+.wanted-crime { font-size: 0.72rem; color: #4a3010; }
+.wanted-time  { font-size: 0.62rem; color: #6a5030; margin-top: 2px; }
+
+/* ── Squad alert pair (WANTED + Tombstone side by side) ── */
+.squad-alert-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 14px;
+}

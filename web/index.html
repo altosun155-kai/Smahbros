@@ -488,7 +488,7 @@
 
   <!-- ══ SQUAD ALERTS ══ -->
   <div class="section-label">⚠️ Latest Intel</div>
-  <div id="squadAlerts" class="squad-alert-container"></div>
+  <div id="squadAlerts"></div>
 
   <!-- ══ RANKINGS ══ -->
   <div class="section-label">Rankings</div>
@@ -710,12 +710,11 @@
   (async function loadSquadAlerts() {
     const container = document.getElementById('squadAlerts');
     try {
-      const data = await apiGet('/matches/shame?limit=1');
+      const data = await apiGet('/matches/shame?limit=6');
       if (!data || !data.length) {
         container.innerHTML = '<div style="font-size:0.8rem;color:var(--text-muted);padding:4px 0;">No 3-stocks yet — stay strapped.</div>';
         return;
       }
-      const r = data[0];
       const now = Date.now();
       const timeAgo = iso => {
         const s = Math.floor((now - new Date(iso)) / 1000);
@@ -724,30 +723,32 @@
         if (s < 86400) return `${Math.floor(s/3600)}h ago`;
         return `${Math.floor(s/86400)}d ago`;
       };
-      const winnerImg = typeof charImgUrl === 'function' ? charImgUrl(r.winner_char) : '';
-      const loserImg  = typeof charImgUrl === 'function' ? charImgUrl(r.loser_char)  : '';
-      const ago = timeAgo(r.created_at);
-      container.innerHTML = `
-        <div class="alert-card alert-bounty">
-          <img src="${winnerImg}" alt="${escHtml(r.winner_char)}" onerror="this.style.display='none'" />
-          <div class="alert-info">
-            <span class="bounty-title">⚠️ Priority Target</span>
-            <span class="bounty-player">${escHtml(r.winner)}'s ${escHtml(r.winner_char)}</span>
-            <span class="bounty-desc">Wanted for: 3-Stocking ${escHtml(r.loser)}</span>
-            <span class="bounty-reward">⚡ Beat them for a bounty bonus</span>
-            <span class="alert-time">${ago}</span>
-          </div>
-        </div>
-        <div class="alert-card alert-tombstone">
-          <img src="${loserImg}" alt="${escHtml(r.loser_char)}" onerror="this.style.display='none'" />
-          <div class="alert-info">
-            <span class="tombstone-title">System Offline</span>
-            <span class="tombstone-player">${escHtml(r.loser)}</span>
-            <span class="tombstone-desc">Character: ${escHtml(r.loser_char)}</span>
-            <span class="tombstone-desc">Cause of Death: 3-Stocked</span>
-            <span class="alert-time">${ago}</span>
-          </div>
-        </div>`;
+      container.innerHTML = data.map(r => {
+        const winnerImg = typeof charImgUrl === 'function' ? charImgUrl(r.winner_char) : '';
+        const loserImg  = typeof charImgUrl === 'function' ? charImgUrl(r.loser_char)  : '';
+        const ago = timeAgo(r.created_at);
+        return `
+          <div class="squad-alert-pair">
+            <div class="alert-card alert-wanted">
+              <div class="wanted-header">WANTED</div>
+              <img src="${winnerImg}" alt="${escHtml(r.winner_char)}" onerror="this.style.display='none'" />
+              <div class="wanted-doa">☠ Dead or Alive ☠</div>
+              <div class="wanted-name">${escHtml(r.winner)} · ${escHtml(r.winner_char)}</div>
+              <div class="wanted-crime">Wanted for 3-Stocking ${escHtml(r.loser)}</div>
+              <div class="wanted-time">${ago}</div>
+            </div>
+            <div class="alert-card alert-tombstone">
+              <img src="${loserImg}" alt="${escHtml(r.loser_char)}" onerror="this.style.display='none'" />
+              <div class="alert-info">
+                <span class="tombstone-title">System Offline</span>
+                <span class="tombstone-player">${escHtml(r.loser)}</span>
+                <span class="tombstone-desc">Character: ${escHtml(r.loser_char)}</span>
+                <span class="tombstone-desc">Cause of Death: 3-Stocked</span>
+                <span class="alert-time">${ago}</span>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
     } catch (_) {
       container.innerHTML = '';
     }

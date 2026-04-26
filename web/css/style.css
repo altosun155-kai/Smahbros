@@ -1253,69 +1253,37 @@ a:hover {
 
 /* ── PORTRAIT BOUNTY GRID ── */
 .bounty-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
   margin-bottom: 24px;
-}
-
-/* Each paired event: WANTED + tombstone grouped visually */
-.bounty-pair {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(255,200,0,0.04);
-  border: 1px solid rgba(255,200,0,0.13);
-  border-radius: 10px;
-  padding: 6px;
-}
-
-/* Crossed-swords badge between the two cards */
-.bounty-vs {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: #ffcc00;
-  color: #000;
-  font-size: 0.62rem;
-  font-weight: 900;
-  letter-spacing: 0;
-  box-shadow: 0 0 12px rgba(255,200,0,0.55);
-  z-index: 5;
 }
 
 .bounty-poster {
   position: relative;
-  border: 2px solid #9a7200;
+  border: 3px solid #2c1a0e;
   border-radius: 6px;
   overflow: hidden;
   aspect-ratio: 2 / 3;
-  width: 130px;
-  flex-shrink: 0;
-  /* dark background — character art overlays via inline style */
-  background: #120a00 center top / cover no-repeat;
+  background: #c4a96a center top / cover no-repeat;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  box-shadow: 0 0 0 1px rgba(255,200,0,0.12), 0 6px 22px rgba(0,0,0,0.75);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.6);
 }
 
-/* Dark header panel → transparent window for char art → solid black for text */
+/* Parchment top fade → transparent mid → dark bottom */
 .bounty-poster::before {
   content: '';
   position: absolute;
   inset: 0;
   background: linear-gradient(
     to bottom,
-    rgba(8,4,0,0.96)  0%,
-    rgba(8,4,0,0.78) 16%,
-    rgba(4,2,0,0.06) 42%,
-    rgba(2,1,0,0.80) 62%,
-    rgba(1,0,0,0.98) 100%
+    rgba(236,220,170,0.97) 0%,
+    rgba(201,168,92,0.6)  20%,
+    rgba(5,2,0,0.08)      48%,
+    rgba(5,2,0,0.82)      70%,
+    rgba(2,1,0,0.97)      100%
   );
   z-index: 1;
 }
@@ -1327,54 +1295,50 @@ a:hover {
   text-align: center;
 }
 
-.bounty-poster .bp-top  { padding: 8px 6px 4px; }
-.bounty-poster .bp-bottom { padding: 4px 6px 10px; }
+.bounty-poster .bp-top  { padding: 10px 8px 5px; }
+.bounty-poster .bp-bottom { padding: 5px 8px 12px; }
 
 .bp-header {
-  font-size: 1.15rem;
+  font-size: 1.25rem;
   font-weight: 900;
   letter-spacing: 4px;
   text-transform: uppercase;
-  color: #ffcc00;
+  color: #1a0a00;
   line-height: 1;
-  border-bottom: 1px solid rgba(255,200,0,0.35);
-  padding-bottom: 3px;
-  text-shadow: 0 0 10px rgba(255,200,0,0.8), 0 0 22px rgba(255,160,0,0.35);
+  border-bottom: 2px solid rgba(44,26,14,0.6);
+  padding-bottom: 4px;
 }
 
 .bp-doa {
-  font-size: 0.48rem;
+  font-size: 0.5rem;
   font-weight: 800;
   letter-spacing: 2px;
   text-transform: uppercase;
-  color: rgba(255,200,0,0.55);
+  color: #3d2204;
   margin-top: 3px;
 }
 
-/* Player name is the hero — make it big */
 .bp-name {
-  font-size: 1.05rem;
+  font-size: 0.86rem;
   font-weight: 900;
   color: #fff;
-  text-shadow: 0 0 8px rgba(0,0,0,1), 0 2px 12px rgba(0,0,0,0.98);
-  border-top: 1px solid rgba(255,255,255,0.2);
-  border-bottom: 1px solid rgba(255,255,255,0.2);
-  padding: 4px 0;
-  margin-bottom: 3px;
-}
-
-/* Character glows gold */
-.bp-char {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #ffcc00;
-  text-shadow: 0 0 8px rgba(255,200,0,0.55), 0 1px 4px rgba(0,0,0,0.95);
+  text-shadow: 0 0 8px rgba(0,0,0,1), 0 2px 10px rgba(0,0,0,0.98), 0 1px 0 rgba(0,0,0,0.9);
+  border-top: 1px solid rgba(255,255,255,0.25);
+  border-bottom: 1px solid rgba(255,255,255,0.25);
+  padding: 3px 0;
   margin-bottom: 4px;
 }
 
-/* Details fade back — let the art and names do the talking */
-.bp-crime { font-size: 0.56rem; color: rgba(160,160,160,0.75); text-shadow: 0 1px 3px rgba(0,0,0,0.9); }
-.bp-time  { font-size: 0.5rem;  color: rgba(120,120,120,0.5);  margin-top: 2px; }
+.bp-char {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: rgba(255,228,150,1);
+  text-shadow: 0 0 6px rgba(0,0,0,1), 0 2px 8px rgba(0,0,0,0.98);
+  margin-bottom: 3px;
+}
+
+.bp-crime { font-size: 0.62rem; color: rgba(255,255,255,0.9);  text-shadow: 0 0 6px rgba(0,0,0,1), 0 1px 6px rgba(0,0,0,0.98); }
+.bp-time  { font-size: 0.56rem; color: rgba(255,255,255,0.65); text-shadow: 0 1px 4px rgba(0,0,0,0.95); margin-top: 3px; }
 
 /* ── WANTED poster torn paper edges (clip-path keeps text crisp) ── */
 .bounty-poster:not(.tombstone-poster) {
@@ -1427,11 +1391,11 @@ a:hover {
 /* No ::after stamp — R.I.P. lives in the markup */
 
 .tombstone-poster .bp-header {
-  color: #c8c8c8;
+  color: #111;
   font-size: 1.35rem;
   letter-spacing: 6px;
-  border-bottom-color: rgba(200,200,200,0.3);
-  text-shadow: 0 1px 0 rgba(255,255,255,0.25), 0 -1px 0 rgba(0,0,0,0.3);
+  border-bottom-color: rgba(0,0,0,0.3);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.3), 0 -1px 0 rgba(0,0,0,0.2);
 }
 
 /* Bottom text: white-on-black like WANTED — not dark-on-grey */

@@ -36,6 +36,20 @@
     .team-avg-elo { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 10px; }
     .team-divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
 
+    /* ── Friend chips ── */
+    .friend-chip {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--card-bg2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 4px 10px 4px 6px;
+      cursor: pointer; font-size: 0.82rem; color: var(--text);
+      transition: border-color 0.15s;
+    }
+    .friend-chip:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+    .friend-chip.added { border-color: #4caf50; color: #4caf50; }
+    .friend-chip img { width: 22px; height: 22px; border-radius: 50%; }
+    .friend-chip .online-dot  { width: 7px; height: 7px; border-radius: 50%; background: #4caf50; flex-shrink: 0; }
+    .friend-chip .offline-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0; }
+
     /* ── Player select + autofill ── */
     .player-sel-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
     .player-sel { flex: 1; padding: 5px 8px; font-size: 0.82rem; background: #0f0f17; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; color: var(--text); }
@@ -140,24 +154,20 @@
           </div>
 
           <h2>Format</h2>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-            <div>
-              <label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:4px;">Teams</label>
-              <select id="numTeams" onchange="rebuildTeamForms()" style="width:100%;padding:6px 8px;font-size:0.85rem;">
-                <option value="2">2</option>
-                <option value="4" selected>4</option>
-                <option value="8">8</option>
-              </select>
-            </div>
-            <div>
-              <label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:4px;">Players / Team</label>
-              <select id="playersPerTeam" onchange="rebuildTeamForms()" style="width:100%;padding:6px 8px;font-size:0.85rem;">
-                <option value="1">1</option>
-                <option value="2" selected>2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-              </select>
-            </div>
+          <div style="margin-bottom:12px;">
+            <label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:4px;">Players / Team</label>
+            <select id="playersPerTeam" onchange="rebuildTeamForms()" style="width:100%;padding:6px 8px;font-size:0.85rem;">
+              <option value="1">1</option>
+              <option value="2" selected>2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </div>
+
+          <!-- Friends quick-add -->
+          <div id="friendsQuickAdd" style="display:none;margin-bottom:14px;">
+            <h2>Add Friends</h2>
+            <div id="friendChips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
           </div>
 
           <h2>Characters per Player</h2>
@@ -226,6 +236,7 @@ const TEAM_COLORS = ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c'
 window.addEventListener('DOMContentLoaded', async () => {
   await loadUsers();
   rebuildTeamForms();
+  loadFriends();
   const bid = new URLSearchParams(location.search).get('b');
   if (bid) await loadBracket(parseInt(bid));
 });
@@ -258,9 +269,64 @@ function adjustCPP(d) {
 }
 function getCPP() { return parseInt(document.getElementById('charsPerPlayer').value)||2; }
 
+// ── Friends quick-add ─────────────────────────────────────────────────────
+async function loadFriends() {
+  const section = document.getElementById('friendsQuickAdd');
+  const chips   = document.getElementById('friendChips');
+  section.style.display = 'block';
+  try {
+    const friends = await apiGet('/friends');
+    if (friends && friends.length) {
+      friends.forEach(f => {
+        const chip = document.createElement('div');
+        chip.className = 'friend-chip';
+        chip.id = `chip_${f.username}`;
+        const av = f.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(f.username)}`;
+        chip.innerHTML = `
+          <img src="${av}" alt="${f.username}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(f.username)}'" />
+          <span class="${f.active ? 'online-dot' : 'offline-dot'}"></span>
+          ${f.username}`;
+        chip.addEventListener('click', () => toggleFriendSlot(f.username, chip));
+        chips.appendChild(chip);
+      });
+    } else {
+      chips.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">No friends yet.</span>';
+    }
+  } catch (_) {
+    chips.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">No friends yet.</span>';
+  }
+}
+
+function toggleFriendSlot(username, chip) {
+  const allSelects = [...document.querySelectorAll('.player-sel')];
+  const existing = allSelects.find(s => s.value === username);
+  if (existing) {
+    existing.value = '';
+    chip.classList.remove('added');
+    existing.dispatchEvent(new Event('change'));
+    return;
+  }
+  const empty = allSelects.find(s => !s.value);
+  if (empty) {
+    empty.value = username;
+    chip.classList.add('added');
+    empty.dispatchEvent(new Event('change'));
+  } else {
+    showToast('No empty player slots.', 'warn');
+  }
+}
+
+function refreshChipStates() {
+  const taken = new Set([...document.querySelectorAll('.player-sel')].map(s => s.value).filter(Boolean));
+  document.querySelectorAll('.friend-chip').forEach(chip => {
+    const u = chip.id.replace('chip_', '');
+    chip.classList.toggle('added', taken.has(u));
+  });
+}
+
 // ── Team forms ────────────────────────────────────────────────────────────
 function rebuildTeamForms() {
-  const numTeams = parseInt(document.getElementById('numTeams').value);
+  const numTeams = 2;
   const ppt      = parseInt(document.getElementById('playersPerTeam').value);
   const cpp      = getCPP();
   const container = document.getElementById('teamForms');
@@ -323,7 +389,11 @@ function rebuildTeamForms() {
         slot.querySelectorAll('.char-inp').forEach((inp,ci)=>{ inp.value=stats[ci]?.character||''; });
         updateAvgElo(t);
       });
-      slot.querySelectorAll('.char-inp,.player-sel').forEach(el=>{
+      slot.querySelector('.player-sel').addEventListener('change', () => {
+        updateAvgElo(t);
+        refreshChipStates();
+      });
+      slot.querySelectorAll('.char-inp').forEach(el=>{
         el.addEventListener('change',()=>updateAvgElo(t));
         el.addEventListener('input', ()=>updateAvgElo(t));
       });
@@ -340,6 +410,7 @@ function rebuildTeamForms() {
     }
     container.appendChild(wrap);
   }
+  refreshChipStates();
 }
 
 async function updateAvgElo(ti) {

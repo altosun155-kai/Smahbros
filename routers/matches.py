@@ -100,12 +100,12 @@ def char_elo_history(
 
 @router.get("/matches/shame")
 def shame_feed(
-    limit: int = 10,
+    limit: Optional[int] = None,
     victim: Optional[str] = None,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """Recent clean-sweep (3-stock) events. Pass victim= to filter by the player who was 3-stocked."""
+    """Recent clean-sweep (3-stock) events. Omit limit to fetch all."""
     q = db.query(MatchResult).filter(
         MatchResult.winner_kills >= 3, MatchResult.loser_kills == 0
     )
@@ -115,7 +115,8 @@ def shame_feed(
             q = q.filter(MatchResult.loser_id == loser_user.id)
         else:
             return []
-    rows = q.order_by(MatchResult.created_at.desc()).limit(limit).all()
+    q = q.order_by(MatchResult.created_at.desc())
+    rows = (q.limit(limit) if limit else q).all()
     return [{
         "winner": r.winner.username,
         "winner_char": r.winner_char,

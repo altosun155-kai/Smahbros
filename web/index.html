@@ -710,7 +710,7 @@
   (async function loadSquadAlerts() {
     const container = document.getElementById('squadAlerts');
     try {
-      const data = await apiGet('/matches/shame?limit=6');
+      const data = await apiGet('/matches/shame');
       if (!data || !data.length) {
         container.innerHTML = '<div style="font-size:0.8rem;color:var(--text-muted);padding:4px 0;">No 3-stocks yet — stay strapped.</div>';
         return;

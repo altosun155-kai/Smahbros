@@ -1225,14 +1225,33 @@ function addFriendToPlayers(username, chip) {
   if (currentMode === 'teams') renderTeamAssignments();
 }
 
-let bracketK = 32;
+let _bracketLbCache = null;
+async function _fetchBracketLb() {
+  if (_bracketLbCache !== null) return _bracketLbCache;
+  try { _bracketLbCache = await apiGet('/characters/stats/leaderboard/elo'); } catch(_) { _bracketLbCache = []; }
+  return _bracketLbCache;
+}
 
-function previewEloGain(winnerElo, loserElo, wk, lk) {
-  const K = bracketK;
+function _bracketKFactor(rank) {
+  if (rank <= 10) return 20;
+  if (rank <= 25) return 30;
+  return 50;
+}
+
+function _bracketRankOf(lb, username, character) {
+  const elo = (lb.find(e => e.username === username && e.character === character) || {}).elo || 1000;
+  return lb.filter(e => !(e.username === username && e.character === character) && (e.elo || 1000) > elo).length + 1;
+}
+
+function _bracketEloDeltas(winnerElo, loserElo, wk, lk, winnerRank, loserRank) {
   const expected = 1 / (1 + Math.pow(10, (loserElo - winnerElo) / 400));
   const diff = wk - lk;
-  const mov = diff >= 3 ? 2 : diff === 2 ? 1.5 : 1.0;
-  return Math.max(1, Math.round(K * (1 - expected) * mov));
+  const mov = diff >= 3 ? 2.0 : diff === 2 ? 1.5 : 1.25;
+  const surprise = 1 - expected;
+  return {
+    winner: Math.max(1, Math.round(_bracketKFactor(winnerRank) * surprise * mov)),
+    loser:  Math.max(1, Math.round(_bracketKFactor(loserRank)  * surprise * mov)),
+  };
 }
 
 // ── VS Modal ──────────────────────────────────────
@@ -1320,15 +1339,29 @@ function openVsModal(a, b, key) {
   document.getElementById('vsScoreLabel1').textContent = `${a.player} Wins`;
   document.getElementById('vsScoreLabel2').textContent = `${b.player} Wins`;
 
-  // Elo gain previews above each score button
+  // Elo gain previews — rank-based K, fetched async (cached after first call)
   const eloA = getSeedElo(a, allUserStats);
   const eloB = getSeedElo(b, allUserStats);
-  document.getElementById('vsElo_30').textContent = `+${previewEloGain(eloA, eloB, 3, 0)}`;
-  document.getElementById('vsElo_31').textContent = `+${previewEloGain(eloA, eloB, 3, 1)}`;
-  document.getElementById('vsElo_32').textContent = `+${previewEloGain(eloA, eloB, 3, 2)}`;
-  document.getElementById('vsElo_03').textContent = `+${previewEloGain(eloB, eloA, 3, 0)}`;
-  document.getElementById('vsElo_13').textContent = `+${previewEloGain(eloB, eloA, 3, 1)}`;
-  document.getElementById('vsElo_23').textContent = `+${previewEloGain(eloB, eloA, 3, 2)}`;
+  const _vsA = a, _vsB = b;
+  _fetchBracketLb().then(lb => {
+    const rankA = lb && lb.length ? _bracketRankOf(lb, _vsA.player, _vsA.character) : 999;
+    const rankB = lb && lb.length ? _bracketRankOf(lb, _vsB.player, _vsB.character) : 999;
+    const scenarios = [
+      { id: '30', aWins: true,  wk: 3, lk: 0 },
+      { id: '31', aWins: true,  wk: 3, lk: 1 },
+      { id: '32', aWins: true,  wk: 3, lk: 2 },
+      { id: '03', aWins: false, wk: 3, lk: 0 },
+      { id: '13', aWins: false, wk: 3, lk: 1 },
+      { id: '23', aWins: false, wk: 3, lk: 2 },
+    ];
+    scenarios.forEach(s => {
+      const we = s.aWins ? eloA : eloB, le = s.aWins ? eloB : eloA;
+      const wRank = s.aWins ? rankA : rankB, lRank = s.aWins ? rankB : rankA;
+      const { winner } = _bracketEloDeltas(we, le, s.wk, s.lk, wRank, lRank);
+      const el = document.getElementById(`vsElo_${s.id}`);
+      if (el) el.textContent = `+${winner}`;
+    });
+  });
 
   // Sacrifice mode: same-team matchup — hide score picker, show sacrifice section
   const teamA = currentTeamOf[a.player] || '';

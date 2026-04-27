@@ -384,14 +384,26 @@ const params = new URLSearchParams(window.location.search);
 const tournamentId = params.get('id');
 let pollInterval = null;
 
-let tournamentK = 32;
+function _tKFactor(rank) {
+  if (rank <= 10) return 20;
+  if (rank <= 25) return 30;
+  return 50;
+}
 
-function previewEloGain(winnerElo, loserElo, wk, lk) {
-  const K = tournamentK;
+function _tRankOf(lb, username, character) {
+  const elo = (lb.find(e => e.username === username && e.character === character) || {}).elo || 1000;
+  return lb.filter(e => !(e.username === username && e.character === character) && (e.elo || 1000) > elo).length + 1;
+}
+
+function _tEloDeltas(winnerElo, loserElo, wk, lk, winnerRank, loserRank) {
   const expected = 1 / (1 + Math.pow(10, (loserElo - winnerElo) / 400));
   const diff = wk - lk;
-  const mov = diff >= 3 ? 2.0 : diff === 2 ? 1.5 : 1.0;
-  return Math.max(1, Math.round(K * (1 - expected) * mov));
+  const mov = diff >= 3 ? 2.0 : diff === 2 ? 1.5 : 1.25;
+  const surprise = 1 - expected;
+  return {
+    winner: Math.max(1, Math.round(_tKFactor(winnerRank) * surprise * mov)),
+    loser:  Math.max(1, Math.round(_tKFactor(loserRank)  * surprise * mov)),
+  };
 }
 
 const _eloCache = {}; // "username/character" -> elo
@@ -728,13 +740,17 @@ function hoverScore(p1s, p2s) {
   const wk = Math.max(p1s, p2s), lk = Math.min(p1s, p2s);
   const we = isP1Win ? _modalEloA : _modalEloB;
   const le = isP1Win ? _modalEloB : _modalEloA;
-  const delta = previewEloGain(we, le, wk, lk);
-  const newRankW = _modalLb.length ? _tRankAfter(_modalLb, isP1Win ? scoreModalA.player : scoreModalB.player, isP1Win ? scoreModalA.character : scoreModalB.character, we + delta) : null;
-  const newRankL = _modalLb.length ? _tRankAfter(_modalLb, isP1Win ? scoreModalB.player : scoreModalA.player, isP1Win ? scoreModalB.character : scoreModalA.character, Math.max(100, le - delta)) : null;
+  const wEntry = isP1Win ? scoreModalA : scoreModalB;
+  const lEntry = isP1Win ? scoreModalB : scoreModalA;
+  const wCurRank = _modalLb.length ? _tRankOf(_modalLb, wEntry.player, wEntry.character) : 999;
+  const lCurRank = _modalLb.length ? _tRankOf(_modalLb, lEntry.player, lEntry.character) : 999;
+  const { winner: wDelta, loser: lDelta } = _tEloDeltas(we, le, wk, lk, wCurRank, lCurRank);
+  const newRankW = _modalLb.length ? _tRankAfter(_modalLb, wEntry.player, wEntry.character, we + wDelta) : null;
+  const newRankL = _modalLb.length ? _tRankAfter(_modalLb, lEntry.player, lEntry.character, Math.max(100, le - lDelta)) : null;
   const winEl  = document.getElementById(isP1Win ? 'vcpP1EloDisplay' : 'vcpP2EloDisplay');
   const loseEl = document.getElementById(isP1Win ? 'vcpP2EloDisplay' : 'vcpP1EloDisplay');
-  if (winEl)  winEl.innerHTML  = `<span style="color:#4caf50;font-size:1.15em;font-weight:900;">+${delta}</span>${newRankW ? ` <span style="color:#4caf50;font-size:0.8em;">→ #${newRankW}</span>` : ''}`;
-  if (loseEl) loseEl.innerHTML = `<span style="color:#e74c3c;font-size:1.15em;font-weight:900;">−${delta}</span>${newRankL ? ` <span style="color:#e74c3c;font-size:0.8em;">→ #${newRankL}</span>` : ''}`;
+  if (winEl)  winEl.innerHTML  = `<span style="color:#4caf50;font-size:1.15em;font-weight:900;">+${wDelta}</span>${newRankW ? ` <span style="color:#4caf50;font-size:0.8em;">→ #${newRankW}</span>` : ''}`;
+  if (loseEl) loseEl.innerHTML = `<span style="color:#e74c3c;font-size:1.15em;font-weight:900;">−${lDelta}</span>${newRankL ? ` <span style="color:#e74c3c;font-size:0.8em;">→ #${newRankL}</span>` : ''}`;
 }
 
 function hoverScoreReset() {
@@ -881,11 +897,13 @@ function openScoreModal(a, b, key) {
       const we = s.aWins ? eloA : eloB, le = s.aWins ? eloB : eloA;
       const wEntry = s.aWins ? scoreModalA : scoreModalB;
       const lEntry = s.aWins ? scoreModalB : scoreModalA;
-      const delta = previewEloGain(we, le, s.wk, s.lk);
-      document.getElementById(`tElo_${s.id}`).textContent = `+${delta}`;
+      const wCurRank = lb && lb.length ? _tRankOf(lb, wEntry.player, wEntry.character) : 999;
+      const lCurRank = lb && lb.length ? _tRankOf(lb, lEntry.player, lEntry.character) : 999;
+      const { winner: wDelta, loser: lDelta } = _tEloDeltas(we, le, s.wk, s.lk, wCurRank, lCurRank);
+      document.getElementById(`tElo_${s.id}`).textContent = `+${wDelta}`;
       if (lb && lb.length) {
-        const wRank = _tRankAfter(lb, wEntry.player, wEntry.character, we + delta);
-        const lRank = _tRankAfter(lb, lEntry.player, lEntry.character, Math.max(100, le - delta));
+        const wRank = _tRankAfter(lb, wEntry.player, wEntry.character, we + wDelta);
+        const lRank = _tRankAfter(lb, lEntry.player, lEntry.character, Math.max(100, le - lDelta));
         document.getElementById(`tRankW_${s.id}`).textContent = `↑#${wRank}`;
         document.getElementById(`tRankL_${s.id}`).textContent = `↓#${lRank}`;
       }

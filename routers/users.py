@@ -101,16 +101,16 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
     for _, (uid, _) in char_pts_leader.items():
         roster_master_count[uid] = roster_master_count.get(uid, 0) + 1
 
-    # ── Tournament wins ──────────────────────────────────────────────────────
+    # ── Tournament wins (exclude teams-mode brackets) ───────────────────────
     t_rows = (db.query(Bracket.winner, func.count(Bracket.id).label("cnt"))
-              .filter(Bracket.winner.isnot(None), Bracket.winner != "")
+              .filter(Bracket.winner.isnot(None), Bracket.winner != "", Bracket.teams == None)
               .group_by(Bracket.winner).all())
     tourney_wins = {r.winner: r.cnt for r in t_rows}
     top_tourney = max(tourney_wins, key=tourney_wins.get) if tourney_wins else None
 
     # ── Completed brackets → placement + flawless + executioner ─────────────
     completed_brackets = (db.query(Bracket)
-                          .filter(Bracket.winner.isnot(None), Bracket.winner != "")
+                          .filter(Bracket.winner.isnot(None), Bracket.winner != "", Bracket.teams == None)
                           .order_by(Bracket.created_at).all())
     placement_counts: dict = {}  # username -> {"2nd": n, "3rd": n}
     for b in completed_brackets:
@@ -467,7 +467,7 @@ def get_user_stats(username: str, db: Session = Depends(get_db), current_user: U
     user = db.query(User).filter(User.username == username).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    tournament_wins = db.query(Bracket).filter(Bracket.winner == username).count()
+    tournament_wins = db.query(Bracket).filter(Bracket.winner == username, Bracket.teams == None).count()
     three_stocks_given = db.query(MatchResult).filter(
         MatchResult.winner_id == user.id,
         MatchResult.winner_kills >= 3,
@@ -558,8 +558,8 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
         badges.append({"id": "tax_collector", "label": "Tax Collector",
                        "desc": f"{total_kills} total kills", "color": "#ff9800"})
 
-    # ── Tournament wins ───────────────────────────────────────────────────────
-    tournament_wins = db.query(Bracket).filter(Bracket.winner == username).count()
+    # ── Tournament wins (exclude teams-mode brackets) ────────────────────────
+    tournament_wins = db.query(Bracket).filter(Bracket.winner == username, Bracket.teams == None).count()
     if tournament_wins >= 1:
         badges.append({"id": "champion", "label": "Bracket Champion",
                        "desc": f"Won {tournament_wins} tournament{'s' if tournament_wins != 1 else ''}",
@@ -568,7 +568,7 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
         badges.append({"id": "serial_champ", "label": "Serial Champion",
                        "desc": f"Won {tournament_wins} tournaments", "color": "#f5a623"})
     top_winner = (db.query(Bracket.winner, func.count(Bracket.id).label("cnt"))
-                  .filter(Bracket.winner.isnot(None), Bracket.winner != "")
+                  .filter(Bracket.winner.isnot(None), Bracket.winner != "", Bracket.teams == None)
                   .group_by(Bracket.winner).order_by(func.count(Bracket.id).desc()).first())
     if top_winner and top_winner.winner == username and tournament_wins >= 1:
         badges.append({"id": "tourney_king", "label": "Tournament King",
@@ -576,7 +576,7 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
 
     # Placement badges (Bronze Bomber / Silver Lining)
     completed_brackets = (db.query(Bracket)
-                          .filter(Bracket.winner.isnot(None), Bracket.winner != "")
+                          .filter(Bracket.winner.isnot(None), Bracket.winner != "", Bracket.teams == None)
                           .order_by(Bracket.created_at).all())
     second_count = third_count = 0
     for b in completed_brackets:

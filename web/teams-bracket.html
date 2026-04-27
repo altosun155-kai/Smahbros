@@ -192,6 +192,17 @@
         <div class="sidebar-card">
           <h2 id="bracketInfoTitle" style="color:var(--text);text-transform:none;font-size:1rem;margin-bottom:12px;"></h2>
           <div id="teamRoster"></div>
+
+          <!-- Live tournament share banner -->
+          <div id="liveTourneyBanner" style="display:none;background:rgba(39,174,96,0.08);border:1px solid rgba(39,174,96,0.3);border-radius:8px;padding:10px 12px;margin-top:12px;font-size:0.82rem;">
+            <div style="color:#27ae60;font-weight:700;margin-bottom:6px;">🟢 Tournament is LIVE</div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <a id="liveTourneyViewLink" href="#" target="_blank" style="color:#27ae60;text-decoration:underline;white-space:nowrap;">Open View →</a>
+              <input id="liveTourneyShareUrl" readonly style="flex:1;min-width:140px;background:rgba(0,0,0,0.3);border:1px solid rgba(39,174,96,0.35);color:#ccc;border-radius:4px;padding:2px 6px;font-size:0.76rem;" />
+              <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('liveTourneyShareUrl').value).then(()=>showToast('Link copied!','success'))" style="background:rgba(39,174,96,0.2);border:1px solid rgba(39,174,96,0.4);color:#27ae60;border-radius:4px;padding:2px 8px;font-size:0.76rem;cursor:pointer;white-space:nowrap;">Copy</button>
+            </div>
+          </div>
+
           <button class="btn btn-outline" style="width:100%;margin-top:14px;margin-bottom:8px;" onclick="endTournament()">End Tournament</button>
           <button class="btn btn-outline" style="width:100%;color:#e74c3c;border-color:rgba(231,76,60,0.4);" onclick="deleteBracket()">Delete Bracket</button>
         </div>
@@ -209,6 +220,12 @@
         <p>Configure your teams and click <strong>Generate Bracket</strong> to start.</p>
       </div>
       <div id="bracketRounds" class="bracket-rounds" style="display:none;"></div>
+
+      <!-- Save row — shown after local preview, before saving -->
+      <div id="saveBracketRow" style="display:none;margin-top:14px;display:none;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-gold btn-sm" onclick="startLiveTournament()">🏆 Start Live Tournament</button>
+        <button class="btn btn-sm" style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.5);color:#27ae60;" onclick="startLineupPhase()">📋 Lineup Phase</button>
+      </div>
     </div>
   </div>
 </main>

@@ -42,11 +42,12 @@ def _mov_multiplier(winner_kills: int, loser_kills: int) -> float:
     return 1.0 + diff * 0.25
 
 
-def _elo_change(winner_elo: int, loser_elo: int, winner_kills: int, loser_kills: int, k: int = 32) -> int:
+def _elo_change(winner_elo: int, loser_elo: int, winner_kills: int, loser_kills: int, winner_k: int, loser_k: int) -> tuple[int, int]:
+    """Returns (winner_delta, loser_delta) — separate K so each player's rating moves by their own uncertainty."""
     expected = 1 / (1 + 10 ** ((loser_elo - winner_elo) / 400))
     mov = _mov_multiplier(winner_kills, loser_kills)
-    change = round(k * (1 - expected) * mov)
-    return max(1, change)
+    surprise = 1 - expected
+    return max(1, round(winner_k * surprise * mov)), max(1, round(loser_k * surprise * mov))
 
 
 def _get_or_create_stat(db: Session, user_id: int, character: str) -> CharacterStats:
@@ -159,23 +160,23 @@ def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: 
     ws = _get_or_create_stat(db, winner.id, req.winner_char)
     ls = _get_or_create_stat(db, loser.id,  req.loser_char)
 
-    # Character-level Elo: K based on character leaderboard rank
+    # Character-level Elo: each player's K from their own character rank
     w_char_rank = db.query(CharacterStats).filter(CharacterStats.elo > (ws.elo or ELO_DEFAULT)).count() + 1
     l_char_rank = db.query(CharacterStats).filter(CharacterStats.elo > (ls.elo or ELO_DEFAULT)).count() + 1
-    char_k = (_k_factor(w_char_rank) + _k_factor(l_char_rank)) // 2
-    delta = _elo_change(ws.elo or ELO_DEFAULT, ls.elo or ELO_DEFAULT, req.winner_kills, req.loser_kills, k=char_k)
+    w_char_k = _k_factor(w_char_rank)
+    l_char_k = _k_factor(l_char_rank)
+    delta, loser_char_delta = _elo_change(ws.elo or ELO_DEFAULT, ls.elo or ELO_DEFAULT, req.winner_kills, req.loser_kills, w_char_k, l_char_k)
     ws.elo = (ws.elo or ELO_DEFAULT) + delta
-    ls.elo = max(100, (ls.elo or ELO_DEFAULT) - delta)
+    ls.elo = max(100, (ls.elo or ELO_DEFAULT) - loser_char_delta)
 
-    # Player-level Elo: K based on player leaderboard rank (#8)
+    # Player-level Elo: each player's K from their own player rank (#8)
     w_player_elo = winner.elo or ELO_DEFAULT
     l_player_elo = loser.elo  or ELO_DEFAULT
     w_player_rank = db.query(User).filter(User.elo > w_player_elo).count() + 1
     l_player_rank = db.query(User).filter(User.elo > l_player_elo).count() + 1
-    player_k = (_k_factor(w_player_rank) + _k_factor(l_player_rank)) // 2
-    player_delta = _elo_change(w_player_elo, l_player_elo, req.winner_kills, req.loser_kills, k=player_k)
-    winner.elo = w_player_elo + player_delta
-    loser.elo  = max(100, l_player_elo - player_delta)
+    w_player_delta, l_player_delta = _elo_change(w_player_elo, l_player_elo, req.winner_kills, req.loser_kills, _k_factor(w_player_rank), _k_factor(l_player_rank))
+    winner.elo = w_player_elo + w_player_delta
+    loser.elo  = max(100, l_player_elo - l_player_delta)
 
     # Points (net wins, used for seeding — kept separate from Elo)
     ws.points = (ws.points or 0) + 1

@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smash Bracket — Team Battle</title>
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/auth.js"></script>
+  <script src="js/chars.js"></script>
+  <style>
+    /* ── Layout ── */
+    .tb-layout { display: flex; gap: 24px; align-items: start; }
+    .tb-sidebar { width: 340px; flex-shrink: 0; }
+    .tb-main { flex: 1; min-width: 0; }
+    .tb-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+    .tb-card h2 { font-size: 0.88rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; }
+
+    /* ── Team Config ── */
+    .team-config-row { display: flex; gap: 10px; margin-bottom: 12px; align-items: center; }
+    .team-config-row label { font-size: 0.82rem; color: var(--text-muted); width: 120px; flex-shrink: 0; }
+    .team-config-row select, .team-config-row input { flex: 1; padding: 7px 10px; font-size: 0.85rem; }
+
+    /* ── Team Builder ── */
+    .team-block { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+    .team-block-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .team-color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .team-name-input { flex: 1; padding: 6px 10px; font-size: 0.9rem; font-weight: 700; background: transparent; border: none; border-bottom: 1px solid var(--border); color: var(--text); }
+    .team-name-input:focus { outline: none; border-bottom-color: var(--accent-blue); }
+    .team-member-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px; align-items: center; }
+    .member-player-select { padding: 5px 8px; font-size: 0.8rem; }
+    .member-char-input { padding: 5px 8px; font-size: 0.8rem; background: #0f0f17; border: 1px solid rgba(255,255,255,0.12); border-radius: 5px; color: var(--text); }
+    .member-char-input:focus { outline: none; border-color: var(--accent-blue); }
+    .team-avg-elo { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* ── Bracket Rounds ── */
+    .bracket-rounds { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 16px; }
+    .round-col { flex-shrink: 0; min-width: 210px; }
+    .round-title { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+    .round-col.grand-final .round-title { color: var(--accent-gold); }
+    .match-card { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
+    .match-card:hover { border-color: var(--accent-blue); box-shadow: 0 0 10px rgba(0,119,200,0.15); }
+    .round-col.grand-final .match-card { border-color: rgba(245,166,35,0.35); box-shadow: 0 0 16px rgba(245,166,35,0.1); background: linear-gradient(135deg, #1a150a, #16213e); }
+    .match-card.done { border-color: rgba(76,175,80,0.4); }
+    .team-slot { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 0.85rem; color: var(--text); border-bottom: 1px solid var(--border); }
+    .team-slot:last-child { border-bottom: none; }
+    .team-slot.winner { color: #ffe066; font-weight: 700; }
+    .team-slot.loser { color: var(--text-muted); opacity: 0.6; }
+    .team-slot.tbd { color: rgba(255,255,255,0.2); font-style: italic; font-size: 0.75rem; }
+    .team-slot.bye { color: var(--text-muted); font-style: italic; opacity: 0.5; font-size: 0.78rem; }
+
+    /* ── VS Modal ── */
+    #vsModal { display: none; position: fixed; inset: 0; z-index: 1000; overflow: hidden; }
+    #vsModal.open { display: flex; align-items: center; justify-content: center; }
+    .vs-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); }
+    .vs-box {
+      position: relative; z-index: 1; background: var(--card-bg);
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 18px;
+      padding: 28px 24px 22px; width: 100%; max-width: 600px; max-height: 90vh;
+      overflow-y: auto; margin: 20px;
+    }
+    .vs-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 18px; text-align: center; }
+    .vs-teams { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: start; margin-bottom: 22px; }
+    .vs-team-col { }
+    .vs-team-name { font-size: 1rem; font-weight: 800; margin-bottom: 10px; text-align: center; }
+    .vs-member { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: var(--card-bg2); border-radius: 7px; margin-bottom: 5px; }
+    .vs-member-char-icon { width: 26px; height: 26px; object-fit: contain; border-radius: 4px; flex-shrink: 0; background: rgba(255,255,255,0.05); }
+    .vs-member-name { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+    .vs-member-char { font-size: 0.75rem; color: var(--text-muted); }
+    .vs-divider { display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: 900; color: rgba(255,255,255,0.25); padding-top: 22px; }
+    .vs-buttons { display: flex; gap: 12px; }
+    .tb-win-btn {
+      flex: 1; padding: 14px 10px; font-size: 0.95rem; font-weight: 800;
+      border: none; border-radius: 10px; cursor: pointer;
+      letter-spacing: 0.5px; text-transform: uppercase;
+      transition: transform 0.1s, opacity 0.1s, box-shadow 0.15s;
+    }
+    .tb-win-btn:hover { transform: scale(1.04); opacity: 0.92; }
+    .tb-win-btn.t1 { background: #cc1111; color: #fff; }
+    .tb-win-btn.t2 { background: #1155cc; color: #fff; }
+    .vs-close-btn { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+    .vs-close-btn:hover { color: var(--text); }
+    .vs-undo-row { text-align: center; margin-top: 12px; }
+    .vs-undo-btn { background: none; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: var(--text-muted); font-size: 0.8rem; padding: 6px 14px; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
+    .vs-undo-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.35); }
+
+    /* ── Seed preview ── */
+    .seed-tag { display: inline-block; font-size: 0.65rem; font-weight: 700; background: rgba(0,119,200,0.2); color: var(--accent-blue); border-radius: 4px; padding: 1px 5px; margin-left: 5px; }
+    .elo-badge { font-size: 0.72rem; color: var(--text-muted); margin-left: auto; }
+
+    /* ── Bracket placeholder ── */
+    #bracketEmpty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    #bracketEmpty .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+    #bracketEmpty p { font-size: 0.92rem; }
+
+    /* ── Winner banner ── */
+    #winnerBanner { display: none; text-align: center; padding: 24px; background: linear-gradient(135deg, rgba(245,166,35,0.18), rgba(255,200,60,0.1)); border: 1.5px solid rgba(245,166,35,0.5); border-radius: 14px; margin-bottom: 20px; }
+    #winnerBanner.show { display: block; }
+    #winnerBanner .win-title { font-size: 0.7rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-gold); margin-bottom: 6px; }
+    #winnerBanner .win-name { font-size: 1.6rem; font-weight: 900; color: #fff; }
+
+    @media (max-width: 900px) {
+      .tb-layout { flex-direction: column; }
+      .tb-sidebar { width: 100%; }
+      .vs-teams { grid-template-columns: 1fr; }
+      .vs-divider { padding-top: 0; }
+    }
+  </style>
+</head>
+<body>
+<script>requireAuth();</script>
+<div id="toast-container"></div>
+<nav class="navbar" id="main-nav"></nav>
+
+<main class="page-container">
+  <div class="page-header">
+    <h1>👥 Team Battle Bracket</h1>
+    <p>Team vs team single-elimination. No Elo changes — just glory.</p>
+  </div>
+
+  <!-- VS Modal -->
+  <div id="vsModal">
+    <div class="vs-backdrop" onclick="closeVsModal()"></div>
+    <div class="vs-box">
+      <button class="vs-close-btn" onclick="closeVsModal()">✕</button>
+      <div class="vs-title" id="vsRoundLabel">Round 1 · Match 1</div>
+      <div class="vs-teams">
+        <div class="vs-team-col" id="vsTeamA"></div>
+        <div class="vs-divider">VS</div>
+        <div class="vs-team-col" id="vsTeamB"></div>
+      </div>
+      <div class="vs-buttons">
+        <button class="tb-win-btn t1" id="vsBtnA" onclick="recordWinner(0)"></button>
+        <button class="tb-win-btn t2" id="vsBtnB" onclick="recordWinner(1)"></button>
+      </div>
+      <div class="vs-undo-row">
+        <button class="vs-undo-btn" id="vsUndoBtn" onclick="undoCurrentMatch()" style="display:none;">Undo result</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tb-layout">
+    <!-- Sidebar -->
+    <div class="tb-sidebar">
+      <!-- Setup card (shown when no active bracket) -->
+      <div id="setupCard" class="tb-card">
+        <h2>Tournament Setup</h2>
+        <div class="team-config-row">
+          <label>Tournament Name</label>
+          <input type="text" id="tourneyName" placeholder="Friday Night Teams" maxlength="50" />
+        </div>
+        <div class="team-config-row">
+          <label>Number of Teams</label>
+          <select id="numTeams" onchange="rebuildTeamForms()">
+            <option value="2">2 Teams</option>
+            <option value="4" selected>4 Teams</option>
+            <option value="8">8 Teams</option>
+          </select>
+        </div>
+        <div class="team-config-row">
+          <label>Players per Team</label>
+          <select id="playersPerTeam" onchange="rebuildTeamForms()">
+            <option value="1">1 Player</option>
+            <option value="2" selected>2 Players</option>
+            <option value="3">3 Players</option>
+            <option value="4">4 Players</option>
+          </select>
+        </div>
+        <div class="team-config-row">
+          <label>Bracket Style</label>
+          <select id="bracketStyle">
+            <option value="strongVsStrong">Strong vs Strong (1v2, 3v4…)</option>
+            <option value="strongVsWeak">Strong vs Weak (1v8, 2v7…)</option>
+          </select>
+        </div>
+
+        <div id="teamForms" style="margin-top:16px;"></div>
+
+        <button class="btn btn-primary" style="width:100%;margin-top:8px;" onclick="generateBracket()">
+          Generate Bracket
+        </button>
+      </div>
+
+      <!-- Active bracket info (shown when bracket is live) -->
+      <div id="bracketInfoCard" class="tb-card" style="display:none;">
+        <h2 id="bracketInfoTitle">Team Battle</h2>
+        <div id="teamRoster" style="margin-bottom:14px;"></div>
+        <button class="btn btn-outline" style="width:100%;margin-bottom:8px;" onclick="endTournament()">
+          End Tournament
+        </button>
+        <button class="btn btn-outline" style="width:100%;color:#e74c3c;border-color:rgba(231,76,60,0.4);" onclick="deleteBracket()">
+          Delete
+        </button>
+      </div>
+    </div>
+
+    <!-- Main bracket area -->
+    <div class="tb-main">
+      <div id="winnerBanner">
+        <div class="win-title">🏆 Tournament Champion</div>
+        <div class="win-name" id="winnerName"></div>
+      </div>
+      <div id="bracketEmpty">
+        <div class="empty-icon">👥</div>
+        <p>Configure your teams and click <strong>Generate Bracket</strong> to start.</p>
+      </div>
+      <div id="bracketRounds" class="bracket-rounds" style="display:none;"></div>
+    </div>
+  </div>
+</main>
+
+<script src="js/nav-inject.js"></script>
+<script src="js/api.js"></script>
+<script src="js/nav.js"></script>
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let state = {
+  bracketId: null,
+  bracketName: '',
+  teams: [],        // [{name, color, members: [{player, character}]}]
+  bracketData: [],  // [{a: teamName, b: teamName}] — round 0 pairs
+  roundWinners: {}, // {r0_m0: teamName, ...}
+  isLive: false,
+  winner: null,
+};
+
+let _eloCache = null;  // [{username, character, elo}]
+let _usersCache = null;
+
+const TEAM_COLORS = [
+  '#e74c3c', '#3498db', '#2ecc71', '#f39c12',
+  '#9b59b6', '#1abc9c', '#e67e22', '#e91e63',
+];
+
+// ── Init ───────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadUsers();
+  rebuildTeamForms();
+  // Check for bracket in URL
+  const params = new URLSearchParams(location.search);
+  const bid = params.get('b');
+  if (bid) {
+    await loadBracket(parseInt(bid));
+  }
+});
+
+async function loadUsers() {
+  try {
+    const data = await apiGet('/users/all');
+    _usersCache = (data || []).map(u => u.username).sort();
+  } catch {
+    _usersCache = [];
+  }
+}
+
+async function getEloCache() {
+  if (_eloCache) return _eloCache;
+  try {
+    _eloCache = await apiGet('/characters/stats/leaderboard/elo');
+  } catch {
+    _eloCache = [];
+  }
+  return _eloCache;
+}
+
+function charElo(lb, username, character) {
+  if (!lb) return 1000;
+  const row = lb.find(r => r.username === username && r.character === character);
+  return row ? row.elo : 1000;
+}
+
+// ── Team forms ─────────────────────────────────────────────────────────────
+function rebuildTeamForms() {
+  const n = parseInt(document.getElementById('numTeams').value);
+  const ppt = parseInt(document.getElementById('playersPerTeam').value);
+  const container = document.getElementById('teamForms');
+  container.innerHTML = '';
+
+  for (let t = 0; t < n; t++) {
+    const color = TEAM_COLORS[t % TEAM_COLORS.length];
+    const block = document.createElement('div');
+    block.className = 'team-block';
+    block.dataset.teamIndex = t;
+
+    let memberRows = '';
+    for (let m = 0; m < ppt; m++) {
+      memberRows += `
+        <div class="team-member-row">
+          <select class="member-player-select" data-team="${t}" data-member="${m}">
+            <option value="">— player —</option>
+            ${(_usersCache || []).map(u => `<option value="${u}">${u}</option>`).join('')}
+          </select>
+          <input class="member-char-input" list="charlist" placeholder="Character"
+                 data-team="${t}" data-member="${m}" autocomplete="off" />
+        </div>`;
+    }
+
+    block.innerHTML = `
+      <div class="team-block-header">
+        <div class="team-color-dot" style="background:${color}"></div>
+        <input class="team-name-input" value="Team ${t + 1}" maxlength="24" />
+      </div>
+      ${memberRows}
+      <div class="team-avg-elo" id="avgElo${t}">Avg Elo: —</div>`;
+
+    container.appendChild(block);
+  }
+
+  // Character datalist
+  if (!document.getElementById('charlist')) {
+    const dl = document.createElement('datalist');
+    dl.id = 'charlist';
+    (SMASH_ROSTER || []).forEach(c => {
+      const o = document.createElement('option');
+      o.value = c;
+      dl.appendChild(o);
+    });
+    document.body.appendChild(dl);
+  }
+
+  // Live Elo preview on character change
+  container.querySelectorAll('.member-char-input').forEach(inp => {
+    inp.addEventListener('input', () => updateTeamEloPreview(parseInt(inp.dataset.team)));
+  });
+  container.querySelectorAll('.member-player-select').forEach(sel => {
+    sel.addEventListener('change', () => updateTeamEloPreview(parseInt(sel.dataset.team)));
+  });
+}
+
+async function updateTeamEloPreview(teamIdx) {
+  const lb = await getEloCache();
+  const block = document.querySelector(`[data-team-index="${teamIdx}"]`);
+  if (!block) return;
+  const playerSels = block.querySelectorAll('.member-player-select');
+  const charInputs = block.querySelectorAll('.member-char-input');
+  let total = 0, count = 0;
+  playerSels.forEach((sel, i) => {
+    const player = sel.value;
+    const char = charInputs[i]?.value.trim();
+    if (player && char) {
+      total += charElo(lb, player, char);
+      count++;
+    }
+  });
+  const el = document.getElementById(`avgElo${teamIdx}`);
+  if (el) el.textContent = count > 0 ? `Avg Elo: ${Math.round(total / count)}` : 'Avg Elo: —';
+}
+
+// ── Collect teams from form ────────────────────────────────────────────────
+function collectTeams() {
+  const blocks = document.querySelectorAll('.team-block');
+  const teams = [];
+  blocks.forEach((block, t) => {
+    const name = block.querySelector('.team-name-input').value.trim() || `Team ${t + 1}`;
+    const color = TEAM_COLORS[t % TEAM_COLORS.length];
+    const playerSels = block.querySelectorAll('.member-player-select');
+    const charInputs = block.querySelectorAll('.member-char-input');
+    const members = [];
+    playerSels.forEach((sel, i) => {
+      const player = sel.value;
+      const character = charInputs[i]?.value.trim();
+      if (player) members.push({ player, character: character || '' });
+    });
+    teams.push({ name, color, members });
+  });
+  return teams;
+}
+
+// ── Seed & bracket generation ──────────────────────────────────────────────
+async function generateBracket() {
+  const name = document.getElementById('tourneyName').value.trim() || 'Team Battle';
+  const teams = collectTeams();
+  if (teams.length < 2) { showToast('Need at least 2 teams.', 'error'); return; }
+
+  // Compute avg Elo per team
+  const lb = await getEloCache();
+  const teamsWithElo = teams.map(t => {
+    const elos = t.members.filter(m => m.player).map(m => charElo(lb, m.player, m.character));
+    const avg = elos.length ? Math.round(elos.reduce((a, b) => a + b, 0) / elos.length) : 1000;
+    return { ...t, avgElo: avg };
+  });
+
+  // Sort by Elo desc (seed 1 = highest)
+  teamsWithElo.sort((a, b) => b.avgElo - a.avgElo);
+
+  // Pad to power of 2
+  const n = teams.length;
+  let size = 2;
+  while (size < n) size *= 2;
+  const seeded = [...teamsWithElo];
+  while (seeded.length < size) seeded.push({ name: 'BYE', color: '#555', members: [], avgElo: 0, isBye: true });
+
+  // Build bracket pairs
+  const style = document.getElementById('bracketStyle').value;
+  const pairs = [];
+  if (style === 'strongVsWeak') {
+    for (let i = 0; i < size / 2; i++) {
+      pairs.push({ a: seeded[i].name, b: seeded[size - 1 - i].name });
+    }
+  } else {
+    // strongVsStrong: 1v2, 3v4, ...
+    for (let i = 0; i < size; i += 2) {
+      pairs.push({ a: seeded[i].name, b: seeded[i + 1].name });
+    }
+  }
+
+  // Build teams dict for storage: {teamName: [{player, character}]}
+  const teamsDict = {};
+  teamsWithElo.forEach(t => { teamsDict[t.name] = t.members; });
+
+  try {
+    const res = await apiPost('/brackets', {
+      name,
+      mode: 'team_battle',
+      bracket_data: pairs,
+      bracket_style: style,
+      is_live: true,
+      teams: teamsDict,
+    });
+    if (res.id) {
+      await loadBracket(res.id);
+      history.pushState({}, '', `?b=${res.id}`);
+    }
+  } catch (e) {
+    showToast('Failed to create bracket.', 'error');
+  }
+}
+
+// ── Load bracket from API ──────────────────────────────────────────────────
+async function loadBracket(bracketId) {
+  try {
+    const data = await apiGet(`/brackets/${bracketId}`);
+    state.bracketId = data.id;
+    state.bracketName = data.name;
+    state.bracketData = data.bracket_data || [];
+    state.roundWinners = data.round_winners || {};
+    state.isLive = data.is_live;
+    state.winner = data.winner || null;
+
+    // Reconstruct teams array from stored dict
+    const teamsDict = data.teams || {};
+    state.teams = Object.entries(teamsDict).map(([name, members], i) => ({
+      name,
+      color: TEAM_COLORS[i % TEAM_COLORS.length],
+      members: members || [],
+    }));
+
+    await initializeByes();
+    renderBracket();
+    showBracketUI();
+  } catch {
+    showToast('Bracket not found.', 'error');
+  }
+}
+
+// ── Show/hide UI sections ──────────────────────────────────────────────────
+function showBracketUI() {
+  document.getElementById('setupCard').style.display = 'none';
+  document.getElementById('bracketInfoCard').style.display = 'block';
+  document.getElementById('bracketRounds').style.display = 'flex';
+  document.getElementById('bracketEmpty').style.display = 'none';
+
+  document.getElementById('bracketInfoTitle').textContent = state.bracketName;
+  renderRoster();
+
+  if (state.winner) {
+    document.getElementById('winnerName').textContent = state.winner;
+    document.getElementById('winnerBanner').classList.add('show');
+  } else {
+    document.getElementById('winnerBanner').classList.remove('show');
+  }
+}
+
+function renderRoster() {
+  const el = document.getElementById('teamRoster');
+  el.innerHTML = state.teams.map(t => `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <div style="width:9px;height:9px;border-radius:50%;background:${t.color};flex-shrink:0;"></div>
+      <div>
+        <div style="font-size:0.88rem;font-weight:700;">${t.name}</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);">${t.members.map(m => m.player + (m.character ? ` (${m.character})` : '')).join(', ') || 'No members'}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Auto-advance BYE matches ───────────────────────────────────────────────
+async function initializeByes() {
+  const promises = [];
+  state.bracketData.forEach((pair, mi) => {
+    const key = `r0_m${mi}`;
+    if (state.roundWinners[key]) return;
+    let autoWinner = null;
+    if (pair.a === 'BYE' && pair.b && pair.b !== 'BYE') autoWinner = pair.b;
+    else if (pair.b === 'BYE' && pair.a && pair.a !== 'BYE') autoWinner = pair.a;
+    if (autoWinner) {
+      state.roundWinners[key] = autoWinner;
+      promises.push(apiPatch(`/brackets/${state.bracketId}/winner`, { key, winner: autoWinner }));
+    }
+  });
+  if (promises.length) await Promise.all(promises);
+}
+
+// ── Render bracket ─────────────────────────────────────────────────────────
+function getRoundsData() {
+  const rounds = [{}];
+  state.bracketData.forEach((pair, mi) => {
+    rounds[0][mi] = [pair.a, pair.b];
+  });
+  let ri = 0;
+  while (Object.keys(rounds[ri]).length > 1) {
+    const prev = rounds[ri];
+    const next = {};
+    const mis = Object.keys(prev).map(Number).sort((a, b) => a - b);
+    for (let j = 0; j < mis.length; j += 2) {
+      if (j + 1 >= mis.length) break;
+      const [ma, mb] = [mis[j], mis[j + 1]];
+      next[j / 2] = [
+        state.roundWinners[`r${ri}_m${ma}`] || '',
+        state.roundWinners[`r${ri}_m${mb}`] || '',
+      ];
+    }
+    rounds.push(next);
+    ri++;
+  }
+  return rounds;
+}
+
+function roundLabel(ri, totalRounds) {
+  const remaining = totalRounds - 1 - ri;
+  if (remaining === 0) return 'Grand Final';
+  if (remaining === 1) return 'Semifinals';
+  if (remaining === 2) return 'Quarterfinals';
+  return `Round ${ri + 1}`;
+}
+
+function teamColor(name) {
+  const t = state.teams.find(x => x.name === name);
+  return t ? t.color : '#888';
+}
+
+function teamMembers(name) {
+  const t = state.teams.find(x => x.name === name);
+  return t ? t.members : [];
+}
+
+function charImgUrl(character) {
+  if (!character || !SMASH_ROSTER) return '';
+  const override = typeof CHAR_FILE_OVERRIDES !== 'undefined' && CHAR_FILE_OVERRIDES[character];
+  const filename = override || `${character}.png`;
+  return `${SUPABASE_CHARS}${encodeURIComponent(filename)}`;
+}
+
+function renderBracket() {
+  const rounds = getRoundsData();
+  const container = document.getElementById('bracketRounds');
+  container.innerHTML = '';
+  const totalRounds = rounds.length;
+
+  rounds.forEach((roundMatches, ri) => {
+    const col = document.createElement('div');
+    col.className = 'round-col' + (ri === totalRounds - 1 ? ' grand-final' : '');
+    col.innerHTML = `<div class="round-title">${roundLabel(ri, totalRounds)}</div>`;
+
+    Object.keys(roundMatches).map(Number).sort((a, b) => a - b).forEach(mi => {
+      const [aName, bName] = roundMatches[mi];
+      const key = `r${ri}_m${mi}`;
+      const winner = state.roundWinners[key] || '';
+      const isDone = !!winner;
+      const isBye = aName === 'BYE' || bName === 'BYE';
+
+      const card = document.createElement('div');
+      card.className = 'match-card' + (isDone ? ' done' : '');
+      if (!isBye) card.onclick = () => openVsModal(ri, mi, aName, bName, key);
+
+      card.innerHTML = makeTeamSlotHtml(aName, winner === aName, winner !== '' && winner !== aName, ri === 0 && !aName) +
+                       makeTeamSlotHtml(bName, winner === bName, winner !== '' && winner !== bName, ri === 0 && !bName);
+      col.appendChild(card);
+    });
+
+    container.appendChild(col);
+  });
+}
+
+function makeTeamSlotHtml(name, isWinner, isLoser, isEmpty) {
+  if (!name || isEmpty) return `<div class="team-slot tbd">TBD</div>`;
+  if (name === 'BYE') return `<div class="team-slot bye">BYE</div>`;
+  const cls = isWinner ? 'winner' : isLoser ? 'loser' : '';
+  const dot = `<div style="width:8px;height:8px;border-radius:50%;background:${teamColor(name)};flex-shrink:0;"></div>`;
+  return `<div class="team-slot ${cls}">${dot}${name}${isWinner ? ' 🏆' : ''}</div>`;
+}
+
+// ── VS Modal ───────────────────────────────────────────────────────────────
+let _vsState = null;
+
+function openVsModal(ri, mi, aName, bName, key) {
+  _vsState = { ri, mi, aName, bName, key };
+
+  const rounds = getRoundsData();
+  const totalRounds = Object.keys(rounds).length;
+  document.getElementById('vsRoundLabel').textContent = `${roundLabel(ri, totalRounds)} · Match ${mi + 1}`;
+
+  renderVsTeam('vsTeamA', aName, '#cc1111');
+  renderVsTeam('vsTeamB', bName, '#1155cc');
+
+  document.getElementById('vsBtnA').textContent = `${aName} Wins`;
+  document.getElementById('vsBtnB').textContent = `${bName} Wins`;
+
+  const existingWinner = state.roundWinners[key];
+  const undoBtn = document.getElementById('vsUndoBtn');
+  undoBtn.style.display = existingWinner ? 'inline-block' : 'none';
+
+  document.getElementById('vsModal').classList.add('open');
+}
+
+function renderVsTeam(elId, teamName, accentColor) {
+  const el = document.getElementById(elId);
+  if (!teamName) {
+    el.innerHTML = `<div class="vs-team-name" style="color:${accentColor}">TBD</div>`;
+    return;
+  }
+  const members = teamMembers(teamName);
+  const memberHtml = members.length
+    ? members.map(m => {
+        const imgUrl = m.character ? charImgUrl(m.character) : '';
+        const imgTag = imgUrl
+          ? `<img class="vs-member-char-icon" src="${imgUrl}" alt="" onerror="this.style.display='none'" />`
+          : '';
+        return `
+          <div class="vs-member">
+            ${imgTag}
+            <div>
+              <div class="vs-member-name">${m.player || '?'}</div>
+              <div class="vs-member-char">${m.character || 'Unknown'}</div>
+            </div>
+          </div>`;
+      }).join('')
+    : '<div style="color:var(--text-muted);font-size:0.82rem;padding:8px;">No members</div>';
+
+  el.innerHTML = `<div class="vs-team-name" style="color:${accentColor}">${teamName}</div>${memberHtml}`;
+}
+
+function closeVsModal() {
+  document.getElementById('vsModal').classList.remove('open');
+  _vsState = null;
+}
+
+async function recordWinner(side) {
+  if (!_vsState) return;
+  const { aName, bName, key, ri } = _vsState;
+  const winnerName = side === 0 ? aName : bName;
+
+  const rounds = getRoundsData();
+  const isGrandFinal = ri === rounds.length - 1;
+
+  try {
+    await apiPatch(`/brackets/${state.bracketId}/winner`, {
+      key,
+      winner: winnerName,
+      tournament_winner: isGrandFinal ? winnerName : null,
+    });
+    state.roundWinners[key] = winnerName;
+    if (isGrandFinal) state.winner = winnerName;
+
+    renderBracket();
+    closeVsModal();
+
+    if (isGrandFinal) {
+      document.getElementById('winnerName').textContent = winnerName;
+      document.getElementById('winnerBanner').classList.add('show');
+    }
+  } catch {
+    showToast('Failed to record result.', 'error');
+  }
+}
+
+async function undoCurrentMatch() {
+  if (!_vsState) return;
+  const { key } = _vsState;
+  try {
+    // Re-save with empty winner to clear it
+    await apiPatch(`/brackets/${state.bracketId}/winner`, { key, winner: '' });
+    delete state.roundWinners[key];
+    state.winner = null;
+    document.getElementById('winnerBanner').classList.remove('show');
+    renderBracket();
+    closeVsModal();
+    showToast('Result undone.', 'success');
+  } catch {
+    showToast('Failed to undo.', 'error');
+  }
+}
+
+// ── End / Delete ───────────────────────────────────────────────────────────
+async function endTournament() {
+  if (!confirm('End this tournament? This cannot be undone.')) return;
+  try {
+    await apiPatch(`/brackets/${state.bracketId}/end`, {});
+    state.isLive = false;
+    showToast('Tournament ended.', 'success');
+  } catch {
+    showToast('Failed to end tournament.', 'error');
+  }
+}
+
+async function deleteBracket() {
+  if (!confirm('Delete this bracket permanently?')) return;
+  try {
+    await apiDelete(`/brackets/${state.bracketId}`);
+    state.bracketId = null;
+    document.getElementById('setupCard').style.display = 'block';
+    document.getElementById('bracketInfoCard').style.display = 'none';
+    document.getElementById('bracketRounds').style.display = 'none';
+    document.getElementById('bracketEmpty').style.display = 'block';
+    document.getElementById('winnerBanner').classList.remove('show');
+    history.pushState({}, '', location.pathname);
+    showToast('Bracket deleted.', 'success');
+  } catch {
+    showToast('Failed to delete.', 'error');
+  }
+}
+
+function showToast(msg, type = 'info') {
+  _showToast(msg, type);
+}
+</script>
+</body>
+</html>

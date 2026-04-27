@@ -9,7 +9,6 @@ from auth import get_db, get_current_user
 
 router = APIRouter(tags=["matches"])
 
-K_FACTOR = 32
 ELO_DEFAULT = 1000
 
 
@@ -24,31 +23,44 @@ class MatchRecord(BaseModel):
     match_key: str | None = None
 
 
+def _k_factor(rank: int) -> int:
+    """Dynamic K based on leaderboard position: top 10 are stable, lower ranks move faster."""
+    if rank <= 10:
+        return 10
+    if rank <= 25:
+        return 20
+    return 40
+
+
 def _mov_multiplier(winner_kills: int, loser_kills: int) -> float:
-    """Margin of victory multiplier based on stock difference."""
+    """MoV scaling: 3-2→1.25x, 3-1→1.5x, 3-0→2x (clean sweep bonus)."""
     if winner_kills == 0 and loser_kills == 0:
-        return 1.0  # no score recorded — neutral
-    diff = winner_kills - loser_kills
+        return 1.0
+    diff = max(0, winner_kills - loser_kills)
     if diff >= 3:
-        return 2.0   # 3-0, dominant
-    elif diff == 2:
-        return 1.5  # 3-1, comfortable
-    else:
-        return 1.0   # 3-2, close but a win is a win
+        return 2.0
+    return 1.0 + diff * 0.25
 
 
-def _elo_change(winner_elo: int, loser_elo: int, winner_kills: int, loser_kills: int, k: int = K_FACTOR) -> int:
+def _elo_change(winner_elo: int, loser_elo: int, winner_kills: int, loser_kills: int, k: int = 32) -> int:
     expected = 1 / (1 + 10 ** ((loser_elo - winner_elo) / 400))
     mov = _mov_multiplier(winner_kills, loser_kills)
     change = round(k * (1 - expected) * mov)
-    return max(1, change)  # always at least 1 point exchanged
+    return max(1, change)
 
 
 def _get_or_create_stat(db: Session, user_id: int, character: str) -> CharacterStats:
     row = db.query(CharacterStats).filter_by(user_id=user_id, character=character).first()
     if row is None:
         try:
-            row = CharacterStats(user_id=user_id, character=character, points=0, elo=ELO_DEFAULT, kills=0, deaths=0, wins=0, losses=0)
+            # New character starts at player's existing avg Elo — not always 1000 (#9)
+            existing = db.query(CharacterStats).filter_by(user_id=user_id).all()
+            start_elo = (
+                round(sum(s.elo or ELO_DEFAULT for s in existing) / len(existing))
+                if existing else ELO_DEFAULT
+            )
+            row = CharacterStats(user_id=user_id, character=character, points=0,
+                                 elo=start_elo, kills=0, deaths=0, wins=0, losses=0)
             db.add(row)
             db.flush()
         except IntegrityError:
@@ -61,7 +73,7 @@ def _get_or_create_stat(db: Session, user_id: int, character: str) -> CharacterS
 def char_elo_history(
     username: str,
     character: str,
-    limit: int = 5,
+    limit: int = 20,
     db: Session = Depends(get_db),
     _current_user: User = Depends(get_current_user),
 ):
@@ -147,10 +159,23 @@ def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: 
     ws = _get_or_create_stat(db, winner.id, req.winner_char)
     ls = _get_or_create_stat(db, loser.id,  req.loser_char)
 
-    # Elo exchange — K is always fixed at 32 for individual matches
-    delta = _elo_change(ws.elo or ELO_DEFAULT, ls.elo or ELO_DEFAULT, req.winner_kills, req.loser_kills)
+    # Character-level Elo: K based on character leaderboard rank
+    w_char_rank = db.query(CharacterStats).filter(CharacterStats.elo > (ws.elo or ELO_DEFAULT)).count() + 1
+    l_char_rank = db.query(CharacterStats).filter(CharacterStats.elo > (ls.elo or ELO_DEFAULT)).count() + 1
+    char_k = (_k_factor(w_char_rank) + _k_factor(l_char_rank)) // 2
+    delta = _elo_change(ws.elo or ELO_DEFAULT, ls.elo or ELO_DEFAULT, req.winner_kills, req.loser_kills, k=char_k)
     ws.elo = (ws.elo or ELO_DEFAULT) + delta
-    ls.elo = max(100, (ls.elo or ELO_DEFAULT) - delta)  # floor at 100
+    ls.elo = max(100, (ls.elo or ELO_DEFAULT) - delta)
+
+    # Player-level Elo: K based on player leaderboard rank (#8)
+    w_player_elo = winner.elo or ELO_DEFAULT
+    l_player_elo = loser.elo  or ELO_DEFAULT
+    w_player_rank = db.query(User).filter(User.elo > w_player_elo).count() + 1
+    l_player_rank = db.query(User).filter(User.elo > l_player_elo).count() + 1
+    player_k = (_k_factor(w_player_rank) + _k_factor(l_player_rank)) // 2
+    player_delta = _elo_change(w_player_elo, l_player_elo, req.winner_kills, req.loser_kills, k=player_k)
+    winner.elo = w_player_elo + player_delta
+    loser.elo  = max(100, l_player_elo - player_delta)
 
     # Points (net wins, used for seeding — kept separate from Elo)
     ws.points = (ws.points or 0) + 1

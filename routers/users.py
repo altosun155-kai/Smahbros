@@ -158,12 +158,10 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
                  .order_by(func.max(CharacterStats.elo).desc())
                  .limit(1).all()}
 
-    # Demon Slayer: beat current #1 elo player 3+ times
-    demon_slayer_uids: set = set()
-    if top3_uids:
-        top1_uid = next(iter(top3_uids))
-        demon_counter = Counter(m.winner_id for m in all_matches if m.loser_id == top1_uid and m.winner_id != top1_uid)
-        demon_slayer_uids = {uid for uid, cnt in demon_counter.items() if cnt >= 3}
+    # Demon Slayer: 5+ upset wins (elo_delta >= 20 = beat a significantly stronger player)
+    # This is stable — doesn't shift when #1 changes (#18)
+    upset_counter = Counter(m.winner_id for m in all_matches if (m.elo_delta or 0) >= 20)
+    demon_slayer_uids = {uid for uid, cnt in upset_counter.items() if cnt >= 5}
 
     # The Wall: ≥80% wins over last 20 matches
     the_wall_uids: set = set()
@@ -649,16 +647,13 @@ def get_badges(username: str, db: Session = Depends(get_db), current_user: User 
         badges.append({"id": "top3", "label": "Top Performer",
                        "desc": "#1 on the character leaderboard", "color": "#9b59b6"})
 
-    # Demon Slayer: beat current #1 at least 3 times
-    if top3_ids:
-        top1_id = next(iter(top3_ids))
-        if top1_id != user.id:
-            slayed_count = db.query(MatchResult).filter(
-                MatchResult.winner_id == user.id, MatchResult.loser_id == top1_id
-            ).count()
-            if slayed_count >= 3:
-                badges.append({"id": "demon_slayer", "label": "Demon Slayer",
-                               "desc": f"Defeated the #1 ranked player {slayed_count}x", "color": "#ff5722"})
+    # Demon Slayer: 5+ upset wins (elo_delta >= 20) — stable, doesn't shift with #1 (#18)
+    upset_wins = db.query(MatchResult).filter(
+        MatchResult.winner_id == user.id, MatchResult.elo_delta >= 20
+    ).count()
+    if upset_wins >= 5:
+        badges.append({"id": "demon_slayer", "label": "Demon Slayer",
+                       "desc": f"{upset_wins} upset wins against stronger opponents", "color": "#ff5722"})
 
     user_matches = (db.query(MatchResult)
                     .filter(or_(MatchResult.winner_id == user.id, MatchResult.loser_id == user.id))

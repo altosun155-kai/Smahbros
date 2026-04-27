@@ -40,6 +40,7 @@ def _run_migrations():
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS confirmed_lineups JSONB DEFAULT '{}'"))
             conn.execute(text("ALTER TABLE tournament_presets ADD COLUMN IF NOT EXISTS pool_mode VARCHAR DEFAULT 'slot'"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS featured_badge VARCHAR"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS elo INTEGER DEFAULT 1000"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS teams JSONB DEFAULT NULL"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS placements JSONB DEFAULT NULL"))
             conn.execute(text("ALTER TABLE character_stats ADD COLUMN IF NOT EXISTS sacrifices INTEGER DEFAULT 0"))
@@ -157,6 +158,8 @@ def _run_migrations():
                 conn.execute(text("ALTER TABLE users ADD COLUMN featured_badge VARCHAR"))
             if "is_admin" not in u_cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0"))
+            if "elo" not in u_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN elo INTEGER DEFAULT 1000"))
             conn.execute(text("UPDATE users SET is_admin = 1 WHERE username = 'kai'"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_winner_id  ON match_results(winner_id)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_loser_id   ON match_results(loser_id)"))

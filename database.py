@@ -37,6 +37,7 @@ class User(Base):
     last_seen       = Column(DateTime, nullable=True)
     featured_badge  = Column(String, nullable=True)
     is_admin        = Column(Boolean, default=False, nullable=False)
+    elo             = Column(Integer, default=1000, nullable=False)
     created_at      = Column(DateTime, default=_now)
 
     brackets          = relationship("Bracket", back_populates="owner", cascade="all, delete-orphan")

@@ -263,10 +263,13 @@
             <tr>
               <th>Rank</th>
               <th>Player</th>
+              <th title="Player Elo — rated across all matches regardless of character">Elo</th>
               <th>Wins</th>
               <th>Losses</th>
+              <th title="Win rate (requires 5+ games to qualify for ranking)">Win %</th>
               <th>Kills</th>
               <th>Sessions</th>
+              <th title="Hover to see all earned badges">Badges</th>
             </tr>
           </thead>
           <tbody id="globalBody"></tbody>
@@ -290,12 +293,12 @@
             <tr>
               <th style="width:44px;">Rank</th>
               <th>Player</th>
-              <th>Chars</th>
-              <th>Games</th>
-              <th>Avg Elo</th>
-              <th>Avg K/D</th>
-              <th>Avg Win%</th>
-              <th>Avg Rank</th>
+              <th title="Number of distinct characters played">Chars</th>
+              <th title="Total matches recorded across all characters">Games</th>
+              <th title="Weighted: Σ(elo × win%) ÷ chars played. Pulls Elo up by how often you win with each character.">Avg Elo ⓘ</th>
+              <th title="Weighted K/D: Σ(kd × elo) ÷ Σ(elo). Higher-Elo characters count more toward your K/D.">Avg K/D ⓘ</th>
+              <th title="True win rate: total wins ÷ total games across all characters.">Avg Win% ⓘ</th>
+              <th title="Average leaderboard rank across your characters (lower = better). Only counts characters with 3+ games.">Avg Rank ⓘ</th>
             </tr>
           </thead>
           <tbody id="avgBody"></tbody>
@@ -494,17 +497,32 @@
 
       document.getElementById('globalTableWrap').style.display = 'block';
       const body = document.getElementById('globalBody');
+
+      // Fetch all badges once for badge column (#16)
+      let allBadgeMap = {};
+      try { allBadgeMap = await apiGet('/users/badges/all') || {}; } catch (_) {}
+
       body.innerHTML = data.map((u, i) => {
         const isMine     = u.username === myUsername;
         const rowClass   = isMine ? 'char-row-mine' : (i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '');
         const rankSymbol = i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
+        const pctColor   = u.win_rate != null ? (u.win_rate >= 60 ? '#27ae60' : u.win_rate >= 40 ? '#ffe066' : '#e74c3c') : 'var(--text-muted)';
+        const pctStr     = u.win_rate != null ? `${u.win_rate}%` : '—';
+
+        // Featured badge pill — click profile for full badge list (#16)
+        const badgeEntry = allBadgeMap[u.username];
+        const badgeHtml  = badgeEntry && typeof badgePill === 'function' ? badgePill(badgeEntry) : '';
+
         return `<tr class="${rowClass}">
           <td style="font-weight:700;">${rankSymbol}</td>
           <td style="font-weight:600;">${escHtml(u.username)}</td>
+          <td style="font-weight:800;color:var(--accent-gold);">${u.player_elo ?? 1000}</td>
           <td style="color:#27ae60;font-weight:700;">${u.wins || 0}</td>
           <td style="color:#e74c3c;font-weight:700;">${u.losses || 0}</td>
+          <td style="font-weight:800;color:${pctColor};">${pctStr}</td>
           <td style="color:#e67e22;font-weight:700;">${u.kills || 0}</td>
           <td>${u.sessions || 0}</td>
+          <td>${badgeHtml}</td>
         </tr>`;
       }).join('');
     } catch (err) {
@@ -515,25 +533,17 @@
 
   async function loadH2HMatrix() {
     try {
-      const data = await apiGet('/leaderboard');
-      if (!data || data.length < 2) {
+      // Single endpoint — one query instead of N*(N-1)/2 requests (#10)
+      const [lbData, matrix] = await Promise.all([
+        apiGet('/leaderboard'),
+        apiGet('/leaderboard/h2h-matrix'),
+      ]);
+      if (!lbData || lbData.length < 2) {
         document.getElementById('matrixLoading').style.display = 'none';
         document.getElementById('matrixEmpty').style.display = 'block';
         return;
       }
-      const players = data.slice(0, 8); // cap at 8 players
-      const n = players.length;
-
-      // Fetch all unique pairs in parallel
-      const h2h = {};
-      await Promise.all(players.flatMap((p1, i) =>
-        players.slice(i + 1).map((p2, k) => {
-          const j = i + 1 + k;
-          return apiGet(`/users/${encodeURIComponent(p1.username)}/h2h/${encodeURIComponent(p2.username)}`)
-            .then(d => { h2h[`${i}_${j}`] = d; }).catch(() => {});
-        })
-      ));
-
+      const players = lbData.slice(0, 8);
       const avFallback = u => `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}`;
 
       let html = '<thead><tr><th></th>';
@@ -545,20 +555,18 @@
       });
       html += '</tr></thead><tbody>';
 
-      players.forEach((rowP, i) => {
+      players.forEach(rowP => {
         const isMe = rowP.username === myUsername;
         html += `<tr${isMe ? ' class="matrix-me"' : ''}>`;
         html += `<td><div style="display:flex;align-items:center;gap:8px;">
           <img class="user-av" src="${rowP.avatar_url || avFallback(rowP.username)}" onerror="this.src='${avFallback(rowP.username)}'" />
           <strong>${escHtml(rowP.username)}</strong></div></td>`;
-        players.forEach((colP, j) => {
-          if (i === j) { html += '<td class="matrix-self">—</td>'; return; }
-          const key = i < j ? `${i}_${j}` : `${j}_${i}`;
-          const d = h2h[key];
-          if (!d || d.total === 0) { html += '<td style="color:var(--text-muted);font-size:0.8rem;">0–0</td>'; return; }
-          const wins   = i < j ? d.user1_wins : d.user2_wins;
-          const losses = i < j ? d.user2_wins : d.user1_wins;
-          const cls    = wins > losses ? 'matrix-win' : wins < losses ? 'matrix-loss' : 'matrix-even';
+        players.forEach(colP => {
+          if (rowP.username === colP.username) { html += '<td class="matrix-self">—</td>'; return; }
+          const wins   = (matrix[rowP.username] || {})[colP.username] || 0;
+          const losses = (matrix[colP.username] || {})[rowP.username] || 0;
+          if (wins + losses === 0) { html += '<td style="color:var(--text-muted);font-size:0.8rem;">0–0</td>'; return; }
+          const cls = wins > losses ? 'matrix-win' : wins < losses ? 'matrix-loss' : 'matrix-even';
           html += `<td class="${cls}" title="${wins}W ${losses}L vs ${escHtml(colP.username)}">${wins}–${losses}</td>`;
         });
         html += '</tr>';
@@ -704,17 +712,43 @@
     }
   }
 
+  function makeSparkline(deltas) {
+    const points = [0];
+    let sum = 0;
+    deltas.forEach(d => { sum += d; points.push(sum); });
+    const W = 320, H = 52, pad = 6;
+    const minV = Math.min(...points);
+    const maxV = Math.max(...points);
+    const range = maxV - minV || 1;
+    const n = points.length;
+    const px = i => pad + (i / (n - 1)) * (W - pad * 2);
+    const py = v => H - pad - ((v - minV) / range) * (H - pad * 2);
+    const zero = Math.max(pad, Math.min(H - pad, py(0)));
+    const pts = points.map((v, i) => `${px(i).toFixed(1)},${py(v).toFixed(1)}`).join(' ');
+    const color = sum >= 0 ? '#27ae60' : '#e74c3c';
+    const lastX = px(n - 1), lastY = py(points[n - 1]);
+    const sign = sum >= 0 ? '+' : '';
+    return `<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block;margin-bottom:12px;border-radius:6px;background:rgba(255,255,255,0.03);">
+      <line x1="${pad}" y1="${zero.toFixed(1)}" x2="${W - pad}" y2="${zero.toFixed(1)}" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+      <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="3" fill="${color}"/>
+      <text x="${W - pad - 2}" y="${Math.max(14, lastY - 6).toFixed(1)}" text-anchor="end" fill="${color}" font-size="11" font-weight="700" style="font-family:monospace">${sign}${sum}</text>
+    </svg>`;
+  }
+
   async function openEloHist(username, character) {
     document.getElementById('eloHistTitle').textContent = `${character} — ${username}`;
     document.getElementById('eloHistBody').innerHTML = '<div id="eloHistSpinner">Loading…</div>';
     document.getElementById('eloHistModal').classList.add('open');
     try {
-      const data = await apiGet(`/matches/history?username=${encodeURIComponent(username)}&character=${encodeURIComponent(character)}&limit=5`);
+      const data = await apiGet(`/matches/history?username=${encodeURIComponent(username)}&character=${encodeURIComponent(character)}&limit=20`);
       if (!data || data.length === 0) {
         document.getElementById('eloHistBody').innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;padding:8px 0;">No matches recorded yet.</div>';
         return;
       }
-      document.getElementById('eloHistBody').innerHTML = data.map(r => {
+      const oldest = [...data].reverse();
+      const sparkHtml = oldest.length >= 2 ? makeSparkline(oldest.map(r => r.elo_delta)) : '';
+      document.getElementById('eloHistBody').innerHTML = sparkHtml + data.map(r => {
         const sign = r.elo_delta >= 0 ? '+' : '';
         const color = r.elo_delta >= 0 ? '#27ae60' : '#e74c3c';
         const outcome = r.won ? '<span style="color:#27ae60;font-weight:700;">W</span>' : '<span style="color:#e74c3c;font-weight:700;">L</span>';

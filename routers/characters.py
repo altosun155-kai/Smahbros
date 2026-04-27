@@ -1,3 +1,5 @@
+import time
+import threading
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -6,6 +8,10 @@ from datetime import datetime
 from sqlalchemy import or_, and_
 from database import User, CharacterRanking, CharacterStats, FavoriteCharacters, Friendship, CharacterMatchup
 from auth import get_db, get_current_user
+
+_avg_cache: dict = {"data": None, "ts": 0.0}
+_avg_lock  = threading.Lock()
+_AVG_TTL   = 60.0
 
 router = APIRouter(tags=["characters"])
 
@@ -232,14 +238,15 @@ def kills_leaderboard(db: Session = Depends(get_db)):
 
 @router.get("/characters/stats/leaderboard/winpct")
 def winpct_leaderboard(db: Session = Depends(get_db)):
-    rows = db.query(CharacterStats).all()
+    # Filter at SQL level (#5)
+    rows = db.query(CharacterStats).filter(
+        (CharacterStats.wins + CharacterStats.losses) >= 3
+    ).all()
     results = []
     for row in rows:
         w = row.wins or 0
         l = row.losses or 0
         total = w + l
-        if total < 3:
-            continue
         win_pct = round(w / total * 100, 1)
         results.append({
             "username":   row.owner.username,
@@ -283,8 +290,13 @@ def elo_leaderboard(db: Session = Depends(get_db)):
 
 
 @router.get("/characters/user-averages")
-def user_averages_leaderboard(db: Session = Depends(get_db), _current_user: User = Depends(get_current_user)):
-    """Per-user average stats across all their characters, weighted and unweighted."""
+def user_averages_leaderboard(db: Session = Depends(get_db)):
+    """Per-user average stats across all their characters, weighted and unweighted. Public (#15)."""
+    now = time.monotonic()
+    with _avg_lock:
+        if _avg_cache["data"] is not None and now - _avg_cache["ts"] < _AVG_TTL:
+            return _avg_cache["data"]
+
     all_stats = db.query(CharacterStats).filter(
         (CharacterStats.wins + CharacterStats.losses) >= 1
     ).all()
@@ -374,6 +386,9 @@ def user_averages_leaderboard(db: Session = Depends(get_db), _current_user: User
             "weighted":    weighted,
         })
 
+    with _avg_lock:
+        _avg_cache["data"] = results
+        _avg_cache["ts"]   = time.monotonic()
     return results
 
 

@@ -679,9 +679,9 @@
   }
 
   function _kFactor(rank) {
-    if (rank <= 10) return 10;
-    if (rank <= 25) return 20;
-    return 40;
+    if (rank <= 10) return 20;
+    if (rank <= 25) return 30;
+    return 50;
   }
 
   function _duelEloDeltas(winnerElo, loserElo, wk, lk, winnerRank, loserRank) {

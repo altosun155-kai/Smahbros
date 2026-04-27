@@ -26,10 +26,10 @@ class MatchRecord(BaseModel):
 def _k_factor(rank: int) -> int:
     """Dynamic K based on leaderboard position: top 10 are stable, lower ranks move faster."""
     if rank <= 10:
-        return 10
-    if rank <= 25:
         return 20
-    return 40
+    if rank <= 25:
+        return 30
+    return 50
 
 
 def _mov_multiplier(winner_kills: int, loser_kills: int) -> float:

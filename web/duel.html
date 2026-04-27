@@ -678,11 +678,21 @@
     if (u1 && u2) applyUnderdogGlow(u1, u2);
   }
 
-  function _duelEloGain(winnerElo, loserElo, wk, lk) {
+  function _kFactor(rank) {
+    if (rank <= 10) return 10;
+    if (rank <= 25) return 20;
+    return 40;
+  }
+
+  function _duelEloDeltas(winnerElo, loserElo, wk, lk, winnerRank, loserRank) {
     const expected = 1 / (1 + Math.pow(10, (loserElo - winnerElo) / 400));
     const diff = wk - lk;
-    const mov = diff >= 3 ? 2.0 : diff === 2 ? 1.5 : 1.0;
-    return Math.max(1, Math.round(32 * (1 - expected) * mov));
+    const mov = diff >= 3 ? 2.0 : diff === 2 ? 1.5 : 1.25;
+    const surprise = 1 - expected;
+    return {
+      winner: Math.max(1, Math.round(_kFactor(winnerRank) * surprise * mov)),
+      loser:  Math.max(1, Math.round(_kFactor(loserRank)  * surprise * mov)),
+    };
   }
 
   function _getEloFromCache(username, character) {
@@ -723,17 +733,10 @@
       { id: '23', p1wins: false, wk: 3, lk: 2 },
     ];
 
-    for (const s of scenarios) {
-      const we = s.p1wins ? e1 : e2, le = s.p1wins ? e2 : e1;
-      const delta = _duelEloGain(we, le, s.wk, s.lk);
-      document.getElementById(`dElo_${s.id}`).textContent = `+${delta}`;
-    }
-
     const lb = await _fetchLb();
-    if (!lb || !lb.length) return;
 
-    const cur1 = _rankAfter(lb, p1, c1, e1);
-    const cur2 = _rankAfter(lb, p2, c2, e2);
+    const cur1 = lb && lb.length ? _rankAfter(lb, p1, c1, e1) : 999;
+    const cur2 = lb && lb.length ? _rankAfter(lb, p2, c2, e2) : 999;
     const el1 = document.getElementById('dCurrentRankP1');
     const el2 = document.getElementById('dCurrentRankP2');
     if (el1) el1.innerHTML = `<span style="color:var(--text);">${c1}</span> <span style="color:var(--accent-blue);font-weight:700;">#${cur1}</span> <span style="color:var(--accent-gold);font-size:0.68rem;">${e1} elo</span>`;
@@ -743,11 +746,16 @@
       const wUser = s.p1wins ? p1 : p2, wChar = s.p1wins ? c1 : c2;
       const lUser = s.p1wins ? p2 : p1, lChar = s.p1wins ? c2 : c1;
       const we = s.p1wins ? e1 : e2, le = s.p1wins ? e2 : e1;
-      const delta = _duelEloGain(we, le, s.wk, s.lk);
-      const wRank = _rankAfter(lb, wUser, wChar, we + delta);
-      const lRank = _rankAfter(lb, lUser, lChar, Math.max(100, le - delta));
-      document.getElementById(`dRankW_${s.id}`).textContent = `↑#${wRank}`;
-      document.getElementById(`dRankL_${s.id}`).textContent = `↓#${lRank}`;
+      const wCurRank = s.p1wins ? cur1 : cur2;
+      const lCurRank = s.p1wins ? cur2 : cur1;
+      const { winner: wDelta, loser: lDelta } = _duelEloDeltas(we, le, s.wk, s.lk, wCurRank, lCurRank);
+      document.getElementById(`dElo_${s.id}`).textContent = `+${wDelta}`;
+      if (lb && lb.length) {
+        const wRank = _rankAfter(lb, wUser, wChar, we + wDelta);
+        const lRank = _rankAfter(lb, lUser, lChar, Math.max(100, le - lDelta));
+        document.getElementById(`dRankW_${s.id}`).textContent = `↑#${wRank}`;
+        document.getElementById(`dRankL_${s.id}`).textContent = `↓#${lRank}`;
+      }
     }
   }
 

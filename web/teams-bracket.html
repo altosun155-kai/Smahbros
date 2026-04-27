@@ -17,17 +17,16 @@
     .tb-section-label { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; margin-top: 16px; }
     .tb-section-label:first-child { margin-top: 0; }
 
-    /* ── Config row ── */
+    /* ── Config ── */
     .cfg-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
     .cfg-row label { font-size: 0.82rem; color: var(--text-muted); width: 130px; flex-shrink: 0; }
     .cfg-row select, .cfg-row input[type=text] { flex: 1; padding: 7px 10px; font-size: 0.85rem; background: #0f0f17; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: var(--text); font-family: inherit; }
     .cfg-row select:focus, .cfg-row input:focus { outline: none; border-color: var(--accent-blue); }
 
-    /* ── Characters per player stepper (matches bracket.html) ── */
     .cpp-row { display: flex; align-items: center; gap: 0; height: 34px; }
     .cpp-btn { padding: 0 13px; height: 100%; background: var(--card-bg2); border: 1px solid var(--border); color: var(--text); font-size: 1.1rem; cursor: pointer; font-weight: 700; line-height: 1; }
     .cpp-btn:first-child { border-right: none; border-radius: 6px 0 0 6px; }
-    .cpp-btn:last-child  { border-left: none;  border-radius: 0 6px 6px 0; }
+    .cpp-btn:last-child  { border-left:  none; border-radius: 0 6px 6px 0; }
     .cpp-display { min-width: 36px; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--card-bg2); border: 1px solid var(--border); font-size: 0.95rem; font-weight: 700; color: var(--text); padding: 0 10px; }
 
     /* ── Team blocks ── */
@@ -38,7 +37,6 @@
     .team-name-inp:focus { outline: none; border-bottom-color: var(--accent-blue); }
     .team-avg-elo { font-size: 0.72rem; color: var(--text-muted); margin-top: 6px; }
 
-    /* ── Player slot ── */
     .player-slot { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
     .player-slot-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
     .player-sel { flex: 1; padding: 5px 8px; font-size: 0.82rem; background: #0f0f17; border: 1px solid rgba(255,255,255,0.12); border-radius: 5px; color: var(--text); }
@@ -46,10 +44,10 @@
     .autofill-btn { padding: 4px 9px; font-size: 0.72rem; background: rgba(0,119,200,0.15); border: 1px solid rgba(0,119,200,0.35); border-radius: 5px; color: var(--accent-blue); cursor: pointer; white-space: nowrap; }
     .autofill-btn:hover { background: rgba(0,119,200,0.28); }
     .char-slots { display: flex; gap: 5px; flex-wrap: wrap; }
-    .char-inp { flex: 1; min-width: 90px; padding: 4px 7px; font-size: 0.78rem; background: #0f0f17; border: 1px solid rgba(255,255,255,0.1); border-radius: 5px; color: var(--text); }
+    .char-inp { flex: 1; min-width: 80px; padding: 4px 7px; font-size: 0.78rem; background: #0f0f17; border: 1px solid rgba(255,255,255,0.1); border-radius: 5px; color: var(--text); }
     .char-inp:focus { outline: none; border-color: var(--accent-blue); }
 
-    /* ── Bracket rounds ── */
+    /* ── Bracket ── */
     .bracket-rounds { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 16px; }
     .round-col { flex-shrink: 0; min-width: 220px; }
     .round-title { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
@@ -61,68 +59,77 @@
     .team-slot { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 0.85rem; color: var(--text); border-bottom: 1px solid var(--border); }
     .team-slot:last-child { border-bottom: none; }
     .team-slot.winner { color: #ffe066; font-weight: 700; }
-    .team-slot.loser { color: var(--text-muted); opacity: 0.55; }
-    .team-slot.tbd { color: rgba(255,255,255,0.2); font-style: italic; font-size: 0.75rem; }
-    .team-slot.bye { color: var(--text-muted); font-style: italic; opacity: 0.45; font-size: 0.78rem; }
-    .slot-chars { display: flex; gap: 3px; margin-left: auto; flex-shrink: 0; }
-    .slot-char-icon { width: 20px; height: 20px; object-fit: contain; border-radius: 3px; background: rgba(255,255,255,0.05); }
+    .team-slot.loser  { color: var(--text-muted); opacity: 0.55; }
+    .team-slot.tbd    { color: rgba(255,255,255,0.2); font-style: italic; font-size: 0.75rem; }
+    .team-slot.bye    { color: var(--text-muted); font-style: italic; opacity: 0.45; font-size: 0.78rem; }
+    .match-score { font-size: 0.7rem; color: var(--text-muted); margin-left: auto; font-variant-numeric: tabular-nums; }
 
-    /* ── VS Modal ── */
-    #vsModal { display: none; position: fixed; inset: 0; z-index: 1000; }
-    #vsModal.open { display: flex; align-items: center; justify-content: center; }
-    .vs-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); }
-    .vs-box {
+    /* ── Match modal ── */
+    #matchModal { display: none; position: fixed; inset: 0; z-index: 1000; }
+    #matchModal.open { display: flex; align-items: center; justify-content: center; }
+    .mm-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); }
+    .mm-box {
       position: relative; z-index: 1; background: var(--card-bg);
       border: 1px solid rgba(255,255,255,0.12); border-radius: 18px;
-      padding: 28px 24px 22px; width: 100%; max-width: 640px; max-height: 90vh;
+      padding: 26px 24px 22px; width: 100%; max-width: 700px; max-height: 92vh;
       overflow-y: auto; margin: 20px;
     }
-    .vs-round-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 18px; text-align: center; }
-    .vs-teams { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: start; margin-bottom: 22px; }
-    .vs-team-name { font-size: 1rem; font-weight: 800; margin-bottom: 10px; text-align: center; }
-    .vs-member { display: flex; align-items: center; gap: 9px; padding: 8px 10px; background: var(--card-bg2); border-radius: 8px; margin-bottom: 6px; }
-    .vs-member-info { flex: 1; min-width: 0; }
-    .vs-member-player { font-size: 0.85rem; font-weight: 600; color: var(--text); }
-    .vs-member-chars { display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; }
-    .vs-char-icon { width: 28px; height: 28px; object-fit: contain; border-radius: 4px; background: rgba(255,255,255,0.06); }
-    .vs-char-name { font-size: 0.7rem; color: var(--text-muted); }
-    .vs-divider { display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: 900; color: rgba(255,255,255,0.25); padding-top: 22px; }
-    .vs-buttons { display: flex; gap: 12px; }
-    .tb-win-btn {
-      flex: 1; padding: 14px 10px; font-size: 0.95rem; font-weight: 800;
-      border: none; border-radius: 10px; cursor: pointer;
-      letter-spacing: 0.5px; text-transform: uppercase;
-      transition: transform 0.1s, opacity 0.1s;
+    .mm-close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+    .mm-close:hover { color: var(--text); }
+    .mm-round-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); text-align: center; margin-bottom: 4px; }
+    .mm-matchup-title { font-size: 1.1rem; font-weight: 800; text-align: center; margin-bottom: 6px; }
+    .mm-score-bar { text-align: center; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px; }
+    .mm-score-bar .s-a { font-weight: 700; }
+    .mm-score-bar .s-b { font-weight: 700; }
+
+    /* individual game rows */
+    .game-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; background: var(--card-bg2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+    .game-row.won-a { border-color: rgba(204,17,17,0.5); }
+    .game-row.won-b { border-color: rgba(17,85,204,0.5); }
+    .game-team { display: flex; flex-direction: column; gap: 5px; }
+    .game-team.right { align-items: flex-end; }
+    .game-player-line { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; }
+    .game-player-line.right { flex-direction: row-reverse; }
+    .game-char-icon { width: 26px; height: 26px; object-fit: contain; border-radius: 4px; background: rgba(255,255,255,0.05); flex-shrink: 0; }
+    .game-player-name { font-size: 0.75rem; color: var(--text-muted); }
+    .game-char-name   { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+    .game-vs { font-size: 0.8rem; font-weight: 900; color: rgba(255,255,255,0.2); text-align: center; }
+    .game-btns { display: flex; gap: 6px; justify-content: center; margin-top: 8px; }
+    .g-btn {
+      flex: 1; padding: 8px 6px; font-size: 0.8rem; font-weight: 800;
+      border: none; border-radius: 7px; cursor: pointer; text-transform: uppercase;
+      letter-spacing: 0.3px; transition: transform 0.1s, opacity 0.1s;
     }
-    .tb-win-btn:hover { transform: scale(1.04); opacity: 0.92; }
-    .tb-win-btn.t1 { background: #cc1111; color: #fff; }
-    .tb-win-btn.t2 { background: #1155cc; color: #fff; }
-    .vs-close-btn { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
-    .vs-close-btn:hover { color: var(--text); }
-    .vs-undo-row { text-align: center; margin-top: 12px; }
-    .vs-undo-btn { background: none; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: var(--text-muted); font-size: 0.8rem; padding: 6px 14px; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
-    .vs-undo-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.35); }
+    .g-btn:hover { transform: scale(1.04); opacity: 0.9; }
+    .g-btn.a { background: rgba(204,17,17,0.85); color: #fff; }
+    .g-btn.b { background: rgba(17,85,204,0.85); color: #fff; }
+    .g-btn.undo { background: rgba(255,255,255,0.08); color: var(--text-muted); font-weight: 600; text-transform: none; font-size: 0.72rem; }
+    .game-winner-label { font-size: 0.72rem; font-weight: 700; text-align: center; padding: 4px 10px; border-radius: 5px; }
+    .game-winner-label.a { background: rgba(204,17,17,0.2); color: #ff6b6b; }
+    .game-winner-label.b { background: rgba(17,85,204,0.2); color: #6ba3ff; }
 
-    /* ── Sidebar roster (active bracket) ── */
+    .mm-match-winner { text-align: center; margin-top: 16px; padding: 14px; background: rgba(255,224,102,0.1); border: 1px solid rgba(255,224,102,0.35); border-radius: 10px; }
+    .mm-match-winner .mw-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--accent-gold); margin-bottom: 5px; }
+    .mm-match-winner .mw-name { font-size: 1.1rem; font-weight: 900; }
+    .mm-undo-match { display: block; margin: 8px auto 0; background: none; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: var(--text-muted); font-size: 0.8rem; padding: 5px 14px; cursor: pointer; }
+    .mm-undo-match:hover { color: var(--text); border-color: rgba(255,255,255,0.35); }
+
+    /* ── Roster sidebar ── */
     .roster-team { margin-bottom: 12px; }
-    .roster-team-name { font-size: 0.88rem; font-weight: 700; display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
-    .roster-member { font-size: 0.78rem; color: var(--text-muted); padding-left: 16px; margin-bottom: 2px; }
+    .roster-team-name { font-size: 0.88rem; font-weight: 700; display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
+    .roster-member { font-size: 0.78rem; color: var(--text-muted); padding-left: 16px; margin-bottom: 1px; }
 
-    /* ── Bracket placeholder ── */
+    /* ── Misc ── */
     #bracketEmpty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
     #bracketEmpty .empty-icon { font-size: 3rem; margin-bottom: 12px; }
-
-    /* ── Winner banner ── */
-    #winnerBanner { display: none; text-align: center; padding: 24px; background: linear-gradient(135deg, rgba(245,166,35,0.18), rgba(255,200,60,0.1)); border: 1.5px solid rgba(245,166,35,0.5); border-radius: 14px; margin-bottom: 20px; }
+    #winnerBanner { display: none; text-align: center; padding: 22px; background: linear-gradient(135deg, rgba(245,166,35,0.18), rgba(255,200,60,0.1)); border: 1.5px solid rgba(245,166,35,0.5); border-radius: 14px; margin-bottom: 20px; }
     #winnerBanner.show { display: block; }
     #winnerBanner .win-title { font-size: 0.7rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-gold); margin-bottom: 6px; }
-    #winnerBanner .win-name { font-size: 1.6rem; font-weight: 900; color: #fff; }
+    #winnerBanner .win-name { font-size: 1.6rem; font-weight: 900; }
 
     @media (max-width: 900px) {
       .tb-layout { flex-direction: column; }
       .tb-sidebar { width: 100%; }
-      .vs-teams { grid-template-columns: 1fr; }
-      .vs-divider { padding-top: 0; }
     }
   </style>
 </head>
@@ -134,42 +141,35 @@
 <main class="page-container">
   <div class="page-header">
     <h1>👥 Team Battle Bracket</h1>
-    <p>Team vs team single-elimination. No Elo changes — just glory.</p>
+    <p>Team vs team single-elimination. Each match is a series of character matchups — no Elo changes.</p>
   </div>
 
-  <!-- VS Modal -->
-  <div id="vsModal">
-    <div class="vs-backdrop" onclick="closeVsModal()"></div>
-    <div class="vs-box">
-      <button class="vs-close-btn" onclick="closeVsModal()">✕</button>
-      <div class="vs-round-label" id="vsRoundLabel"></div>
-      <div class="vs-teams">
-        <div id="vsTeamA"></div>
-        <div class="vs-divider">VS</div>
-        <div id="vsTeamB"></div>
-      </div>
-      <div class="vs-buttons">
-        <button class="tb-win-btn t1" id="vsBtnA" onclick="recordWinner(0)"></button>
-        <button class="tb-win-btn t2" id="vsBtnB" onclick="recordWinner(1)"></button>
-      </div>
-      <div class="vs-undo-row">
-        <button class="vs-undo-btn" id="vsUndoBtn" onclick="undoCurrentMatch()" style="display:none;">Undo result</button>
+  <!-- Match Modal -->
+  <div id="matchModal">
+    <div class="mm-backdrop" onclick="closeMatchModal()"></div>
+    <div class="mm-box">
+      <button class="mm-close" onclick="closeMatchModal()">✕</button>
+      <div class="mm-round-label" id="mmRoundLabel"></div>
+      <div class="mm-matchup-title" id="mmTitle"></div>
+      <div class="mm-score-bar" id="mmScoreBar"></div>
+      <div id="mmGames"></div>
+      <div id="mmMatchWinner" style="display:none;" class="mm-match-winner">
+        <div class="mw-label">🏆 Match Winner</div>
+        <div class="mw-name" id="mmWinnerName"></div>
+        <button class="mm-undo-match" onclick="undoMatchWinner()">Undo match result</button>
       </div>
     </div>
   </div>
 
   <div class="tb-layout">
-    <!-- ── Sidebar ── -->
     <div class="tb-sidebar">
-
-      <!-- Setup (no active bracket) -->
+      <!-- Setup -->
       <div id="setupCard" class="tb-card">
         <div class="tb-section-label">Tournament</div>
         <div class="cfg-row">
           <label>Name</label>
           <input type="text" id="tourneyName" placeholder="Friday Night Teams" maxlength="50" />
         </div>
-
         <div class="tb-section-label">Format</div>
         <div class="cfg-row">
           <label>Number of Teams</label>
@@ -197,36 +197,22 @@
             <input type="hidden" id="charsPerPlayer" value="2" />
           </div>
         </div>
-        <div class="cfg-row">
-          <label>Bracket Style</label>
-          <select id="bracketStyle">
-            <option value="strongVsStrong">Strong vs Strong (1v2, 3v4…)</option>
-            <option value="strongVsWeak">Strong vs Weak (1v8, 2v7…)</option>
-          </select>
-        </div>
-
         <div class="tb-section-label">Teams</div>
         <div id="teamForms"></div>
-
         <button class="btn btn-primary" style="width:100%;margin-top:4px;" onclick="generateBracket()">
           Generate Bracket
         </button>
       </div>
 
-      <!-- Active bracket info -->
+      <!-- Active bracket -->
       <div id="bracketInfoCard" class="tb-card" style="display:none;">
         <div style="font-size:0.88rem;font-weight:700;margin-bottom:14px;" id="bracketInfoTitle"></div>
         <div id="teamRoster"></div>
-        <button class="btn btn-outline" style="width:100%;margin-top:12px;margin-bottom:8px;" onclick="endTournament()">
-          End Tournament
-        </button>
-        <button class="btn btn-outline" style="width:100%;color:#e74c3c;border-color:rgba(231,76,60,0.4);" onclick="deleteBracket()">
-          Delete Bracket
-        </button>
+        <button class="btn btn-outline" style="width:100%;margin-top:12px;margin-bottom:8px;" onclick="endTournament()">End Tournament</button>
+        <button class="btn btn-outline" style="width:100%;color:#e74c3c;border-color:rgba(231,76,60,0.4);" onclick="deleteBracket()">Delete Bracket</button>
       </div>
     </div>
 
-    <!-- ── Main bracket area ── -->
     <div class="tb-main">
       <div id="winnerBanner">
         <div class="win-title">🏆 Tournament Champion</div>
@@ -245,28 +231,27 @@
 <script src="js/api.js"></script>
 <script src="js/nav.js"></script>
 <script>
-// ── State ──────────────────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────────
 let state = {
   bracketId: null,
   bracketName: '',
-  // teams: [{name, color, members: [{player, characters: [str,...]}]}]
+  // teams: [{name, color, members:[{player, characters:[]}], lineups:[[char,char,...],...]  }]
+  // lineups[gameIdx] = [charFromPlayer0, charFromPlayer1, ...]
   teams: [],
   bracketData: [],  // [{a: teamName, b: teamName}]
-  roundWinners: {},
+  roundWinners: {}, // r{ri}_m{mi} → teamName (match winner)
+                    // r{ri}_m{mi}_g{gi} → teamName (individual game winner)
   isLive: false,
   winner: null,
 };
 
 let _eloLb = null;
 let _usersCache = null;
-let _statsCache = {}; // username -> [{character, elo}]
+let _statsCache = {};
 
-const TEAM_COLORS = [
-  '#e74c3c', '#3498db', '#2ecc71', '#f39c12',
-  '#9b59b6', '#1abc9c', '#e67e22', '#e91e63',
-];
+const TEAM_COLORS = ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#e91e63'];
 
-// ── Init ───────────────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   await loadUsers();
   rebuildTeamForms();
@@ -275,59 +260,53 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function loadUsers() {
-  try {
-    const data = await apiGet('/users/all');
-    _usersCache = (data || []).map(u => u.username).sort();
-  } catch { _usersCache = []; }
+  try { const d = await apiGet('/users/all'); _usersCache = (d || []).map(u => u.username).sort(); }
+  catch { _usersCache = []; }
 }
 
 async function getEloLb() {
-  if (_eloLb) return _eloLb;
-  try { _eloLb = await apiGet('/characters/stats/leaderboard/elo'); }
-  catch { _eloLb = []; }
+  if (!_eloLb) {
+    try { _eloLb = await apiGet('/characters/stats/leaderboard/elo'); }
+    catch { _eloLb = []; }
+  }
   return _eloLb;
 }
 
 async function getPlayerStats(username) {
-  if (_statsCache[username]) return _statsCache[username];
-  try {
-    const d = await apiGet(`/characters/stats/${encodeURIComponent(username)}`);
-    _statsCache[username] = (d.stats || [])
-      .filter(s => (s.wins || 0) + (s.losses || 0) > 0)
-      .sort((a, b) => (b.elo || 1000) - (a.elo || 1000));
-  } catch { _statsCache[username] = []; }
+  if (!_statsCache[username]) {
+    try {
+      const d = await apiGet(`/characters/stats/${encodeURIComponent(username)}`);
+      _statsCache[username] = (d.stats || [])
+        .filter(s => (s.wins || 0) + (s.losses || 0) > 0)
+        .sort((a, b) => (b.elo || 1000) - (a.elo || 1000));
+    } catch { _statsCache[username] = []; }
+  }
   return _statsCache[username];
 }
 
-// ── Chars per player stepper ───────────────────────────────────────────────
+// ── CPP stepper ───────────────────────────────────────────────────────────
 function adjustCPP(delta) {
   const inp = document.getElementById('charsPerPlayer');
-  const v = Math.min(4, Math.max(1, parseInt(inp.value) + delta));
+  const v = Math.min(8, Math.max(1, parseInt(inp.value) + delta));
   inp.value = v;
   document.getElementById('cppDisplay').textContent = v;
   rebuildTeamForms();
 }
+function getCPP() { return parseInt(document.getElementById('charsPerPlayer').value) || 2; }
 
-function getCPP() {
-  return parseInt(document.getElementById('charsPerPlayer').value) || 2;
-}
-
-// ── Build team forms ───────────────────────────────────────────────────────
+// ── Team forms ────────────────────────────────────────────────────────────
 function rebuildTeamForms() {
   const numTeams = parseInt(document.getElementById('numTeams').value);
   const ppt = parseInt(document.getElementById('playersPerTeam').value);
   const cpp = getCPP();
   const container = document.getElementById('teamForms');
 
-  // Preserve existing values
+  // Save existing values
   const saved = {};
-  container.querySelectorAll('.team-block').forEach(block => {
-    const ti = block.dataset.ti;
-    saved[ti] = {
-      name: block.querySelector('.team-name-inp')?.value,
-      members: [],
-    };
-    block.querySelectorAll('.player-slot').forEach((slot, mi) => {
+  container.querySelectorAll('.team-block').forEach(b => {
+    const ti = b.dataset.ti;
+    saved[ti] = { name: b.querySelector('.team-name-inp')?.value, members: [] };
+    b.querySelectorAll('.player-slot').forEach((slot, mi) => {
       saved[ti].members[mi] = {
         player: slot.querySelector('.player-sel')?.value || '',
         chars: [...slot.querySelectorAll('.char-inp')].map(i => i.value),
@@ -337,90 +316,60 @@ function rebuildTeamForms() {
 
   container.innerHTML = '';
 
-  // Character datalist (shared)
-  let dl = document.getElementById('charlist');
-  if (!dl) {
-    dl = document.createElement('datalist');
+  if (!document.getElementById('charlist')) {
+    const dl = document.createElement('datalist');
     dl.id = 'charlist';
-    (SMASH_ROSTER || []).forEach(c => {
-      const o = document.createElement('option'); o.value = c; dl.appendChild(o);
-    });
+    (SMASH_ROSTER || []).forEach(c => { const o = document.createElement('option'); o.value = c; dl.appendChild(o); });
     document.body.appendChild(dl);
   }
 
   for (let t = 0; t < numTeams; t++) {
     const color = TEAM_COLORS[t % TEAM_COLORS.length];
     const svd = saved[t] || {};
-    const defaultName = svd.name || `Team ${t + 1}`;
-
     const block = document.createElement('div');
-    block.className = 'team-block';
-    block.dataset.ti = t;
+    block.className = 'team-block'; block.dataset.ti = t;
 
-    // Team header
     const hdr = document.createElement('div');
     hdr.className = 'team-block-hdr';
-    hdr.innerHTML = `
-      <div class="team-dot" style="background:${color}"></div>
-      <input class="team-name-inp" value="${defaultName}" maxlength="24" />`;
+    hdr.innerHTML = `<div class="team-dot" style="background:${color}"></div>
+      <input class="team-name-inp" value="${svd.name || `Team ${t + 1}`}" maxlength="24" />`;
     block.appendChild(hdr);
 
-    // Player slots
     for (let m = 0; m < ppt; m++) {
-      const svdMember = svd.members?.[m] || {};
+      const sv = svd.members?.[m] || {};
       const slot = document.createElement('div');
-      slot.className = 'player-slot';
-      slot.dataset.mi = m;
+      slot.className = 'player-slot'; slot.dataset.mi = m;
 
-      const playerOptions = (_usersCache || [])
-        .map(u => `<option value="${u}"${svdMember.player === u ? ' selected' : ''}>${u}</option>`)
-        .join('');
-
-      // Char inputs
-      const charInputs = Array.from({ length: cpp }, (_, ci) => {
-        const v = svdMember.chars?.[ci] || '';
-        return `<input class="char-inp" list="charlist" placeholder="Char ${ci + 1}" value="${v}" autocomplete="off" data-ci="${ci}" />`;
-      }).join('');
+      const opts = (_usersCache || []).map(u =>
+        `<option value="${u}"${sv.player === u ? ' selected' : ''}>${u}</option>`).join('');
+      const charInps = Array.from({ length: cpp }, (_, ci) =>
+        `<input class="char-inp" list="charlist" placeholder="Char ${ci+1}" value="${sv.chars?.[ci] || ''}" autocomplete="off" />`
+      ).join('');
 
       slot.innerHTML = `
         <div class="player-slot-hdr">
-          <select class="player-sel">
-            <option value="">— player —</option>
-            ${playerOptions}
-          </select>
-          <button type="button" class="autofill-btn" title="Auto-fill top ${cpp} chars by Elo">⚡ Fill</button>
+          <select class="player-sel"><option value="">— player —</option>${opts}</select>
+          <button type="button" class="autofill-btn">⚡ Fill</button>
         </div>
-        <div class="char-slots">${charInputs}</div>`;
+        <div class="char-slots">${charInps}</div>`;
 
-      // Auto-fill handler
       slot.querySelector('.autofill-btn').addEventListener('click', async () => {
-        const playerSel = slot.querySelector('.player-sel');
-        const username = playerSel.value;
-        if (!username) { showToast('Select a player first.', 'warn'); return; }
-        const stats = await getPlayerStats(username);
-        const charInps = slot.querySelectorAll('.char-inp');
-        charInps.forEach((inp, ci) => {
-          inp.value = stats[ci]?.character || '';
-        });
+        const player = slot.querySelector('.player-sel').value;
+        if (!player) { showToast('Select a player first.', 'warn'); return; }
+        const stats = await getPlayerStats(player);
+        slot.querySelectorAll('.char-inp').forEach((inp, ci) => { inp.value = stats[ci]?.character || ''; });
         updateAvgElo(t);
       });
-
-      // Elo preview on change
       slot.querySelectorAll('.char-inp, .player-sel').forEach(el => {
         el.addEventListener('change', () => updateAvgElo(t));
-        el.addEventListener('input', () => updateAvgElo(t));
+        el.addEventListener('input',  () => updateAvgElo(t));
       });
-
       block.appendChild(slot);
     }
 
-    // Avg Elo footer
     const avgEl = document.createElement('div');
-    avgEl.className = 'team-avg-elo';
-    avgEl.id = `avgElo${t}`;
-    avgEl.textContent = 'Avg Elo: —';
+    avgEl.className = 'team-avg-elo'; avgEl.id = `avgElo${t}`; avgEl.textContent = 'Avg Elo: —';
     block.appendChild(avgEl);
-
     container.appendChild(block);
   }
 }
@@ -436,8 +385,7 @@ async function updateAvgElo(ti) {
       const char = inp.value.trim();
       if (player && char) {
         const row = lb.find(r => r.username === player && r.character === char);
-        total += row ? row.elo : 1000;
-        count++;
+        total += row ? row.elo : 1000; count++;
       }
     });
   });
@@ -445,75 +393,77 @@ async function updateAvgElo(ti) {
   if (el) el.textContent = count > 0 ? `Avg Elo: ${Math.round(total / count)}` : 'Avg Elo: —';
 }
 
-// ── Collect teams from form ────────────────────────────────────────────────
+// ── Collect teams ─────────────────────────────────────────────────────────
 function collectTeams() {
-  const teams = [];
-  document.querySelectorAll('.team-block').forEach((block, t) => {
-    const name = block.querySelector('.team-name-inp').value.trim() || `Team ${t + 1}`;
-    const color = TEAM_COLORS[t % TEAM_COLORS.length];
-    const members = [];
-    block.querySelectorAll('.player-slot').forEach(slot => {
-      const player = slot.querySelector('.player-sel').value;
-      const characters = [...slot.querySelectorAll('.char-inp')]
-        .map(i => i.value.trim()).filter(Boolean);
-      if (player) members.push({ player, characters });
-    });
-    teams.push({ name, color, members });
-  });
-  return teams;
+  return [...document.querySelectorAll('.team-block')].map((block, t) => ({
+    name: block.querySelector('.team-name-inp').value.trim() || `Team ${t + 1}`,
+    color: TEAM_COLORS[t % TEAM_COLORS.length],
+    members: [...block.querySelectorAll('.player-slot')].map(slot => ({
+      player: slot.querySelector('.player-sel').value,
+      characters: [...slot.querySelectorAll('.char-inp')].map(i => i.value.trim()).filter(Boolean),
+    })).filter(m => m.player),
+  }));
 }
 
-// ── Seed & generate ────────────────────────────────────────────────────────
+// ── Shuffle helper ────────────────────────────────────────────────────────
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ── Generate game lineups for a team ─────────────────────────────────────
+// lineups[gameIdx] = [charFromPlayer0, charFromPlayer1, ...]
+function buildLineups(team) {
+  const numGames = Math.max(0, ...team.members.map(m => m.characters.length));
+  const shuffledPerPlayer = team.members.map(m => shuffle(m.characters));
+  return Array.from({ length: numGames }, (_, g) =>
+    team.members.map((_, pi) => shuffledPerPlayer[pi][g]).filter(Boolean)
+  );
+}
+
+// ── Generate bracket ──────────────────────────────────────────────────────
 async function generateBracket() {
   const name = document.getElementById('tourneyName').value.trim() || 'Team Battle';
   const teams = collectTeams();
   if (teams.length < 2) { showToast('Need at least 2 teams.', 'error'); return; }
 
+  // Seed by avg char Elo
   const lb = await getEloLb();
-  const teamsWithElo = teams.map(t => {
+  const seeded = shuffle(teams.map(t => {
     const elos = t.members.flatMap(m =>
-      m.characters.map(c => {
-        const row = lb.find(r => r.username === m.player && r.character === c);
-        return row ? row.elo : 1000;
-      })
+      m.characters.map(c => (lb.find(r => r.username === m.player && r.character === c)?.elo || 1000))
     );
-    const avg = elos.length ? Math.round(elos.reduce((a, b) => a + b, 0) / elos.length) : 1000;
-    return { ...t, avgElo: avg };
-  });
-
-  // Sort descending by avg Elo (seed 1 = best)
-  teamsWithElo.sort((a, b) => b.avgElo - a.avgElo);
+    return { ...t, avgElo: elos.length ? Math.round(elos.reduce((a, b) => a + b, 0) / elos.length) : 1000 };
+  }));
 
   // Pad to power of 2
   let size = 2;
-  while (size < teamsWithElo.length) size *= 2;
-  const seeded = [...teamsWithElo];
+  while (size < seeded.length) size *= 2;
   while (seeded.length < size) seeded.push({ name: 'BYE', color: '#555', members: [], avgElo: 0, isBye: true });
 
-  const style = document.getElementById('bracketStyle').value;
+  // Random pairs (already shuffled)
   const pairs = [];
-  if (style === 'strongVsWeak') {
-    for (let i = 0; i < size / 2; i++) {
-      pairs.push({ a: seeded[i].name, b: seeded[size - 1 - i].name });
-    }
-  } else {
-    for (let i = 0; i < size; i += 2) {
-      pairs.push({ a: seeded[i].name, b: seeded[i + 1].name });
-    }
-  }
+  for (let i = 0; i < size; i += 2) pairs.push({ a: seeded[i].name, b: seeded[i + 1].name });
 
-  // Store teams as {name: {members, color}}
+  // Build teams dict with game lineups
   const teamsDict = {};
-  teamsWithElo.forEach(t => {
-    teamsDict[t.name] = { members: t.members, color: t.color };
+  seeded.filter(t => !t.isBye).forEach(t => {
+    teamsDict[t.name] = {
+      color: t.color,
+      members: t.members,
+      lineups: buildLineups(t),
+    };
   });
 
   try {
     const res = await apiPost('/brackets', {
-      name,
-      mode: 'team_battle',
+      name, mode: 'team_battle',
       bracket_data: pairs,
-      bracket_style: style,
+      bracket_style: 'random',
       is_live: true,
       teams: teamsDict,
     });
@@ -521,12 +471,10 @@ async function generateBracket() {
       await loadBracket(res.id);
       history.pushState({}, '', `?b=${res.id}`);
     }
-  } catch {
-    showToast('Failed to create bracket.', 'error');
-  }
+  } catch { showToast('Failed to create bracket.', 'error'); }
 }
 
-// ── Load bracket ───────────────────────────────────────────────────────────
+// ── Load bracket ──────────────────────────────────────────────────────────
 async function loadBracket(bracketId) {
   try {
     const data = await apiGet(`/brackets/${bracketId}`);
@@ -537,35 +485,32 @@ async function loadBracket(bracketId) {
     state.isLive = data.is_live;
     state.winner = data.winner || null;
 
-    const teamsDict = data.teams || {};
-    state.teams = Object.entries(teamsDict).map(([name, val], i) => {
-      // Support both old format {player, character} and new {player, characters:[]}
+    const td = data.teams || {};
+    state.teams = Object.entries(td).map(([name, val], i) => {
       const rawMembers = Array.isArray(val) ? val : (val.members || []);
-      const members = rawMembers.map(m => ({
-        player: m.player,
-        characters: m.characters || (m.character ? [m.character] : []),
-      }));
-      const color = (val.color) || TEAM_COLORS[i % TEAM_COLORS.length];
-      return { name, color, members };
+      return {
+        name,
+        color: val.color || TEAM_COLORS[i % TEAM_COLORS.length],
+        members: rawMembers.map(m => ({
+          player: m.player,
+          characters: m.characters || (m.character ? [m.character] : []),
+        })),
+        lineups: val.lineups || [],
+      };
     });
 
     await initializeByes();
     renderBracket();
     showBracketView();
-  } catch {
-    showToast('Bracket not found.', 'error');
-  }
+  } catch { showToast('Bracket not found.', 'error'); }
 }
 
-// ── Auto-advance BYEs ──────────────────────────────────────────────────────
 async function initializeByes() {
   const tasks = [];
   state.bracketData.forEach((pair, mi) => {
     const key = `r0_m${mi}`;
     if (state.roundWinners[key]) return;
-    let winner = null;
-    if (pair.a === 'BYE' && pair.b && pair.b !== 'BYE') winner = pair.b;
-    else if (pair.b === 'BYE' && pair.a && pair.a !== 'BYE') winner = pair.a;
+    const winner = pair.a === 'BYE' ? pair.b : pair.b === 'BYE' ? pair.a : null;
     if (winner) {
       state.roundWinners[key] = winner;
       tasks.push(apiPatch(`/brackets/${state.bracketId}/winner`, { key, winner }));
@@ -574,7 +519,7 @@ async function initializeByes() {
   if (tasks.length) await Promise.all(tasks);
 }
 
-// ── Show bracket UI ────────────────────────────────────────────────────────
+// ── Show bracket view ─────────────────────────────────────────────────────
 function showBracketView() {
   document.getElementById('setupCard').style.display = 'none';
   document.getElementById('bracketInfoCard').style.display = 'block';
@@ -597,14 +542,11 @@ function renderRoster() {
         <div style="width:9px;height:9px;border-radius:50%;background:${t.color};flex-shrink:0;"></div>
         ${t.name}
       </div>
-      ${t.members.map(m => `
-        <div class="roster-member">
-          ${m.player}${m.characters.length ? ` — ${m.characters.join(', ')}` : ''}
-        </div>`).join('')}
+      ${t.members.map(m => `<div class="roster-member">${m.player} — ${m.characters.join(', ') || '?'}</div>`).join('')}
     </div>`).join('');
 }
 
-// ── Bracket rendering ──────────────────────────────────────────────────────
+// ── Bracket rendering ─────────────────────────────────────────────────────
 function getRounds() {
   const rounds = [{}];
   state.bracketData.forEach((pair, mi) => { rounds[0][mi] = [pair.a, pair.b]; });
@@ -616,12 +558,11 @@ function getRounds() {
     for (let j = 0; j < mis.length; j += 2) {
       if (j + 1 >= mis.length) break;
       next[j / 2] = [
-        state.roundWinners[`r${ri}_m${mis[j]}`] || '',
-        state.roundWinners[`r${ri}_m${mis[j + 1]}`] || '',
+        state.roundWinners[`r${ri}_m${mis[j]}`]   || '',
+        state.roundWinners[`r${ri}_m${mis[j+1]}`] || '',
       ];
     }
-    rounds.push(next);
-    ri++;
+    rounds.push(next); ri++;
   }
   return rounds;
 }
@@ -634,14 +575,32 @@ function roundLabel(ri, total) {
   return `Round ${ri + 1}`;
 }
 
-function getTeam(name) {
-  return state.teams.find(t => t.name === name);
+function getTeam(name) { return state.teams.find(t => t.name === name); }
+
+function matchScore(key) {
+  // Count individual game wins for this match key
+  const team = {};
+  let g = 0;
+  while (state.roundWinners[`${key}_g${g}`] !== undefined) {
+    const w = state.roundWinners[`${key}_g${g}`];
+    if (w) team[w] = (team[w] || 0) + 1;
+    g++;
+  }
+  return team;
 }
 
-function charImgUrl(character) {
-  if (!character) return '';
-  const override = typeof CHAR_FILE_OVERRIDES !== 'undefined' && CHAR_FILE_OVERRIDES[character];
-  return `${SUPABASE_CHARS}${encodeURIComponent(override || `${character}.png`)}`;
+function numGamesForMatch(aName, bName) {
+  const ta = getTeam(aName);
+  const tb = getTeam(bName);
+  const la = ta?.lineups?.length || 0;
+  const lb = tb?.lineups?.length || 0;
+  return Math.max(la, lb);
+}
+
+function charImgUrl(c) {
+  if (!c) return '';
+  const ov = typeof CHAR_FILE_OVERRIDES !== 'undefined' && CHAR_FILE_OVERRIDES[c];
+  return `${SUPABASE_CHARS}${encodeURIComponent(ov || `${c}.png`)}`;
 }
 
 function renderBracket() {
@@ -663,140 +622,231 @@ function renderBracket() {
 
       const card = document.createElement('div');
       card.className = 'match-card' + (winner ? ' done' : '');
-      if (!isBye) card.onclick = () => openVsModal(ri, mi, aName, bName, key);
+      if (!isBye) card.onclick = () => openMatchModal(ri, mi, aName, bName, key);
 
-      card.innerHTML = teamSlotHtml(aName, winner === aName, !!winner && winner !== aName, !aName) +
-                       teamSlotHtml(bName, winner === bName, !!winner && winner !== bName, !bName);
+      // Score for this match
+      const score = matchScore(key);
+      const numGames = (!isBye && aName && bName) ? numGamesForMatch(aName, bName) : 0;
+
+      card.innerHTML = teamSlotHtml(aName, winner === aName, !!winner && winner !== aName, !aName, score, numGames) +
+                       teamSlotHtml(bName, winner === bName, !!winner && winner !== bName, !bName, score, numGames);
       col.appendChild(card);
     });
-
     container.appendChild(col);
   });
 }
 
-function teamSlotHtml(name, isWin, isLose, isEmpty) {
+function teamSlotHtml(name, isWin, isLose, isEmpty, score, numGames) {
   if (isEmpty || !name) return `<div class="team-slot tbd">TBD</div>`;
   if (name === 'BYE')    return `<div class="team-slot bye">BYE</div>`;
   const team = getTeam(name);
   const dot = team ? `<div style="width:8px;height:8px;border-radius:50%;background:${team.color};flex-shrink:0;"></div>` : '';
-
-  // Show up to 2 char icons from first member
-  let charIcons = '';
-  if (team) {
-    const firstMember = team.members[0];
-    if (firstMember) {
-      charIcons = `<div class="slot-chars">` +
-        firstMember.characters.slice(0, 3).map(c =>
-          `<img class="slot-char-icon" src="${charImgUrl(c)}" alt="${c}" title="${c}" onerror="this.style.display='none'" />`
-        ).join('') +
-        `</div>`;
-    }
-  }
-
   const cls = isWin ? 'winner' : isLose ? 'loser' : '';
-  return `<div class="team-slot ${cls}">${dot}<span>${name}${isWin ? ' 🏆' : ''}</span>${charIcons}</div>`;
+  const wins = score?.[name] || 0;
+  const scoreHtml = numGames > 0
+    ? `<div class="match-score">${wins}/${numGames}</div>`
+    : '';
+  return `<div class="team-slot ${cls}">${dot}<span style="flex:1;">${name}${isWin ? ' 🏆' : ''}</span>${scoreHtml}</div>`;
 }
 
-// ── VS Modal ───────────────────────────────────────────────────────────────
-let _vs = null;
+// ── Match Modal ───────────────────────────────────────────────────────────
+let _mm = null;
 
-function openVsModal(ri, mi, aName, bName, key) {
-  _vs = { ri, mi, aName, bName, key };
+function openMatchModal(ri, mi, aName, bName, key) {
+  _mm = { ri, mi, aName, bName, key };
   const rounds = getRounds();
-  document.getElementById('vsRoundLabel').textContent =
-    `${roundLabel(ri, rounds.length)} · Match ${mi + 1}`;
+  document.getElementById('mmRoundLabel').textContent = `${roundLabel(ri, rounds.length)} · Match ${mi + 1}`;
+  document.getElementById('mmTitle').innerHTML =
+    `<span style="color:${getTeam(aName)?.color || '#fff'}">${aName || 'TBD'}</span>` +
+    ` <span style="color:rgba(255,255,255,0.3);font-size:0.85rem;">vs</span> ` +
+    `<span style="color:${getTeam(bName)?.color || '#fff'}">${bName || 'TBD'}</span>`;
 
-  renderVsTeam('vsTeamA', aName, '#cc1111');
-  renderVsTeam('vsTeamB', bName, '#1155cc');
-  document.getElementById('vsBtnA').textContent = `${aName} Wins`;
-  document.getElementById('vsBtnB').textContent = `${bName} Wins`;
-
-  const existing = state.roundWinners[key];
-  document.getElementById('vsUndoBtn').style.display = existing ? 'inline-block' : 'none';
-  document.getElementById('vsModal').classList.add('open');
+  renderModalGames();
+  document.getElementById('matchModal').classList.add('open');
 }
 
-function renderVsTeam(elId, teamName, accent) {
-  const el = document.getElementById(elId);
-  const team = teamName ? getTeam(teamName) : null;
-  if (!team) {
-    el.innerHTML = `<div class="vs-team-name" style="color:${accent}">${teamName || 'TBD'}</div>`;
-    return;
-  }
+function renderModalGames() {
+  const { aName, bName, key } = _mm;
+  const ta = getTeam(aName);
+  const tb = getTeam(bName);
+  if (!ta || !tb) return;
 
-  const membersHtml = team.members.map(m => {
-    const charIconsHtml = m.characters.map(c => {
-      const url = charImgUrl(c);
-      return `<img class="vs-char-icon" src="${url}" alt="${c}" title="${c}" onerror="this.style.display='none'" />`;
-    }).join('');
-    const charNamesHtml = m.characters.length
-      ? `<div class="vs-member-chars">${charIconsHtml}</div>`
-      : '';
-    return `
-      <div class="vs-member">
-        <div class="vs-member-info">
-          <div class="vs-member-player">${m.player || '?'}</div>
-          ${charNamesHtml}
+  const numGames = Math.max(ta.lineups?.length || 0, tb.lineups?.length || 0);
+  const score = matchScore(key);
+  const matchWinner = state.roundWinners[key] || '';
+
+  // Score bar
+  const sA = score[aName] || 0;
+  const sB = score[bName] || 0;
+  const gPlayed = sA + sB;
+  document.getElementById('mmScoreBar').innerHTML =
+    `<span class="s-a" style="color:${ta.color}">${aName} ${sA}</span>` +
+    ` &nbsp;–&nbsp; ` +
+    `<span class="s-b" style="color:${tb.color}">${sB} ${bName}</span>` +
+    (numGames > 0 ? ` &nbsp;·&nbsp; ${gPlayed}/${numGames} games played` : '');
+
+  // Individual games
+  const gamesEl = document.getElementById('mmGames');
+  gamesEl.innerHTML = '';
+
+  for (let g = 0; g < numGames; g++) {
+    const gKey = `${key}_g${g}`;
+    const gWinner = state.roundWinners[gKey] || '';
+    const aLineup = ta.lineups?.[g] || [];
+    const bLineup = tb.lineups?.[g] || [];
+
+    const row = document.createElement('div');
+    row.className = 'game-row' + (gWinner === aName ? ' won-a' : gWinner === bName ? ' won-b' : '');
+
+    // Team A side (left)
+    const aHtml = aLineup.map((char, pi) => {
+      const player = ta.members[pi]?.player || '';
+      return `<div class="game-player-line">
+        <img class="game-char-icon" src="${charImgUrl(char)}" alt="${char}" title="${char}" onerror="this.style.display='none'" />
+        <div>
+          <div class="game-char-name">${char}</div>
+          <div class="game-player-name">${player}</div>
         </div>
       </div>`;
-  }).join('') || '<div style="color:var(--text-muted);font-size:0.82rem;padding:8px;">No members</div>';
+    }).join('');
 
-  el.innerHTML = `<div class="vs-team-name" style="color:${accent}">${teamName}</div>${membersHtml}`;
-}
+    // Team B side (right)
+    const bHtml = bLineup.map((char, pi) => {
+      const player = tb.members[pi]?.player || '';
+      return `<div class="game-player-line right">
+        <img class="game-char-icon" src="${charImgUrl(char)}" alt="${char}" title="${char}" onerror="this.style.display='none'" />
+        <div style="text-align:right;">
+          <div class="game-char-name">${char}</div>
+          <div class="game-player-name">${player}</div>
+        </div>
+      </div>`;
+    }).join('');
 
-function closeVsModal() {
-  document.getElementById('vsModal').classList.remove('open');
-  _vs = null;
-}
-
-async function recordWinner(side) {
-  if (!_vs) return;
-  const { aName, bName, key, ri } = _vs;
-  const winner = side === 0 ? aName : bName;
-  const isGF = ri === getRounds().length - 1;
-
-  try {
-    await apiPatch(`/brackets/${state.bracketId}/winner`, {
-      key, winner,
-      tournament_winner: isGF ? winner : null,
-    });
-    state.roundWinners[key] = winner;
-    if (isGF) state.winner = winner;
-    renderBracket();
-    closeVsModal();
-    if (isGF) {
-      document.getElementById('winnerName').textContent = winner;
-      document.getElementById('winnerBanner').classList.add('show');
+    // Winner/buttons
+    let actionHtml = '';
+    if (gWinner) {
+      const side = gWinner === aName ? 'a' : 'b';
+      const winColor = side === 'a' ? ta.color : tb.color;
+      actionHtml = `
+        <div style="grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:8px;">
+          <div class="game-winner-label ${side}" style="color:${winColor}">🏆 ${gWinner}</div>
+          ${!matchWinner ? `<button class="g-btn undo" onclick="undoGame('${gKey}')">undo</button>` : ''}
+        </div>`;
+    } else if (!matchWinner) {
+      actionHtml = `
+        <div class="game-btns" style="grid-column:1/-1;">
+          <button class="g-btn a" style="background:${ta.color}88;" onclick="recordGame('${gKey}', '${aName}')">
+            ${aName} wins
+          </button>
+          <button class="g-btn b" style="background:${tb.color}88;" onclick="recordGame('${gKey}', '${bName}')">
+            ${bName} wins
+          </button>
+        </div>`;
     }
-  } catch {
-    showToast('Failed to record result.', 'error');
+
+    row.innerHTML = `
+      <div class="game-team">${aHtml}</div>
+      <div class="game-vs">G${g + 1}</div>
+      <div class="game-team right">${bHtml}</div>
+      ${actionHtml}`;
+
+    gamesEl.appendChild(row);
+  }
+
+  // Match winner display
+  const mwEl = document.getElementById('mmMatchWinner');
+  if (matchWinner) {
+    mwEl.style.display = 'block';
+    document.getElementById('mmWinnerName').textContent = matchWinner;
+  } else {
+    mwEl.style.display = 'none';
   }
 }
 
-async function undoCurrentMatch() {
-  if (!_vs) return;
-  const { key } = _vs;
+async function recordGame(gKey, teamName) {
+  if (!_mm) return;
+  const { aName, bName, key, ri } = _mm;
+  try {
+    await apiPatch(`/brackets/${state.bracketId}/winner`, { key: gKey, winner: teamName });
+    state.roundWinners[gKey] = teamName;
+
+    // Check majority → auto-set match winner
+    await checkAutoWinner(key, aName, bName, ri);
+    renderModalGames();
+    renderBracket();
+  } catch { showToast('Failed to record game.', 'error'); }
+}
+
+async function checkAutoWinner(key, aName, bName, ri) {
+  const ta = getTeam(aName);
+  const tb = getTeam(bName);
+  const numGames = Math.max(ta?.lineups?.length || 0, tb?.lineups?.length || 0);
+  if (!numGames || state.roundWinners[key]) return;
+
+  let sA = 0, sB = 0;
+  for (let g = 0; g < numGames; g++) {
+    const w = state.roundWinners[`${key}_g${g}`];
+    if (w === aName) sA++;
+    else if (w === bName) sB++;
+  }
+
+  // Majority: need more than half
+  const majority = Math.ceil((numGames + 1) / 2);
+  let matchWinner = null;
+  if (sA >= majority) matchWinner = aName;
+  else if (sB >= majority) matchWinner = bName;
+  else if (sA + sB === numGames) matchWinner = sA > sB ? aName : sB > sA ? bName : null; // all played, pick leader (tie → no auto-winner)
+
+  if (matchWinner) {
+    const rounds = getRounds();
+    const isGF = ri === rounds.length - 1;
+    await apiPatch(`/brackets/${state.bracketId}/winner`, {
+      key,
+      winner: matchWinner,
+      tournament_winner: isGF ? matchWinner : null,
+    });
+    state.roundWinners[key] = matchWinner;
+    if (isGF) {
+      state.winner = matchWinner;
+      document.getElementById('winnerName').textContent = matchWinner;
+      document.getElementById('winnerBanner').classList.add('show');
+    }
+  }
+}
+
+async function undoGame(gKey) {
+  if (!_mm) return;
+  try {
+    await apiPatch(`/brackets/${state.bracketId}/winner`, { key: gKey, winner: '' });
+    delete state.roundWinners[gKey];
+    renderModalGames();
+    renderBracket();
+  } catch { showToast('Failed to undo.', 'error'); }
+}
+
+async function undoMatchWinner() {
+  if (!_mm) return;
+  const { key } = _mm;
   try {
     await apiPatch(`/brackets/${state.bracketId}/winner`, { key, winner: '' });
     delete state.roundWinners[key];
     state.winner = null;
     document.getElementById('winnerBanner').classList.remove('show');
+    renderModalGames();
     renderBracket();
-    closeVsModal();
-    showToast('Result undone.', 'success');
-  } catch {
-    showToast('Failed to undo.', 'error');
-  }
+  } catch { showToast('Failed to undo.', 'error'); }
 }
 
-// ── End / Delete ───────────────────────────────────────────────────────────
+function closeMatchModal() {
+  document.getElementById('matchModal').classList.remove('open');
+  _mm = null;
+}
+
+// ── End / Delete ──────────────────────────────────────────────────────────
 async function endTournament() {
   if (!confirm('End this tournament?')) return;
-  try {
-    await apiPatch(`/brackets/${state.bracketId}/end`, {});
-    state.isLive = false;
-    showToast('Tournament ended.', 'success');
-  } catch { showToast('Failed to end.', 'error'); }
+  try { await apiPatch(`/brackets/${state.bracketId}/end`, {}); showToast('Tournament ended.', 'success'); }
+  catch { showToast('Failed.', 'error'); }
 }
 
 async function deleteBracket() {
@@ -811,7 +861,7 @@ async function deleteBracket() {
     document.getElementById('winnerBanner').classList.remove('show');
     history.pushState({}, '', location.pathname);
     showToast('Deleted.', 'success');
-  } catch { showToast('Failed to delete.', 'error'); }
+  } catch { showToast('Failed.', 'error'); }
 }
 
 function showToast(msg, type = 'info') { _showToast(msg, type); }

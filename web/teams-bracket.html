@@ -124,6 +124,21 @@
     #bracketEmpty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
     #bracketEmpty .empty-icon { font-size: 3rem; margin-bottom: 12px; }
 
+    /* ── Mode toggle ── */
+    .tb-mode-toggle { display: flex; gap: 0; margin-bottom: 16px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+    .tb-mode-btn { flex: 1; padding: 9px 8px; font-size: 0.82rem; font-weight: 700; background: var(--card-bg2); border: none; color: var(--text-muted); cursor: pointer; transition: background 0.15s, color 0.15s; text-align: center; }
+    .tb-mode-btn:first-child { border-right: 1px solid var(--border); }
+    .tb-mode-btn.active { background: rgba(0,119,200,0.18); color: var(--accent-blue); }
+
+    /* ── Team-bracket mode (old teams) ── */
+    .tb-players-area { width: 100%; padding: 7px 10px; font-size: 0.85rem; background: #0f0f17; border: 1px solid rgba(255,255,255,0.13); border-radius: 7px; color: var(--text); font-family: inherit; resize: vertical; box-sizing: border-box; }
+    .tb-players-area:focus { outline: none; border-color: var(--accent-blue); }
+    .tb-label-inp { width: 100%; padding: 6px 10px; font-size: 0.85rem; background: #0f0f17; border: 1px solid rgba(255,255,255,0.13); border-radius: 7px; color: var(--text); font-family: inherit; box-sizing: border-box; }
+    .tb-label-inp:focus { outline: none; border-color: var(--accent-blue); }
+    .tb-assign-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; font-size: 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .tb-assign-row:last-child { border-bottom: none; }
+    .tb-team-sel { padding: 4px 8px; font-size: 0.8rem; background: #0f0f17; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; color: var(--text); }
+
     /* ── Char input with portrait ── */
     .char-inp-wrap { position: relative; flex: 1; min-width: 80px; display: flex; align-items: center; gap: 4px; }
     .char-inp-wrap .char-portrait { width: 22px; height: 22px; border-radius: 3px; object-fit: contain; flex-shrink: 0; background: rgba(255,255,255,0.05); display: none; }
@@ -183,26 +198,35 @@
       <!-- Setup (hidden when bracket is active) -->
       <div id="setupPane">
         <div class="sidebar-card">
+          <!-- Mode toggle -->
+          <div class="tb-mode-toggle" style="margin-bottom:18px;">
+            <button class="tb-mode-btn active" id="btnModeBattle" onclick="setTBMode('battle')">👥 Team Battle</button>
+            <button class="tb-mode-btn" id="btnModeBracket" onclick="setTBMode('bracket')">🏆 Team Bracket</button>
+          </div>
+
           <h2>Tournament</h2>
           <div class="form-group" style="margin-bottom:12px;">
             <input type="text" id="tourneyName" placeholder="Tournament name" maxlength="50" />
           </div>
 
-          <h2>Format</h2>
-          <div style="margin-bottom:12px;">
-            <label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:4px;">Players / Team</label>
-            <select id="playersPerTeam" onchange="rebuildTeamForms()" style="width:100%;padding:6px 8px;font-size:0.85rem;">
-              <option value="1">1</option>
-              <option value="2" selected>2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-            </select>
-          </div>
+          <!-- Battle-only: format controls -->
+          <div class="tb-battle-only">
+            <h2>Format</h2>
+            <div style="margin-bottom:12px;">
+              <label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:4px;">Players / Team</label>
+              <select id="playersPerTeam" onchange="rebuildTeamForms()" style="width:100%;padding:6px 8px;font-size:0.85rem;">
+                <option value="1">1</option>
+                <option value="2" selected>2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+              </select>
+            </div>
 
-          <!-- Friends quick-add -->
-          <div id="friendsQuickAdd" style="display:none;margin-bottom:14px;">
-            <h2>Add Friends</h2>
-            <div id="friendChips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+            <!-- Friends quick-add -->
+            <div id="friendsQuickAdd" style="display:none;margin-bottom:14px;">
+              <h2>Add Friends</h2>
+              <div id="friendChips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+            </div>
           </div>
 
           <h2>Characters per Player</h2>
@@ -213,12 +237,26 @@
             <input type="hidden" id="charsPerPlayer" value="2" />
           </div>
 
-          <h2>Teams</h2>
-          <div id="teamForms"></div>
+          <!-- Team Battle fields -->
+          <div id="paneTeamBattle">
+            <h2>Teams</h2>
+            <div id="teamForms"></div>
+          </div>
+
+          <!-- Team Bracket fields (old teams mode) -->
+          <div id="paneTeamBracket" style="display:none;">
+            <h2>Players <span style="font-size:0.72rem;color:var(--text-muted);font-weight:400;">(one per line)</span></h2>
+            <textarea id="tbPlayersInput" class="tb-players-area" rows="6" placeholder="kai&#10;rith&#10;vyro&#10;leap" oninput="renderTBAssignments()"></textarea>
+
+            <h2 style="margin-top:12px;">Team Labels</h2>
+            <input id="tbTeamLabels" class="tb-label-inp" value="Red, Blue" placeholder="Red, Blue" style="margin-bottom:10px;" oninput="renderTBAssignments()" />
+
+            <div id="tbAssignments"></div>
+          </div>
         </div>
 
         <div class="sticky-bar">
-          <button class="btn btn-gold" onclick="generateBracket()">Generate Bracket</button>
+          <button class="btn btn-gold" id="btnGenerateMain" onclick="onGenerateClick()">Generate Bracket</button>
         </div>
       </div>
 
@@ -270,6 +308,7 @@
 <script src="js/nav-inject.js"></script>
 <script src="js/api.js"></script>
 <script src="js/nav.js"></script>
+<script src="js/bracket-engine.js"></script>
 <script>
 // ── State ─────────────────────────────────────────────────────────────────
 let state = {
@@ -284,6 +323,7 @@ let state = {
 
 let _eloLb = null, _usersCache = null, _statsCache = {};
 let _localPairs = null, _localTeamsDict = null, _localSeeded = null;
+let _tbMode = 'battle'; // 'battle' | 'bracket'
 
 const TEAM_COLORS = ['#3498db','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#e91e63'];
 
@@ -335,6 +375,100 @@ function adjustCPP(d) {
   rebuildTeamForms();
 }
 function getCPP() { return parseInt(document.getElementById('charsPerPlayer').value)||2; }
+
+// ── Mode toggle ──────────────────────────────────────────────────────────
+function setTBMode(mode) {
+  _tbMode = mode;
+  document.getElementById('btnModeBattle').classList.toggle('active', mode === 'battle');
+  document.getElementById('btnModeBracket').classList.toggle('active', mode === 'bracket');
+  document.getElementById('paneTeamBattle').style.display  = mode === 'battle'  ? '' : 'none';
+  document.getElementById('paneTeamBracket').style.display = mode === 'bracket' ? '' : 'none';
+  // Team Battle shows friends + format controls; Team Bracket hides them
+  const battleOnly = ['friendsQuickAdd', 'formatSection'];
+  document.querySelectorAll('.tb-battle-only').forEach(el => { el.style.display = mode === 'battle' ? '' : 'none'; });
+  if (mode === 'bracket') renderTBAssignments();
+}
+
+function onGenerateClick() {
+  if (_tbMode === 'battle') generateBracket();
+  else generateTeamBracket();
+}
+
+// ── Team Bracket mode ─────────────────────────────────────────────────────
+function getTBPlayers() {
+  return (document.getElementById('tbPlayersInput')?.value || '')
+    .split('\n').map(p => p.trim()).filter(Boolean);
+}
+
+function getTBLabels() {
+  return (document.getElementById('tbTeamLabels')?.value || 'Red, Blue')
+    .split(',').map(l => l.trim()).filter(Boolean);
+}
+
+function renderTBAssignments() {
+  const players = getTBPlayers();
+  const labels  = getTBLabels();
+  const container = document.getElementById('tbAssignments');
+  const saved = {};
+  container.querySelectorAll('.tb-team-sel').forEach(s => { saved[s.dataset.player] = s.value; });
+
+  if (!players.length) { container.innerHTML = ''; return; }
+  container.innerHTML = `<h2 style="margin-top:10px;margin-bottom:8px;">Assign Teams</h2>`;
+  players.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'tb-assign-row';
+    const sel = document.createElement('select');
+    sel.className = 'tb-team-sel';
+    sel.dataset.player = p;
+    sel.innerHTML = `<option value="">(none)</option>` + labels.map(l => `<option value="${l}"${saved[p]===l?' selected':''}>${l}</option>`).join('');
+    row.innerHTML = `<span>${p}</span>`;
+    row.appendChild(sel);
+    container.appendChild(row);
+  });
+}
+
+async function generateTeamBracket() {
+  const name    = document.getElementById('tourneyName').value.trim() || 'Team Bracket';
+  const players = getTBPlayers();
+  if (players.length < 2) { showToast('Add at least 2 players.', 'error'); return; }
+
+  const teamOf = {};
+  document.querySelectorAll('.tb-team-sel').forEach(s => { if (s.value) teamOf[s.dataset.player] = s.value; });
+
+  // Build entries: each player gets their top CPP chars from stats
+  const cpp = getCPP();
+  const lb  = await getEloLb();
+  const entries = [];
+  for (const p of players) {
+    const stats = await getPlayerStats(p);
+    const chars = stats.slice(0, cpp).map(s => s.character);
+    while (chars.length < cpp) chars.push('');
+    chars.forEach(c => { if (c) entries.push({ player: p, character: c }); });
+  }
+  if (entries.length < 2) { showToast('No characters found — use ⚡ autofill or add stats first.', 'warn'); return; }
+
+  const statsMap = {};
+  (lb || []).forEach(r => {
+    if (!statsMap[r.username]) statsMap[r.username] = [];
+    statsMap[r.username].push(r);
+  });
+
+  const pairs = buildBracketPairs({ entries, style: 'random', poolMode: 'slot', seedMode: 'elo', teamMode: true, teamOf, statsMap });
+  if (!pairs.length) { showToast('Could not build bracket.', 'error'); return; }
+
+  try {
+    const res = await apiPost('/brackets', {
+      name, mode: 'teams', players,
+      entries,
+      bracket_data: pairs,
+      bracket_style: 'random',
+      is_live: true,
+      chars_per_player: cpp,
+      teams: teamOf,
+    });
+    if (res.id) window.location.href = `tournament.html?id=${res.id}`;
+  } catch { showToast('Failed to create bracket.', 'error'); }
+}
 
 // ── Friends quick-add ─────────────────────────────────────────────────────
 async function loadFriends() {

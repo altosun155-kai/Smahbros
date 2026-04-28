@@ -222,7 +222,7 @@
       <div id="bracketRounds" class="bracket-rounds" style="display:none;"></div>
 
       <!-- Save row — shown after local preview, before saving -->
-      <div id="saveBracketRow" style="display:none;margin-top:14px;display:none;gap:10px;align-items:center;flex-wrap:wrap;">
+      <div id="saveBracketRow" style="display:none;margin-top:14px;gap:10px;align-items:center;flex-wrap:wrap;">
         <button class="btn btn-gold btn-sm" onclick="startLiveTournament()">🏆 Start Live Tournament</button>
         <button class="btn btn-sm" style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.5);color:#27ae60;" onclick="startLineupPhase()">📋 Lineup Phase</button>
       </div>
@@ -246,6 +246,7 @@ let state = {
 };
 
 let _eloLb = null, _usersCache = null, _statsCache = {};
+let _localPairs = null, _localTeamsDict = null, _localSeeded = null;
 
 const TEAM_COLORS = ['#3498db','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#e91e63'];
 
@@ -481,33 +482,67 @@ function buildLineups(team) {
   );
 }
 
-// ── Generate bracket ──────────────────────────────────────────────────────
+// ── Generate bracket (local preview only) ────────────────────────────────
 async function generateBracket() {
-  const name = document.getElementById('tourneyName').value.trim()||'Team Battle';
   const teams = collectTeams();
-  if (teams.length<2) { showToast('Need at least 2 teams.','error'); return; }
+  if (teams.length < 2) { showToast('Need at least 2 teams.', 'error'); return; }
 
   const lb = await getEloLb();
-  const seeded = shuffle(teams.map(t=>{
-    const elos = t.members.flatMap(m=>m.characters.map(c=>(lb.find(r=>r.username===m.player&&r.character===c)?.elo||1000)));
-    return {...t, avgElo: elos.length ? Math.round(elos.reduce((a,b)=>a+b,0)/elos.length) : 1000};
+  const seeded = shuffle(teams.map(t => {
+    const elos = t.members.flatMap(m => m.characters.map(c => (lb.find(r => r.username === m.player && r.character === c)?.elo || 1000)));
+    return { ...t, avgElo: elos.length ? Math.round(elos.reduce((a, b) => a + b, 0) / elos.length) : 1000 };
   }));
 
-  let size=2; while(size<seeded.length) size*=2;
-  while(seeded.length<size) seeded.push({name:'BYE',color:'#555',members:[],avgElo:0,isBye:true});
+  let size = 2; while (size < seeded.length) size *= 2;
+  while (seeded.length < size) seeded.push({ name: 'BYE', color: '#555', members: [], avgElo: 0, isBye: true });
 
-  const pairs=[];
-  for(let i=0;i<size;i+=2) pairs.push({a:seeded[i].name,b:seeded[i+1].name});
+  const pairs = [];
+  for (let i = 0; i < size; i += 2) pairs.push({ a: seeded[i].name, b: seeded[i + 1].name });
 
-  const teamsDict={};
-  seeded.filter(t=>!t.isBye).forEach(t=>{
-    teamsDict[t.name]={color:t.color,members:t.members,lineups:buildLineups(t)};
+  const teamsDict = {};
+  seeded.filter(t => !t.isBye).forEach(t => {
+    teamsDict[t.name] = { color: t.color, members: t.members, lineups: buildLineups(t) };
   });
 
+  _localPairs = pairs;
+  _localTeamsDict = teamsDict;
+  _localSeeded = seeded;
+
+  // Show local preview without saving
+  state.bracketId = null;
+  state.bracketData = pairs;
+  state.roundWinners = {};
+  state.teams = seeded.filter(t => !t.isBye).map(t => ({
+    name: t.name, color: t.color, members: t.members, lineups: teamsDict[t.name].lineups,
+  }));
+
+  document.getElementById('bracketRounds').style.display = 'flex';
+  document.getElementById('bracketEmpty').style.display = 'none';
+  document.getElementById('saveBracketRow').style.display = 'flex';
+  renderBracket();
+}
+
+async function startLiveTournament() {
+  if (!_localPairs) { showToast('Generate a bracket first.', 'warn'); return; }
+  const name = document.getElementById('tourneyName').value.trim() || 'Team Battle';
   try {
-    const res = await apiPost('/brackets',{name,mode:'team_battle',bracket_data:pairs,bracket_style:'random',is_live:true,teams:teamsDict});
-    if (res.id) { await loadBracket(res.id); history.pushState({},'',`?b=${res.id}`); }
-  } catch { showToast('Failed to create bracket.','error'); }
+    const res = await apiPost('/brackets', { name, mode: 'team_battle', bracket_data: _localPairs, bracket_style: 'random', is_live: true, teams: _localTeamsDict });
+    if (res.id) {
+      history.pushState({}, '', `?b=${res.id}`);
+      await loadBracket(res.id);
+    }
+  } catch { showToast('Failed to start tournament.', 'error'); }
+}
+
+async function startLineupPhase() {
+  if (!_localTeamsDict) { showToast('Generate a bracket first.', 'warn'); return; }
+  const name = document.getElementById('tourneyName').value.trim() || 'Team Battle';
+  const players = (_localSeeded || []).filter(t => !t.isBye).flatMap(t => t.members.map(m => m.player)).filter(Boolean);
+  const cpp = getCPP();
+  try {
+    const res = await apiPost('/brackets', { name, mode: 'team_battle', players, bracket_data: [], bracket_style: 'random', is_live: true, chars_per_player: cpp, teams: _localTeamsDict });
+    if (res.id) window.location.href = `tournament.html?id=${res.id}`;
+  } catch { showToast('Failed to start lineup phase.', 'error'); }
 }
 
 // ── Load bracket ──────────────────────────────────────────────────────────
@@ -546,14 +581,26 @@ async function initializeByes() {
 }
 
 function showBracketView() {
-  document.getElementById('setupPane').style.display='none';
-  document.getElementById('bracketInfoPane').style.display='block';
-  document.getElementById('bracketRounds').style.display='flex';
-  document.getElementById('bracketEmpty').style.display='none';
-  document.getElementById('bracketInfoTitle').textContent=state.bracketName;
+  document.getElementById('setupPane').style.display = 'none';
+  document.getElementById('bracketInfoPane').style.display = 'block';
+  document.getElementById('bracketRounds').style.display = 'flex';
+  document.getElementById('bracketEmpty').style.display = 'none';
+  document.getElementById('saveBracketRow').style.display = 'none';
+  document.getElementById('bracketInfoTitle').textContent = state.bracketName;
   renderRoster();
-  if(state.winner){
-    document.getElementById('winnerName').textContent=state.winner;
+
+  // Live banner with tournament.html share link
+  if (state.isLive && state.bracketId) {
+    const url = `${location.origin}${location.pathname.replace('teams-bracket.html', '')}tournament.html?id=${state.bracketId}`;
+    document.getElementById('liveTourneyViewLink').href = `tournament.html?id=${state.bracketId}`;
+    document.getElementById('liveTourneyShareUrl').value = url;
+    document.getElementById('liveTourneyBanner').style.display = 'block';
+  } else {
+    document.getElementById('liveTourneyBanner').style.display = 'none';
+  }
+
+  if (state.winner) {
+    document.getElementById('winnerName').textContent = state.winner;
     document.getElementById('winnerBanner').classList.add('show');
   } else {
     document.getElementById('winnerBanner').classList.remove('show');

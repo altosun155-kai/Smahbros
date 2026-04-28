@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smash Bracket — Team Standings</title>
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/auth.js"></script>
+  <style>
+    .standings-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    .standings-table th { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; }
+    .standings-table td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: middle; }
+    .standings-table tr:last-child td { border-bottom: none; }
+    .standings-table tr:hover td { background: rgba(255,255,255,0.03); }
+    .rank-num { font-size: 0.8rem; font-weight: 800; color: var(--text-muted); width: 32px; }
+    .rank-num.gold   { color: #ffd700; }
+    .rank-num.silver { color: #c0c0c0; }
+    .rank-num.bronze { color: #cd7f32; }
+    .team-players { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+    .player-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .record { font-variant-numeric: tabular-nums; font-weight: 700; }
+    .win-pct { font-size: 0.8rem; color: var(--text-muted); }
+    .streak { font-size: 0.78rem; font-weight: 700; }
+    .streak.hot  { color: #4caf50; }
+    .streak.cold { color: #e74c3c; }
+
+    /* H2H grid */
+    .h2h-section { margin-top: 32px; }
+    .h2h-table { border-collapse: collapse; font-size: 0.82rem; }
+    .h2h-table th, .h2h-table td { padding: 8px 14px; border: 1px solid var(--border); text-align: center; min-width: 80px; }
+    .h2h-table th { background: var(--card-bg2); font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+    .h2h-table td.self { background: rgba(255,255,255,0.04); color: var(--text-muted); font-style: italic; }
+    .h2h-table td.win  { color: #4caf50; font-weight: 700; }
+    .h2h-table td.loss { color: #e74c3c; font-weight: 700; }
+    .h2h-table .row-label { text-align: left; font-weight: 700; background: var(--card-bg2); white-space: nowrap; }
+
+    .recent-section { margin-top: 32px; }
+    .recent-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.85rem; }
+    .recent-row:last-child { border-bottom: none; }
+    .recent-winner { font-weight: 800; color: #ffe066; }
+    .recent-loser  { color: var(--text-muted); }
+    .recent-date   { font-size: 0.72rem; color: var(--text-muted); margin-left: auto; }
+
+    #loadingMsg { color: var(--text-muted); padding: 40px 0; text-align: center; }
+  </style>
+</head>
+<body>
+<script>requireAuth();</script>
+<div id="toast-container"></div>
+<nav class="navbar" id="main-nav"></nav>
+
+<main class="page-container">
+  <div class="page-header">
+    <h1>👥 Team Standings</h1>
+    <p>Win/loss records for all player-pair teams across Team Battle brackets.</p>
+  </div>
+
+  <div id="loadingMsg">Loading...</div>
+  <div id="content" style="display:none;">
+
+    <!-- Standings table -->
+    <div class="card" style="margin-bottom:24px;">
+      <table class="standings-table" id="standingsTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Team</th>
+            <th>W</th>
+            <th>L</th>
+            <th>Win %</th>
+            <th>Streak</th>
+          </tr>
+        </thead>
+        <tbody id="standingsBody"></tbody>
+      </table>
+    </div>
+
+    <!-- H2H grid -->
+    <div class="h2h-section card" style="overflow-x:auto;margin-bottom:24px;">
+      <h2 style="font-size:0.88rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:16px;">Head-to-Head</h2>
+      <table class="h2h-table" id="h2hTable"></table>
+    </div>
+
+    <!-- Recent results -->
+    <div class="recent-section card">
+      <h2 style="font-size:0.88rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:16px;">Recent Results</h2>
+      <div id="recentResults"></div>
+    </div>
+  </div>
+</main>
+
+<script src="js/nav-inject.js"></script>
+<script src="js/api.js"></script>
+<script src="js/nav.js"></script>
+<script>
+// ── The 6 fixed team pairings ─────────────────────────────────────────────
+// Each team is identified by a sorted pair key "playerA|playerB"
+const TEAM_PAIRS = [
+  ['kai',  'rith'],
+  ['kai',  'leap'],
+  ['kai',  'vyro'],
+  ['vyro', 'leap'],
+  ['vyro', 'rith'],
+  ['leap', 'rith'],
+];
+
+// Assign each pair a color based on index
+const PAIR_COLORS = ['#3498db','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c'];
+
+function pairKey(a, b) { return [a, b].sort().join('|'); }
+
+function findPairForMembers(memberPlayers) {
+  const sorted = [...memberPlayers].sort().join('|');
+  return TEAM_PAIRS.find(([a, b]) => pairKey(a, b) === sorted) || null;
+}
+
+function teamLabel([a, b]) { return `${a} / ${b}`; }
+
+// ── Build stats from bracket data ─────────────────────────────────────────
+function computeStandings(brackets) {
+  // wins[key], losses[key], streak[key] = [{w|l}, ...]
+  const wins    = {};
+  const losses  = {};
+  const results = {}; // key -> [{won:bool, date, bracketName, vs}] sorted by date desc
+
+  TEAM_PAIRS.forEach(([a, b]) => {
+    const k = pairKey(a, b);
+    wins[k] = 0; losses[k] = 0; results[k] = [];
+  });
+
+  // h2h[key1][key2] = {w, l}
+  const h2h = {};
+  TEAM_PAIRS.forEach(([a, b]) => {
+    h2h[pairKey(a, b)] = {};
+    TEAM_PAIRS.forEach(([c, d]) => { h2h[pairKey(a, b)][pairKey(c, d)] = { w: 0, l: 0 }; });
+  });
+
+  for (const br of brackets) {
+    const teamsDict = br.teams || {};
+    const rw = br.round_winners || {};
+
+    // Build a map: teamName -> pairKey
+    const teamToPair = {};
+    for (const [tname, tdata] of Object.entries(teamsDict)) {
+      const players = (tdata.members || []).map(m => m.player).filter(Boolean);
+      const pair = findPairForMembers(players);
+      if (pair) teamToPair[tname] = pairKey(pair[0], pair[1]);
+    }
+
+    // Find all match winners from round_winners (only top-level match keys r{ri}_m{mi}, not game keys)
+    const matchKeys = Object.keys(rw).filter(k => /^r\d+_m\d+$/.test(k));
+    for (const mk of matchKeys) {
+      const winnerTeamName = rw[mk];
+      if (!winnerTeamName || winnerTeamName === '') continue;
+
+      // Find the two teams in this match from bracket_data or round context
+      // We need to know who lost — find the loser by looking at what teams were in this match
+      // Parse round/match index
+      const [, ri, mi] = mk.match(/r(\d+)_m(\d+)/);
+      const winPair = teamToPair[winnerTeamName];
+      if (!winPair) continue;
+
+      // Find the other team in this matchup by looking at who had a key with a different value
+      // For r0, use bracket_data directly
+      let loserTeamName = null;
+      if (parseInt(ri) === 0) {
+        const pair = (br.bracket_data || [])[parseInt(mi)];
+        if (pair) {
+          loserTeamName = pair.a === winnerTeamName ? pair.b : pair.a;
+        }
+      } else {
+        // For later rounds, infer from who's in the bracket — harder without full round reconstruction
+        // Skip for now (most team battles are 2-team = 1 match anyway)
+      }
+
+      const losePair = loserTeamName ? teamToPair[loserTeamName] : null;
+
+      wins[winPair] = (wins[winPair] || 0) + 1;
+      results[winPair] = results[winPair] || [];
+      results[winPair].push({ won: true, date: br.created_at, bracketName: br.name, vs: losePair });
+
+      if (losePair) {
+        losses[losePair] = (losses[losePair] || 0) + 1;
+        results[losePair] = results[losePair] || [];
+        results[losePair].push({ won: false, date: br.created_at, bracketName: br.name, vs: winPair });
+
+        // H2H
+        if (h2h[winPair] && h2h[winPair][losePair]) h2h[winPair][losePair].w++;
+        if (h2h[losePair] && h2h[losePair][winPair]) h2h[losePair][winPair].l++;
+      }
+    }
+  }
+
+  return { wins, losses, results, h2h };
+}
+
+function computeStreak(resultList) {
+  if (!resultList || resultList.length === 0) return null;
+  const sorted = [...resultList].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const first = sorted[0].won;
+  let count = 0;
+  for (const r of sorted) {
+    if (r.won === first) count++;
+    else break;
+  }
+  return { won: first, count };
+}
+
+// ── Render ────────────────────────────────────────────────────────────────
+function render(brackets) {
+  const { wins, losses, results, h2h } = computeStandings(brackets);
+
+  // Sort pairs by win%, then wins
+  const sorted = [...TEAM_PAIRS].map(([a, b]) => {
+    const k = pairKey(a, b);
+    const w = wins[k] || 0, l = losses[k] || 0;
+    return { pair: [a, b], key: k, w, l, pct: (w + l) > 0 ? w / (w + l) : 0 };
+  }).sort((a, b) => b.pct - a.pct || b.w - a.w || a.l - b.l);
+
+  // Standings table
+  const tbody = document.getElementById('standingsBody');
+  tbody.innerHTML = sorted.map(({ pair, key, w, l, pct }, i) => {
+    const streak = computeStreak(results[key]);
+    const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+    const color = PAIR_COLORS[TEAM_PAIRS.findIndex(([a, b]) => pairKey(a, b) === key)];
+    const streakHtml = streak
+      ? `<span class="streak ${streak.won ? 'hot' : 'cold'}">${streak.won ? 'W' : 'L'}${streak.count}</span>`
+      : `<span class="streak" style="color:var(--text-muted)">—</span>`;
+    return `<tr>
+      <td class="rank-num ${rankClass}">${i + 1}</td>
+      <td>
+        <div class="team-players">
+          <div class="player-dot" style="background:${color}"></div>
+          ${pair[0]} / ${pair[1]}
+        </div>
+      </td>
+      <td class="record" style="color:#4caf50">${w}</td>
+      <td class="record" style="color:#e74c3c">${l}</td>
+      <td class="win-pct">${(w + l) > 0 ? Math.round(pct * 100) + '%' : '—'}</td>
+      <td>${streakHtml}</td>
+    </tr>`;
+  }).join('');
+
+  // H2H grid
+  const h2hTable = document.getElementById('h2hTable');
+  const shortName = ([a, b]) => `${a[0].toUpperCase()}/${b[0].toUpperCase()}`;
+  const headerRow = `<tr><th>vs →</th>${TEAM_PAIRS.map(p => `<th>${teamLabel(p)}</th>`).join('')}</tr>`;
+  const dataRows = TEAM_PAIRS.map(([a, b]) => {
+    const rowKey = pairKey(a, b);
+    const cells = TEAM_PAIRS.map(([c, d]) => {
+      const colKey = pairKey(c, d);
+      if (rowKey === colKey) return `<td class="self">—</td>`;
+      const record = h2h[rowKey]?.[colKey];
+      if (!record || (record.w === 0 && record.l === 0)) return `<td style="color:var(--text-muted);">—</td>`;
+      const cls = record.w > record.l ? 'win' : record.l > record.w ? 'loss' : '';
+      return `<td class="${cls}">${record.w}–${record.l}</td>`;
+    }).join('');
+    return `<tr><td class="row-label">${teamLabel([a, b])}</td>${cells}</tr>`;
+  }).join('');
+  h2hTable.innerHTML = headerRow + dataRows;
+
+  // Recent results
+  const allResults = [];
+  for (const [key, rlist] of Object.entries(results)) {
+    const pair = TEAM_PAIRS.find(([a, b]) => pairKey(a, b) === key);
+    if (!pair) continue;
+    for (const r of rlist) {
+      if (r.won) allResults.push({ ...r, winnerPair: pair, loserKey: r.vs });
+    }
+  }
+  allResults.sort((a, b) => new Date(b.date) - new Date(a.date));
+  const recentDiv = document.getElementById('recentResults');
+  if (allResults.length === 0) {
+    recentDiv.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">No completed matches yet.</p>';
+  } else {
+    recentDiv.innerHTML = allResults.slice(0, 15).map(r => {
+      const loserPair = r.loserKey ? TEAM_PAIRS.find(([a, b]) => pairKey(a, b) === r.loserKey) : null;
+      const dateStr = new Date(r.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      return `<div class="recent-row">
+        <span class="recent-winner">🏆 ${teamLabel(r.winnerPair)}</span>
+        <span style="color:var(--text-muted);font-size:0.75rem;">def.</span>
+        <span class="recent-loser">${loserPair ? teamLabel(loserPair) : '?'}</span>
+        <span style="font-size:0.75rem;color:var(--text-muted);">${r.bracketName}</span>
+        <span class="recent-date">${dateStr}</span>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+(async () => {
+  try {
+    const brackets = await apiGet('/brackets/team-battles');
+    document.getElementById('loadingMsg').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+    render(brackets || []);
+  } catch (e) {
+    document.getElementById('loadingMsg').textContent = 'Failed to load standings.';
+  }
+})();
+</script>
+</body>
+</html>

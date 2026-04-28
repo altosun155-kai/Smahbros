@@ -1297,6 +1297,10 @@ async function confirmMatchups() {
 async function fetchAndRender() {
   try {
     const data = await apiGet(`/brackets/${tournamentId}`);
+    if (data.mode === 'team_battle') {
+      window.location.replace(`teams-bracket.html?b=${tournamentId}`);
+      return;
+    }
     currentBracketData = data;
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = 'block';

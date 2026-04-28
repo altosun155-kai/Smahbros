@@ -124,13 +124,13 @@
             </div>
             <div class="bracket-actions">
               ${statusBadge}
-              <a href="tournament.html?id=${b.id}" class="btn btn-outline btn-sm" onclick="event.stopPropagation();" style="font-size:0.75rem;">View</a>
+              <a href="${b.mode==='team_battle'?`teams-bracket.html?b=${b.id}`:`tournament.html?id=${b.id}`}" class="btn btn-outline btn-sm" onclick="event.stopPropagation();" style="font-size:0.75rem;">View</a>
               <button class="btn-trash" title="Delete bracket" onclick="event.stopPropagation();deleteBracket(${b.id},'${b.name.replace(/'/g,"\\'")}')">🗑</button>
               <span class="expand-icon" id="icon_${b.id}">›</span>
             </div>
           </div>
           <div class="bracket-body" id="body_${b.id}">
-            <a href="tournament.html?id=${b.id}" class="btn btn-outline btn-sm" style="margin-top:8px;display:inline-block;">Open Full Bracket View →</a>
+            <a href="${b.mode==='team_battle'?`teams-bracket.html?b=${b.id}`:`tournament.html?id=${b.id}`}" class="btn btn-outline btn-sm" style="margin-top:8px;display:inline-block;">Open Full Bracket View →</a>
           </div>
         </div>
       `;

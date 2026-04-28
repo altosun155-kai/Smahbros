@@ -135,6 +135,29 @@ def list_brackets(db: Session = Depends(get_db), current_user: User = Depends(ge
     return [{"id": b.id, "name": b.name, "mode": b.mode, "is_live": b.is_live, "winner": b.winner, "placements": b.placements, "created_at": b.created_at.isoformat()} for b in brackets]
 
 
+@router.get("/brackets/team-battles")
+def list_team_battles(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+    """All team_battle brackets across all users, for standings computation."""
+    brackets = (
+        db.query(Bracket)
+        .filter(Bracket.mode == "team_battle")
+        .order_by(Bracket.created_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": b.id,
+            "name": b.name,
+            "is_live": b.is_live,
+            "winner": b.winner,
+            "teams": b.teams or {},
+            "round_winners": b.round_winners or {},
+            "created_at": b.created_at.isoformat(),
+        }
+        for b in brackets
+    ]
+
+
 @router.post("/brackets")
 def create_bracket(req: BracketCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     bracket = Bracket(

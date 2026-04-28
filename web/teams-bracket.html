@@ -409,23 +409,86 @@ function getTBLabels() {
 function renderTBAssignments() {
   const players = getTBPlayers();
   const labels  = getTBLabels();
+  const cpp     = getCPP();
   const container = document.getElementById('tbAssignments');
-  const saved = {};
-  container.querySelectorAll('.tb-team-sel').forEach(s => { saved[s.dataset.player] = s.value; });
+
+  // Save existing selections/chars before wiping
+  const savedTeam = {}, savedChars = {};
+  container.querySelectorAll('.tb-team-sel').forEach(s => { savedTeam[s.dataset.player] = s.value; });
+  container.querySelectorAll('[data-pchars]').forEach(wrap => {
+    savedChars[wrap.dataset.pchars] = [...wrap.querySelectorAll('.tb-char-inp')].map(i => i.value);
+  });
 
   if (!players.length) { container.innerHTML = ''; return; }
-  container.innerHTML = `<h2 style="margin-top:10px;margin-bottom:8px;">Assign Teams</h2>`;
+  container.innerHTML = '<h2 style="margin-top:10px;margin-bottom:8px;">Assign Teams &amp; Characters</h2>';
+
   players.forEach(p => {
-    const row = document.createElement('div');
-    row.className = 'tb-assign-row';
+    const block = document.createElement('div');
+    block.style.cssText = 'margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.05);';
+
+    // Team row: name + team dropdown + autofill button
+    const topRow = document.createElement('div');
+    topRow.className = 'tb-assign-row';
+    topRow.style.marginBottom = '6px';
+
+    const nameEl = document.createElement('span');
+    nameEl.style.cssText = 'font-weight:600;font-size:0.85rem;';
+    nameEl.textContent = p;
+
+    const rightGroup = document.createElement('div');
+    rightGroup.style.cssText = 'display:flex;gap:6px;align-items:center;';
+
     const sel = document.createElement('select');
     sel.className = 'tb-team-sel';
     sel.dataset.player = p;
-    sel.innerHTML = `<option value="">(none)</option>` + labels.map(l => `<option value="${l}"${saved[p]===l?' selected':''}>${l}</option>`).join('');
-    row.innerHTML = `<span>${p}</span>`;
-    row.appendChild(sel);
-    container.appendChild(row);
+    sel.innerHTML = '<option value="">(none)</option>' + labels.map(l => `<option value="${l}"${savedTeam[p]===l?' selected':''}>${l}</option>`).join('');
+
+    const fillBtn = document.createElement('button');
+    fillBtn.type = 'button';
+    fillBtn.className = 'autofill-btn';
+    fillBtn.textContent = '⚡ Fill';
+    fillBtn.addEventListener('click', async () => {
+      const lb = await getEloLb();
+      const chars = lb.filter(r => r.username === p).sort((a,b) => (b.elo||0)-(a.elo||0));
+      block.querySelectorAll('.tb-char-inp').forEach((inp, ci) => {
+        inp.value = chars[ci]?.character || '';
+        updateTBCharPortrait(inp);
+      });
+    });
+
+    rightGroup.appendChild(sel);
+    rightGroup.appendChild(fillBtn);
+    topRow.appendChild(nameEl);
+    topRow.appendChild(rightGroup);
+
+    // Character slots with portrait
+    const charRow = document.createElement('div');
+    charRow.className = 'char-row';
+    charRow.dataset.pchars = p;
+    const prevChars = savedChars[p] || [];
+    for (let ci = 0; ci < cpp; ci++) {
+      const val = prevChars[ci] || '';
+      const wrap = document.createElement('div');
+      wrap.className = 'char-inp-wrap' + (val ? ' has-char' : '');
+      wrap.innerHTML = `<img class="char-portrait" src="${val ? charImgUrl(val) : ''}" alt="" onerror="this.style.display='none'" style="${val ? '' : 'display:none'}" />
+        <input class="char-inp tb-char-inp" list="charlist" placeholder="Char ${ci+1}" value="${val}" autocomplete="off" />`;
+      wrap.querySelector('.tb-char-inp').addEventListener('input', e => updateTBCharPortrait(e.target));
+      charRow.appendChild(wrap);
+    }
+
+    block.appendChild(topRow);
+    block.appendChild(charRow);
+    container.appendChild(block);
   });
+}
+
+function updateTBCharPortrait(inp) {
+  const wrap = inp.closest('.char-inp-wrap');
+  if (!wrap) return;
+  const c = inp.value.trim();
+  const img = wrap.querySelector('.char-portrait');
+  if (c) { img.src = charImgUrl(c); img.style.display = ''; wrap.classList.add('has-char'); }
+  else   { img.src = ''; img.style.display = 'none'; wrap.classList.remove('has-char'); }
 }
 
 async function generateTeamBracket() {
@@ -436,17 +499,22 @@ async function generateTeamBracket() {
   const teamOf = {};
   document.querySelectorAll('.tb-team-sel').forEach(s => { if (s.value) teamOf[s.dataset.player] = s.value; });
 
-  // Build entries: each player gets their top CPP chars from stats
+  // Build entries from the char inputs (fall back to stats if empty)
   const cpp = getCPP();
   const lb  = await getEloLb();
   const entries = [];
   for (const p of players) {
-    const stats = await getPlayerStats(p);
-    const chars = stats.slice(0, cpp).map(s => s.character);
-    while (chars.length < cpp) chars.push('');
+    const charWrap = document.querySelector(`[data-pchars="${CSS.escape(p)}"]`);
+    let chars = charWrap
+      ? [...charWrap.querySelectorAll('.tb-char-inp')].map(i => i.value.trim()).filter(Boolean)
+      : [];
+    if (!chars.length) {
+      const stats = await getPlayerStats(p);
+      chars = stats.slice(0, cpp).map(s => s.character);
+    }
     chars.forEach(c => { if (c) entries.push({ player: p, character: c }); });
   }
-  if (entries.length < 2) { showToast('No characters found — use ⚡ autofill or add stats first.', 'warn'); return; }
+  if (entries.length < 2) { showToast('No characters found — use ⚡ Fill or add stats first.', 'warn'); return; }
 
   const statsMap = {};
   (lb || []).forEach(r => {
@@ -614,18 +682,20 @@ function rebuildTeamForms() {
         </div>
         <div class="char-row">${charInps}</div>`;
 
-      slot.querySelector('.autofill-btn').addEventListener('click', async () => {
+      const doAutofill = async () => {
         const p = slot.querySelector('.player-sel').value;
-        if (!p) { showToast('Select a player first.','warn'); return; }
-        const stats = await getPlayerStats(p);
-        slot.querySelectorAll('.char-inp').forEach((inp,ci)=>{
-          inp.value = stats[ci]?.character||'';
+        if (!p) return;
+        const lb = await getEloLb();
+        const chars = lb.filter(r => r.username === p).sort((a,b) => (b.elo||0)-(a.elo||0));
+        slot.querySelectorAll('.char-inp').forEach((inp,ci) => {
+          inp.value = chars[ci]?.character || '';
           updateCharPortrait(inp);
         });
         updateAvgElo(t);
-      });
+      };
+      slot.querySelector('.autofill-btn').addEventListener('click', doAutofill);
       slot.querySelector('.player-sel').addEventListener('change', () => {
-        updateAvgElo(t);
+        doAutofill();
         refreshChipStates();
       });
       slot.querySelectorAll('.char-inp').forEach(el=>{

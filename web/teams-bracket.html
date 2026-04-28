@@ -209,6 +209,12 @@
             <input type="text" id="tourneyName" placeholder="Tournament name" maxlength="50" />
           </div>
 
+          <!-- Friends quick-add (both modes) -->
+          <div id="friendsQuickAdd" style="display:none;margin-bottom:14px;">
+            <h2>Add Friends</h2>
+            <div id="friendChips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+          </div>
+
           <!-- Battle-only: format controls -->
           <div class="tb-battle-only">
             <h2>Format</h2>
@@ -220,12 +226,6 @@
                 <option value="3">3</option>
                 <option value="4">4</option>
               </select>
-            </div>
-
-            <!-- Friends quick-add -->
-            <div id="friendsQuickAdd" style="display:none;margin-bottom:14px;">
-              <h2>Add Friends</h2>
-              <div id="friendChips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
             </div>
           </div>
 
@@ -246,7 +246,7 @@
           <!-- Team Bracket fields (old teams mode) -->
           <div id="paneTeamBracket" style="display:none;">
             <h2>Players <span style="font-size:0.72rem;color:var(--text-muted);font-weight:400;">(one per line)</span></h2>
-            <textarea id="tbPlayersInput" class="tb-players-area" rows="6" placeholder="kai&#10;rith&#10;vyro&#10;leap" oninput="renderTBAssignments()"></textarea>
+            <textarea id="tbPlayersInput" class="tb-players-area" rows="6" placeholder="kai&#10;rith&#10;vyro&#10;leap" oninput="renderTBAssignments();refreshChipStates()"></textarea>
 
             <h2 style="margin-top:12px;">Team Labels</h2>
             <input id="tbTeamLabels" class="tb-label-inp" value="Red, Blue" placeholder="Red, Blue" style="margin-bottom:10px;" oninput="renderTBAssignments()" />
@@ -387,6 +387,7 @@ function setTBMode(mode) {
   const battleOnly = ['friendsQuickAdd', 'formatSection'];
   document.querySelectorAll('.tb-battle-only').forEach(el => { el.style.display = mode === 'battle' ? '' : 'none'; });
   if (mode === 'bracket') renderTBAssignments();
+  refreshChipStates();
 }
 
 function onGenerateClick() {
@@ -511,6 +512,16 @@ async function loadFriends() {
 }
 
 function toggleFriendSlot(username, chip) {
+  if (_tbMode === 'bracket') {
+    const ta = document.getElementById('tbPlayersInput');
+    const lines = ta.value.split('\n').map(l => l.trim()).filter(Boolean);
+    const idx = lines.indexOf(username);
+    if (idx !== -1) { lines.splice(idx, 1); chip.classList.remove('added'); }
+    else             { lines.push(username); chip.classList.add('added'); }
+    ta.value = lines.join('\n');
+    renderTBAssignments();
+    return;
+  }
   const allSelects = [...document.querySelectorAll('.player-sel')];
   const existing = allSelects.find(s => s.value === username);
   if (existing) {
@@ -529,28 +540,15 @@ function toggleFriendSlot(username, chip) {
   }
 }
 
-function updateCharPortrait(inp) {
-  const wrap = inp.closest('.char-inp-wrap');
-  if (!wrap) return;
-  const c = inp.value.trim();
-  const img = wrap.querySelector('.char-portrait');
-  if (c) {
-    const url = charImgUrl(c);
-    img.src = url;
-    img.style.display = '';
-    wrap.classList.add('has-char');
-  } else {
-    img.src = '';
-    img.style.display = 'none';
-    wrap.classList.remove('has-char');
-  }
-}
-
 function refreshChipStates() {
-  const taken = new Set([...document.querySelectorAll('.player-sel')].map(s => s.value).filter(Boolean));
+  let taken;
+  if (_tbMode === 'bracket') {
+    taken = new Set((document.getElementById('tbPlayersInput')?.value || '').split('\n').map(l => l.trim()).filter(Boolean));
+  } else {
+    taken = new Set([...document.querySelectorAll('.player-sel')].map(s => s.value).filter(Boolean));
+  }
   document.querySelectorAll('.friend-chip').forEach(chip => {
-    const u = chip.id.replace('chip_', '');
-    chip.classList.toggle('added', taken.has(u));
+    chip.classList.toggle('added', taken.has(chip.id.replace('chip_', '')));
   });
 }
 

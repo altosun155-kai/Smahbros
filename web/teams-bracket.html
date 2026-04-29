@@ -386,7 +386,14 @@ function setTBMode(mode) {
   // Team Battle shows friends + format controls; Team Bracket hides them
   const battleOnly = ['friendsQuickAdd', 'formatSection'];
   document.querySelectorAll('.tb-battle-only').forEach(el => { el.style.display = mode === 'battle' ? '' : 'none'; });
-  if (mode === 'bracket') renderTBAssignments();
+  if (mode === 'bracket') {
+    const ta = document.getElementById('tbPlayersInput');
+    const me = getUsername();
+    if (me && !ta.value.split('\n').map(l => l.trim()).includes(me)) {
+      ta.value = me + (ta.value.trim() ? '\n' + ta.value.trim() : '');
+    }
+    renderTBAssignments();
+  }
   refreshChipStates();
 }
 
@@ -522,8 +529,12 @@ async function generateTeamBracket() {
     statsMap[r.username].push(r);
   });
 
-  const pairs = buildBracketPairs({ entries, style: 'random', poolMode: 'slot', seedMode: 'elo', teamMode: true, teamOf, statsMap });
-  if (!pairs.length) { showToast('Could not build bracket.', 'error'); return; }
+  const rawPairs = buildBracketPairs({ entries, style: 'random', poolMode: 'slot', seedMode: 'elo', teamMode: true, teamOf, statsMap });
+  if (!rawPairs.length) { showToast('Could not build bracket.', 'error'); return; }
+
+  // Convert [{player,character},{player,character}] pairs to {a: "player — char", b: "player — char"}
+  const pairLabel = e => (!e || e.player === 'SYSTEM') ? 'BYE' : `${e.player} — ${e.character}`;
+  const pairs = rawPairs.map(([a, b]) => ({ a: pairLabel(a), b: pairLabel(b) }));
 
   try {
     const res = await apiPost('/brackets', {

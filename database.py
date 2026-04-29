@@ -141,8 +141,9 @@ class CharacterStats(Base):
     deaths     = Column(Integer, default=0, nullable=False)
     wins       = Column(Integer, default=0, nullable=False)
     losses     = Column(Integer, default=0, nullable=False)
-    sacrifices = Column(Integer, default=0, nullable=False)
-    updated_at = Column(DateTime, default=_now, onupdate=_now)
+    sacrifices    = Column(Integer, default=0, nullable=False)
+    practice_elo  = Column(Integer, nullable=True)   # NULL until 5 practice sessions (placement)
+    updated_at    = Column(DateTime, default=_now, onupdate=_now)
 
     owner = relationship("User", back_populates="character_stats")
 
@@ -173,6 +174,7 @@ class PracticeSession(Base):
     cpu_stocks = Column(Integer, default=0)
     won        = Column(Boolean, default=True)
     notes      = Column(String(500), nullable=True)
+    elo_delta  = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=_now)
 
     owner = relationship("User", back_populates="practice_sessions")

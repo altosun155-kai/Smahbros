@@ -72,9 +72,12 @@ def _run_migrations():
                     cpu_stocks INTEGER DEFAULT 0,
                     won BOOLEAN DEFAULT TRUE,
                     notes VARCHAR(500),
+                    elo_delta INTEGER DEFAULT 0,
                     created_at TIMESTAMP DEFAULT NOW()
                 )
             """))
+            conn.execute(text("ALTER TABLE practice_sessions ADD COLUMN IF NOT EXISTS elo_delta INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE character_stats ADD COLUMN IF NOT EXISTS practice_elo INTEGER DEFAULT NULL"))
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS character_matchups (
                     id SERIAL PRIMARY KEY,
@@ -174,6 +177,12 @@ def _run_migrations():
                 conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_friendship_pair ON friendships(requester_id, addressee_id)"))
             except Exception:
                 pass
+            ps_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(practice_sessions)"))}
+            if "elo_delta" not in ps_cols:
+                conn.execute(text("ALTER TABLE practice_sessions ADD COLUMN elo_delta INTEGER DEFAULT 0"))
+            cs_cols2 = {row[1] for row in conn.execute(text("PRAGMA table_info(character_stats)"))}
+            if "practice_elo" not in cs_cols2:
+                conn.execute(text("ALTER TABLE character_stats ADD COLUMN practice_elo INTEGER DEFAULT NULL"))
             existing = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))}
             if "character_matchups" not in existing:
                 conn.execute(text("""

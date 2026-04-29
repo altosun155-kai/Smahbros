@@ -247,6 +247,7 @@
             <div class="pm-stat-box"><div class="pm-stat-val" style="color:#4caf50;" id="pmStatWins">—</div><div class="pm-stat-lbl">Wins</div></div>
             <div class="pm-stat-box"><div class="pm-stat-val" style="color:#e74c3c;" id="pmStatLosses">—</div><div class="pm-stat-lbl">Losses</div></div>
             <div class="pm-stat-box"><div class="pm-stat-val" style="color:var(--accent-gold);" id="pmStatWinPct">—</div><div class="pm-stat-lbl">Win %</div></div>
+            <div class="pm-stat-box" id="pmEloBox"><div class="pm-stat-val" style="color:#a78bfa;" id="pmStatElo">—</div><div class="pm-stat-lbl" id="pmEloLbl">Elo</div></div>
           </div>
         </div>
 
@@ -256,10 +257,13 @@
           <div id="pmMatchupList"></div>
         </div>
 
-        <!-- Recent sessions -->
-        <div id="pmSessionsWrap" style="display:none;">
-          <div class="pm-form-section">Recent Sessions</div>
-          <div id="pmSessionList"></div>
+        <!-- Session history -->
+        <div id="pmSessionsWrap">
+          <div class="pm-form-section" style="display:flex;align-items:center;justify-content:space-between;">
+            <span>Session History</span>
+            <span id="pmSessionCount" style="font-size:0.7rem;color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:0;"></span>
+          </div>
+          <div id="pmSessionList"><div style="color:var(--text-muted);font-size:0.82rem;padding:10px 0;">No sessions yet.</div></div>
         </div>
 
         <!-- Divider -->
@@ -393,6 +397,17 @@
       document.getElementById('pmStatWins').textContent    = s.wins;
       document.getElementById('pmStatLosses').textContent  = s.losses;
       document.getElementById('pmStatWinPct').textContent  = s.win_pct != null ? s.win_pct + '%' : '—';
+      const pm = s.placement_matches || 5;
+      if (s.placement_done) {
+        document.getElementById('pmStatElo').textContent = s.elo;
+        document.getElementById('pmStatElo').style.color = '#a78bfa';
+        document.getElementById('pmEloLbl').textContent  = 'Practice Elo';
+      } else {
+        const done = Math.min(s.total, pm);
+        document.getElementById('pmStatElo').textContent = `${done}/${pm}`;
+        document.getElementById('pmStatElo').style.color = 'var(--text-muted)';
+        document.getElementById('pmEloLbl').textContent  = 'Placement';
+      }
       document.getElementById('pmSummary').textContent     = s.total
         ? `${s.wins}W ${s.losses}L (${s.win_pct}%)`
         : 'No sessions yet';
@@ -422,29 +437,33 @@
 
   async function loadSessions(char) {
     try {
-      const sessions = await apiGet(`/practice/sessions?character=${encodeURIComponent(char)}&limit=10`);
-      if (sessions.length) {
-        document.getElementById('pmSessionsWrap').style.display = 'block';
-        document.getElementById('pmSessionList').innerHTML = sessions.map(s => {
-          const date = s.created_at ? new Date(s.created_at).toLocaleString() : '';
-          const stocks = s.won
-            ? `<span style="color:#4caf50;">${s.my_stocks} stocks left</span>`
-            : `<span style="color:#e74c3c;">CPU had ${s.cpu_stocks} left</span>`;
-          const noteSpan = s.notes ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;">${escHtml(s.notes)}</div>` : '';
-          return `<div class="session-row" id="sr-${s.id}">
-            <span class="session-result ${s.won ? 'won' : 'lost'}">${s.won ? 'WIN' : 'LOSS'}</span>
-            <div class="session-info">
-              <span style="font-weight:600;">vs ${escHtml(s.cpu_char)}</span>
-              <span style="color:var(--text-muted);font-size:0.75rem;"> · Lv${s.cpu_level} · </span>${stocks}
-              ${noteSpan}
-            </div>
-            <span style="font-size:0.72rem;color:var(--text-muted);flex-shrink:0;">${date}</span>
-            <button type="button" class="session-del" onclick="deleteSession(${s.id})" title="Delete">✕</button>
-          </div>`;
-        }).join('');
-      } else {
-        document.getElementById('pmSessionsWrap').style.display = 'none';
-      }
+      const sessions = await apiGet(`/practice/sessions?character=${encodeURIComponent(char)}&limit=50`);
+      const countEl = document.getElementById('pmSessionCount');
+      if (countEl) countEl.textContent = sessions.length ? `${sessions.length} session${sessions.length !== 1 ? 's' : ''}` : '';
+      document.getElementById('pmSessionList').innerHTML = sessions.length
+        ? sessions.map(s => {
+            const date = s.created_at ? new Date(s.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+            const stocks = s.won
+              ? `<span style="color:#4caf50;">${s.my_stocks} stock${s.my_stocks !== 1 ? 's' : ''} left</span>`
+              : `<span style="color:#e74c3c;">CPU had ${s.cpu_stocks} left</span>`;
+            const noteSpan = s.notes ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;">${escHtml(s.notes)}</div>` : '';
+            const d = s.elo_delta || 0;
+            const eloSpan = d !== 0
+              ? `<span style="font-size:0.72rem;font-weight:800;color:${d > 0 ? '#4caf50' : '#e74c3c'};flex-shrink:0;">${d > 0 ? '+' : ''}${d}</span>`
+              : '';
+            return `<div class="session-row" id="sr-${s.id}">
+              <span class="session-result ${s.won ? 'won' : 'lost'}">${s.won ? 'WIN' : 'LOSS'}</span>
+              <div class="session-info">
+                <span style="font-weight:600;">vs ${escHtml(s.cpu_char)}</span>
+                <span style="color:var(--text-muted);font-size:0.75rem;"> · Lv${s.cpu_level} · </span>${stocks}
+                ${noteSpan}
+              </div>
+              ${eloSpan}
+              <span style="font-size:0.72rem;color:var(--text-muted);flex-shrink:0;">${date}</span>
+              <button type="button" class="session-del" onclick="deleteSession(${s.id})" title="Delete">✕</button>
+            </div>`;
+          }).join('')
+        : '<div style="color:var(--text-muted);font-size:0.82rem;padding:10px 0;">No sessions yet.</div>';
     } catch (_) {}
   }
 
@@ -453,7 +472,13 @@
       await apiDelete(`/practice/sessions/${id}`);
       document.getElementById(`sr-${id}`)?.remove();
       if (!document.querySelector('.session-row')) {
-        document.getElementById('pmSessionsWrap').style.display = 'none';
+        document.getElementById('pmSessionList').innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:10px 0;">No sessions yet.</div>';
+        const countEl = document.getElementById('pmSessionCount');
+        if (countEl) countEl.textContent = '';
+      } else {
+        const remaining = document.querySelectorAll('.session-row').length;
+        const countEl = document.getElementById('pmSessionCount');
+        if (countEl) countEl.textContent = `${remaining} session${remaining !== 1 ? 's' : ''}`;
       }
       // Refresh stats and grid count
       if (activeChar) {
@@ -538,7 +563,7 @@
     const btn = document.getElementById('btnLogSession');
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
-      await apiPost('/practice/sessions', {
+      const res = await apiPost('/practice/sessions', {
         my_char: activeChar,
         cpu_char: cpu,
         cpu_level: selectedLevel,
@@ -548,7 +573,10 @@
         notes: document.getElementById('sessionNotes').value.trim() || null,
       });
       document.getElementById('sessionNotes').value = '';
-      showToast('Session logged!', 'success');
+      const d = res.elo_delta || 0;
+      let eloMsg = '';
+      if (d !== 0) eloMsg = ` (${d > 0 ? '+' : ''}${d} Elo)`;
+      showToast(`Session logged!${eloMsg}`, 'success');
       await loadStats(activeChar);
       await loadSessions(activeChar);
       await refreshCounts();

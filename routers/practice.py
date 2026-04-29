@@ -3,8 +3,34 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from collections import defaultdict
 
-from database import User, PracticeSession
+from database import User, PracticeSession, CharacterStats
 from auth import get_db, get_current_user
+
+# CPU Elo ratings by level (Level 1 = 800, incrementing by 150)
+_CPU_ELO = {i: 800 + (i - 1) * 150 for i in range(1, 10)}
+_K_PRACTICE   = 20   # K for normal sessions (6+)
+_K_PLACEMENT  = 40   # K for placement sessions (higher swing to find true level faster)
+_PLACEMENT_START = 1200  # neutral starting point for placement calculation
+_PLACEMENT_MATCHES = 5
+
+
+def _apply_elo_step(elo: int, cpu_level: int, won: bool, k: int) -> tuple[int, int]:
+    """Returns (new_elo, delta)."""
+    cpu_elo = _CPU_ELO.get(cpu_level, 2000)
+    expected = 1 / (1 + 10 ** ((cpu_elo - elo) / 400))
+    if won:
+        delta = max(1, round(k * (1 - expected)))
+    else:
+        delta = -max(1, round(k * expected))
+    return max(100, elo + delta), delta
+
+
+def _calculate_placement_elo(sessions: list) -> int:
+    """Run all placement sessions through the formula starting from neutral 1200."""
+    elo = _PLACEMENT_START
+    for s in sessions:
+        elo, _ = _apply_elo_step(elo, s["cpu_level"], s["won"], _K_PLACEMENT)
+    return elo
 
 router = APIRouter(tags=["practice"])
 
@@ -29,6 +55,7 @@ def _fmt(s: PracticeSession) -> dict:
         "cpu_stocks": s.cpu_stocks,
         "won": s.won,
         "notes": s.notes,
+        "elo_delta": s.elo_delta or 0,
         "created_at": s.created_at.isoformat(),
     }
 
@@ -75,6 +102,13 @@ def get_stats(
         if s.won:
             chars[s.my_char]["wins"] += 1
 
+    # Practice Elo for the requested character (NULL = still in placement)
+    practice_elo = None
+    if character:
+        stat = db.query(CharacterStats).filter_by(user_id=current_user.id, character=character).first()
+        if stat:
+            practice_elo = stat.practice_elo  # None until placement complete
+
     return {
         "total": total,
         "wins": wins,
@@ -83,6 +117,9 @@ def get_stats(
         "matchups": dict(matchups),
         "levels": {str(k): v for k, v in levels.items()},
         "chars": dict(chars),
+        "elo": practice_elo,          # null until 5 sessions done
+        "placement_done": practice_elo is not None,
+        "placement_matches": _PLACEMENT_MATCHES,
     }
 
 
@@ -92,6 +129,40 @@ def log_session(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Get or create CharacterStats (practice_elo starts NULL — unplaced)
+    stat = db.query(CharacterStats).filter_by(user_id=current_user.id, character=req.my_char).first()
+    if stat is None:
+        stat = CharacterStats(user_id=current_user.id, character=req.my_char,
+                              points=0, elo=1000, kills=0, deaths=0, wins=0, losses=0,
+                              practice_elo=None)
+        db.add(stat)
+        db.flush()
+
+    # Count practice sessions logged BEFORE this one
+    prior_count = db.query(PracticeSession).filter_by(
+        user_id=current_user.id, my_char=req.my_char
+    ).count()
+
+    delta = 0
+    if prior_count < _PLACEMENT_MATCHES - 1:
+        # Sessions 1–4: in placement, no Elo change yet
+        delta = 0
+    elif prior_count == _PLACEMENT_MATCHES - 1:
+        # Session 5: calculate placement Elo from all 5 matches
+        prev = db.query(PracticeSession).filter_by(
+            user_id=current_user.id, my_char=req.my_char
+        ).order_by(PracticeSession.created_at).all()
+        all_five = [{"cpu_level": s.cpu_level, "won": s.won} for s in prev]
+        all_five.append({"cpu_level": req.cpu_level, "won": req.won})
+        placement_elo = _calculate_placement_elo(all_five)
+        delta = placement_elo - _PLACEMENT_START
+        stat.practice_elo = placement_elo
+    else:
+        # Sessions 6+: normal Elo update
+        cur_elo = stat.practice_elo or _PLACEMENT_START
+        new_elo, delta = _apply_elo_step(cur_elo, req.cpu_level, req.won, _K_PRACTICE)
+        stat.practice_elo = new_elo
+
     s = PracticeSession(
         user_id=current_user.id,
         my_char=req.my_char,
@@ -101,6 +172,7 @@ def log_session(
         cpu_stocks=req.cpu_stocks,
         won=req.won,
         notes=req.notes or None,
+        elo_delta=delta,
     )
     db.add(s)
     db.commit()

@@ -6,11 +6,11 @@ from collections import defaultdict
 from database import User, PracticeSession, CharacterStats
 from auth import get_db, get_current_user
 
-# CPU Elo ratings by level (Level 1 = 800, incrementing by 150)
-_CPU_ELO = {i: 800 + (i - 1) * 150 for i in range(1, 10)}
+# CPU Elo ratings by level (Level 1 = 800, incrementing by 50)
+_CPU_ELO = {i: 800 + (i - 1) * 50 for i in range(1, 10)}
 _K_PRACTICE   = 20   # K for normal sessions (6+)
 _K_PLACEMENT  = 40   # K for placement sessions (higher swing to find true level faster)
-_PLACEMENT_START = 1200  # neutral starting point for placement calculation
+_PLACEMENT_START = 800   # start at the floor — placement earns your way up
 _PLACEMENT_MATCHES = 5
 
 

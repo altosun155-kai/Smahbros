@@ -102,12 +102,18 @@ def get_stats(
         if s.won:
             chars[s.my_char]["wins"] += 1
 
-    # Practice Elo for the requested character (NULL = still in placement)
-    practice_elo = None
-    if character:
-        stat = db.query(CharacterStats).filter_by(user_id=current_user.id, character=character).first()
-        if stat:
-            practice_elo = stat.practice_elo  # None until placement complete
+    # Fetch practice_elo for all of the user's characters in one query
+    stat_rows = db.query(CharacterStats).filter_by(user_id=current_user.id).all()
+    practice_elo_map = {r.character: r.practice_elo for r in stat_rows}
+
+    # Attach elo to each char entry (None = still in placement)
+    chars_out = {
+        c: {**v, "elo": practice_elo_map.get(c)}
+        for c, v in chars.items()
+    }
+
+    # Single-char mode: also return top-level elo/placement fields
+    practice_elo = practice_elo_map.get(character) if character else None
 
     return {
         "total": total,
@@ -116,8 +122,8 @@ def get_stats(
         "win_pct": round(wins / total * 100, 1) if total else None,
         "matchups": dict(matchups),
         "levels": {str(k): v for k, v in levels.items()},
-        "chars": dict(chars),
-        "elo": practice_elo,          # null until 5 sessions done
+        "chars": chars_out,
+        "elo": practice_elo,
         "placement_done": practice_elo is not None,
         "placement_matches": _PLACEMENT_MATCHES,
     }

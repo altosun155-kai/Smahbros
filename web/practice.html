@@ -42,6 +42,33 @@
       padding: 2px 2px 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .ptile.has-sessions .ptile-name { bottom: 14px; background: rgba(0,0,0,0.5); }
+    .ptile-elo {
+      position: absolute; top: 3px; right: 3px;
+      background: rgba(167,139,250,0.88); color: #fff;
+      font-size: 0.46rem; font-weight: 900; border-radius: 3px;
+      padding: 1px 3px; line-height: 1.2; letter-spacing: 0.2px;
+    }
+    .ptile-elo.placing {
+      background: rgba(120,120,140,0.75);
+    }
+
+    /* ── Practice ranking ── */
+    .practice-rank-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.85rem; cursor: pointer; border-radius: 6px;
+      transition: background 0.1s;
+    }
+    .practice-rank-row:hover { background: rgba(255,255,255,0.04); }
+    .practice-rank-row:last-child { border-bottom: none; }
+    .pr-rank { font-size: 0.78rem; font-weight: 800; color: var(--text-muted); min-width: 24px; text-align: right; }
+    .pr-rank.gold   { color: #ffd700; }
+    .pr-rank.silver { color: #c0c0c0; }
+    .pr-rank.bronze { color: #cd7f32; }
+    .pr-img { width: 36px; height: 36px; object-fit: contain; border-radius: 5px; background: var(--card-bg2); flex-shrink: 0; }
+    .pr-name { flex: 1; font-weight: 600; }
+    .pr-elo  { font-size: 0.88rem; font-weight: 900; color: #a78bfa; min-width: 36px; text-align: right; }
+    .pr-record { font-size: 0.72rem; color: var(--text-muted); }
 
     /* ── Practice modal ── */
     #practiceModal { display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.65); align-items:center; justify-content:center; padding:16px; }
@@ -219,6 +246,14 @@
   </div>
 
   <div id="practiceGrid" class="practice-grid"></div>
+
+  <!-- Character ranking -->
+  <div id="practiceRankWrap" style="display:none;margin-top:32px;">
+    <div class="card">
+      <h2 style="font-size:0.88rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:16px;">Character Rankings</h2>
+      <div id="practiceRankList"></div>
+    </div>
+  </div>
 </main>
 
 <!-- Practice modal -->
@@ -326,13 +361,15 @@
 <script>
   const ROSTER = SMASH_ROSTER;
 
-  let practiceCounts = {};   // { character: { total, wins } }
+  let practiceCounts = {};   // { character: { total, wins, elo } }
   let activeChar = null;
   let selectedLevel = 9;
   let selectedWon = true;
   let selectedMyStocks = 3;
   let selectedCpuStocks = 0;
   let cpuCharValue = '';
+
+  const PLACEMENT_TOTAL = 5;
 
   // ── Grid ─────────────────────────────────────────
   function buildGrid(filter = '') {
@@ -343,16 +380,54 @@
       .map(char => {
         const info = practiceCounts[char];
         const count = info ? info.total : 0;
+        const elo   = info ? info.elo : null;
+        let eloChip = '';
+        if (count > 0) {
+          if (elo != null) {
+            eloChip = `<div class="ptile-elo">${elo}</div>`;
+          } else {
+            eloChip = `<div class="ptile-elo placing">${count}/${PLACEMENT_TOTAL}</div>`;
+          }
+        }
         return `<div class="ptile${count > 0 ? ' has-sessions' : ''}" onclick="openModal('${char.replace(/'/g, "\\'")}')">
           <img src="${charImgUrl(char)}" alt="${char}" onerror="this.style.opacity='0.3'" />
+          ${eloChip}
           <div class="ptile-name">${char}</div>
           ${count > 0 ? `<div class="ptile-count">${count} session${count !== 1 ? 's' : ''}</div>` : ''}
         </div>`;
       }).join('');
   }
 
+  // ── Character ranking ─────────────────────────────
+  function buildRanking() {
+    const ranked = Object.entries(practiceCounts)
+      .filter(([, v]) => v.elo != null)
+      .sort(([, a], [, b]) => b.elo - a.elo);
+
+    const wrap = document.getElementById('practiceRankWrap');
+    const list = document.getElementById('practiceRankList');
+
+    if (!ranked.length) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
+
+    list.innerHTML = ranked.map(([char, info], i) => {
+      const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+      const total = info.total || 0;
+      const wins  = info.wins  || 0;
+      const pct   = total ? Math.round(wins / total * 100) : 0;
+      return `<div class="practice-rank-row" onclick="openModal('${char.replace(/'/g, "\\'")}')">
+        <span class="pr-rank ${rankClass}">${i + 1}</span>
+        <img class="pr-img" src="${charImgUrl(char)}" alt="${char}" onerror="this.style.opacity='0.3'" />
+        <span class="pr-name">${char}</span>
+        <span class="pr-record">${wins}W ${total - wins}L · ${pct}%</span>
+        <span class="pr-elo">${info.elo}</span>
+      </div>`;
+    }).join('');
+  }
+
   function filterGrid() {
     buildGrid(document.getElementById('charSearch').value);
+    buildRanking();
   }
 
   // ── Modal ─────────────────────────────────────────
@@ -485,6 +560,7 @@
         await loadStats(activeChar);
         await refreshCounts();
         buildGrid(document.getElementById('charSearch').value);
+        buildRanking();
       }
     } catch (err) {
       showToast('Error: ' + err.message, 'error');
@@ -581,6 +657,7 @@
       await loadSessions(activeChar);
       await refreshCounts();
       buildGrid(document.getElementById('charSearch').value);
+      buildRanking();
     } catch (err) {
       showToast('Error: ' + err.message, 'error');
     } finally {
@@ -611,6 +688,7 @@
     await refreshCounts();
 
     buildGrid();
+    buildRanking();
     buildLevelBtns();
     buildStockBtns('myStocksBtns',  selectedMyStocks,  'setMyStocks');
     buildStockBtns('cpuStocksBtns', selectedCpuStocks, 'setCpuStocks');

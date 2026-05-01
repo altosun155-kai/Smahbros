@@ -8,8 +8,9 @@ from auth import get_db, get_current_user
 
 # CPU Elo ratings by level (Level 1 = 800, incrementing by 50)
 _CPU_ELO = {i: 800 + (i - 1) * 50 for i in range(1, 10)}
-_K_PRACTICE   = 20   # K for normal sessions (6+)
-_K_PLACEMENT  = 40   # K for placement sessions (higher swing to find true level faster)
+_K_PRACTICE   = 32   # K for normal sessions (6+)
+_K_PLACEMENT  = 48   # K for placement sessions (higher swing to find true level faster)
+_MIN_LOSS     = 5    # minimum Elo lost per session regardless of expected outcome
 _PLACEMENT_START = 800   # start at the floor — placement earns your way up
 _PLACEMENT_MATCHES = 5
 
@@ -21,7 +22,7 @@ def _apply_elo_step(elo: int, cpu_level: int, won: bool, k: int) -> tuple[int, i
     if won:
         delta = max(1, round(k * (1 - expected)))
     else:
-        delta = -max(1, round(k * expected))
+        delta = -max(_MIN_LOSS, round(k * expected))
     return max(100, elo + delta), delta
 
 

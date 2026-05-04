@@ -92,6 +92,7 @@ def get_stats(
     levels:   dict = defaultdict(lambda: {"wins": 0, "total": 0})
     chars:    dict = defaultdict(lambda: {"wins": 0, "total": 0})
 
+    last_dates: dict = {}
     for s in sessions:
         matchups[s.cpu_char]["total"] += 1
         if s.won:
@@ -102,14 +103,17 @@ def get_stats(
         chars[s.my_char]["total"] += 1
         if s.won:
             chars[s.my_char]["wins"] += 1
+        if s.my_char not in last_dates or s.created_at > last_dates[s.my_char]:
+            last_dates[s.my_char] = s.created_at
 
     # Fetch practice_elo for all of the user's characters in one query
     stat_rows = db.query(CharacterStats).filter_by(user_id=current_user.id).all()
     practice_elo_map = {r.character: r.practice_elo for r in stat_rows}
 
-    # Attach elo to each char entry (None = still in placement)
+    # Attach elo and last practiced date to each char entry
     chars_out = {
-        c: {**v, "elo": practice_elo_map.get(c)}
+        c: {**v, "elo": practice_elo_map.get(c),
+            "last_at": last_dates[c].isoformat() if c in last_dates else None}
         for c, v in chars.items()
     }
 
@@ -199,6 +203,38 @@ def delete_session(
     ).first()
     if not s:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    char = s.my_char
     db.delete(s)
+    db.flush()
+
+    # Recompute elo_delta for every remaining session and update practice_elo
+    remaining = db.query(PracticeSession).filter_by(
+        user_id=current_user.id, my_char=char
+    ).order_by(PracticeSession.created_at).all()
+
+    stat = db.query(CharacterStats).filter_by(user_id=current_user.id, character=char).first()
+    n = len(remaining)
+
+    if n < _PLACEMENT_MATCHES:
+        if stat:
+            stat.practice_elo = None
+        for sess in remaining:
+            sess.elo_delta = 0
+    else:
+        elo = _PLACEMENT_START
+        for idx, sess in enumerate(remaining):
+            k = _K_PLACEMENT if idx < _PLACEMENT_MATCHES else _K_PRACTICE
+            new_elo, delta = _apply_elo_step(elo, sess.cpu_level, sess.won, k)
+            if idx < _PLACEMENT_MATCHES - 1:
+                sess.elo_delta = 0
+            elif idx == _PLACEMENT_MATCHES - 1:
+                sess.elo_delta = new_elo - _PLACEMENT_START
+            else:
+                sess.elo_delta = delta
+            elo = new_elo
+        if stat:
+            stat.practice_elo = elo
+
     db.commit()
     return {"ok": True}

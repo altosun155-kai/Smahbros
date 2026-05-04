@@ -26,6 +26,34 @@ def _apply_elo_step(elo: int, cpu_level: int, won: bool, k: int) -> tuple[int, i
     return max(100, elo + delta), delta
 
 
+def _recompute_char_elo(db, user_id: int, char: str) -> None:
+    """Replay all sessions for a character and update elo_delta + practice_elo."""
+    remaining = db.query(PracticeSession).filter_by(
+        user_id=user_id, my_char=char
+    ).order_by(PracticeSession.created_at).all()
+    stat = db.query(CharacterStats).filter_by(user_id=user_id, character=char).first()
+    n = len(remaining)
+    if n < _PLACEMENT_MATCHES:
+        if stat:
+            stat.practice_elo = None
+        for sess in remaining:
+            sess.elo_delta = 0
+    else:
+        elo = _PLACEMENT_START
+        for idx, sess in enumerate(remaining):
+            k = _K_PLACEMENT if idx < _PLACEMENT_MATCHES else _K_PRACTICE
+            new_elo, delta = _apply_elo_step(elo, sess.cpu_level, sess.won, k)
+            if idx < _PLACEMENT_MATCHES - 1:
+                sess.elo_delta = 0
+            elif idx == _PLACEMENT_MATCHES - 1:
+                sess.elo_delta = new_elo - _PLACEMENT_START
+            else:
+                sess.elo_delta = delta
+            elo = new_elo
+        if stat:
+            stat.practice_elo = elo
+
+
 def _calculate_placement_elo(sessions: list) -> int:
     """Run all placement sessions through the formula starting from neutral 1200."""
     elo = _PLACEMENT_START
@@ -43,6 +71,15 @@ class SessionCreate(BaseModel):
     my_stocks: int = 3
     cpu_stocks: int = 0
     won: bool = True
+    notes: str | None = None
+
+
+class SessionUpdate(BaseModel):
+    cpu_char: str
+    cpu_level: int
+    my_stocks: int
+    cpu_stocks: int
+    won: bool
     notes: str | None = None
 
 
@@ -207,34 +244,33 @@ def delete_session(
     char = s.my_char
     db.delete(s)
     db.flush()
-
-    # Recompute elo_delta for every remaining session and update practice_elo
-    remaining = db.query(PracticeSession).filter_by(
-        user_id=current_user.id, my_char=char
-    ).order_by(PracticeSession.created_at).all()
-
-    stat = db.query(CharacterStats).filter_by(user_id=current_user.id, character=char).first()
-    n = len(remaining)
-
-    if n < _PLACEMENT_MATCHES:
-        if stat:
-            stat.practice_elo = None
-        for sess in remaining:
-            sess.elo_delta = 0
-    else:
-        elo = _PLACEMENT_START
-        for idx, sess in enumerate(remaining):
-            k = _K_PLACEMENT if idx < _PLACEMENT_MATCHES else _K_PRACTICE
-            new_elo, delta = _apply_elo_step(elo, sess.cpu_level, sess.won, k)
-            if idx < _PLACEMENT_MATCHES - 1:
-                sess.elo_delta = 0
-            elif idx == _PLACEMENT_MATCHES - 1:
-                sess.elo_delta = new_elo - _PLACEMENT_START
-            else:
-                sess.elo_delta = delta
-            elo = new_elo
-        if stat:
-            stat.practice_elo = elo
-
+    _recompute_char_elo(db, current_user.id, char)
     db.commit()
     return {"ok": True}
+
+
+@router.patch("/practice/sessions/{session_id}")
+def update_session(
+    session_id: int,
+    req: SessionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    s = db.query(PracticeSession).filter(
+        PracticeSession.id == session_id,
+        PracticeSession.user_id == current_user.id,
+    ).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    s.cpu_char  = req.cpu_char
+    s.cpu_level = req.cpu_level
+    s.my_stocks = req.my_stocks
+    s.cpu_stocks = req.cpu_stocks
+    s.won       = req.won
+    s.notes     = req.notes or None
+    db.flush()
+    _recompute_char_elo(db, current_user.id, s.my_char)
+    db.commit()
+    db.refresh(s)
+    return _fmt(s)

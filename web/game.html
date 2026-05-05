@@ -129,7 +129,7 @@
 
 <script>
 const WS_BASE = 'wss://smash-bracket-api.onrender.com';
-const token   = localStorage.getItem('token') || '';
+const token   = localStorage.getItem('authToken') || '';
 
 let ws         = null;
 let playerSlot = null;
@@ -165,9 +165,13 @@ function setStatus(msg, isErr = false) {
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 function connect(roomId, username) {
   setStatus('Connecting…');
+  const slowTimer = setTimeout(() =>
+    setStatus('Server is waking up — this takes ~30s on first load…'), 4000);
+
   ws = new WebSocket(`${WS_BASE}/ws/game/${roomId}`);
 
   ws.onopen = () => {
+    clearTimeout(slowTimer);
     ws.send(JSON.stringify({ token, username }));
   };
 

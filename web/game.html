@@ -245,11 +245,13 @@ function launchPhaser() {
   const BOOM_COLORS = [0x81d4fa, 0xff8a80];
   const SLASH_COLORS= [0xb3e5fc, 0xffccbc];
 
-  function lighter(hex, amt) {
-    return Phaser.Display.Color.ValueToColor(hex).lighten(amt).color;
+  function lighter(hex, pct) {
+    const r = (hex >> 16) & 0xff, g = (hex >> 8) & 0xff, b = hex & 0xff, f = pct / 100;
+    return (Math.min(255, r + (255-r)*f|0) << 16) | (Math.min(255, g + (255-g)*f|0) << 8) | Math.min(255, b + (255-b)*f|0);
   }
-  function darker(hex, amt) {
-    return Phaser.Display.Color.ValueToColor(hex).darken(amt).color;
+  function darker(hex, pct) {
+    const r = (hex >> 16) & 0xff, g = (hex >> 8) & 0xff, b = hex & 0xff, f = 1 - pct/100;
+    return (r*f|0) << 16 | (g*f|0) << 8 | (b*f|0);
   }
 
   // Renders a 3D sphere: drop shadow + dark rim + main colour + diffuse + specular

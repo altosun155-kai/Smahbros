@@ -39,7 +39,7 @@ function requireAuth() {
 // Redirect away from login if already authenticated
 function redirectIfLoggedIn() {
   if (isLoggedIn()) {
-    window.location.href = 'index.html';
+    window.location.href = 'hub.html';
   }
 }
 

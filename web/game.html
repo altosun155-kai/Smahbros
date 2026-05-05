@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Boomerang Arena — Smahbros</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background:
+        radial-gradient(ellipse 120% 45% at 50% -8%, rgba(0,55,140,0.38) 0%, transparent 60%),
+        #0d0d1a;
+      color: #fff;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    /* ── Lobby ────────────────────────────────────────── */
+    #lobby {
+      width: 340px;
+      background: rgba(255,255,255,0.04);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 20px;
+      padding: 36px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    #lobby h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      text-align: center;
+      letter-spacing: .02em;
+      margin-bottom: 4px;
+    }
+    #lobby h1 span { color: #4fc3f7; }
+
+    .hint {
+      font-size: 0.78rem;
+      color: #64748b;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    #lobby input {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      padding: 11px 14px;
+      color: #fff;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color .15s;
+    }
+    #lobby input:focus { border-color: rgba(79,195,247,0.55); }
+    #lobby input::placeholder { color: #475569; }
+
+    #btn-join {
+      background: #4fc3f7;
+      color: #0d0d1a;
+      border: none;
+      border-radius: 10px;
+      padding: 13px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .15s;
+      margin-top: 2px;
+    }
+    #btn-join:hover { background: #81d4fa; }
+
+    #status {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #94a3b8;
+      min-height: 1.2em;
+    }
+    #status.err { color: #ef5350; }
+
+    /* ── Controls key legend ─────────────────────────── */
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .ctrl {
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.78rem;
+      color: #94a3b8;
+    }
+    .ctrl strong { color: #e2e8f0; }
+
+    /* ── Game canvas wrapper ─────────────────────────── */
+    #game-wrap { display: none; position: relative; }
+    #game-wrap canvas { display: block; border-radius: 10px; }
+  </style>
+</head>
+<body>
+
+<!-- ── Lobby ──────────────────────────────────────────── -->
+<div id="lobby">
+  <h1>Boomerang <span>Arena</span></h1>
+  <p class="hint">Share a Room ID with a friend — first two in win.</p>
+
+  <input id="inp-room" placeholder="Room ID (e.g. lobby1)" autocomplete="off" />
+  <input id="inp-user" placeholder="Username" autocomplete="off" />
+  <button id="btn-join">Join Room</button>
+  <div id="status"></div>
+
+  <div class="controls">
+    <div class="ctrl"><strong>WASD</strong> — move</div>
+    <div class="ctrl"><strong>Right-click</strong> — throw</div>
+    <div class="ctrl"><strong>Left-click</strong> — slash</div>
+    <div class="ctrl"><strong>3 HP</strong> — last one standing</div>
+  </div>
+</div>
+
+<!-- ── Phaser canvas ─────────────────────────────────── -->
+<div id="game-wrap"></div>
+
+<script>
+const WS_BASE = 'wss://smash-bracket-api.onrender.com';
+const token   = localStorage.getItem('token') || '';
+
+let ws         = null;
+let playerSlot = null;
+let phaserGame = null;
+let scene      = null;
+
+const lobbyEl  = document.getElementById('lobby');
+const gameWrap = document.getElementById('game-wrap');
+const statusEl = document.getElementById('status');
+
+// Pre-fill username from stored value
+const savedUser = localStorage.getItem('username');
+if (savedUser) document.getElementById('inp-user').value = savedUser;
+
+// ── Lobby join ────────────────────────────────────────────────────────────────
+document.getElementById('btn-join').addEventListener('click', tryJoin);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && lobbyEl.style.display !== 'none') tryJoin();
+});
+
+function tryJoin() {
+  const roomId   = document.getElementById('inp-room').value.trim();
+  const username = document.getElementById('inp-user').value.trim() || 'Player';
+  if (!roomId) { setStatus('Enter a Room ID.', true); return; }
+  connect(roomId, username);
+}
+
+function setStatus(msg, isErr = false) {
+  statusEl.textContent = msg;
+  statusEl.className   = isErr ? 'err' : '';
+}
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+function connect(roomId, username) {
+  setStatus('Connecting…');
+  ws = new WebSocket(`${WS_BASE}/ws/game/${roomId}`);
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ token, username }));
+  };
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+
+    if (msg.type === 'error') {
+      setStatus(msg.message, true);
+      ws.close();
+      return;
+    }
+    if (msg.type === 'joined') {
+      playerSlot = msg.slot;
+      setStatus(`You are Player ${msg.slot + 1}. Waiting for opponent…`);
+    }
+    if (msg.type === 'player_joined') {
+      setStatus(`${msg.username} joined — starting soon…`);
+    }
+    if (msg.type === 'start' && !phaserGame) {
+      lobbyEl.style.display  = 'none';
+      gameWrap.style.display = 'block';
+      phaserGame = launchPhaser();
+    }
+    if (msg.type === 'state' && scene) {
+      scene.applyState(msg);
+    }
+    if (msg.type === 'player_left' && scene) {
+      scene.showOverlay('Opponent disconnected');
+    }
+  };
+
+  ws.onclose = () => {
+    if (scene) scene.showOverlay('Disconnected from server');
+  };
+  ws.onerror = () => setStatus('Connection failed.', true);
+}
+
+// ── Keyboard input ────────────────────────────────────────────────────────────
+const held = { up: false, down: false, left: false, right: false };
+const KEY_MAP = {
+  w: 'up', arrowup: 'up',
+  s: 'down', arrowdown: 'down',
+  a: 'left', arrowleft: 'left',
+  d: 'right', arrowright: 'right',
+};
+
+function sendKeys() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'input', keys: { ...held } }));
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  const k = KEY_MAP[e.key.toLowerCase()];
+  if (k && !held[k]) { held[k] = true; sendKeys(); }
+});
+document.addEventListener('keyup', (e) => {
+  const k = KEY_MAP[e.key.toLowerCase()];
+  if (k) { held[k] = false; sendKeys(); }
+});
+
+document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// ── Phaser ────────────────────────────────────────────────────────────────────
+function launchPhaser() {
+  const P_COLORS   = [0x4fc3f7, 0xef5350];
+  const HP_COLORS  = [0x4fc3f7, 0xef5350];
+  const BOOM_COLOR = [0x81d4fa, 0xff8a80];
+  const SLASH_COLOR = [0xb3e5fc, 0xffccbc];
+
+  return new Phaser.Game({
+    type: Phaser.AUTO,
+    width: 800,
+    height: 600,
+    backgroundColor: '#1a1a2e',
+    parent: 'game-wrap',
+    input: { mouse: { preventDefaultDown: true } },
+    scene: {
+      key: 'GameScene',
+
+      preload() {},
+
+      create() {
+        scene = this;
+
+        // Arena floor grid (subtle)
+        const g = this.add.graphics();
+        g.lineStyle(1, 0x1e293b, 1);
+        for (let x = 0; x <= 800; x += 80)  g.lineBetween(x, 0, x, 600);
+        for (let y = 0; y <= 600; y += 60)  g.lineBetween(0, y, 800, y);
+
+        // Arena border
+        this.add.rectangle(400, 300, 800, 600)
+          .setStrokeStyle(2, 0x334155)
+          .setFillStyle();
+
+        // Slash arc graphics
+        this.slashGfx = this.add.graphics();
+
+        // Boomerang graphics
+        this.boomGfx = this.add.graphics();
+
+        // Player circles
+        this.playerCircles = [
+          this.add.circle(200, 300, 20, P_COLORS[0]),
+          this.add.circle(600, 300, 20, P_COLORS[1]),
+        ];
+
+        // "You" indicator ring
+        if (playerSlot !== null) {
+          this.selfRing = this.add.circle(
+            playerSlot === 0 ? 200 : 600, 300, 24
+          ).setStrokeStyle(2, 0xffffff, 0.5).setFillStyle();
+        }
+
+        // Name labels
+        this.nameLabels = [
+          this.add.text(200, 268, '', { fontSize: '11px', color: '#94a3b8', align: 'center' }).setOrigin(0.5),
+          this.add.text(600, 268, '', { fontSize: '11px', color: '#94a3b8', align: 'center' }).setOrigin(0.5),
+        ];
+
+        // HP pips — 3 per player
+        this.hpPips = [[], []];
+        for (let s = 0; s < 2; s++) {
+          for (let i = 0; i < 3; i++) {
+            const x = s === 0 ? 14 + i * 16 : 800 - 14 - i * 16;
+            this.hpPips[s].push(this.add.circle(x, 16, 6, HP_COLORS[s]));
+          }
+        }
+
+        // Slash cooldown bar (bottom centre)
+        this.cooldownBg  = this.add.rectangle(400, 590, 120, 6, 0x1e293b);
+        this.cooldownBar = this.add.rectangle(400 - 60, 590, 0, 6, 0x4fc3f7).setOrigin(0, 0.5);
+
+        // Overlay
+        this.overlayBg   = this.add.rectangle(400, 300, 800, 600, 0x000000, 0).setVisible(false);
+        this.overlayText = this.add.text(400, 300, '', {
+          fontSize: '38px', fontStyle: 'bold', color: '#ffffff',
+          stroke: '#000000', strokeThickness: 4, align: 'center',
+        }).setOrigin(0.5).setVisible(false);
+
+        // Mouse — right-click throw, left-click slash
+        this.input.on('pointerdown', (ptr) => {
+          if (!ws || ws.readyState !== WebSocket.OPEN || playerSlot === null) return;
+          const me = this.playerCircles[playerSlot];
+
+          if (ptr.rightButtonDown()) {
+            const dx = ptr.x - me.x;
+            const dy = ptr.y - me.y;
+            const len = Math.hypot(dx, dy) || 1;
+            ws.send(JSON.stringify({ type: 'throw', dx: dx / len, dy: dy / len }));
+          } else if (ptr.leftButtonDown()) {
+            ws.send(JSON.stringify({ type: 'slash' }));
+          }
+        });
+      },
+
+      update() {},
+
+      applyState(state) {
+        // Players
+        state.players.forEach((p, i) => {
+          if (!p) return;
+          this.playerCircles[i].setPosition(p.x, p.y);
+          this.nameLabels[i].setPosition(p.x, p.y - 28).setText(p.username);
+          for (let h = 0; h < 3; h++) {
+            this.hpPips[i][h].setAlpha(h < p.hp ? 1 : 0.15);
+          }
+        });
+
+        // Self-ring tracks my circle
+        if (this.selfRing && playerSlot !== null && state.players[playerSlot]) {
+          const me = state.players[playerSlot];
+          this.selfRing.setPosition(me.x, me.y);
+        }
+
+        // Slash arc flash
+        this.slashGfx.clear();
+        if (state.slashing) {
+          state.slashing.forEach((active, i) => {
+            if (!active || !state.players[i]) return;
+            const p = state.players[i];
+            const col = i === 0 ? SLASH_COLOR[0] : SLASH_COLOR[1];
+            this.slashGfx.fillStyle(col, 0.35);
+            this.slashGfx.fillCircle(p.x, p.y, 60);
+          });
+        }
+
+        // Boomerangs
+        this.boomGfx.clear();
+        state.boomerangs.forEach((b) => {
+          const col = b.returning
+            ? Phaser.Display.Color.ValueToColor(b.owner === 0 ? '#4fc3f7' : '#ef5350').lighten(25).color
+            : BOOM_COLOR[b.owner];
+          this.boomGfx.fillStyle(col, 1);
+          this.boomGfx.fillTriangle(
+            b.x,     b.y - 8,
+            b.x - 6, b.y + 5,
+            b.x + 6, b.y + 5
+          );
+        });
+
+        // Win / lose
+        if (state.phase === 'done' && state.winner !== null) {
+          const won = state.winner === playerSlot;
+          this.showOverlay(won ? 'You Win!' : 'You Lose');
+        }
+      },
+
+      showOverlay(text) {
+        this.overlayBg.setFillStyle(0x000000, 0.6).setVisible(true);
+        this.overlayText.setText(text).setVisible(true);
+      },
+    },
+  });
+}
+</script>
+</body>
+</html>

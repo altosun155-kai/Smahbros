@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smahbros — Choose Your Mode</title>
+  <script src="js/auth.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background:
+        radial-gradient(ellipse 120% 45% at 50% -8%, rgba(0,55,140,0.38) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 30% at 90% 20%, rgba(80,0,160,0.15) 0%, transparent 55%),
+        #0d0d1a;
+      color: #fff;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      gap: 40px;
+    }
+
+    .wordmark {
+      font-size: 1.6rem;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+    .wordmark span { color: #4fc3f7; }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      width: 100%;
+      max-width: 640px;
+    }
+
+    .mode-card {
+      text-decoration: none;
+      border-radius: 24px;
+      padding: 36px 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.15s, box-shadow 0.15s;
+      cursor: pointer;
+    }
+    .mode-card:hover { transform: translateY(-5px); }
+    .mode-card:active { transform: scale(0.97); }
+
+    .mode-card.smash {
+      background: linear-gradient(145deg, rgba(0,100,220,.28), rgba(0,55,140,.18));
+      border: 1px solid rgba(0,120,255,.35);
+    }
+    .mode-card.smash:hover {
+      box-shadow: 0 0 40px rgba(0,120,255,.3);
+      border-color: rgba(0,150,255,.6);
+    }
+
+    .mode-card.arena {
+      background: linear-gradient(145deg, rgba(79,195,247,.2), rgba(30,80,160,.15));
+      border: 1px solid rgba(79,195,247,.3);
+    }
+    .mode-card.arena:hover {
+      box-shadow: 0 0 40px rgba(79,195,247,.25);
+      border-color: rgba(79,195,247,.6);
+    }
+
+    .mode-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 70% 30%, rgba(255,255,255,0.05) 0%, transparent 65%);
+      pointer-events: none;
+    }
+
+    .mode-emoji {
+      font-size: 3rem;
+      line-height: 1;
+    }
+
+    .mode-title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.2;
+    }
+
+    .mode-desc {
+      font-size: 0.8rem;
+      color: rgba(255,255,255,.5);
+      line-height: 1.5;
+    }
+
+    .mode-cta {
+      margin-top: auto;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .mode-card.smash .mode-cta { color: rgba(100,180,255,.8); }
+    .mode-card.arena .mode-cta { color: rgba(79,195,247,.8); }
+
+    .logout-link {
+      font-size: 0.78rem;
+      color: rgba(255,255,255,.25);
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .logout-link:hover { color: rgba(255,255,255,.5); }
+
+    @media (max-width: 500px) {
+      .mode-grid {
+        grid-template-columns: 1fr;
+        max-width: 340px;
+      }
+      .mode-card { padding: 28px 22px 24px; }
+    }
+  </style>
+</head>
+<body>
+<script>requireAuth();</script>
+
+<div class="wordmark">Smah<span>bros</span></div>
+
+<div class="mode-grid">
+  <a href="index.html" class="mode-card smash">
+    <div class="mode-emoji">🏆</div>
+    <div class="mode-title">Smash Bros<br>Tracker</div>
+    <div class="mode-desc">Tournaments, duels, elo rankings, and character stats.</div>
+    <div class="mode-cta">Open Dashboard →</div>
+  </a>
+
+  <a href="game.html" class="mode-card arena">
+    <div class="mode-emoji">🪃</div>
+    <div class="mode-title">Boomerang<br>Arena</div>
+    <div class="mode-desc">2v2 real-time arena. Right-click to throw, left-click to slash.</div>
+    <div class="mode-cta">Play Now →</div>
+  </a>
+</div>
+
+<a class="logout-link" onclick="logout()">Sign out</a>
+
+</body>
+</html>

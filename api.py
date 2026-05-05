@@ -13,6 +13,7 @@ from auth import decode_token
 from routers import auth, users, brackets, characters, matches, roundrobin, invites, friends, leaderboard, practice, presets
 from routers.brackets import bracket_to_dict
 import ws_manager
+import game_ws_manager
 
 logger = logging.getLogger(__name__)
 
@@ -291,6 +292,47 @@ async def ws_tournament(tournament_id: int, websocket: WebSocket):
             await websocket.receive_text()  # drain client pings; server pushes via broadcast
     except WebSocketDisconnect:
         ws_manager.disconnect(tournament_id, websocket)
+
+
+@app.websocket("/ws/game/{room_id}")
+async def ws_game(room_id: str, websocket: WebSocket):
+    await websocket.accept()
+
+    try:
+        msg = await asyncio.wait_for(websocket.receive_json(), timeout=5.0)
+    except Exception:
+        await websocket.close(code=1008)
+        return
+
+    token    = msg.get("token", "")
+    username = msg.get("username", "Player")
+    user_id  = decode_token(token)
+    if not user_id:
+        await websocket.close(code=1008)
+        return
+
+    result = game_ws_manager.join_room(room_id, username, websocket)
+    if result is None:
+        await websocket.send_json({"type": "error", "message": "Room is full"})
+        await websocket.close(code=1008)
+        return
+
+    room, slot = result
+    await websocket.send_json({"type": "joined", "slot": slot, "room_id": room_id})
+    await game_ws_manager.broadcast(room, {"type": "player_joined", "slot": slot, "username": username})
+
+    active = sum(1 for p in room.players if p is not None)
+    if active == 2:
+        game_ws_manager.start_game(room)
+        await game_ws_manager.broadcast(room, {"type": "start"})
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+            game_ws_manager.handle_message(room, slot, data)
+    except WebSocketDisconnect:
+        game_ws_manager.leave_room(room_id, slot)
+        await game_ws_manager.broadcast(room, {"type": "player_left", "slot": slot})
 
 
 @app.get("/health")

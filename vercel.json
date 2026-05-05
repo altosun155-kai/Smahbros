@@ -1,3 +1,6 @@
 {
-  "outputDirectory": "web"
+  "outputDirectory": "web",
+  "redirects": [
+    { "source": "/", "destination": "/hub.html" }
+  ]
 }

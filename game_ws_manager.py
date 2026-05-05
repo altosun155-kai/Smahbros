@@ -21,7 +21,7 @@ class Player:
         self.ws       = ws
         self.x        = 200.0 if slot == 0 else 600.0
         self.y        = 300.0
-        self.hp            = 1
+        self.hp            = 3
         self.inputs        = {"up": False, "down": False, "left": False, "right": False}
         self.slash_cooldown = 0
         self.slashing      = 0  # ticks remaining in slash animation

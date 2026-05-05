@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Boomerang Arena — Smahbros</title>
+  <script src="js/auth.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -105,6 +106,7 @@
   </style>
 </head>
 <body>
+<script>requireAuth();</script>
 
 <!-- ── Lobby ──────────────────────────────────────────── -->
 <div id="lobby">
@@ -205,8 +207,9 @@ function connect(roomId, username) {
 
   ws.onclose = () => {
     if (scene) scene.showOverlay('Disconnected from server');
+    else setStatus('Connection closed — server may have rejected the session.', true);
   };
-  ws.onerror = () => setStatus('Connection failed.', true);
+  ws.onerror = () => setStatus('Connection failed — server may be starting up, try again in 30s.', true);
 }
 
 // ── Keyboard input ────────────────────────────────────────────────────────────
@@ -237,90 +240,139 @@ document.addEventListener('contextmenu', (e) => e.preventDefault());
 
 // ── Phaser ────────────────────────────────────────────────────────────────────
 function launchPhaser() {
-  const P_COLORS   = [0x4fc3f7, 0xef5350];
-  const HP_COLORS  = [0x4fc3f7, 0xef5350];
-  const BOOM_COLOR = [0x81d4fa, 0xff8a80];
-  const SLASH_COLOR = [0xb3e5fc, 0xffccbc];
+  const P_COLORS    = [0x4fc3f7, 0xef5350];
+  const HP_COLORS   = [0x4fc3f7, 0xef5350];
+  const BOOM_COLORS = [0x81d4fa, 0xff8a80];
+  const SLASH_COLORS= [0xb3e5fc, 0xffccbc];
+
+  function lighter(hex, amt) {
+    return Phaser.Display.Color.ValueToColor(hex).lighten(amt).color;
+  }
+  function darker(hex, amt) {
+    return Phaser.Display.Color.ValueToColor(hex).darken(amt).color;
+  }
+
+  // Renders a 3D sphere: drop shadow + dark rim + main colour + diffuse + specular
+  function drawSphere(g, x, y, r, col) {
+    g.fillStyle(0x000000, 0.5);
+    g.fillEllipse(x + r * 0.32, y + r * 0.88, r * 2.9, r * 0.78);
+    g.fillStyle(darker(col, 55), 1);
+    g.fillCircle(x, y, r);
+    g.fillStyle(col, 1);
+    g.fillCircle(x - 1, y - Math.round(r * 0.1), Math.round(r * 0.84));
+    g.fillStyle(lighter(col, 32), 0.82);
+    g.fillCircle(x - Math.round(r * 0.22), y - Math.round(r * 0.24), Math.round(r * 0.5));
+    g.fillStyle(0xffffff, 0.72);
+    g.fillCircle(x - Math.round(r * 0.38), y - Math.round(r * 0.37), Math.round(r * 0.17));
+  }
+
+  // Renders a boomerang: shadow + two-arm body + shine
+  function drawBoom(g, bx, by, col) {
+    g.fillStyle(0x000000, 0.32);
+    g.fillEllipse(bx + 3, by + 11, 17, 5);
+    g.fillStyle(col, 1);
+    g.fillTriangle(bx, by - 9, bx - 6, by + 4, bx + 1, by + 1);
+    g.fillTriangle(bx, by - 9, bx + 6, by + 4, bx - 1, by + 1);
+    g.fillStyle(0xffffff, 0.52);
+    g.fillCircle(bx - 2, by - 4, 2);
+  }
 
   return new Phaser.Game({
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#06060f',
     parent: 'game-wrap',
     input: { mouse: { preventDefaultDown: true } },
     scene: {
       key: 'GameScene',
-
       preload() {},
 
       create() {
         scene = this;
 
-        // Arena floor grid (subtle)
-        const g = this.add.graphics();
-        g.lineStyle(1, 0x1e293b, 1);
-        for (let x = 0; x <= 800; x += 80)  g.lineBetween(x, 0, x, 600);
-        for (let y = 0; y <= 600; y += 60)  g.lineBetween(0, y, 800, y);
+        // ── Floor base ────────────────────────────────
+        this.add.rectangle(400, 300, 760, 524, 0x0b1120);
 
-        // Arena border
-        this.add.rectangle(400, 300, 800, 600)
-          .setStrokeStyle(2, 0x334155)
-          .setFillStyle();
+        // ── Perspective grid ──────────────────────────
+        const grid = this.add.graphics();
+        const VP   = { x: 400, y: 38 };  // vanishing point at top of floor
+        const BY   = 562;                  // bottom y of floor
 
-        // Slash arc graphics
-        this.slashGfx = this.add.graphics();
-
-        // Boomerang graphics
-        this.boomGfx = this.add.graphics();
-
-        // Player circles
-        this.playerCircles = [
-          this.add.circle(200, 300, 20, P_COLORS[0]),
-          this.add.circle(600, 300, 20, P_COLORS[1]),
-        ];
-
-        // "You" indicator ring
-        if (playerSlot !== null) {
-          this.selfRing = this.add.circle(
-            playerSlot === 0 ? 200 : 600, 300, 24
-          ).setStrokeStyle(2, 0xffffff, 0.5).setFillStyle();
+        // Depth lines converging to VP
+        grid.lineStyle(1, 0x17243d, 1);
+        for (let i = 0; i <= 10; i++) {
+          const bx = 20 + i * 76;
+          grid.lineBetween(VP.x, VP.y, bx, BY);
         }
 
-        // Name labels
+        // Horizontal rows — non-linear spacing (compressed toward top = perspective)
+        const rowT = [0, 0.04, 0.10, 0.19, 0.31, 0.46, 0.62, 0.78, 0.91, 1.0];
+        for (const t of rowT) {
+          const y  = VP.y + t * (BY - VP.y);
+          const hw = t * (780 - VP.x);
+          grid.lineBetween(VP.x - hw, y, VP.x + hw, y);
+        }
+
+        // ── Wall faces (2.5D depth effect) ───────────
+        const walls = this.add.graphics();
+        // Top face — lighter (ceiling edge visible from slight above angle)
+        walls.fillStyle(0x0e1d36, 1);
+        walls.fillRect(0, 0, 800, 38);
+        // Bottom face — front of wall (slightly lighter = facing viewer)
+        walls.fillStyle(0x121f3a, 1);
+        walls.fillRect(0, 562, 800, 38);
+        // Side faces
+        walls.fillStyle(0x0c1830, 1);
+        walls.fillRect(0, 38, 20, 524);
+        walls.fillRect(780, 38, 20, 524);
+        // Edge lines
+        walls.lineStyle(2, 0x2e4e82, 1);
+        walls.lineBetween(20, 38,  780, 38);
+        walls.lineBetween(20, 562, 780, 562);
+        walls.lineBetween(20, 38,  20,  562);
+        walls.lineBetween(780, 38, 780, 562);
+        walls.lineStyle(1, 0x1a3060, 1);
+        walls.strokeRect(0, 0, 800, 600);
+
+        // ── Dynamic graphics layers ───────────────────
+        this.slashGfx  = this.add.graphics();
+        this.boomGfx   = this.add.graphics();
+        this.playerGfx = this.add.graphics();
+
+        // ── Name labels ───────────────────────────────
         this.nameLabels = [
-          this.add.text(200, 268, '', { fontSize: '11px', color: '#94a3b8', align: 'center' }).setOrigin(0.5),
-          this.add.text(600, 268, '', { fontSize: '11px', color: '#94a3b8', align: 'center' }).setOrigin(0.5),
+          this.add.text(200, 260, '', { fontSize: '11px', color: '#7fa8c8' }).setOrigin(0.5),
+          this.add.text(600, 260, '', { fontSize: '11px', color: '#c07878' }).setOrigin(0.5),
         ];
 
-        // HP pips — 3 per player
+        // ── HP pips ───────────────────────────────────
         this.hpPips = [[], []];
         for (let s = 0; s < 2; s++) {
           for (let i = 0; i < 3; i++) {
-            const x = s === 0 ? 14 + i * 16 : 800 - 14 - i * 16;
-            this.hpPips[s].push(this.add.circle(x, 16, 6, HP_COLORS[s]));
+            const x = s === 0 ? 30 + i * 15 : 770 - i * 15;
+            this.hpPips[s].push(this.add.circle(x, 17, 5, HP_COLORS[s]));
           }
         }
 
-        // Slash cooldown bar (bottom centre)
-        this.cooldownBg  = this.add.rectangle(400, 590, 120, 6, 0x1e293b);
-        this.cooldownBar = this.add.rectangle(400 - 60, 590, 0, 6, 0x4fc3f7).setOrigin(0, 0.5);
+        // ── Cooldown bar ──────────────────────────────
+        this.cooldownBg  = this.add.rectangle(400, 578, 120, 4, 0x1a2540);
+        this.cooldownBar = this.add.rectangle(340, 578, 0, 4, 0x4fc3f7).setOrigin(0, 0.5);
 
-        // Overlay
+        // ── Overlay ───────────────────────────────────
         this.overlayBg   = this.add.rectangle(400, 300, 800, 600, 0x000000, 0).setVisible(false);
         this.overlayText = this.add.text(400, 300, '', {
-          fontSize: '38px', fontStyle: 'bold', color: '#ffffff',
-          stroke: '#000000', strokeThickness: 4, align: 'center',
+          fontSize: '40px', fontStyle: 'bold', color: '#ffffff',
+          stroke: '#000000', strokeThickness: 5,
         }).setOrigin(0.5).setVisible(false);
 
-        // Mouse — right-click throw, left-click slash
+        // ── Mouse input ───────────────────────────────
+        this._pos = [{ x: 200, y: 300 }, { x: 600, y: 300 }];
         this.input.on('pointerdown', (ptr) => {
           if (!ws || ws.readyState !== WebSocket.OPEN || playerSlot === null) return;
-          const me = this.playerCircles[playerSlot];
-
+          const me = this._pos[playerSlot];
           if (ptr.rightButtonDown()) {
-            const dx = ptr.x - me.x;
-            const dy = ptr.y - me.y;
+            const dx = ptr.x - me.x, dy = ptr.y - me.y;
             const len = Math.hypot(dx, dy) || 1;
             ws.send(JSON.stringify({ type: 'throw', dx: dx / len, dy: dy / len }));
           } else if (ptr.leftButtonDown()) {
@@ -332,57 +384,54 @@ function launchPhaser() {
       update() {},
 
       applyState(state) {
-        // Players
+        // ── HUD ────────────────────────────────────
         state.players.forEach((p, i) => {
           if (!p) return;
-          this.playerCircles[i].setPosition(p.x, p.y);
-          this.nameLabels[i].setPosition(p.x, p.y - 28).setText(p.username);
+          this._pos[i] = { x: p.x, y: p.y };
+          this.nameLabels[i].setPosition(p.x, p.y - 34).setText(p.username);
           for (let h = 0; h < 3; h++) {
-            this.hpPips[i][h].setAlpha(h < p.hp ? 1 : 0.15);
+            this.hpPips[i][h].setAlpha(h < p.hp ? 1 : 0.12);
           }
         });
 
-        // Self-ring tracks my circle
-        if (this.selfRing && playerSlot !== null && state.players[playerSlot]) {
-          const me = state.players[playerSlot];
-          this.selfRing.setPosition(me.x, me.y);
-        }
-
-        // Slash arc flash
+        // ── Slash flash ────────────────────────────
         this.slashGfx.clear();
-        if (state.slashing) {
-          state.slashing.forEach((active, i) => {
-            if (!active || !state.players[i]) return;
-            const p = state.players[i];
-            const col = i === 0 ? SLASH_COLOR[0] : SLASH_COLOR[1];
-            this.slashGfx.fillStyle(col, 0.35);
-            this.slashGfx.fillCircle(p.x, p.y, 60);
-          });
-        }
-
-        // Boomerangs
-        this.boomGfx.clear();
-        state.boomerangs.forEach((b) => {
-          const col = b.returning
-            ? Phaser.Display.Color.ValueToColor(b.owner === 0 ? '#4fc3f7' : '#ef5350').lighten(25).color
-            : BOOM_COLOR[b.owner];
-          this.boomGfx.fillStyle(col, 1);
-          this.boomGfx.fillTriangle(
-            b.x,     b.y - 8,
-            b.x - 6, b.y + 5,
-            b.x + 6, b.y + 5
-          );
+        (state.slashing || []).forEach((active, i) => {
+          if (!active || !state.players[i]) return;
+          const p = state.players[i];
+          this.slashGfx.fillStyle(SLASH_COLORS[i], 0.22);
+          this.slashGfx.fillCircle(p.x, p.y, 60);
+          this.slashGfx.lineStyle(1.5, SLASH_COLORS[i], 0.5);
+          this.slashGfx.strokeCircle(p.x, p.y, 60);
         });
 
-        // Win / lose
+        // ── Boomerangs ─────────────────────────────
+        this.boomGfx.clear();
+        (state.boomerangs || []).forEach((b) => {
+          const col = b.returning ? lighter(P_COLORS[b.owner], 28) : BOOM_COLORS[b.owner];
+          drawBoom(this.boomGfx, b.x, b.y, col);
+        });
+
+        // ── Players as 3D spheres ──────────────────
+        this.playerGfx.clear();
+        state.players.forEach((p, i) => {
+          if (!p) return;
+          drawSphere(this.playerGfx, p.x, p.y, 22, P_COLORS[i]);
+          // Ownership ring on floor under sphere
+          if (i === playerSlot) {
+            this.playerGfx.lineStyle(2, 0xffffff, 0.32);
+            this.playerGfx.strokeEllipse(p.x, p.y + 19, 38, 10);
+          }
+        });
+
+        // ── Win/lose ───────────────────────────────
         if (state.phase === 'done' && state.winner !== null) {
-          const won = state.winner === playerSlot;
-          this.showOverlay(won ? 'You Win!' : 'You Lose');
+          this.showOverlay(state.winner === playerSlot ? 'You Win!' : 'You Lose');
         }
       },
 
       showOverlay(text) {
-        this.overlayBg.setFillStyle(0x000000, 0.6).setVisible(true);
+        this.overlayBg.setFillStyle(0x000000, 0.65).setVisible(true);
         this.overlayText.setText(text).setVisible(true);
       },
     },

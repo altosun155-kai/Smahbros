@@ -245,28 +245,9 @@ function launchPhaser() {
   const BOOM_COLORS = [0x81d4fa, 0xff8a80];
   const SLASH_COLORS= [0xb3e5fc, 0xffccbc];
 
-  function lighter(hex, pct) {
-    const r = (hex >> 16) & 0xff, g = (hex >> 8) & 0xff, b = hex & 0xff, f = pct / 100;
-    return (Math.min(255, r + (255-r)*f|0) << 16) | (Math.min(255, g + (255-g)*f|0) << 8) | Math.min(255, b + (255-b)*f|0);
-  }
-  function darker(hex, pct) {
-    const r = (hex >> 16) & 0xff, g = (hex >> 8) & 0xff, b = hex & 0xff, f = 1 - pct/100;
-    return (r*f|0) << 16 | (g*f|0) << 8 | (b*f|0);
-  }
-
-  // Renders a 3D sphere: drop shadow + dark rim + main colour + diffuse + specular
-  function drawSphere(g, x, y, r, col) {
-    g.fillStyle(0x000000, 0.5);
-    g.fillEllipse(x + r * 0.32, y + r * 0.88, r * 2.9, r * 0.78);
-    g.fillStyle(darker(col, 55), 1);
-    g.fillCircle(x, y, r);
-    g.fillStyle(col, 1);
-    g.fillCircle(x - 1, y - Math.round(r * 0.1), Math.round(r * 0.84));
-    g.fillStyle(lighter(col, 32), 0.82);
-    g.fillCircle(x - Math.round(r * 0.22), y - Math.round(r * 0.24), Math.round(r * 0.5));
-    g.fillStyle(0xffffff, 0.72);
-    g.fillCircle(x - Math.round(r * 0.38), y - Math.round(r * 0.37), Math.round(r * 0.17));
-  }
+  // Hardcoded dark/bright variants for each player colour (avoids colour-API issues)
+  const SPHERE_RIM   = [0x1a5c7c, 0x6b2222];  // darkened cyan / red
+  const SPHERE_GLOW  = [0x9edcf8, 0xf7a0a0];  // brightened cyan / red
 
   // Renders a boomerang: shadow + two-arm body + shine
   function drawBoom(g, bx, by, col) {
@@ -338,9 +319,17 @@ function launchPhaser() {
         walls.strokeRect(0, 0, 800, 600);
 
         // ── Dynamic graphics layers ───────────────────
-        this.slashGfx  = this.add.graphics();
-        this.boomGfx   = this.add.graphics();
-        this.playerGfx = this.add.graphics();
+        this.slashGfx   = this.add.graphics();
+        this.boomGfx    = this.add.graphics();
+        this.shadowGfx  = this.add.graphics();  // drop shadows — below player circles
+
+        // Player circles (Phaser arc objects — always render correctly)
+        this.playerCircles = [
+          this.add.arc(200, 300, 22, 0, 360, false, P_COLORS[0]).setClosePath(true),
+          this.add.arc(600, 300, 22, 0, 360, false, P_COLORS[1]).setClosePath(true),
+        ];
+
+        this.glowGfx = this.add.graphics();  // specular highlight — above player circles
 
         // ── Name labels ───────────────────────────────
         this.nameLabels = [
@@ -410,19 +399,34 @@ function launchPhaser() {
         // ── Boomerangs ─────────────────────────────
         this.boomGfx.clear();
         (state.boomerangs || []).forEach((b) => {
-          const col = b.returning ? lighter(P_COLORS[b.owner], 28) : BOOM_COLORS[b.owner];
+          const col = b.returning ? SPHERE_GLOW[b.owner] : BOOM_COLORS[b.owner];
           drawBoom(this.boomGfx, b.x, b.y, col);
         });
 
-        // ── Players as 3D spheres ──────────────────
-        this.playerGfx.clear();
+        // ── Players — shadow + arc + glow ─────────
+        this.shadowGfx.clear();
+        this.glowGfx.clear();
         state.players.forEach((p, i) => {
           if (!p) return;
-          drawSphere(this.playerGfx, p.x, p.y, 22, P_COLORS[i]);
-          // Ownership ring on floor under sphere
+          const r = 22;
+          // Move the arc
+          this.playerCircles[i].setPosition(p.x, p.y).setVisible(true);
+          // Drop shadow (drawn below arc via layer order)
+          this.shadowGfx.fillStyle(0x000000, 0.5);
+          this.shadowGfx.fillEllipse(p.x + 7, p.y + 20, r * 3, r * 0.85);
+          // Dark rim overlay (gives sphere depth)
+          this.glowGfx.fillStyle(SPHERE_RIM[i], 0.55);
+          this.glowGfx.fillCircle(p.x + 5, p.y + 5, r);
+          // Diffuse bright area
+          this.glowGfx.fillStyle(SPHERE_GLOW[i], 0.6);
+          this.glowGfx.fillCircle(p.x - 6, p.y - 6, r * 0.52);
+          // Specular dot
+          this.glowGfx.fillStyle(0xffffff, 0.75);
+          this.glowGfx.fillCircle(p.x - 8, p.y - 8, r * 0.17);
+          // "You" ring
           if (i === playerSlot) {
-            this.playerGfx.lineStyle(2, 0xffffff, 0.32);
-            this.playerGfx.strokeEllipse(p.x, p.y + 19, 38, 10);
+            this.glowGfx.lineStyle(2, 0xffffff, 0.3);
+            this.glowGfx.strokeEllipse(p.x, p.y + 19, 38, 10);
           }
         });
 

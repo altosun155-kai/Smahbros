@@ -240,31 +240,87 @@ document.addEventListener('contextmenu', (e) => e.preventDefault());
 
 // ── Phaser ────────────────────────────────────────────────────────────────────
 function launchPhaser() {
-  const P_COLORS    = [0x4fc3f7, 0xef5350];
-  const HP_COLORS   = [0x4fc3f7, 0xef5350];
-  const BOOM_COLORS = [0x81d4fa, 0xff8a80];
-  const SLASH_COLORS= [0xb3e5fc, 0xffccbc];
+  // Slime colours — base, highlight, shadow
+  const SLIME_BASE  = [0x4fc3f7, 0xff6b6b];
+  const SLIME_LIGHT = [0x9edcf8, 0xffaaaa];
+  const SLIME_DARK  = [0x1a7aaa, 0xc0392b];
 
-  // Hardcoded dark/bright variants for each player colour (avoids colour-API issues)
-  const SPHERE_RIM   = [0x1a5c7c, 0x6b2222];  // darkened cyan / red
-  const SPHERE_GLOW  = [0x9edcf8, 0xf7a0a0];  // brightened cyan / red
+  const HP_COLORS   = [0x4fc3f7, 0xff6b6b];
+  // Boomerangs: warm yellow/orange — stand out on green grass
+  const BOOM_COLORS = [0xffd54f, 0xff8a65];
 
-  // Renders a boomerang: shadow + two-arm body + shine
-  function drawBoom(g, bx, by, col) {
-    g.fillStyle(0x000000, 0.32);
-    g.fillEllipse(bx + 3, by + 11, 17, 5);
-    g.fillStyle(col, 1);
-    g.fillTriangle(bx, by - 9, bx - 6, by + 4, bx + 1, by + 1);
-    g.fillTriangle(bx, by - 9, bx + 6, by + 4, bx - 1, by + 1);
+  // Arena geometry (matches server physics boundary)
+  const FL = 20, FR = 780, FT = 38, FB = 562;   // floor left/right/top/bottom
+
+  // Wall palette
+  const W_TOP   = 0xb09ae8;   // top face of wall block (light purple)
+  const W_FRONT = 0x7a55cc;   // front face
+  const W_DEEP  = 0x4a3090;   // inner shadow / corner
+  const W_EDGE  = 0x9070d8;   // bright edge line
+
+  // Floor palette
+  const GRASS_A = 0x5cb85c;   // main green
+  const GRASS_B = 0x4da84d;   // slightly darker for tile grid
+
+  // Draws a cute slime blob with eyes + smile at (x, y)
+  function drawSlime(g, x, y, idx) {
+    const base = SLIME_BASE[idx];
+    const dark = SLIME_DARK[idx];
+
+    // Drop shadow
+    g.fillStyle(0x000000, 0.22);
+    g.fillEllipse(x + 4, y + 25, 52, 14);
+
+    // Lower body — wide squished ellipse
+    g.fillStyle(base, 1);
+    g.fillEllipse(x, y + 6, 50, 30);
+    // Upper dome — slightly narrower
+    g.fillEllipse(x, y - 4, 42, 32);
+
+    // Side shading
+    g.fillStyle(dark, 0.28);
+    g.fillCircle(x + 11, y + 4, 22);
+
+    // Specular highlight
     g.fillStyle(0xffffff, 0.52);
-    g.fillCircle(bx - 2, by - 4, 2);
+    g.fillEllipse(x - 10, y - 10, 20, 13);
+
+    // Eyes — white sclera
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(x - 9, y - 2, 7.5);
+    g.fillCircle(x + 9, y - 2, 7.5);
+    // Pupils
+    g.fillStyle(0x111122, 1);
+    g.fillCircle(x - 8, y - 1, 4.5);
+    g.fillCircle(x + 10, y - 1, 4.5);
+    // Eye shine
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(x - 6, y - 3, 2);
+    g.fillCircle(x + 12, y - 3, 2);
+
+    // Smile (arc from 0→π clockwise = U shape)
+    g.lineStyle(2.5, 0x111122, 0.8);
+    g.beginPath();
+    g.arc(x, y + 9, 6, 0, Math.PI, false);
+    g.strokePath();
+  }
+
+  // Draws a boomerang — warm colours so it reads clearly on green
+  function drawBoom(g, bx, by, col, returning) {
+    g.fillStyle(0x000000, 0.25);
+    g.fillEllipse(bx + 3, by + 11, 18, 5);
+    g.fillStyle(col, 1);
+    g.fillTriangle(bx, by - 10, bx - 7, by + 4, bx + 1, by + 1);
+    g.fillTriangle(bx, by - 10, bx + 7, by + 4, bx - 1, by + 1);
+    g.fillStyle(0xffffff, returning ? 0.75 : 0.4);
+    g.fillCircle(bx - 2, by - 4, 2.5);
   }
 
   return new Phaser.Game({
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    backgroundColor: '#06060f',
+    backgroundColor: '#1a1025',
     parent: 'game-wrap',
     input: { mouse: { preventDefaultDown: true } },
     scene: {
@@ -273,88 +329,98 @@ function launchPhaser() {
 
       create() {
         scene = this;
+        const g = this.add.graphics();
 
-        // ── Floor base ────────────────────────────────
-        this.add.rectangle(400, 300, 760, 524, 0x0b1120);
+        // ── Grass floor ───────────────────────────────
+        g.fillStyle(GRASS_A, 1);
+        g.fillRect(FL, FT, FR - FL, FB - FT);
+        // Subtle tile grid
+        g.lineStyle(1, GRASS_B, 0.35);
+        for (let x = FL; x <= FR; x += 48) g.lineBetween(x, FT, x, FB);
+        for (let y = FT; y <= FB; y += 48) g.lineBetween(FL, y, FR, y);
 
-        // ── Perspective grid ──────────────────────────
-        const grid = this.add.graphics();
-        const VP   = { x: 400, y: 38 };  // vanishing point at top of floor
-        const BY   = 562;                  // bottom y of floor
+        // ── Top wall — top face + front face ─────────
+        g.fillStyle(W_TOP, 1);
+        g.fillRect(0, 0, 800, FT - 16);
+        g.fillStyle(W_FRONT, 1);
+        g.fillRect(0, FT - 16, 800, 16);
 
-        // Depth lines converging to VP
-        grid.lineStyle(1, 0x17243d, 1);
-        for (let i = 0; i <= 10; i++) {
-          const bx = 20 + i * 76;
-          grid.lineBetween(VP.x, VP.y, bx, BY);
+        // ── Bottom wall ───────────────────────────────
+        g.fillStyle(W_FRONT, 1);
+        g.fillRect(0, FB, 800, 22);
+        g.fillStyle(W_DEEP, 1);
+        g.fillRect(0, FB + 22, 800, 600 - FB - 22);
+
+        // ── Side walls ────────────────────────────────
+        g.fillStyle(W_FRONT, 1);
+        g.fillRect(0, FT, FL, FB - FT);
+        g.fillRect(FR, FT, 800 - FR, FB - FT);
+        // Inner shadow strip
+        g.fillStyle(W_DEEP, 0.45);
+        g.fillRect(FL, FT, 6, FB - FT);
+        g.fillRect(FR - 6, FT, 6, FB - FT);
+
+        // ── Corner blocks ─────────────────────────────
+        g.fillStyle(W_DEEP, 1);
+        g.fillRect(0, 0, FL, FT);
+        g.fillRect(FR, 0, 800 - FR, FT);
+        g.fillRect(0, FB, FL, 600 - FB);
+        g.fillRect(FR, FB, 800 - FR, 600 - FB);
+
+        // ── Wall block texture lines ──────────────────
+        g.lineStyle(1, W_DEEP, 0.45);
+        // Top wall vertical block seams
+        for (let x = 0; x < 800; x += 80) g.lineBetween(x, 0, x, FT);
+        // Bottom wall seams
+        for (let x = 0; x < 800; x += 80) g.lineBetween(x, FB, x, 600);
+        // Side wall horizontal seams
+        for (let y = FT; y < FB; y += 70) {
+          g.lineBetween(0, y, FL, y);
+          g.lineBetween(FR, y, 800, y);
         }
 
-        // Horizontal rows — non-linear spacing (compressed toward top = perspective)
-        const rowT = [0, 0.04, 0.10, 0.19, 0.31, 0.46, 0.62, 0.78, 0.91, 1.0];
-        for (const t of rowT) {
-          const y  = VP.y + t * (BY - VP.y);
-          const hw = t * (780 - VP.x);
-          grid.lineBetween(VP.x - hw, y, VP.x + hw, y);
-        }
+        // ── Floor edge highlight ──────────────────────
+        g.lineStyle(2, W_EDGE, 0.7);
+        g.lineBetween(FL, FT, FR, FT);
+        g.lineBetween(FL, FB, FR, FB);
+        g.lineBetween(FL, FT, FL, FB);
+        g.lineBetween(FR, FT, FR, FB);
 
-        // ── Wall faces (2.5D depth effect) ───────────
-        const walls = this.add.graphics();
-        // Top face — lighter (ceiling edge visible from slight above angle)
-        walls.fillStyle(0x0e1d36, 1);
-        walls.fillRect(0, 0, 800, 38);
-        // Bottom face — front of wall (slightly lighter = facing viewer)
-        walls.fillStyle(0x121f3a, 1);
-        walls.fillRect(0, 562, 800, 38);
-        // Side faces
-        walls.fillStyle(0x0c1830, 1);
-        walls.fillRect(0, 38, 20, 524);
-        walls.fillRect(780, 38, 20, 524);
-        // Edge lines
-        walls.lineStyle(2, 0x2e4e82, 1);
-        walls.lineBetween(20, 38,  780, 38);
-        walls.lineBetween(20, 562, 780, 562);
-        walls.lineBetween(20, 38,  20,  562);
-        walls.lineBetween(780, 38, 780, 562);
-        walls.lineStyle(1, 0x1a3060, 1);
-        walls.strokeRect(0, 0, 800, 600);
-
-        // ── Dynamic graphics layers ───────────────────
-        this.slashGfx   = this.add.graphics();
-        this.boomGfx    = this.add.graphics();
-        this.shadowGfx  = this.add.graphics();  // drop shadows — below player circles
-
-        // Player circles (Phaser arc objects — always render correctly)
-        this.playerCircles = [
-          this.add.arc(200, 300, 22, 0, 360, false, P_COLORS[0]).setClosePath(true),
-          this.add.arc(600, 300, 22, 0, 360, false, P_COLORS[1]).setClosePath(true),
-        ];
-
-        this.glowGfx = this.add.graphics();  // specular highlight — above player circles
+        // ── Dynamic layers ────────────────────────────
+        this.slashGfx = this.add.graphics();
+        this.boomGfx  = this.add.graphics();
+        this.slimeGfx = this.add.graphics();
 
         // ── Name labels ───────────────────────────────
         this.nameLabels = [
-          this.add.text(200, 260, '', { fontSize: '11px', color: '#7fa8c8' }).setOrigin(0.5),
-          this.add.text(600, 260, '', { fontSize: '11px', color: '#c07878' }).setOrigin(0.5),
+          this.add.text(0, 0, '', {
+            fontSize: '11px', color: '#0d2b3e',
+            stroke: '#ffffff', strokeThickness: 3,
+          }).setOrigin(0.5),
+          this.add.text(0, 0, '', {
+            fontSize: '11px', color: '#3e0d0d',
+            stroke: '#ffffff', strokeThickness: 3,
+          }).setOrigin(0.5),
         ];
 
         // ── HP pips ───────────────────────────────────
         this.hpPips = [[], []];
         for (let s = 0; s < 2; s++) {
           for (let i = 0; i < 3; i++) {
-            const x = s === 0 ? 30 + i * 15 : 770 - i * 15;
-            this.hpPips[s].push(this.add.circle(x, 17, 5, HP_COLORS[s]));
+            const x = s === 0 ? 30 + i * 17 : 770 - i * 17;
+            this.hpPips[s].push(this.add.circle(x, 18, 6, HP_COLORS[s]));
           }
         }
 
         // ── Cooldown bar ──────────────────────────────
-        this.cooldownBg  = this.add.rectangle(400, 578, 120, 4, 0x1a2540);
-        this.cooldownBar = this.add.rectangle(340, 578, 0, 4, 0x4fc3f7).setOrigin(0, 0.5);
+        this.cooldownBg  = this.add.rectangle(400, 582, 140, 6, 0x3a2860);
+        this.cooldownBar = this.add.rectangle(330, 582, 0, 6, SLIME_BASE[playerSlot ?? 0]).setOrigin(0, 0.5);
 
         // ── Overlay ───────────────────────────────────
         this.overlayBg   = this.add.rectangle(400, 300, 800, 600, 0x000000, 0).setVisible(false);
         this.overlayText = this.add.text(400, 300, '', {
-          fontSize: '40px', fontStyle: 'bold', color: '#ffffff',
-          stroke: '#000000', strokeThickness: 5,
+          fontSize: '44px', fontStyle: 'bold', color: '#ffffff',
+          stroke: '#000000', strokeThickness: 6,
         }).setOrigin(0.5).setVisible(false);
 
         // ── Mouse input ───────────────────────────────
@@ -379,9 +445,9 @@ function launchPhaser() {
         state.players.forEach((p, i) => {
           if (!p) return;
           this._pos[i] = { x: p.x, y: p.y };
-          this.nameLabels[i].setPosition(p.x, p.y - 34).setText(p.username);
+          this.nameLabels[i].setPosition(p.x, p.y - 42).setText(p.username);
           for (let h = 0; h < 3; h++) {
-            this.hpPips[i][h].setAlpha(h < p.hp ? 1 : 0.12);
+            this.hpPips[i][h].setAlpha(h < p.hp ? 1 : 0.15);
           }
         });
 
@@ -390,43 +456,28 @@ function launchPhaser() {
         (state.slashing || []).forEach((active, i) => {
           if (!active || !state.players[i]) return;
           const p = state.players[i];
-          this.slashGfx.fillStyle(SLASH_COLORS[i], 0.22);
-          this.slashGfx.fillCircle(p.x, p.y, 60);
-          this.slashGfx.lineStyle(1.5, SLASH_COLORS[i], 0.5);
-          this.slashGfx.strokeCircle(p.x, p.y, 60);
+          this.slashGfx.fillStyle(SLIME_BASE[i], 0.2);
+          this.slashGfx.fillCircle(p.x, p.y, 62);
+          this.slashGfx.lineStyle(2, SLIME_BASE[i], 0.55);
+          this.slashGfx.strokeCircle(p.x, p.y, 62);
         });
 
         // ── Boomerangs ─────────────────────────────
         this.boomGfx.clear();
         (state.boomerangs || []).forEach((b) => {
-          const col = b.returning ? SPHERE_GLOW[b.owner] : BOOM_COLORS[b.owner];
-          drawBoom(this.boomGfx, b.x, b.y, col);
+          drawBoom(this.boomGfx, b.x, b.y, BOOM_COLORS[b.owner], b.returning);
         });
 
-        // ── Players — shadow + arc + glow ─────────
-        this.shadowGfx.clear();
-        this.glowGfx.clear();
+        // ── Slimes ─────────────────────────────────
+        this.slimeGfx.clear();
         state.players.forEach((p, i) => {
           if (!p) return;
-          const r = 22;
-          // Move the arc
-          this.playerCircles[i].setPosition(p.x, p.y).setVisible(true);
-          // Drop shadow (drawn below arc via layer order)
-          this.shadowGfx.fillStyle(0x000000, 0.5);
-          this.shadowGfx.fillEllipse(p.x + 7, p.y + 20, r * 3, r * 0.85);
-          // Dark rim overlay (gives sphere depth)
-          this.glowGfx.fillStyle(SPHERE_RIM[i], 0.55);
-          this.glowGfx.fillCircle(p.x + 5, p.y + 5, r);
-          // Diffuse bright area
-          this.glowGfx.fillStyle(SPHERE_GLOW[i], 0.6);
-          this.glowGfx.fillCircle(p.x - 6, p.y - 6, r * 0.52);
-          // Specular dot
-          this.glowGfx.fillStyle(0xffffff, 0.75);
-          this.glowGfx.fillCircle(p.x - 8, p.y - 8, r * 0.17);
-          // "You" ring
+          this._pos[i] = { x: p.x, y: p.y };
+          drawSlime(this.slimeGfx, p.x, p.y, i);
+          // "You" indicator ring under slime
           if (i === playerSlot) {
-            this.glowGfx.lineStyle(2, 0xffffff, 0.3);
-            this.glowGfx.strokeEllipse(p.x, p.y + 19, 38, 10);
+            this.slimeGfx.lineStyle(2.5, 0xffffff, 0.45);
+            this.slimeGfx.strokeEllipse(p.x, p.y + 25, 46, 12);
           }
         });
 

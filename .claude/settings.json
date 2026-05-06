@@ -1,0 +1,57 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(ls *)",
+      "Bash(wc *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(python3 *)",
+      "Bash(python *)",
+      "Bash(node *)",
+      "Bash(pip3 show *)",
+      "Bash(curl -s *)",
+      "Bash(curl -s -o *)",
+      "Bash(curl -s -I *)",
+      "Bash(mkdir -p *)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:smash-bracket-api.onrender.com)",
+      "WebFetch(domain:bracket-self.vercel.app)"
+    ],
+    "ask": [
+      "Bash(pip3 install *)",
+      "Bash(pip install *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(curl -X POST *)",
+      "Bash(curl -X DELETE *)",
+      "Bash(curl -X PUT *)",
+      "Bash(rm *)"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f *)",
+      "Bash(git reset --hard *)"
+    ]
+  },
+  "outputStyle": "Explanatory",
+  "plansDirectory": ".claude/plans",
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "osascript -e 'display notification \"Task complete\" with title \"Smahbros · Claude\" sound name \"Glass\"' 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

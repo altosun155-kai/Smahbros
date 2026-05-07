@@ -1,4 +1,5 @@
 import asyncio
+import random
 import uuid
 from fastapi import WebSocket
 
@@ -26,6 +27,12 @@ DASH_COOLDOWN     = 45
 
 KNOCKBACK_SPEED  = 22
 KNOCKBACK_FRAMES = 8
+
+WALL_SPEED     = 10.0   # units per tick while sliding
+WALL_H         = 140    # height of each wall slab
+WALL_MAX_EXT   = 280    # max extension into arena
+WALL_TIMER_MIN = 60     # ticks before toggling (~3 s at 20 tps)
+WALL_TIMER_MAX = 220    # ticks (~11 s)
 
 # CPU per-difficulty: (throw_interval_ticks, chase_distance, dodge_range, charge_ratio)
 _CPU_DIFF = {
@@ -93,11 +100,27 @@ class Boomerang:
         self.age          = 0
 
 
+class MovingWall:
+    def __init__(self, wid: int, side: str, y: float):
+        self.id      = wid
+        self.side    = side        # 'left' or 'right'
+        self.y       = y           # center Y in arena
+        self.h       = WALL_H
+        self.max_ext = WALL_MAX_EXT
+        self.extend  = 0.0         # current extension (0 = retracted)
+        self.target  = 0.0         # target extension
+        self.timer   = random.randint(WALL_TIMER_MIN, WALL_TIMER_MAX)
+
+
 class GameRoom:
     def __init__(self, room_id: str):
         self.room_id     = room_id
         self.players: list[Player | None] = [None, None]
         self.boomerangs: list[Boomerang]  = []
+        self.walls       = [
+            MovingWall(0, 'left',  270),   # upper-left slab
+            MovingWall(1, 'right', 540),   # lower-right slab
+        ]
         self.phase       = "waiting"
         self.winner: int | None = None
         self.tick_task: asyncio.Task | None = None
@@ -105,6 +128,36 @@ class GameRoom:
         self.rounds_won   = [0, 0]
         self.round_num    = 1
         self.match_winner = None
+
+
+def _wall_rect(w: MovingWall) -> tuple | None:
+    """Return (x1, y1, x2, y2) of the wall's current footprint, or None if retracted."""
+    if w.extend < 1:
+        return None
+    hy = w.h / 2
+    if w.side == 'left':
+        return (FLOOR_L, w.y - hy, FLOOR_L + w.extend, w.y + hy)
+    return (FLOOR_R - w.extend, w.y - hy, FLOOR_R, w.y + hy)
+
+
+def _push_out_of_wall(p: Player, w: MovingWall) -> None:
+    """Push player circle out of the wall rect if overlapping."""
+    rect = _wall_rect(w)
+    if not rect:
+        return
+    x1, y1, x2, y2 = rect
+    clx = max(x1, min(p.x, x2))
+    cly = max(y1, min(p.y, y2))
+    dx, dy = p.x - clx, p.y - cly
+    dist_sq = dx * dx + dy * dy
+    if dist_sq < PLAYER_R * PLAYER_R:
+        dist = dist_sq ** 0.5
+        if dist < 0.01:
+            # Center is inside wall — eject horizontally away from wall face
+            dx, dy, dist = (1.0, 0.0, 1.0) if w.side == 'right' else (-1.0, 0.0, 1.0)
+        overlap = PLAYER_R - dist + 1
+        p.x = max(PLAYER_R, min(ARENA_W - PLAYER_R, p.x + dx / dist * overlap))
+        p.y = max(PLAYER_R, min(ARENA_H - PLAYER_R, p.y + dy / dist * overlap))
 
 
 def _resolve_hit(room: GameRoom, victim: Player, attacker_slot: int,
@@ -132,6 +185,10 @@ def _advance_round(room: GameRoom) -> None:
     room.winner     = None
     room.phase      = "playing"
     room.boomerangs.clear()
+    for w in room.walls:
+        w.extend = 0.0
+        w.target = 0.0
+        w.timer  = random.randint(WALL_TIMER_MIN, WALL_TIMER_MAX)
     for p in room.players:
         if p is None:
             continue
@@ -373,14 +430,40 @@ def _step(room: GameRoom) -> None:
                 b.y = FLOOR_T; b.dy = abs(b.dy)
             elif b.y > FLOOR_B:
                 b.y = FLOOR_B; b.dy = -abs(b.dy)
+            # Bounce off moving wall faces
+            for w in room.walls:
+                rect = _wall_rect(w)
+                if not rect:
+                    continue
+                wx1, wy1, wx2, wy2 = rect
+                if wx1 <= b.x <= wx2 and wy1 <= b.y <= wy2:
+                    if w.side == 'left':
+                        b.x = wx2 + BOOM_R; b.dx = abs(b.dx)
+                    else:
+                        b.x = wx1 - BOOM_R; b.dx = -abs(b.dx)
 
         for p in room.players:
             if p is None or p.slot == b.owner:
                 continue
             dx, dy = p.x - b.x, p.y - b.y
-            if (dx * dx + dy * dy) ** 0.5 < PLAYER_R + BOOM_R:
-                dead_booms.append(b)
-                _resolve_hit(room, p, b.owner, b.x, b.y)
+            dist = (dx * dx + dy * dy) ** 0.5
+            if dist < PLAYER_R + BOOM_R:
+                if p.slashing > 0:
+                    # Deflect: redirect boomerang at the original owner
+                    orig = room.players[b.owner]
+                    b.owner     = p.slot
+                    b.returning = False
+                    b.age       = 0
+                    b.return_after = BOOM_RETURN_AFTER
+                    if orig:
+                        td = ((orig.x - p.x) ** 2 + (orig.y - p.y) ** 2) ** 0.5 or 1.0
+                        b.dx = (orig.x - p.x) / td * b.speed
+                        b.dy = (orig.y - p.y) / td * b.speed
+                    else:
+                        b.dx, b.dy = -b.dx, -b.dy
+                else:
+                    dead_booms.append(b)
+                    _resolve_hit(room, p, b.owner, b.x, b.y)
                 break
 
     for b in dead_booms:
@@ -395,6 +478,21 @@ def _step(room: GameRoom) -> None:
         if p.dash_cooldown > 0:  p.dash_cooldown -= 1
         if p.throw_charging and not any(b.owner == p.slot for b in room.boomerangs):
             p.throw_charge = min(p.throw_charge + 1, MAX_THROW_CHARGE)
+
+    # Moving walls: slide toward target, toggle on timer, push players out
+    for w in room.walls:
+        diff = w.target - w.extend
+        if abs(diff) <= WALL_SPEED:
+            w.extend = w.target
+        else:
+            w.extend += WALL_SPEED if diff > 0 else -WALL_SPEED
+        w.timer -= 1
+        if w.timer <= 0:
+            w.target = w.max_ext if w.target == 0 else 0
+            w.timer  = random.randint(WALL_TIMER_MIN, WALL_TIMER_MAX)
+        for p in room.players:
+            if p is not None:
+                _push_out_of_wall(p, w)
 
 
 async def _tick_loop(room: GameRoom) -> None:
@@ -426,6 +524,8 @@ async def _tick_loop(room: GameRoom) -> None:
             "round_num":    room.round_num,
             "match_winner": room.match_winner,
             "crowned":      [p.has_crown if p else False for p in room.players],
+            "walls":        [{"id": w.id, "side": w.side, "y": w.y, "h": w.h,
+                               "extend": round(w.extend, 1)} for w in room.walls],
         }
         await broadcast(room, state)
 

@@ -630,6 +630,31 @@ function applyState(sc, state) {
   // Sync crown state from server
   if (state.crowned && sc._crowned) sc._crowned = state.crowned.slice();
 
+  // Deflect detection: boomerang owner changed → spark burst at boom position
+  (state.boomerangs || []).forEach(function(b) {
+    var prev = sc._boomOwner[b.id];
+    if (prev !== undefined && prev !== b.owner && sc._particles) {
+      var bpos = sc._boomPos[b.id] || { x: b.x, y: b.y };
+      var sparkCol = BOOM_COLORS[b.owner];
+      for (var dp = 0; dp < 14; dp++) {
+        var ang = Math.random() * Math.PI * 2;
+        var spd = 3 + Math.random() * 7;
+        sc._particles.push({
+          x: bpos.x, y: bpos.y,
+          vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 1,
+          alpha: 1, size: 2 + Math.random() * 4, col: sparkCol, gravity: 0.14
+        });
+      }
+      sc.cameras.main.shake(70, 0.004);
+    }
+    sc._boomOwner[b.id] = b.owner;
+  });
+  // Clean up tracking for boomerangs that no longer exist
+  var liveBoomIds = new Set((state.boomerangs || []).map(function(b) { return b.id; }));
+  Object.keys(sc._boomOwner).forEach(function(id) {
+    if (!liveBoomIds.has(id)) delete sc._boomOwner[id];
+  });
+
   // Slash flash
   sc.slashGfx.clear();
   (state.slashing || []).forEach(function(active, i) {
@@ -859,7 +884,8 @@ function launchPhaser() {
         g.lineBetween(FR, FT, FR, FB);
 
         // ── Dynamic layers (order = depth order) ──────
-        this._splatGfx = this.add.graphics();   // goo puddles — below everything
+        this._wallGfx  = this.add.graphics();   // moving wall slabs — above floor, below goo
+        this._splatGfx = this.add.graphics();   // goo puddles
         this.slashGfx  = this.add.graphics();
         this.boomGfx   = this.add.graphics();
         this.slimeGfx  = this.add.graphics();
@@ -938,6 +964,7 @@ function launchPhaser() {
         this._boomTrail      = {};
         this._boomAngle      = {};
         this._boomHeight     = {};
+        this._boomOwner      = {};
         this._splats         = [];
         this._roundOverShown = false;
         this._particles      = [];
@@ -991,6 +1018,42 @@ function launchPhaser() {
         }
         // dt-independent LERP: same visual feel regardless of framerate
         var LERP = (now < this._hitStopEnd) ? 0 : 1 - Math.pow(0.75, dt / (1000 / 60));
+
+        // ── Moving walls ──────────────────────────────
+        this._wallGfx.clear();
+        (state.walls || []).forEach((w) => {
+          if (w.extend < 2) return;
+          var ext = w.extend;
+          var wx  = w.side === 'left' ? FL : FR - ext;
+          var wy  = w.y - w.h / 2;
+          var wg  = this._wallGfx;
+          // Top ledge face (3-D illusion)
+          wg.fillStyle(W_TOP, 1);
+          wg.fillRect(wx, wy - 10, ext, 10);
+          // Front face
+          wg.fillStyle(W_FRONT, 1);
+          wg.fillRect(wx, wy, ext, w.h);
+          // Horizontal texture lines on front face
+          wg.lineStyle(1, W_DEEP, 0.38);
+          for (var ty = wy + 35; ty < wy + w.h; ty += 35) {
+            wg.lineBetween(wx, ty, wx + ext, ty);
+          }
+          // Exposed vertical face edge + inner shadow
+          var faceX = w.side === 'left' ? wx + ext : wx;
+          wg.fillStyle(W_DEEP, 0.32);
+          if (w.side === 'left') {
+            wg.fillRect(wx + ext - 8, wy, 8, w.h);
+          } else {
+            wg.fillRect(wx, wy, 8, w.h);
+          }
+          wg.lineStyle(2, W_EDGE, 0.88);
+          wg.lineBetween(faceX, wy - 10, faceX, wy + w.h);
+          // Top and bottom edge highlights
+          wg.lineStyle(2, W_EDGE, 0.70);
+          wg.lineBetween(wx, wy - 10, wx + ext, wy - 10);
+          wg.lineStyle(1, W_DEEP, 0.50);
+          wg.lineBetween(wx, wy + w.h, wx + ext, wy + w.h);
+        });
 
         // ── _splatGfx: walk trail + splats + particles ─
         this._splatGfx.clear();

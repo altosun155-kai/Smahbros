@@ -480,82 +480,88 @@ function drawSlime(g, x, floorY, bodyY, idx, s, sx, sy, leanX, flash, crowned) {
   var bx   = x + leanX;
   var base = SLIME_BASE[idx];
   var dark = SLIME_DARK[idx];
+  var cy   = bodyY - 2 * s;   // body center
 
-  // Shadow: flat on floor, clearly below hovering body
-  g.fillStyle(0x000000, 0.3);
-  g.fillEllipse(x + leanX * 0.12 + 2*s, floorY + 6*s, 72*s*sx, 18*s);
+  // Drop shadow
+  g.fillStyle(0x000000, 0.26);
+  g.fillEllipse(bx + 2*s, floorY + 5*s, 74*s*sx, 17*s);
 
-  // ── Body: big round blob with bottom drip ─────────────
+  // ── Body: single clean circle (squishes with sx/sy) ──
   g.fillStyle(base, 1);
-  g.fillEllipse(bx, bodyY + 18*s*sy, 62*s*sx, 30*s*sy);  // drip extends toward floor
-  g.fillCircle(bx, bodyY - 2*s, 32*s);                    // main sphere
+  g.fillEllipse(bx, cy, 64*s*sx, 64*s*sy);
 
-  // Dark underside shading
-  g.fillStyle(dark, 0.3);
-  g.fillCircle(bx + 12*s, bodyY + 8*s, 26*s);
+  // Soft inner shading — lower-right is darker
+  g.fillStyle(dark, 0.20);
+  g.fillEllipse(bx + 10*s*sx, cy + 9*s*sy, 46*s*sx, 40*s*sy);
 
-  // Specular highlight (top-left)
-  g.fillStyle(0xffffff, 0.55);
-  g.fillCircle(bx - 12*s, bodyY - 15*s, 12*s);
-  g.fillStyle(0xffffff, 0.25);
-  g.fillCircle(bx - 5*s, bodyY - 24*s, 5*s);
+  // Specular highlight (top-left, two-layer for depth)
+  g.fillStyle(0xffffff, 0.62);
+  g.fillCircle(bx - 13*s, cy - 14*s, 12*s);
+  g.fillStyle(0xffffff, 0.28);
+  g.fillCircle(bx - 5*s,  cy - 23*s, 5*s);
 
-  // ── Eyes: large and expressive ───────────────────────
+  // ── Eyes: large, round, front-facing ─────────────────
+  var ex  = 13 * s * sx;   // eye offset from centre
+  var ey  = cy - 6 * s;    // eye row Y
+  var er  = 13 * s;        // sclera radius
+  var pr  = 8  * s;        // pupil radius
+  // Sclera
   g.fillStyle(0xffffff, 1);
-  g.fillCircle(bx - 11*s*sx, bodyY - 5*s, 11*s);
-  g.fillCircle(bx + 11*s*sx, bodyY - 5*s, 11*s);
+  g.fillCircle(bx - ex, ey, er);
+  g.fillCircle(bx + ex, ey, er);
+  // Pupils — slight inward lean so they look at you
   g.fillStyle(0x111122, 1);
-  g.fillCircle(bx - 8*s*sx,  bodyY - 4*s, 7*s);
-  g.fillCircle(bx + 14*s*sx, bodyY - 4*s, 7*s);
+  g.fillCircle(bx - ex + 2*s, ey + 1.5*s, pr);
+  g.fillCircle(bx + ex - 2*s, ey + 1.5*s, pr);
+  // Glints
   g.fillStyle(0xffffff, 1);
-  g.fillCircle(bx - 5*s*sx,  bodyY - 7*s, 2.5*s);
-  g.fillCircle(bx + 17*s*sx, bodyY - 7*s, 2.5*s);
+  g.fillCircle(bx - ex,       ey - 3*s, 3*s);
+  g.fillCircle(bx + ex,       ey - 3*s, 3*s);
 
   // ── Per-player accessory ──────────────────────────────
-  var topY = bodyY - 34*s;
+  var topY = bodyY - 36*s;
   if (idx === 0) {
-    // Player 0 (blue): glowing antenna
+    // Player 0 (blue): glowing antenna orb
     g.fillStyle(0x5ad4e8, 1);
-    g.fillRect(bx - 2.5*s, topY - 4*s, 5*s, 14*s);
+    g.fillRect(bx - 2.5*s, topY - 2*s, 5*s, 12*s);
     g.fillStyle(0xffffff, 0.85);
-    g.fillCircle(bx, topY - 8*s, 8*s);
+    g.fillCircle(bx, topY - 6*s, 8*s);
     g.fillStyle(0x88ffcc, 1);
-    g.fillCircle(bx, topY - 8*s, 5.5*s);
+    g.fillCircle(bx, topY - 6*s, 5.5*s);
     g.fillStyle(0xffffff, 0.7);
-    g.fillCircle(bx - 2*s, topY - 11*s, 2.5*s);
+    g.fillCircle(bx - 2*s, topY - 9*s, 2.5*s);
   } else {
     // Player 1 (red): flat cap with band
     g.fillStyle(0x222233, 1);
-    g.fillEllipse(bx, topY + 4*s, 50*s*sx, 11*s);   // brim
+    g.fillEllipse(bx, topY + 4*s, 50*s*sx, 11*s);
     g.fillStyle(0x1a1028, 1);
-    g.fillRect(bx - 14*s, topY - 10*s, 28*s, 16*s); // crown
+    g.fillRect(bx - 14*s, topY - 10*s, 28*s, 16*s);
     g.fillStyle(0xff3344, 1);
-    g.fillRect(bx - 14*s, topY - 12*s, 28*s, 5*s);  // band
+    g.fillRect(bx - 14*s, topY - 12*s, 28*s, 5*s);
     g.fillStyle(0xffffff, 0.2);
-    g.fillRect(bx - 10*s, topY - 10*s, 9*s, 3*s);   // sheen
+    g.fillRect(bx - 10*s, topY - 10*s, 9*s, 3*s);
   }
 
-  // Crown (drawn above accessories, on winner of last round)
+  // Crown (winner of last round, drawn above accessories)
   if (crowned) {
     var crY = topY - 20*s;
     g.fillStyle(0xffd700, 1);
-    g.fillRect(bx - 13*s, crY, 26*s, 7*s);           // base band
-    g.fillTriangle(bx - 13*s, crY, bx - 13*s, crY - 11*s, bx - 6*s, crY);  // left point
-    g.fillTriangle(bx - 1*s,  crY, bx,         crY - 15*s, bx + 1*s,  crY);  // center point
-    g.fillTriangle(bx + 13*s, crY, bx + 13*s, crY - 11*s, bx + 6*s, crY);  // right point
-    g.fillStyle(0xff3333, 1);   // gem dots
+    g.fillRect(bx - 13*s, crY, 26*s, 7*s);
+    g.fillTriangle(bx - 13*s, crY, bx - 13*s, crY - 11*s, bx - 6*s, crY);
+    g.fillTriangle(bx - 1*s,  crY, bx,         crY - 15*s, bx + 1*s,  crY);
+    g.fillTriangle(bx + 13*s, crY, bx + 13*s, crY - 11*s, bx + 6*s, crY);
+    g.fillStyle(0xff3333, 1);
     g.fillCircle(bx - 10*s, crY + 3*s, 2.5*s);
     g.fillCircle(bx,         crY + 3*s, 2.5*s);
     g.fillCircle(bx + 10*s, crY + 3*s, 2.5*s);
-    g.fillStyle(0xffffff, 0.38);   // highlight sheen
+    g.fillStyle(0xffffff, 0.38);
     g.fillRect(bx - 13*s, crY, 26*s, 2*s);
   }
 
-  // Hit-flash: white overlay for 1–2 frames on damage
+  // Hit-flash: white overlay on damage
   if (flash && flash > 0) {
     g.fillStyle(0xffffff, flash * 0.88);
-    g.fillCircle(bx, bodyY - 2*s, 36*s);
-    g.fillEllipse(bx, bodyY + 18*s*sy, 66*s*sx, 34*s*sy);
+    g.fillEllipse(bx, cy, 68*s*sx, 68*s*sy);
   }
 }
 

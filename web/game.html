@@ -6,128 +6,278 @@
   <title>Boomerang Arena — Smahbros</title>
   <script src="js/auth.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background:
-        radial-gradient(ellipse 120% 45% at 50% -8%, rgba(0,55,140,0.38) 0%, transparent 60%),
-        #0d0d1a;
-      color: #fff;
-      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #1a1025;
+      color: #e8e8f4;
+      font-family: 'Space Mono', 'Courier New', monospace;
       display: flex;
       align-items: center;
       justify-content: center;
       min-height: 100vh;
+      padding: 20px;
     }
 
-    /* ── Lobby ────────────────────────────────────────── */
+    /* ── Lobby ───────────────────────────────────────────── */
     #lobby {
-      width: 340px;
-      background: rgba(255,255,255,0.04);
-      backdrop-filter: blur(14px);
-      border: 1px solid rgba(255,255,255,0.09);
-      border-radius: 20px;
-      padding: 36px 32px;
+      width: 400px;
       display: flex;
       flex-direction: column;
       gap: 14px;
     }
-    #lobby h1 {
-      font-size: 1.35rem;
-      font-weight: 700;
-      text-align: center;
-      letter-spacing: .02em;
-      margin-bottom: 4px;
-    }
-    #lobby h1 span { color: #4fc3f7; }
 
-    .hint {
-      font-size: 0.78rem;
-      color: #64748b;
-      text-align: center;
-      line-height: 1.5;
+    .lobby-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 2px;
     }
+    .lobby-logo {
+      font-family: 'Bebas Neue', 'Arial Black', sans-serif;
+      font-size: 2.5rem;
+      line-height: 0.88;
+      letter-spacing: 0.03em;
+    }
+    .lobby-logo span { color: #4fc3f7; }
+    .lobby-back {
+      font-size: 0.62rem;
+      letter-spacing: 0.12em;
+      color: rgba(232,232,244,0.28);
+      text-decoration: none;
+      padding-top: 6px;
+      transition: color 0.15s;
+    }
+    .lobby-back:hover { color: rgba(232,232,244,0.65); }
 
-    #lobby input {
-      background: rgba(255,255,255,0.07);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 10px;
+    .lobby-input {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(167,139,250,0.22);
+      border-radius: 8px;
       padding: 11px 14px;
-      color: #fff;
-      font-size: 0.95rem;
+      color: #e8e8f4;
+      font-family: inherit;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      width: 100%;
       outline: none;
-      transition: border-color .15s;
+      transition: border-color 0.15s;
     }
-    #lobby input:focus { border-color: rgba(79,195,247,0.55); }
-    #lobby input::placeholder { color: #475569; }
+    .lobby-input:focus { border-color: rgba(167,139,250,0.6); }
+    .lobby-input::placeholder { color: rgba(232,232,244,0.2); }
 
-    #btn-join {
-      background: #4fc3f7;
-      color: #0d0d1a;
+    /* ── Mode tabs ───────────────────────────────────────── */
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border: 1px solid rgba(167,139,250,0.18);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .mode-tab {
+      background: transparent;
       border: none;
-      border-radius: 10px;
+      padding: 9px 0;
+      color: rgba(232,232,244,0.3);
+      font-family: inherit;
+      font-size: 0.66rem;
+      letter-spacing: 0.14em;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .mode-tab.active {
+      background: rgba(122,85,204,0.28);
+      color: #e8e8f4;
+    }
+    .mode-tab:hover:not(.active) {
+      background: rgba(167,139,250,0.08);
+      color: rgba(232,232,244,0.6);
+    }
+
+    /* ── Slides ──────────────────────────────────────────── */
+    .slides-outer { overflow: hidden; }
+    .slides-track {
+      display: flex;
+      transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    .slide {
+      flex: 0 0 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+    }
+    .slide-hint {
+      font-size: 0.66rem;
+      letter-spacing: 0.04em;
+      color: rgba(232,232,244,0.32);
+      line-height: 1.55;
+    }
+
+    /* ── Difficulty ──────────────────────────────────────── */
+    .diff-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+    .diff-btn {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(167,139,250,0.18);
+      border-radius: 7px;
+      padding: 9px 0;
+      color: rgba(232,232,244,0.35);
+      font-family: inherit;
+      font-size: 0.62rem;
+      letter-spacing: 0.12em;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .diff-btn.active {
+      background: rgba(122,85,204,0.32);
+      border-color: rgba(167,139,250,0.55);
+      color: #e8e8f4;
+    }
+    .diff-btn:hover:not(.active) {
+      background: rgba(167,139,250,0.08);
+      color: rgba(232,232,244,0.65);
+    }
+
+    /* ── Buttons ─────────────────────────────────────────── */
+    .lobby-btn {
+      width: 100%;
+      border: none;
+      border-radius: 8px;
       padding: 13px;
-      font-size: 0.95rem;
+      font-family: inherit;
+      font-size: 0.75rem;
+      letter-spacing: 0.14em;
       font-weight: 700;
       cursor: pointer;
-      transition: background .15s;
-      margin-top: 2px;
+      transition: all 0.15s;
     }
-    #btn-join:hover { background: #81d4fa; }
+    .lobby-btn.mp  { background: #4fc3f7; color: #0d0813; }
+    .lobby-btn.mp:hover  { background: #81d4fa; }
+    .lobby-btn.cpu { background: #7a55cc; color: #fff; }
+    .lobby-btn.cpu:hover { background: #9370e8; }
 
+    /* ── Status ──────────────────────────────────────────── */
     #status {
       text-align: center;
-      font-size: 0.85rem;
-      color: #94a3b8;
+      font-size: 0.68rem;
+      letter-spacing: 0.06em;
+      color: rgba(232,232,244,0.4);
       min-height: 1.2em;
     }
     #status.err { color: #ef5350; }
 
-    /* ── Controls key legend ─────────────────────────── */
+    /* ── Controls legend ─────────────────────────────────── */
     .controls {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 6px;
-      margin-top: 4px;
+      border-top: 1px solid rgba(167,139,250,0.1);
+      padding-top: 12px;
     }
     .ctrl {
-      background: rgba(255,255,255,0.05);
-      border-radius: 8px;
-      padding: 8px 10px;
-      font-size: 0.78rem;
-      color: #94a3b8;
+      font-size: 0.62rem;
+      letter-spacing: 0.04em;
+      color: rgba(232,232,244,0.28);
     }
-    .ctrl strong { color: #e2e8f0; }
+    .ctrl strong { color: rgba(232,232,244,0.55); }
 
-    /* ── Game canvas wrapper ─────────────────────────── */
+    /* ── Game canvas wrapper ─────────────────────────────── */
     #game-wrap { display: none; position: relative; }
     #game-wrap canvas { display: block; border-radius: 10px; }
+
+    /* ── End-screen overlay ──────────────────────────────── */
+    #endscreen {
+      display: none;
+      position: absolute;
+      bottom: 56px;
+      left: 50%;
+      transform: translateX(-50%);
+      gap: 10px;
+      z-index: 10;
+      white-space: nowrap;
+    }
+    .end-btn {
+      background: rgba(26,16,37,0.92);
+      border: 1px solid rgba(167,139,250,0.38);
+      border-radius: 8px;
+      padding: 10px 22px;
+      color: #e8e8f4;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.12em;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      transition: all 0.15s;
+    }
+    .end-btn:hover { background: rgba(122,85,204,0.28); border-color: rgba(167,139,250,0.7); }
+    .end-btn.primary { border-color: rgba(79,195,247,0.45); }
+    .end-btn.primary:hover { background: rgba(79,195,247,0.18); border-color: rgba(79,195,247,0.75); }
   </style>
 </head>
 <body>
 <script>requireAuth();</script>
 
-<!-- ── Lobby ──────────────────────────────────────────── -->
+<!-- ── Lobby ──────────────────────────────────────────────── -->
 <div id="lobby">
-  <h1>Boomerang <span>Arena</span></h1>
-  <p class="hint">Share a Room ID with a friend — first two in win.</p>
+  <div class="lobby-top">
+    <div class="lobby-logo">BOOMERANG<br><span>ARENA</span></div>
+    <a href="hub.html" class="lobby-back">← HUB</a>
+  </div>
 
-  <input id="inp-room" placeholder="Room ID (e.g. lobby1)" autocomplete="off" />
-  <input id="inp-user" placeholder="Username" autocomplete="off" />
-  <button id="btn-join">Join Room</button>
+  <input id="inp-user" class="lobby-input" placeholder="USERNAME" autocomplete="off" />
+
+  <div class="mode-tabs">
+    <button class="mode-tab active" data-slide="0">MULTIPLAYER</button>
+    <button class="mode-tab"        data-slide="1">VS CPU</button>
+  </div>
+
+  <div class="slides-outer">
+    <div class="slides-track" id="slides-track">
+
+      <!-- Slide 0: Multiplayer -->
+      <div class="slide">
+        <p class="slide-hint">Share a room ID with a friend — first two in win.</p>
+        <input id="inp-room" class="lobby-input" placeholder="ROOM ID (e.g. lobby1)" autocomplete="off" />
+        <button id="btn-join" class="lobby-btn mp">JOIN ROOM</button>
+      </div>
+
+      <!-- Slide 1: VS CPU -->
+      <div class="slide">
+        <p class="slide-hint">Fight against an AI opponent — no friend required.</p>
+        <div class="diff-group">
+          <button class="diff-btn"        data-d="easy">EASY</button>
+          <button class="diff-btn active" data-d="normal">NORMAL</button>
+          <button class="diff-btn"        data-d="hard">HARD</button>
+        </div>
+        <button id="btn-cpu" class="lobby-btn cpu">PLAY VS CPU</button>
+      </div>
+
+    </div>
+  </div>
+
   <div id="status"></div>
 
   <div class="controls">
     <div class="ctrl"><strong>WASD</strong> — move</div>
     <div class="ctrl"><strong>Right-click</strong> — throw</div>
     <div class="ctrl"><strong>Left-click</strong> — slash</div>
-    <div class="ctrl"><strong>3 HP</strong> — last one standing</div>
+    <div class="ctrl"><strong>3 HP</strong> — last standing</div>
   </div>
 </div>
 
-<!-- ── Phaser canvas ─────────────────────────────────── -->
-<div id="game-wrap"></div>
+<!-- ── Phaser canvas ──────────────────────────────────────── -->
+<div id="game-wrap">
+  <div id="endscreen">
+    <button class="end-btn primary" onclick="location.reload()">PLAY AGAIN</button>
+    <a href="hub.html" class="end-btn">← HUB</a>
+  </div>
+</div>
 
 <script>
 const WS_BASE = 'wss://smash-bracket-api.onrender.com';
@@ -142,74 +292,131 @@ const lobbyEl  = document.getElementById('lobby');
 const gameWrap = document.getElementById('game-wrap');
 const statusEl = document.getElementById('status');
 
-// Pre-fill username from stored value
+// Pre-fill username
 const savedUser = localStorage.getItem('username');
 if (savedUser) document.getElementById('inp-user').value = savedUser;
 
-// ── Lobby join ────────────────────────────────────────────────────────────────
-document.getElementById('btn-join').addEventListener('click', tryJoin);
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && lobbyEl.style.display !== 'none') tryJoin();
+// ── Slide navigation ──────────────────────────────────────────────────────────
+let currentSlide = 0;
+const slidesTrack = document.getElementById('slides-track');
+const modeTabs    = document.querySelectorAll('.mode-tab');
+
+function goToSlide(idx) {
+  currentSlide = idx;
+  slidesTrack.style.transform = 'translateX(' + (-idx * 100) + '%)';
+  modeTabs.forEach(function(t, i) { t.classList.toggle('active', i === idx); });
+}
+modeTabs.forEach(function(tab, i) {
+  tab.addEventListener('click', function() { goToSlide(i); });
 });
 
-function tryJoin() {
-  const roomId   = document.getElementById('inp-room').value.trim();
-  const username = document.getElementById('inp-user').value.trim() || 'Player';
-  if (!roomId) { setStatus('Enter a Room ID.', true); return; }
-  connect(roomId, username);
-}
+// Swipe support
+var _touchX = 0;
+slidesTrack.addEventListener('touchstart', function(e) { _touchX = e.touches[0].clientX; }, { passive: true });
+slidesTrack.addEventListener('touchend',   function(e) {
+  var dx = e.changedTouches[0].clientX - _touchX;
+  if (dx < -40) goToSlide(Math.min(1, currentSlide + 1));
+  if (dx >  40) goToSlide(Math.max(0, currentSlide - 1));
+});
 
-function setStatus(msg, isErr = false) {
+// ── Difficulty selection ──────────────────────────────────────────────────────
+var selectedDiff = 'normal';
+document.querySelectorAll('.diff-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.diff-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    selectedDiff = btn.dataset.d;
+  });
+});
+
+// ── Status helpers ────────────────────────────────────────────────────────────
+function setStatus(msg, isErr) {
   statusEl.textContent = msg;
   statusEl.className   = isErr ? 'err' : '';
 }
 
-// ── WebSocket ─────────────────────────────────────────────────────────────────
-function connect(roomId, username) {
+// ── Multiplayer join ──────────────────────────────────────────────────────────
+document.getElementById('btn-join').addEventListener('click', tryJoin);
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && lobbyEl.style.display !== 'none') {
+    if (currentSlide === 0) tryJoin(); else playCpu();
+  }
+});
+
+function tryJoin() {
+  var roomId   = document.getElementById('inp-room').value.trim();
+  var username = document.getElementById('inp-user').value.trim() || 'Player';
+  if (!roomId) { setStatus('Enter a Room ID.', true); return; }
+  localStorage.setItem('username', username);
+  connectMulti(roomId, username);
+}
+
+function connectMulti(roomId, username) {
   setStatus('Connecting…');
-  const slowTimer = setTimeout(() =>
-    setStatus('Server is waking up — this takes ~30s on first load…'), 4000);
+  var slowTimer = setTimeout(function() {
+    setStatus('Server is waking up — this takes ~30s on first load…');
+  }, 4000);
 
-  ws = new WebSocket(`${WS_BASE}/ws/game/${roomId}`);
-
-  ws.onopen = () => {
+  ws = new WebSocket(WS_BASE + '/ws/game/' + roomId);
+  ws.onopen = function() {
     clearTimeout(slowTimer);
-    ws.send(JSON.stringify({ token, username }));
+    ws.send(JSON.stringify({ token: token, username: username }));
   };
-
-  ws.onmessage = (e) => {
-    const msg = JSON.parse(e.data);
-
-    if (msg.type === 'error') {
-      setStatus(msg.message, true);
-      ws.close();
-      return;
-    }
-    if (msg.type === 'joined') {
-      playerSlot = msg.slot;
-      setStatus(`You are Player ${msg.slot + 1}. Waiting for opponent…`);
-    }
-    if (msg.type === 'player_joined') {
-      setStatus(`${msg.username} joined — starting soon…`);
-    }
-    if (msg.type === 'start' && !phaserGame) {
-      lobbyEl.style.display  = 'none';
-      gameWrap.style.display = 'block';
-      phaserGame = launchPhaser();
-    }
-    if (msg.type === 'state' && scene) {
-      scene.applyState(msg);
-    }
-    if (msg.type === 'player_left' && scene) {
-      scene.showOverlay('Opponent disconnected');
-    }
-  };
-
-  ws.onclose = () => {
+  ws.onmessage = handleWsMsg;
+  ws.onclose   = function() {
     if (scene) scene.showOverlay('Disconnected from server');
     else setStatus('Connection closed — server may have rejected the session.', true);
   };
-  ws.onerror = () => setStatus('Connection failed — server may be starting up, try again in 30s.', true);
+  ws.onerror = function() { setStatus('Connection failed — server may be starting up, try again in 30s.', true); };
+}
+
+// ── CPU join ──────────────────────────────────────────────────────────────────
+document.getElementById('btn-cpu').addEventListener('click', playCpu);
+
+function playCpu() {
+  var username = document.getElementById('inp-user').value.trim() || 'Player';
+  var roomId   = 'cpu_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+  localStorage.setItem('username', username);
+  connectCpu(roomId, username, selectedDiff);
+}
+
+function connectCpu(roomId, username, difficulty) {
+  setStatus('Starting CPU game…');
+  var slowTimer = setTimeout(function() {
+    setStatus('Server is waking up — this takes ~30s on first load…');
+  }, 4000);
+
+  ws = new WebSocket(WS_BASE + '/ws/game-cpu/' + roomId);
+  ws.onopen = function() {
+    clearTimeout(slowTimer);
+    ws.send(JSON.stringify({ token: token, username: username, difficulty: difficulty }));
+  };
+  ws.onmessage = handleWsMsg;
+  ws.onclose   = function() {
+    if (scene) scene.showOverlay('Disconnected from server');
+    else setStatus('Connection failed.', true);
+  };
+  ws.onerror = function() { setStatus('Connection failed — server may be starting up, try again in 30s.', true); };
+}
+
+// ── Shared WS message handler ─────────────────────────────────────────────────
+function handleWsMsg(e) {
+  var msg = JSON.parse(e.data);
+  if (msg.type === 'error') { setStatus(msg.message, true); ws.close(); return; }
+  if (msg.type === 'joined') {
+    playerSlot = msg.slot;
+    setStatus('You are Player ' + (msg.slot + 1) + '. Waiting for opponent…');
+  }
+  if (msg.type === 'player_joined') {
+    setStatus(msg.username + ' joined — starting soon…');
+  }
+  if (msg.type === 'start' && !phaserGame) {
+    lobbyEl.style.display  = 'none';
+    gameWrap.style.display = 'block';
+    phaserGame = launchPhaser();
+  }
+  if (msg.type === 'state' && scene)       { scene.applyState(msg); }
+  if (msg.type === 'player_left' && scene) { scene.showOverlay('Opponent disconnected'); }
 }
 
 // ── Keyboard input ────────────────────────────────────────────────────────────
@@ -223,20 +430,18 @@ const KEY_MAP = {
 
 function sendKeys() {
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'input', keys: { ...held } }));
+    ws.send(JSON.stringify({ type: 'input', keys: { up: held.up, down: held.down, left: held.left, right: held.right } }));
   }
 }
-
-document.addEventListener('keydown', (e) => {
-  const k = KEY_MAP[e.key.toLowerCase()];
+document.addEventListener('keydown', function(e) {
+  var k = KEY_MAP[e.key.toLowerCase()];
   if (k && !held[k]) { held[k] = true; sendKeys(); }
 });
-document.addEventListener('keyup', (e) => {
-  const k = KEY_MAP[e.key.toLowerCase()];
+document.addEventListener('keyup', function(e) {
+  var k = KEY_MAP[e.key.toLowerCase()];
   if (k) { held[k] = false; sendKeys(); }
 });
-
-document.addEventListener('contextmenu', (e) => e.preventDefault());
+document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
 
 // ── Phaser ────────────────────────────────────────────────────────────────────
 function launchPhaser() {
@@ -490,6 +695,8 @@ function launchPhaser() {
       showOverlay(text) {
         this.overlayBg.setFillStyle(0x000000, 0.65).setVisible(true);
         this.overlayText.setText(text).setVisible(true);
+        var es = document.getElementById('endscreen');
+        if (es) es.style.display = 'flex';
       },
     },
   });

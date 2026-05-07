@@ -335,6 +335,38 @@ async def ws_game(room_id: str, websocket: WebSocket):
         await game_ws_manager.broadcast(room, {"type": "player_left", "slot": slot})
 
 
+@app.websocket("/ws/game-cpu/{room_id}")
+async def ws_game_cpu(room_id: str, websocket: WebSocket):
+    await websocket.accept()
+
+    try:
+        msg = await asyncio.wait_for(websocket.receive_json(), timeout=5.0)
+    except Exception:
+        await websocket.close(code=1008)
+        return
+
+    token      = msg.get("token", "")
+    username   = msg.get("username", "Player")
+    difficulty = msg.get("difficulty", "normal")
+    user_id    = decode_token(token)
+    if not user_id:
+        await websocket.close(code=1008)
+        return
+
+    room, slot = game_ws_manager.join_cpu_room(room_id, username, websocket, difficulty)
+    await websocket.send_json({"type": "joined", "slot": slot, "room_id": room_id})
+
+    game_ws_manager.start_game(room)
+    await game_ws_manager.broadcast(room, {"type": "start"})
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+            game_ws_manager.handle_message(room, slot, data)
+    except WebSocketDisconnect:
+        game_ws_manager.leave_room(room_id, slot)
+
+
 @app.get("/health")
 def health():
     return {"ok": True}

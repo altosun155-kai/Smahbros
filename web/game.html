@@ -1,10 +1,11 @@
-<!DOCTYPE html>
+hat<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Boomerang Arena — Smahbros</title>
   <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
   <style>
@@ -273,7 +274,7 @@
     <div class="ctrl"><strong>Right-click</strong> — throw</div>
     <div class="ctrl"><strong>Left-click</strong> — slash</div>
     <div class="ctrl"><strong>SPACE</strong> — dash</div>
-    <div class="ctrl"><strong>3 HP</strong> — last standing</div>
+    <div class="ctrl"><strong>Best of 3</strong> — rounds</div>
   </div>
 </div>
 
@@ -286,7 +287,7 @@
 </div>
 
 <script>
-const WS_BASE = 'wss://smash-bracket-api.onrender.com';
+const WS_BASE = API_BASE.replace('https://', 'wss://').replace('http://', 'ws://');
 const token   = localStorage.getItem('authToken') || '';
 
 let ws         = null;
@@ -470,8 +471,8 @@ var BOOM_COLORS = [0xffd54f, 0xff8a65];
 
 var _pendingStates = [];
 
-// drawSlime(g, x, floorY, bodyY, idx, s, sx, sy, leanX)
-function drawSlime(g, x, floorY, bodyY, idx, s, sx, sy, leanX) {
+// drawSlime(g, x, floorY, bodyY, idx, s, sx, sy, leanX, flash, crowned)
+function drawSlime(g, x, floorY, bodyY, idx, s, sx, sy, leanX, flash, crowned) {
   s     = s     || 1;
   sx    = sx    || 1;
   sy    = sy    || 1;
@@ -533,29 +534,97 @@ function drawSlime(g, x, floorY, bodyY, idx, s, sx, sy, leanX) {
     g.fillStyle(0xffffff, 0.2);
     g.fillRect(bx - 10*s, topY - 10*s, 9*s, 3*s);   // sheen
   }
+
+  // Crown (drawn above accessories, on winner of last round)
+  if (crowned) {
+    var crY = topY - 20*s;
+    g.fillStyle(0xffd700, 1);
+    g.fillRect(bx - 13*s, crY, 26*s, 7*s);           // base band
+    g.fillTriangle(bx - 13*s, crY, bx - 13*s, crY - 11*s, bx - 6*s, crY);  // left point
+    g.fillTriangle(bx - 1*s,  crY, bx,         crY - 15*s, bx + 1*s,  crY);  // center point
+    g.fillTriangle(bx + 13*s, crY, bx + 13*s, crY - 11*s, bx + 6*s, crY);  // right point
+    g.fillStyle(0xff3333, 1);   // gem dots
+    g.fillCircle(bx - 10*s, crY + 3*s, 2.5*s);
+    g.fillCircle(bx,         crY + 3*s, 2.5*s);
+    g.fillCircle(bx + 10*s, crY + 3*s, 2.5*s);
+    g.fillStyle(0xffffff, 0.38);   // highlight sheen
+    g.fillRect(bx - 13*s, crY, 26*s, 2*s);
+  }
+
+  // Hit-flash: white overlay for 1–2 frames on damage
+  if (flash && flash > 0) {
+    g.fillStyle(0xffffff, flash * 0.88);
+    g.fillCircle(bx, bodyY - 2*s, 36*s);
+    g.fillEllipse(bx, bodyY + 18*s*sy, 66*s*sx, 34*s*sy);
+  }
 }
 
-function drawBoom(g, bx, by, col, returning) {
-  g.fillStyle(0x000000, 0.2);
-  g.fillEllipse(bx + 3, by + 20, 22, 6);
+function _rp(cx, cy, x, y, cosA, sinA) {
+  var dx = x - cx, dy = y - cy;
+  return [cx + dx * cosA - dy * sinA, cy + dx * sinA + dy * cosA];
+}
+
+function drawBoom(g, bx, by, col, returning, angleDeg, height) {
+  var h  = height || 0;
+  var vy = by - h * 42;   // visual Y: rises off ground at height
+
+  // Floor shadow: grows and fades as height increases
+  g.fillStyle(0x000000, Math.max(0.07, 0.22 - h * 0.11));
+  g.fillEllipse(bx + 2, by + 18 + h * 20, 20 + h * 14, 6 + h * 3);
+
+  var a = ((angleDeg || 0) % 360) * Math.PI / 180;
+  var cosA = Math.cos(a), sinA = Math.sin(a);
+  function rp(x, y) { return _rp(bx, vy, x, y, cosA, sinA); }
+
+  // Glow halos (at visual height)
+  g.fillStyle(col, 0.18 + h * 0.06); g.fillCircle(bx, vy, 20);
+  g.fillStyle(col, 0.07);             g.fillCircle(bx, vy, 30);
+
+  // Body: two rotated wings
+  var p1 = [rp(bx, vy-15), rp(bx-11, vy+7), rp(bx+1, vy+3)];
+  var p2 = [rp(bx, vy-15), rp(bx+11, vy+7), rp(bx-1, vy+3)];
   g.fillStyle(col, 1);
-  g.fillTriangle(bx, by - 10, bx - 7, by + 4, bx + 1, by + 1);
-  g.fillTriangle(bx, by - 10, bx + 7, by + 4, bx - 1, by + 1);
-  g.fillStyle(0xffffff, returning ? 0.75 : 0.4);
-  g.fillCircle(bx - 2, by - 4, 2.5);
+  g.fillTriangle(p1[0][0],p1[0][1], p1[1][0],p1[1][1], p1[2][0],p1[2][1]);
+  g.fillTriangle(p2[0][0],p2[0][1], p2[1][0],p2[1][1], p2[2][0],p2[2][1]);
+
+  // Center hub
+  var hub = rp(bx, vy);
+  g.fillStyle(0xffffff, returning ? 0.9 : 0.5);
+  g.fillCircle(hub[0], hub[1], 4);
 }
 
 function applyState(sc, state) {
-  // Store as interpolation target — rendering happens in update() at 60fps
   sc._pState = state;
 
-  // HUD: HP pips update immediately (not position-dependent)
+  // HP change detection → hit-stop + flash + shake + crown fly-off
   state.players.forEach(function(p, i) {
     if (!p) return;
+    if (p.hp < sc._prevHp[i]) {
+      var now = performance.now();
+      sc._hitFlashEnd[i] = now + 60;
+      sc._hitStopEnd     = now + 72;
+      sc.cameras.main.shake(110, 0.006);
+      // Crown fly-off when a crowned player is hit
+      if (sc._crowned && sc._crowned[i] && sc._particles) {
+        for (var cp = 0; cp < 10; cp++) {
+          var ang = -Math.PI * 0.6 + (Math.random() - 0.5) * Math.PI * 1.4;
+          var spd = 4 + Math.random() * 8;
+          sc._particles.push({
+            x: sc._pos[i].x, y: sc._pos[i].y - 68,
+            vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 2,
+            alpha: 1, size: 3 + Math.random() * 5, col: 0xffd700, gravity: 0.28
+          });
+        }
+      }
+    }
+    sc._prevHp[i] = p.hp;
     sc.hpPips[i][0].setAlpha(p.hp > 0 ? 1 : 0.15);
   });
 
-  // Slash flash: centered on body (which hovers ~20px above physics y)
+  // Sync crown state from server
+  if (state.crowned && sc._crowned) sc._crowned = state.crowned.slice();
+
+  // Slash flash
   sc.slashGfx.clear();
   (state.slashing || []).forEach(function(active, i) {
     if (!active || !state.players[i]) return;
@@ -567,16 +636,70 @@ function applyState(sc, state) {
     sc.slashGfx.strokeCircle(p.x, cy, 62);
   });
 
-  // Charge bar (your own charge level)
+  // Charge bar
   if (state.charge && playerSlot !== null) {
     var myCharge = state.charge[playerSlot] || 0;
     sc.cooldownBar.displayWidth = Math.round(140 * myCharge);
   }
 
-  // Win/lose (only trigger once)
-  if (state.phase === 'done' && state.winner !== null && !sc._gameOver) {
+  // Round score
+  if (state.rounds_won && sc._roundScoreText) {
+    state.rounds_won.forEach(function(w, i) {
+      sc._roundScoreText[i].setText(w);
+    });
+  }
+
+  // Round over: slow-mo + shake + overlay (no end buttons yet)
+  if (state.phase === 'round_over' && state.winner !== null && !sc._roundOverShown) {
+    sc._roundOverShown = true;
+    var won = (state.winner === playerSlot);
+    sc.overlayBg.setFillStyle(0x000000, 0.55).setAlpha(1).setVisible(true);
+    sc.overlayText.setText(won ? '★  ROUND WON  ★' : '✗  ROUND LOST  ✗')
+                  .setAlpha(1).setVisible(true);
+    sc.cameras.main.shake(320, 0.013);
+    sc._slowMoEnd = performance.now() + 500;
+    // Splat + particle burst on the loser
+    var loserId = state.winner === 0 ? 1 : 0;
+    var lx = sc._pos[loserId].x, ly = sc._pos[loserId].y;
+    if (!sc._splats.length) {
+      sc._splats.push({ slot: loserId, x: lx, y: ly, alpha: 1 });
+    }
+    var burstCol = [0x4fc3f7, 0xff6b6b][loserId];
+    for (var bp = 0; bp < 24; bp++) {
+      var ang = Math.random() * Math.PI * 2;
+      var spd = 2 + Math.random() * 10;
+      sc._particles.push({
+        x: lx, y: ly,
+        vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 3,
+        alpha: 0.9 + Math.random() * 0.1,
+        size: 3 + Math.random() * 9, col: burstCol, gravity: 0.18
+      });
+    }
+  }
+
+  // New round started (server resets to 'playing')
+  if (state.phase === 'playing' && sc._roundOverShown) {
+    sc._roundOverShown = false;
+    sc._prevHp         = [1, 1];
+    sc._hitFlashEnd    = [0, 0];
+    sc._splats         = [];
+    sc._particles      = [];
+    sc._walkTrail      = [[], []];
+    sc._splatGfx.clear();
+    sc.overlayText.setVisible(false);
+    sc.overlayBg.setVisible(false);
+    _showCountdown(sc);
+  }
+
+  // Match over
+  if (state.phase === 'game_over' && !sc._gameOver) {
     sc._gameOver = true;
-    showOverlay(sc, state.winner === playerSlot ? 'You Win!' : 'You Lose');
+    sc.cameras.main.shake(450, 0.015);
+    sc._slowMoEnd = performance.now() + 600;
+    var rw  = state.rounds_won || [0, 0];
+    var mw  = state.match_winner;
+    var txt = (mw === playerSlot ? 'YOU WIN!' : 'YOU LOSE') + '\n' + rw[0] + ' — ' + rw[1];
+    showOverlay(sc, txt);
   }
 }
 
@@ -585,6 +708,23 @@ function showOverlay(sc, text) {
   sc.overlayText.setText(text).setVisible(true);
   var es = document.getElementById('endscreen');
   if (es) es.style.display = 'flex';
+}
+
+// ── Countdown ─────────────────────────────────────────────────────────────────
+function _showCountdown(sc) {
+  if (!sc._countdownText) return;
+  var nums = ['3', '2', '1', 'GO!'];
+  var i = 0;
+  (function tick() {
+    if (i >= nums.length) { sc._countdownText.setVisible(false); return; }
+    sc._countdownText.setText(nums[i]).setScale(1.3).setAlpha(1).setVisible(true);
+    sc.tweens.add({
+      targets: sc._countdownText,
+      alpha: 0, scaleX: 0.7, scaleY: 0.7,
+      duration: 650, ease: 'Power2',
+      onComplete: function() { i++; tick(); }
+    });
+  })();
 }
 
 // ── Phaser ────────────────────────────────────────────────────────────────────
@@ -600,8 +740,10 @@ function launchPhaser() {
   const W_EDGE  = 0x9070d8;   // bright edge line
 
   // Floor palette
-  const GRASS_A = 0x5cb85c;   // main green
-  const GRASS_B = 0x4da84d;   // slightly darker for tile grid
+  const F_BASE = 0x150b28;   // deep dark base
+  const F_MID  = 0x221540;   // mid-depth
+  const F_LINE = 0x5535a0;   // tile line glow
+  const F_GLOW = 0x7755d8;   // accent glow
 
   return new Phaser.Game({
     type: Phaser.AUTO,
@@ -622,31 +764,41 @@ function launchPhaser() {
         scene = this;
         const g = this.add.graphics();
 
-        // ── Grass floor ───────────────────────────────
-        // Far end (top) darker, near end (bottom) brighter — depth gradient
-        g.fillGradientStyle(0x3a6b3a, 0x3a6b3a, 0x74c874, 0x74c874);
+        // ── Arena floor: dark stone tiles ─────────────
+        const VP  = (FL + FR) / 2;          // kept for wall fan lines
+        const VCX = VP, VCY = FT + (FB - FT) * 0.5;
+        // Base gradient: deep purple far → slightly lighter near
+        g.fillGradientStyle(F_BASE, F_BASE, F_MID, F_MID);
         g.fillRect(FL, FT, FR - FL, FB - FT);
-        // Perspective grid converging to vanishing point at top-center
-        const VP = (FL + FR) / 2;
-        g.lineStyle(1, 0x000000, 0.17);
-        for (let i = 0; i <= 14; i++) {
-          const bx = FL + (FR - FL) * i / 14;
-          g.lineBetween(VP, FT, bx, FB);
+        // Orthographic tile grid (no convergence — cleaner than perspective grid)
+        const TW = 90, TH = 70;
+        g.lineStyle(1, F_LINE, 0.15);
+        for (let tx = FL; tx <= FR; tx += TW) g.lineBetween(tx, FT, tx, FB);
+        for (let ty = FT; ty <= FB; ty += TH) g.lineBetween(FL, ty, FR, ty);
+        // Subtle checkerboard shading — breaks up the flat tile fill
+        for (let row = 0; row < Math.ceil((FB - FT) / TH) + 1; row++) {
+          for (let col = 0; col < Math.ceil((FR - FL) / TW) + 1; col++) {
+            if ((row + col) % 2 === 0) {
+              g.fillStyle(0xffffff, 0.016);
+              g.fillRect(FL + col * TW, FT + row * TH, TW, TH);
+            }
+          }
         }
-        for (let j = 1; j <= 9; j++) {
-          const t = Math.pow(j / 10, 1.35);
-          const ty = FT + (FB - FT) * t;
-          g.lineBetween(VP + (FL - VP) * t, ty, VP + (FR - VP) * t, ty);
-        }
-        // Center court oval (depth reference landmark)
-        g.lineStyle(1.5, 0x000000, 0.13);
-        g.strokeEllipse((FL + FR) / 2, FT + (FB - FT) * 0.63, 360, 160);
-        // Atmospheric depth haze — fade black overlay from top down (far = hazier)
-        g.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.28, 0.28, 0, 0);
-        g.fillRect(FL, FT, FR - FL, (FB - FT) * 0.46);
-        // Near-side brightness boost — brighter strip at bottom edge of floor
-        g.fillGradientStyle(0xffffff, 0xffffff, 0xffffff, 0xffffff, 0, 0, 0.07, 0.07);
-        g.fillRect(FL, FB - (FB - FT) * 0.18, FR - FL, (FB - FT) * 0.18);
+        // Arena center circle + outer ring
+        g.lineStyle(3, F_GLOW, 0.55);
+        g.strokeCircle(VCX, VCY, 175);
+        g.lineStyle(1, F_GLOW, 0.22);
+        g.strokeCircle(VCX, VCY, 360);
+        // Cross hairs inside center circle
+        g.lineStyle(1, F_GLOW, 0.14);
+        g.lineBetween(VCX, VCY - 175, VCX, VCY + 175);
+        g.lineBetween(VCX - 175, VCY, VCX + 175, VCY);
+        // Depth haze: darker at top (far end)
+        g.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.38, 0.38, 0, 0);
+        g.fillRect(FL, FT, FR - FL, (FB - FT) * 0.44);
+        // Near-side accent glow (bottom edge)
+        g.fillGradientStyle(F_GLOW, F_GLOW, F_GLOW, F_GLOW, 0, 0, 0.05, 0.05);
+        g.fillRect(FL, FB - (FB - FT) * 0.10, FR - FL, (FB - FT) * 0.10);
 
         // ── Top wall — top face + front face ─────────
         g.fillStyle(W_TOP, 1);
@@ -700,10 +852,11 @@ function launchPhaser() {
         g.lineBetween(FL, FT, FL, FB);
         g.lineBetween(FR, FT, FR, FB);
 
-        // ── Dynamic layers ────────────────────────────
-        this.slashGfx = this.add.graphics();
-        this.boomGfx  = this.add.graphics();
-        this.slimeGfx = this.add.graphics();
+        // ── Dynamic layers (order = depth order) ──────
+        this._splatGfx = this.add.graphics();   // goo puddles — below everything
+        this.slashGfx  = this.add.graphics();
+        this.boomGfx   = this.add.graphics();
+        this.slimeGfx  = this.add.graphics();
 
         // ── Name labels ───────────────────────────────
         this.nameLabels = [
@@ -717,12 +870,30 @@ function launchPhaser() {
           }).setOrigin(0.5),
         ];
 
-        // ── HP pips ───────────────────────────────────
+        // ── HP pips (corner) ──────────────────────────
         this.hpPips = [[], []];
         for (let s = 0; s < 2; s++) {
           const x = s === 0 ? 40 : 1400;
           this.hpPips[s].push(this.add.circle(x, 22, 10, HP_COLORS[s]));
         }
+
+        // ── Round score ───────────────────────────────
+        this._roundScoreText = [
+          this.add.text(60, 22, '0', {
+            fontSize: '18px', color: '#4fc3f7', fontStyle: 'bold',
+            stroke: '#000000', strokeThickness: 3,
+          }).setOrigin(0, 0.5),
+          this.add.text(1380, 22, '0', {
+            fontSize: '18px', color: '#ff6b6b', fontStyle: 'bold',
+            stroke: '#000000', strokeThickness: 3,
+          }).setOrigin(1, 0.5),
+        ];
+
+        // ── Floating HP dots above each slime ─────────
+        this._floatHp = [
+          this.add.circle(0, 0, 7, HP_COLORS[0]),
+          this.add.circle(0, 0, 7, HP_COLORS[1]),
+        ];
 
         // ── Throw charge bar ──────────────────────────
         this.add.text(720, 790, 'CHARGE', {
@@ -736,6 +907,13 @@ function launchPhaser() {
         this.overlayText = this.add.text(720, 405, '', {
           fontSize: '52px', fontStyle: 'bold', color: '#ffffff',
           stroke: '#000000', strokeThickness: 6,
+          align: 'center',
+        }).setOrigin(0.5).setVisible(false);
+
+        // ── Countdown ─────────────────────────────────
+        this._countdownText = this.add.text(720, 360, '', {
+          fontSize: '128px', fontStyle: 'bold', color: '#ffffff',
+          stroke: '#1a0030', strokeThickness: 14,
         }).setOrigin(0.5).setVisible(false);
 
         // ── Interpolation state ───────────────────────
@@ -745,6 +923,23 @@ function launchPhaser() {
         this._gameOver = false;
         this._vel  = [{ x: 0, y: 0 }, { x: 0, y: 0 }];
         this._hist = [[], []];
+
+        // ── Juice state ───────────────────────────────
+        this._hitFlashEnd    = [0, 0];
+        this._hitStopEnd     = 0;
+        this._slowMoEnd      = 0;
+        this._prevHp         = [1, 1];
+        this._boomTrail      = {};
+        this._boomAngle      = {};
+        this._boomHeight     = {};
+        this._splats         = [];
+        this._roundOverShown = false;
+        this._particles      = [];
+        this._walkTrail      = [[], []];
+        this._walkTimer      = [0, 0];
+        this._crowned        = [false, false];
+        this._dashWindup     = [0, 0];
+        this._wasDashing     = [false, false];
         var _chargingThrow = false;
         this.input.on('pointerdown', (ptr) => {
           if (!ws || ws.readyState !== WebSocket.OPEN || playerSlot === null) return;
@@ -768,51 +963,141 @@ function launchPhaser() {
 
         // Flush any state messages that arrived before Phaser finished init
         while (_pendingStates.length) applyState(this, _pendingStates.shift());
+
+        // Show initial countdown
+        _showCountdown(this);
       },
 
       update() {
         var state = this._pState;
         if (!state) return;
-        var LERP = 0.25;
 
-        // Y-depth sort: draw further (lower Y) first
-        var order = [0, 1].filter(i => state.players[i])
-                          .sort((a, b) => this._pos[a].y - this._pos[b].y);
+        var now = performance.now();
+        var dt  = this.game.loop.delta || 16.67;
+
+        // ── Time effects (hit-stop / slow-mo) ────────
+        if (now < this._hitStopEnd) {
+          this.game.loop.timeScale = 0.04;
+        } else if (now < this._slowMoEnd) {
+          this.game.loop.timeScale = 0.28;
+        } else if (this.game.loop.timeScale !== 1.0) {
+          this.game.loop.timeScale = 1.0;
+        }
+        // dt-independent LERP: same visual feel regardless of framerate
+        var LERP = (now < this._hitStopEnd) ? 0 : 1 - Math.pow(0.75, dt / (1000 / 60));
+
+        // ── _splatGfx: walk trail + splats + particles ─
+        this._splatGfx.clear();
+        var sg = this._splatGfx;
+
+        // Walk trail droplets (faint streaks left while sliding)
+        for (var ti = 0; ti < 2; ti++) {
+          var wtr = this._walkTrail[ti];
+          for (var td = 0; td < wtr.length; td++) {
+            var tr = wtr[td];
+            if (tr.alpha <= 0) continue;
+            sg.fillStyle(SLIME_BASE[ti], tr.alpha * 0.28);
+            sg.fillEllipse(tr.x, tr.y + 4, 16, 7);
+          }
+        }
+
+        // Splats (large goo puddles on death)
+        this._splats.forEach(function(sp) {
+          if (sp.alpha <= 0) return;
+          var c  = [0x4fc3f7, 0xff6b6b][sp.slot];
+          var dk = [0x1a7aaa, 0xc0392b][sp.slot];
+          sg.fillStyle(c, sp.alpha * 0.80);
+          sg.fillEllipse(sp.x, sp.y + 6, 90, 28);
+          sg.fillStyle(dk, sp.alpha * 0.42);
+          sg.fillEllipse(sp.x + 10, sp.y + 10, 44, 16);
+          sg.fillStyle(c, sp.alpha * 0.52);
+          sg.fillEllipse(sp.x - 38, sp.y + 8, 22, 14);
+          sg.fillEllipse(sp.x + 44, sp.y + 6, 18, 12);
+          sg.fillEllipse(sp.x + 4, sp.y + 22, 24, 12);
+          sp.alpha = Math.max(0, sp.alpha - 0.0018);
+        });
+
+        // Particles (burst + crown fly-off — simulate and render each frame)
+        var aliveParticles = [];
+        for (var pi = 0; pi < this._particles.length; pi++) {
+          var pk = this._particles[pi];
+          pk.vx    *= 0.93;
+          pk.vy    += pk.gravity;
+          pk.x     += pk.vx;
+          pk.y     += pk.vy;
+          pk.alpha  = Math.max(0, pk.alpha - 0.026);
+          if (pk.alpha > 0) {
+            sg.fillStyle(pk.col, pk.alpha);
+            sg.fillCircle(pk.x, pk.y, pk.size);
+            aliveParticles.push(pk);
+          }
+        }
+        this._particles = aliveParticles;
+
+        // ── Y-depth sort ──────────────────────────────
+        var self  = this;
+        var order = [0, 1].filter(function(i) { return state.players[i]; })
+                          .sort(function(a, b) { return self._pos[a].y - self._pos[b].y; });
 
         this.slimeGfx.clear();
-        order.forEach((i) => {
+        order.forEach(function(i) {
           var p = state.players[i];
           if (!p) return;
 
-          // ── Lerp position ─────────────────────────────
-          var prevX = this._pos[i].x, prevY = this._pos[i].y;
-          this._pos[i].x += (p.x - this._pos[i].x) * LERP;
-          this._pos[i].y += (p.y - this._pos[i].y) * LERP;
+          // dt-independent LERP position
+          var prevX = self._pos[i].x, prevY = self._pos[i].y;
+          self._pos[i].x += (p.x - self._pos[i].x) * LERP;
+          self._pos[i].y += (p.y - self._pos[i].y) * LERP;
 
-          // ── Smoothed velocity (EMA) ────────────────────
-          var rawVx = this._pos[i].x - prevX;
-          var rawVy = this._pos[i].y - prevY;
-          this._vel[i].x = this._vel[i].x * 0.65 + rawVx * 0.35;
-          this._vel[i].y = this._vel[i].y * 0.65 + rawVy * 0.35;
-          var vx = this._vel[i].x, vy = this._vel[i].y;
+          // Smoothed velocity (EMA)
+          var rawVx = self._pos[i].x - prevX;
+          var rawVy = self._pos[i].y - prevY;
+          self._vel[i].x = self._vel[i].x * 0.65 + rawVx * 0.35;
+          self._vel[i].y = self._vel[i].y * 0.65 + rawVy * 0.35;
+          var vx = self._vel[i].x, vy = self._vel[i].y;
           var speed = Math.hypot(vx, vy);
 
-          // ── Position history (for dash trail) ─────────
-          this._hist[i].unshift({ x: this._pos[i].x, y: this._pos[i].y });
-          if (this._hist[i].length > 6) this._hist[i].length = 6;
+          // Position history (for dash ghost trail)
+          self._hist[i].unshift({ x: self._pos[i].x, y: self._pos[i].y });
+          if (self._hist[i].length > 6) self._hist[i].length = 6;
 
-          // ── Y-depth scale ─────────────────────────────
-          var normY  = Math.max(0, Math.min(1, (this._pos[i].y - FT) / (FB - FT)));
+          // Y-depth scale
+          var normY  = Math.max(0, Math.min(1, (self._pos[i].y - FT) / (FB - FT)));
           var scale  = 0.82 + 0.18 * normY;
-          var floorY = this._pos[i].y;
-          // Body hovers above the floor — this gap is the primary 2.5D depth cue
+          var floorY = self._pos[i].y;
           var bodyY  = floorY - 38 * scale;
 
           var dashing = state.dashing && state.dashing[i];
 
-          // ── Squish: direction-based slide (no bounce) ─
+          // Walking wetness trail: push a droplet every 4 frames while sliding
+          self._walkTimer[i] = (self._walkTimer[i] || 0) + 1;
+          if (!dashing && speed > 0.4 && self._walkTimer[i] % 4 === 0) {
+            self._walkTrail[i].push({
+              x: self._pos[i].x + (Math.random() - 0.5) * 8,
+              y: floorY,
+              alpha: 0.50,
+            });
+          }
+          // Fade existing trail entries
+          for (var wj = self._walkTrail[i].length - 1; wj >= 0; wj--) {
+            self._walkTrail[i][wj].alpha -= 0.0006;
+            if (self._walkTrail[i][wj].alpha <= 0) self._walkTrail[i].splice(wj, 1);
+          }
+
+          // Slingshot windup: detect dash start, countdown squash frames
+          var wasDash = self._wasDashing[i];
+          if (dashing && !wasDash) self._dashWindup[i] = 5;
+          if (self._dashWindup[i] > 0) self._dashWindup[i]--;
+          self._wasDashing[i] = !!dashing;
+          var windupT = self._dashWindup[i] / 5;  // 1→0 during anticipation frames
+
+          // Squish: slingshot anticipation > dash stretch > walk lean > idle jiggle
           var squishX = 1, squishY = 1, leanX = 0;
-          if (dashing && speed > 0.3) {
+          if (windupT > 0) {
+            // Wide squash frames just before the dash fires — slingshot anticipation
+            squishX = 1 + windupT * 0.45;
+            squishY = 1 - windupT * 0.38;
+          } else if (dashing && speed > 0.3) {
             var nx = vx / speed, ny = vy / speed;
             squishX = 1 + nx * nx * 0.65 - ny * ny * 0.35;
             squishY = 1 + ny * ny * 0.65 - nx * nx * 0.35;
@@ -825,58 +1110,110 @@ function launchPhaser() {
             leanX   = nx * Math.min(speed, 1.5) * 5;
           }
 
-          // ── Charge ring: grows and brightens as throw charges ─
-          if (state.charge && state.charge[i] > 0.02) {
-            var cr = state.charge[i];
+          // Idle jiggle when still (and not in windup)
+          if (speed < 0.18 && !dashing && windupT === 0) {
+            var jt  = self.time.now * 0.0025 + i * Math.PI;
+            var jig = Math.sin(jt) * 0.048;
+            squishX = 1 + jig * 0.6;
+            squishY = 1 - jig;
+          }
+
+          // Charge wind-up: squeeze wide, stretch tall
+          var cr = (state.charge && state.charge[i]) || 0;
+          if (cr > 0.08) {
+            squishX *= (1 - cr * 0.16);
+            squishY *= (1 + cr * 0.20);
+          }
+
+          // Charge ring
+          if (cr > 0.02) {
             var ringR = (42 + cr * 28) * scale;
-            this.slimeGfx.lineStyle(2 + cr * 2.5, SLIME_BASE[i], 0.25 + cr * 0.6);
-            this.slimeGfx.strokeCircle(this._pos[i].x, bodyY - 4 * scale, ringR);
+            self.slimeGfx.lineStyle(2 + cr * 2.5, SLIME_BASE[i], 0.25 + cr * 0.6);
+            self.slimeGfx.strokeCircle(self._pos[i].x, bodyY - 4 * scale, ringR);
             if (cr > 0.85) {
-              this.slimeGfx.lineStyle(3, 0xffffff, (cr - 0.85) * 3.5);
-              this.slimeGfx.strokeCircle(this._pos[i].x, bodyY - 4 * scale, ringR + 6 * scale);
+              self.slimeGfx.lineStyle(3, 0xffffff, (cr - 0.85) * 3.5);
+              self.slimeGfx.strokeCircle(self._pos[i].x, bodyY - 4 * scale, ringR + 6 * scale);
             }
           }
 
-          // ── Soft colored floor glow (contact pool of light)
-          this.slimeGfx.fillStyle(SLIME_BASE[i], 0.09);
-          this.slimeGfx.fillEllipse(this._pos[i].x + leanX * 0.1, floorY + 5 * scale, 96 * scale * squishX, 30 * scale);
+          // Floor glow
+          self.slimeGfx.fillStyle(SLIME_BASE[i], 0.09);
+          self.slimeGfx.fillEllipse(self._pos[i].x + leanX * 0.1, floorY + 5 * scale, 96 * scale * squishX, 30 * scale);
 
-          // ── Dash trail: ghost blobs at history positions ─
+          // Dash trail
           if (dashing) {
-            this.slimeGfx.fillStyle(SLIME_BASE[i], 0.12);
-            this.slimeGfx.fillCircle(this._pos[i].x - leanX * 0.5, floorY - 16 * scale, 80 * scale);
-            var trailA = [0.38, 0.2, 0.1];
-            trailA.forEach((alpha, gi) => {
-              var h = this._hist[i][gi + 2];
+            self.slimeGfx.fillStyle(SLIME_BASE[i], 0.12);
+            self.slimeGfx.fillCircle(self._pos[i].x - leanX * 0.5, floorY - 16 * scale, 80 * scale);
+            [0.38, 0.2, 0.1].forEach(function(alpha, gi) {
+              var h = self._hist[i][gi + 2];
               if (!h) return;
               var ts = scale * (1 - gi * 0.05);
-              var trailBodyY = h.y - 38 * ts;
-              this.slimeGfx.fillStyle(SLIME_BASE[i], alpha);
-              this.slimeGfx.fillEllipse(h.x, trailBodyY + 18*ts*squishY, 62*ts*squishX, 28*ts*squishY);
-              this.slimeGfx.fillCircle(h.x, trailBodyY - 2*ts, 32*ts*squishX);
+              var tby = h.y - 38 * ts;
+              self.slimeGfx.fillStyle(SLIME_BASE[i], alpha);
+              self.slimeGfx.fillEllipse(h.x, tby + 18*ts*squishY, 62*ts*squishX, 28*ts*squishY);
+              self.slimeGfx.fillCircle(h.x, tby - 2*ts, 32*ts*squishX);
             });
           }
 
-          drawSlime(this.slimeGfx, this._pos[i].x, floorY, bodyY, i, scale, squishX, squishY, leanX);
+          // Hit flash (white overlay, decays over ~60 ms)
+          var flashEnd = self._hitFlashEnd[i] || 0;
+          var flash    = flashEnd > now ? Math.min(1, (flashEnd - now) / 60) : 0;
 
-          // "You" indicator ring on the floor plane (not on body)
+          var crowned = self._crowned && self._crowned[i];
+          drawSlime(self.slimeGfx, self._pos[i].x, floorY, bodyY, i, scale, squishX, squishY, leanX, flash, crowned);
+
+          // "You" indicator ring
           if (i === playerSlot) {
-            this.slimeGfx.lineStyle(2, 0xffffff, 0.42);
-            this.slimeGfx.strokeEllipse(this._pos[i].x, floorY + 6 * scale, 64*scale*squishX, 18*scale);
+            self.slimeGfx.lineStyle(2, 0xffffff, 0.42);
+            self.slimeGfx.strokeEllipse(self._pos[i].x, floorY + 6 * scale, 64*scale*squishX, 18*scale);
           }
-          this.nameLabels[i].setPosition(this._pos[i].x + leanX * 0.4, bodyY - 50 * scale).setText(p.username);
+          self.nameLabels[i].setPosition(self._pos[i].x + leanX * 0.4, bodyY - 50 * scale).setText(p.username);
+
+          // Floating HP dot
+          if (self._floatHp[i]) {
+            self._floatHp[i]
+              .setPosition(self._pos[i].x, bodyY - 60 * scale)
+              .setRadius(6 * scale)
+              .setAlpha(p.hp > 0 ? 0.82 : 0);
+          }
         });
 
-        // ── Boomerangs: lerp each by id ───────────────
+        // ── Boomerangs: lerp + trail + rotation + height arc ─
         this.boomGfx.clear();
         (state.boomerangs || []).forEach((b) => {
           if (!this._boomPos[b.id]) this._boomPos[b.id] = { x: b.x, y: b.y };
           this._boomPos[b.id].x += (b.x - this._boomPos[b.id].x) * LERP;
           this._boomPos[b.id].y += (b.y - this._boomPos[b.id].y) * LERP;
-          drawBoom(this.boomGfx, this._boomPos[b.id].x, this._boomPos[b.id].y, BOOM_COLORS[b.owner], b.returning);
+          var bx = this._boomPos[b.id].x, by = this._boomPos[b.id].y;
+
+          // Smooth height toward target: arcs up on outward, lerps to 0 on return
+          var targetH = b.returning ? 0 : Math.sin(Math.min(1, b.age / 22) * Math.PI) * 0.85;
+          if (this._boomHeight[b.id] === undefined) this._boomHeight[b.id] = 0;
+          this._boomHeight[b.id] += (targetH - this._boomHeight[b.id]) * 0.12;
+          var height = this._boomHeight[b.id];
+
+          // Trail: 8 fading ghost circles
+          if (!this._boomTrail[b.id]) this._boomTrail[b.id] = [];
+          this._boomTrail[b.id].unshift({ x: bx, y: by });
+          if (this._boomTrail[b.id].length > 9) this._boomTrail[b.id].length = 9;
+          var trail = this._boomTrail[b.id];
+          for (var t = trail.length - 1; t >= 1; t--) {
+            this.boomGfx.fillStyle(BOOM_COLORS[b.owner], (1 - t / trail.length) * 0.28);
+            this.boomGfx.fillCircle(trail[t].x, trail[t].y, Math.max(3, 10 - t));
+          }
+
+          // Rotation angle
+          if (!this._boomAngle[b.id]) this._boomAngle[b.id] = 0;
+          this._boomAngle[b.id] = (this._boomAngle[b.id] + 11) % 360;
+
+          drawBoom(this.boomGfx, bx, by, BOOM_COLORS[b.owner], b.returning, this._boomAngle[b.id], height);
         });
+
         var _live = new Set((state.boomerangs || []).map((b) => b.id));
-        Object.keys(this._boomPos).forEach((id) => { if (!_live.has(id)) delete this._boomPos[id]; });
+        Object.keys(this._boomPos).forEach((id)    => { if (!_live.has(id)) delete this._boomPos[id]; });
+        Object.keys(this._boomTrail).forEach((id)  => { if (!_live.has(id)) delete this._boomTrail[id]; });
+        Object.keys(this._boomAngle).forEach((id)  => { if (!_live.has(id)) delete this._boomAngle[id]; });
+        Object.keys(this._boomHeight).forEach((id) => { if (!_live.has(id)) delete this._boomHeight[id]; });
       },
     },
   });

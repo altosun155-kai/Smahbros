@@ -372,6 +372,11 @@ def health():
     return {"ok": True}
 
 
+@app.get("/ping")
+def ping():
+    return {"ok": True}
+
+
 # Serve the web/ frontend — must be last
 WEB_DIR = os.path.join(os.path.dirname(__file__), "web")
 

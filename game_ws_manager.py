@@ -19,6 +19,9 @@ DASH_SPEED        = 14
 DASH_FRAMES       = 10
 DASH_COOLDOWN     = 45
 
+KNOCKBACK_SPEED  = 22
+KNOCKBACK_FRAMES = 8
+
 # CPU per-difficulty: (throw_interval_ticks, chase_distance, dodge_range, charge_ratio)
 _CPU_DIFF = {
     "easy":   (110, 430, 125, 0.0),
@@ -57,6 +60,10 @@ class Player:
         self.dash_dy        = 0.0
         self.throw_charging = False
         self.throw_charge   = 0
+        self.kb_vx = 0.0
+        self.kb_vy = 0.0
+        self.kb_frames = 0
+        self.has_crown = False
         if is_cpu:
             throw_cd, chase_dist, dodge_r, charge_r = _CPU_DIFF.get(cpu_diff, _CPU_DIFF["normal"])
             self.cpu_throw_cd     = throw_cd
@@ -89,8 +96,58 @@ class GameRoom:
         self.phase       = "waiting"
         self.winner: int | None = None
         self.tick_task: asyncio.Task | None = None
-        self.is_cpu_game = False
+        self.is_cpu_game  = False
+        self.rounds_won   = [0, 0]
+        self.round_num    = 1
+        self.match_winner = None
 
+
+def _resolve_hit(room: GameRoom, victim: Player, attacker_slot: int,
+                 from_x: float, from_y: float) -> None:
+    victim.hp -= 1
+    dx = victim.x - from_x
+    dy = victim.y - from_y
+    dist = (dx * dx + dy * dy) ** 0.5 or 1.0
+    victim.kb_vx = dx / dist * KNOCKBACK_SPEED
+    victim.kb_vy = dy / dist * KNOCKBACK_SPEED
+    victim.kb_frames = KNOCKBACK_FRAMES
+    if victim.hp <= 0:
+        room.phase  = "round_over"
+        room.winner = attacker_slot
+
+
+def _advance_round(room: GameRoom) -> None:
+    prev_winner = room.winner
+    room.rounds_won[room.winner] += 1
+    if room.rounds_won[room.winner] >= 2:
+        room.phase        = "game_over"
+        room.match_winner = room.winner
+        return
+    room.round_num += 1
+    room.winner     = None
+    room.phase      = "playing"
+    room.boomerangs.clear()
+    for p in room.players:
+        if p is None:
+            continue
+        p.has_crown      = (p.slot == prev_winner)  # crown goes to last round's winner
+        p.x = 360.0 if p.slot == 0 else 1080.0
+        p.y = 405.0
+        p.hp = 1
+        for k in p.inputs:
+            p.inputs[k] = False
+        p.slash_cooldown = 0
+        p.slashing       = 0
+        p.dash_frames    = 0
+        p.dash_cooldown  = 0
+        p.throw_charging = False
+        p.throw_charge   = 0
+        p.kb_vx = 0.0
+        p.kb_vy = 0.0
+        p.kb_frames = 0
+
+
+_ROUND_OVER_TICKS = TICK_RATE * 2  # 2-second animation window between rounds
 
 _rooms: dict[str, GameRoom] = {}
 
@@ -220,13 +277,25 @@ def _cpu_ai(cpu: Player, room: GameRoom) -> None:
                 continue
             odx, ody = other.x - cpu.x, other.y - cpu.y
             if (odx * odx + ody * ody) ** 0.5 < SLASH_R:
-                other.hp -= 1
-                if other.hp <= 0:
-                    room.phase  = "done"
-                    room.winner = cpu.slot
+                _resolve_hit(room, other, cpu.slot, cpu.x, cpu.y)
 
 
 def _step(room: GameRoom) -> None:
+    # During round-over, only drain knockback so the death-kick animates
+    if room.phase == "round_over":
+        for p in room.players:
+            if p is None or p.kb_frames <= 0:
+                continue
+            p.x = max(PLAYER_R, min(ARENA_W - PLAYER_R, p.x + p.kb_vx))
+            p.y = max(PLAYER_R, min(ARENA_H - PLAYER_R, p.y + p.kb_vy))
+            p.kb_vx *= 0.80
+            p.kb_vy *= 0.80
+            p.kb_frames -= 1
+        return
+
+    if room.phase != "playing":
+        return
+
     for p in room.players:
         if p and p.is_cpu:
             _cpu_ai(p, room)
@@ -234,7 +303,13 @@ def _step(room: GameRoom) -> None:
     for p in room.players:
         if p is None:
             continue
-        if p.dash_frames > 0:
+        if p.kb_frames > 0:
+            p.x = max(PLAYER_R, min(ARENA_W - PLAYER_R, p.x + p.kb_vx))
+            p.y = max(PLAYER_R, min(ARENA_H - PLAYER_R, p.y + p.kb_vy))
+            p.kb_vx *= 0.80
+            p.kb_vy *= 0.80
+            p.kb_frames -= 1
+        elif p.dash_frames > 0:
             px0, py0 = p.x, p.y
             px1 = max(PLAYER_R, min(ARENA_W - PLAYER_R, p.x + p.dash_dx))
             py1 = max(PLAYER_R, min(ARENA_H - PLAYER_R, p.y + p.dash_dy))
@@ -254,10 +329,7 @@ def _step(room: GameRoom) -> None:
                         bx_end, by_end = b.x, b.y
                 if _sweep_hit(px0, py0, px1, py1, bx_end, by_end, PLAYER_R + BOOM_R):
                     room.boomerangs.remove(b)
-                    p.hp -= 1
-                    if p.hp <= 0:
-                        room.phase  = "done"
-                        room.winner = b.owner
+                    _resolve_hit(room, p, b.owner, b.x, b.y)
                     break
             p.x, p.y = px1, py1
             p.dash_frames -= 1
@@ -298,11 +370,8 @@ def _step(room: GameRoom) -> None:
                 continue
             dx, dy = p.x - b.x, p.y - b.y
             if (dx * dx + dy * dy) ** 0.5 < PLAYER_R + BOOM_R:
-                p.hp -= 1
                 dead_booms.append(b)
-                if p.hp <= 0:
-                    room.phase  = "done"
-                    room.winner = b.owner
+                _resolve_hit(room, p, b.owner, b.x, b.y)
                 break
 
     for b in dead_booms:
@@ -321,7 +390,9 @@ def _step(room: GameRoom) -> None:
 
 async def _tick_loop(room: GameRoom) -> None:
     interval = 1.0 / TICK_RATE
-    while room.phase != "done" and any(p is not None for p in room.players):
+    round_over_timer = 0
+
+    while any(p is not None for p in room.players) and room.phase != "game_over":
         _step(room)
         state = {
             "type": "state",
@@ -333,17 +404,30 @@ async def _tick_loop(room: GameRoom) -> None:
             ],
             "boomerangs": [
                 {"id": b.id, "x": round(b.x, 1), "y": round(b.y, 1),
-                 "owner": b.owner, "returning": b.returning}
+                 "owner": b.owner, "returning": b.returning, "age": b.age}
                 for b in room.boomerangs
             ],
-            "slashing": [p.slashing > 0 if p else False for p in room.players],
-            "dashing":  [p.dash_frames > 0 if p else False for p in room.players],
-            "charge":   [round(p.throw_charge / MAX_THROW_CHARGE, 2) if p and not p.is_cpu else 0
-                         for p in room.players],
-            "phase":  room.phase,
-            "winner": room.winner,
+            "slashing":     [p.slashing > 0 if p else False for p in room.players],
+            "dashing":      [p.dash_frames > 0 if p else False for p in room.players],
+            "charge":       [round(p.throw_charge / MAX_THROW_CHARGE, 2) if p and not p.is_cpu else 0
+                             for p in room.players],
+            "phase":        room.phase,
+            "winner":       room.winner,
+            "rounds_won":   room.rounds_won[:],
+            "round_num":    room.round_num,
+            "match_winner": room.match_winner,
+            "crowned":      [p.has_crown if p else False for p in room.players],
         }
         await broadcast(room, state)
+
+        if room.phase == "round_over":
+            round_over_timer += 1
+            if round_over_timer >= _ROUND_OVER_TICKS:
+                round_over_timer = 0
+                _advance_round(room)
+        else:
+            round_over_timer = 0
+
         await asyncio.sleep(interval)
 
 
@@ -411,7 +495,4 @@ def handle_message(room: GameRoom, slot: int, msg: dict) -> None:
                 continue
             dx, dy = other.x - p.x, other.y - p.y
             if (dx * dx + dy * dy) ** 0.5 < SLASH_R:
-                other.hp -= 1
-                if other.hp <= 0:
-                    room.phase  = "done"
-                    room.winner = slot
+                _resolve_hit(room, other, slot, p.x, p.y)

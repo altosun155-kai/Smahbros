@@ -187,8 +187,13 @@
     .ctrl strong { color: rgba(232,232,244,0.55); }
 
     /* ── Game canvas wrapper ─────────────────────────────── */
-    #game-wrap { display: none; position: relative; }
-    #game-wrap canvas { display: block; border-radius: 10px; }
+    #game-wrap {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #1a1025;
+    }
+    #game-wrap canvas { display: block; border-radius: 0; }
 
     /* ── End-screen overlay ──────────────────────────────── */
     #endscreen {
@@ -560,7 +565,7 @@ function showOverlay(sc, text) {
 function launchPhaser() {
 
   // Arena geometry (matches server physics boundary)
-  const FL = 20, FR = 780, FT = 38, FB = 562;   // floor left/right/top/bottom
+  const FL = 26, FR = 1414, FT = 46, FB = 764;   // floor left/right/top/bottom
 
   // Wall palette
   const W_TOP   = 0xb09ae8;   // top face of wall block (light purple)
@@ -574,11 +579,15 @@ function launchPhaser() {
 
   return new Phaser.Game({
     type: Phaser.AUTO,
-    width: 800,
-    height: 600,
     backgroundColor: '#1a1025',
     parent: 'game-wrap',
     input: { mouse: { preventDefaultDown: true } },
+    scale: {
+      mode: Phaser.Scale.FIT,
+      autoCenter: Phaser.Scale.CENTER_BOTH,
+      width: 1440,
+      height: 810,
+    },
     scene: {
       key: 'GameScene',
       preload() {},
@@ -605,7 +614,7 @@ function launchPhaser() {
         }
         // Center court oval (depth reference landmark)
         g.lineStyle(1.5, 0x000000, 0.13);
-        g.strokeEllipse((FL + FR) / 2, FT + (FB - FT) * 0.63, 200, 88);
+        g.strokeEllipse((FL + FR) / 2, FT + (FB - FT) * 0.63, 360, 160);
         // Atmospheric depth haze — fade black overlay from top down (far = hazier)
         g.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.28, 0.28, 0, 0);
         g.fillRect(FL, FT, FR - FL, (FB - FT) * 0.46);
@@ -615,34 +624,28 @@ function launchPhaser() {
 
         // ── Top wall — top face + front face ─────────
         g.fillStyle(W_TOP, 1);
-        g.fillRect(0, 0, 800, FT - 18);
-        // Perspective seams on top-face converging toward VP
+        g.fillRect(0, 0, 1440, FT - 18);
         g.lineStyle(1, W_DEEP, 0.22);
-        for (let wx = 0; wx <= 800; wx += 80) g.lineBetween(wx, 0, VP, FT - 18);
+        for (let wx = 0; wx <= 1440; wx += 90) g.lineBetween(wx, 0, VP, FT - 18);
         g.fillStyle(W_FRONT, 1);
-        g.fillRect(0, FT - 18, 800, 18);
-        // Bright lit top edge of the front face
+        g.fillRect(0, FT - 18, 1440, 18);
         g.lineStyle(2, W_EDGE, 0.85);
-        g.lineBetween(0, FT - 18, 800, FT - 18);
+        g.lineBetween(0, FT - 18, 1440, FT - 18);
 
         // ── Bottom wall (nearest surface — thickest, most detail) ─
-        // Bright top-lit edge (catches most light)
         g.fillStyle(W_EDGE, 1);
-        g.fillRect(0, FB, 800, 4);
-        // Main front face
+        g.fillRect(0, FB, 1440, 4);
         g.fillStyle(W_FRONT, 1);
-        g.fillRect(0, FB + 4, 800, 24);
-        // Underside bevel (in shadow)
+        g.fillRect(0, FB + 4, 1440, 24);
         g.fillStyle(W_DEEP, 1);
-        g.fillRect(0, FB + 28, 800, 600 - FB - 28);
-        // Block seam lines on bottom wall front face
+        g.fillRect(0, FB + 28, 1440, 810 - FB - 28);
         g.lineStyle(1, W_DEEP, 0.4);
-        for (let wx = 0; wx < 800; wx += 80) g.lineBetween(wx, FB + 4, wx, FB + 28);
+        for (let wx = 0; wx < 1440; wx += 90) g.lineBetween(wx, FB + 4, wx, FB + 28);
 
         // ── Side walls ────────────────────────────────
         g.fillStyle(W_FRONT, 1);
         g.fillRect(0, FT, FL, FB - FT);
-        g.fillRect(FR, FT, 800 - FR, FB - FT);
+        g.fillRect(FR, FT, 1440 - FR, FB - FT);
         // Inner shadow strip
         g.fillStyle(W_DEEP, 0.45);
         g.fillRect(FL, FT, 6, FB - FT);
@@ -651,20 +654,17 @@ function launchPhaser() {
         // ── Corner blocks ─────────────────────────────
         g.fillStyle(W_DEEP, 1);
         g.fillRect(0, 0, FL, FT);
-        g.fillRect(FR, 0, 800 - FR, FT);
-        g.fillRect(0, FB, FL, 600 - FB);
-        g.fillRect(FR, FB, 800 - FR, 600 - FB);
+        g.fillRect(FR, 0, 1440 - FR, FT);
+        g.fillRect(0, FB, FL, 810 - FB);
+        g.fillRect(FR, FB, 1440 - FR, 810 - FB);
 
         // ── Wall block texture lines ──────────────────
         g.lineStyle(1, W_DEEP, 0.45);
-        // Top wall vertical block seams
-        for (let x = 0; x < 800; x += 80) g.lineBetween(x, 0, x, FT);
-        // Bottom wall seams
-        for (let x = 0; x < 800; x += 80) g.lineBetween(x, FB, x, 600);
-        // Side wall horizontal seams
+        for (let x = 0; x < 1440; x += 90) g.lineBetween(x, 0, x, FT);
+        for (let x = 0; x < 1440; x += 90) g.lineBetween(x, FB, x, 810);
         for (let y = FT; y < FB; y += 70) {
           g.lineBetween(0, y, FL, y);
-          g.lineBetween(FR, y, 800, y);
+          g.lineBetween(FR, y, 1440, y);
         }
 
         // ── Floor edge highlight ──────────────────────
@@ -695,27 +695,27 @@ function launchPhaser() {
         this.hpPips = [[], []];
         for (let s = 0; s < 2; s++) {
           for (let i = 0; i < 3; i++) {
-            const x = s === 0 ? 30 + i * 17 : 770 - i * 17;
-            this.hpPips[s].push(this.add.circle(x, 18, 6, HP_COLORS[s]));
+            const x = s === 0 ? 40 + i * 17 : 1400 - i * 17;
+            this.hpPips[s].push(this.add.circle(x, 22, 6, HP_COLORS[s]));
           }
         }
 
         // ── Throw charge bar ──────────────────────────
-        this.add.text(400, 572, 'CHARGE', {
+        this.add.text(720, 790, 'CHARGE', {
           fontSize: '9px', color: '#a0a0c0', letterSpacing: 3,
         }).setOrigin(0.5);
-        this.cooldownBg  = this.add.rectangle(400, 582, 140, 6, 0x3a2860);
-        this.cooldownBar = this.add.rectangle(330, 582, 0, 6, SLIME_BASE[playerSlot ?? 0]).setOrigin(0, 0.5);
+        this.cooldownBg  = this.add.rectangle(720, 800, 140, 6, 0x3a2860);
+        this.cooldownBar = this.add.rectangle(650, 800, 0, 6, SLIME_BASE[playerSlot ?? 0]).setOrigin(0, 0.5);
 
         // ── Overlay ───────────────────────────────────
-        this.overlayBg   = this.add.rectangle(400, 300, 800, 600, 0x000000, 0).setVisible(false);
-        this.overlayText = this.add.text(400, 300, '', {
-          fontSize: '44px', fontStyle: 'bold', color: '#ffffff',
+        this.overlayBg   = this.add.rectangle(720, 405, 1440, 810, 0x000000, 0).setVisible(false);
+        this.overlayText = this.add.text(720, 405, '', {
+          fontSize: '52px', fontStyle: 'bold', color: '#ffffff',
           stroke: '#000000', strokeThickness: 6,
         }).setOrigin(0.5).setVisible(false);
 
         // ── Interpolation state ───────────────────────
-        this._pos      = [{ x: 200, y: 300 }, { x: 600, y: 300 }];
+        this._pos      = [{ x: 360, y: 405 }, { x: 1080, y: 405 }];
         this._pState   = null;
         this._boomPos  = {};
         this._gameOver = false;

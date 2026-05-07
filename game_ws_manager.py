@@ -3,8 +3,8 @@ import uuid
 from fastapi import WebSocket
 
 TICK_RATE         = 20
-ARENA_W           = 800
-ARENA_H           = 600
+ARENA_W           = 1440
+ARENA_H           = 810
 PLAYER_SPEED      = 6
 PLAYER_R          = 24
 BOOM_R            = 8
@@ -21,9 +21,9 @@ DASH_COOLDOWN     = 45
 
 # CPU per-difficulty: (throw_interval_ticks, chase_distance, dodge_range, charge_ratio)
 _CPU_DIFF = {
-    "easy":   (110, 240, 70,  0.0),
-    "normal": (55,  130, 115, 0.4),
-    "hard":   (28,  75,  160, 0.9),
+    "easy":   (110, 430, 125, 0.0),
+    "normal": (55,  230, 205, 0.4),
+    "hard":   (28,  135, 285, 0.9),
 }
 
 
@@ -45,8 +45,8 @@ class Player:
         self.username = username
         self.ws       = ws
         self.is_cpu   = is_cpu
-        self.x        = 200.0 if slot == 0 else 600.0
-        self.y        = 300.0
+        self.x        = 360.0 if slot == 0 else 1080.0
+        self.y        = 405.0
         self.hp            = 3
         self.inputs        = {"up": False, "down": False, "left": False, "right": False}
         self.slash_cooldown = 0
@@ -195,7 +195,7 @@ def _cpu_ai(cpu: Player, room: GameRoom) -> None:
     # Throw boomerang toward human (speed scales with cpu_charge_ratio)
     has_boom = any(b.owner == cpu.slot for b in room.boomerangs)
     if not has_boom:
-        if cpu.cpu_throw_timer <= 0 and 60 < dist < 520:
+        if cpu.cpu_throw_timer <= 0 and 110 < dist < 900:
             norm = dist or 1.0
             cr = cpu.cpu_charge_ratio
             spd = BOOM_SPEED + BOOM_CHARGE_BONUS * cr

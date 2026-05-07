@@ -364,7 +364,7 @@ function connectMulti(roomId, username) {
   };
   ws.onmessage = handleWsMsg;
   ws.onclose   = function() {
-    if (scene) scene.showOverlay('Disconnected from server');
+    if (scene) showOverlay(scene, 'Disconnected from server');
     else setStatus('Connection closed — server may have rejected the session.', true);
   };
   ws.onerror = function() { setStatus('Connection failed — server may be starting up, try again in 30s.', true); };
@@ -393,7 +393,7 @@ function connectCpu(roomId, username, difficulty) {
   };
   ws.onmessage = handleWsMsg;
   ws.onclose   = function() {
-    if (scene) scene.showOverlay('Disconnected from server');
+    if (scene) showOverlay(scene, 'Disconnected from server');
     else setStatus('Connection failed.', true);
   };
   ws.onerror = function() { setStatus('Connection failed — server may be starting up, try again in 30s.', true); };
@@ -415,8 +415,16 @@ function handleWsMsg(e) {
     gameWrap.style.display = 'block';
     phaserGame = launchPhaser();
   }
-  if (msg.type === 'state' && scene)       { scene.applyState(msg); }
-  if (msg.type === 'player_left' && scene) { scene.showOverlay('Opponent disconnected'); }
+  if (msg.type === 'state') {
+    if (scene) {
+      while (_pendingStates.length) applyState(scene, _pendingStates.shift());
+      applyState(scene, msg);
+    } else {
+      _pendingStates.push(msg);
+      if (_pendingStates.length > 8) _pendingStates.shift();
+    }
+  }
+  if (msg.type === 'player_left' && scene) { showOverlay(scene, 'Opponent disconnected'); }
 }
 
 // ── Keyboard input ────────────────────────────────────────────────────────────
@@ -443,16 +451,97 @@ document.addEventListener('keyup', function(e) {
 });
 document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
 
+// ── Shared drawing constants & helpers ───────────────────────────────────────
+var SLIME_BASE  = [0x4fc3f7, 0xff6b6b];
+var SLIME_DARK  = [0x1a7aaa, 0xc0392b];
+var HP_COLORS   = [0x4fc3f7, 0xff6b6b];
+var BOOM_COLORS = [0xffd54f, 0xff8a65];
+
+var _pendingStates = [];
+
+function drawSlime(g, x, y, idx) {
+  var base = SLIME_BASE[idx];
+  var dark = SLIME_DARK[idx];
+  g.fillStyle(0x000000, 0.22);
+  g.fillEllipse(x + 4, y + 25, 52, 14);
+  g.fillStyle(base, 1);
+  g.fillEllipse(x, y + 6, 50, 30);
+  g.fillEllipse(x, y - 4, 42, 32);
+  g.fillStyle(dark, 0.28);
+  g.fillCircle(x + 11, y + 4, 22);
+  g.fillStyle(0xffffff, 0.52);
+  g.fillEllipse(x - 10, y - 10, 20, 13);
+  g.fillStyle(0xffffff, 1);
+  g.fillCircle(x - 9, y - 2, 7.5);
+  g.fillCircle(x + 9, y - 2, 7.5);
+  g.fillStyle(0x111122, 1);
+  g.fillCircle(x - 8, y - 1, 4.5);
+  g.fillCircle(x + 10, y - 1, 4.5);
+  g.fillStyle(0xffffff, 1);
+  g.fillCircle(x - 6, y - 3, 2);
+  g.fillCircle(x + 12, y - 3, 2);
+  g.fillStyle(0x111122, 0.8);
+  g.fillCircle(x - 5, y + 14, 2);
+  g.fillCircle(x,     y + 16, 2);
+  g.fillCircle(x + 5, y + 14, 2);
+}
+
+function drawBoom(g, bx, by, col, returning) {
+  g.fillStyle(0x000000, 0.25);
+  g.fillEllipse(bx + 3, by + 11, 18, 5);
+  g.fillStyle(col, 1);
+  g.fillTriangle(bx, by - 10, bx - 7, by + 4, bx + 1, by + 1);
+  g.fillTriangle(bx, by - 10, bx + 7, by + 4, bx - 1, by + 1);
+  g.fillStyle(0xffffff, returning ? 0.75 : 0.4);
+  g.fillCircle(bx - 2, by - 4, 2.5);
+}
+
+function applyState(sc, state) {
+  state.players.forEach(function(p, i) {
+    if (!p) return;
+    sc._pos[i] = { x: p.x, y: p.y };
+    sc.nameLabels[i].setPosition(p.x, p.y - 42).setText(p.username);
+    for (var h = 0; h < 3; h++) {
+      sc.hpPips[i][h].setAlpha(h < p.hp ? 1 : 0.15);
+    }
+  });
+  sc.slashGfx.clear();
+  (state.slashing || []).forEach(function(active, i) {
+    if (!active || !state.players[i]) return;
+    var p = state.players[i];
+    sc.slashGfx.fillStyle(SLIME_BASE[i], 0.2);
+    sc.slashGfx.fillCircle(p.x, p.y, 62);
+    sc.slashGfx.lineStyle(2, SLIME_BASE[i], 0.55);
+    sc.slashGfx.strokeCircle(p.x, p.y, 62);
+  });
+  sc.boomGfx.clear();
+  (state.boomerangs || []).forEach(function(b) {
+    drawBoom(sc.boomGfx, b.x, b.y, BOOM_COLORS[b.owner], b.returning);
+  });
+  sc.slimeGfx.clear();
+  state.players.forEach(function(p, i) {
+    if (!p) return;
+    sc._pos[i] = { x: p.x, y: p.y };
+    drawSlime(sc.slimeGfx, p.x, p.y, i);
+    if (i === playerSlot) {
+      sc.slimeGfx.lineStyle(2.5, 0xffffff, 0.45);
+      sc.slimeGfx.strokeEllipse(p.x, p.y + 25, 46, 12);
+    }
+  });
+  if (state.phase === 'done' && state.winner !== null) {
+    showOverlay(sc, state.winner === playerSlot ? 'You Win!' : 'You Lose');
+  }
+}
+
+function showOverlay(sc, text) {
+  sc.overlayBg.setFillStyle(0x000000, 0.65).setVisible(true);
+  sc.overlayText.setText(text).setVisible(true);
+  var es = document.getElementById('endscreen');
+  if (es) es.style.display = 'flex';
+}
+
 // ── Phaser ────────────────────────────────────────────────────────────────────
 function launchPhaser() {
-  // Slime colours — base, highlight, shadow
-  const SLIME_BASE  = [0x4fc3f7, 0xff6b6b];
-  const SLIME_LIGHT = [0x9edcf8, 0xffaaaa];
-  const SLIME_DARK  = [0x1a7aaa, 0xc0392b];
-
-  const HP_COLORS   = [0x4fc3f7, 0xff6b6b];
-  // Boomerangs: warm yellow/orange — stand out on green grass
-  const BOOM_COLORS = [0xffd54f, 0xff8a65];
 
   // Arena geometry (matches server physics boundary)
   const FL = 20, FR = 780, FT = 38, FB = 562;   // floor left/right/top/bottom
@@ -466,60 +555,6 @@ function launchPhaser() {
   // Floor palette
   const GRASS_A = 0x5cb85c;   // main green
   const GRASS_B = 0x4da84d;   // slightly darker for tile grid
-
-  // Draws a cute slime blob with eyes + smile at (x, y)
-  function drawSlime(g, x, y, idx) {
-    const base = SLIME_BASE[idx];
-    const dark = SLIME_DARK[idx];
-
-    // Drop shadow
-    g.fillStyle(0x000000, 0.22);
-    g.fillEllipse(x + 4, y + 25, 52, 14);
-
-    // Lower body — wide squished ellipse
-    g.fillStyle(base, 1);
-    g.fillEllipse(x, y + 6, 50, 30);
-    // Upper dome — slightly narrower
-    g.fillEllipse(x, y - 4, 42, 32);
-
-    // Side shading
-    g.fillStyle(dark, 0.28);
-    g.fillCircle(x + 11, y + 4, 22);
-
-    // Specular highlight
-    g.fillStyle(0xffffff, 0.52);
-    g.fillEllipse(x - 10, y - 10, 20, 13);
-
-    // Eyes — white sclera
-    g.fillStyle(0xffffff, 1);
-    g.fillCircle(x - 9, y - 2, 7.5);
-    g.fillCircle(x + 9, y - 2, 7.5);
-    // Pupils
-    g.fillStyle(0x111122, 1);
-    g.fillCircle(x - 8, y - 1, 4.5);
-    g.fillCircle(x + 10, y - 1, 4.5);
-    // Eye shine
-    g.fillStyle(0xffffff, 1);
-    g.fillCircle(x - 6, y - 3, 2);
-    g.fillCircle(x + 12, y - 3, 2);
-
-    // Smile (arc from 0→π clockwise = U shape)
-    g.lineStyle(2.5, 0x111122, 0.8);
-    g.beginPath();
-    g.arc(x, y + 9, 6, 0, Math.PI, false);
-    g.strokePath();
-  }
-
-  // Draws a boomerang — warm colours so it reads clearly on green
-  function drawBoom(g, bx, by, col, returning) {
-    g.fillStyle(0x000000, 0.25);
-    g.fillEllipse(bx + 3, by + 11, 18, 5);
-    g.fillStyle(col, 1);
-    g.fillTriangle(bx, by - 10, bx - 7, by + 4, bx + 1, by + 1);
-    g.fillTriangle(bx, by - 10, bx + 7, by + 4, bx - 1, by + 1);
-    g.fillStyle(0xffffff, returning ? 0.75 : 0.4);
-    g.fillCircle(bx - 2, by - 4, 2.5);
-  }
 
   return new Phaser.Game({
     type: Phaser.AUTO,
@@ -641,63 +676,12 @@ function launchPhaser() {
             ws.send(JSON.stringify({ type: 'slash' }));
           }
         });
+
+        // Flush any state messages that arrived before Phaser finished init
+        while (_pendingStates.length) applyState(this, _pendingStates.shift());
       },
 
       update() {},
-
-      applyState(state) {
-        // ── HUD ────────────────────────────────────
-        state.players.forEach((p, i) => {
-          if (!p) return;
-          this._pos[i] = { x: p.x, y: p.y };
-          this.nameLabels[i].setPosition(p.x, p.y - 42).setText(p.username);
-          for (let h = 0; h < 3; h++) {
-            this.hpPips[i][h].setAlpha(h < p.hp ? 1 : 0.15);
-          }
-        });
-
-        // ── Slash flash ────────────────────────────
-        this.slashGfx.clear();
-        (state.slashing || []).forEach((active, i) => {
-          if (!active || !state.players[i]) return;
-          const p = state.players[i];
-          this.slashGfx.fillStyle(SLIME_BASE[i], 0.2);
-          this.slashGfx.fillCircle(p.x, p.y, 62);
-          this.slashGfx.lineStyle(2, SLIME_BASE[i], 0.55);
-          this.slashGfx.strokeCircle(p.x, p.y, 62);
-        });
-
-        // ── Boomerangs ─────────────────────────────
-        this.boomGfx.clear();
-        (state.boomerangs || []).forEach((b) => {
-          drawBoom(this.boomGfx, b.x, b.y, BOOM_COLORS[b.owner], b.returning);
-        });
-
-        // ── Slimes ─────────────────────────────────
-        this.slimeGfx.clear();
-        state.players.forEach((p, i) => {
-          if (!p) return;
-          this._pos[i] = { x: p.x, y: p.y };
-          drawSlime(this.slimeGfx, p.x, p.y, i);
-          // "You" indicator ring under slime
-          if (i === playerSlot) {
-            this.slimeGfx.lineStyle(2.5, 0xffffff, 0.45);
-            this.slimeGfx.strokeEllipse(p.x, p.y + 25, 46, 12);
-          }
-        });
-
-        // ── Win/lose ───────────────────────────────
-        if (state.phase === 'done' && state.winner !== null) {
-          this.showOverlay(state.winner === playerSlot ? 'You Win!' : 'You Lose');
-        }
-      },
-
-      showOverlay(text) {
-        this.overlayBg.setFillStyle(0x000000, 0.65).setVisible(true);
-        this.overlayText.setText(text).setVisible(true);
-        var es = document.getElementById('endscreen');
-        if (es) es.style.display = 'flex';
-      },
     },
   });
 }

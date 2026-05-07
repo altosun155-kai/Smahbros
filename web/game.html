@@ -467,7 +467,8 @@ document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
 var SLIME_BASE  = [0x4fc3f7, 0xff6b6b];
 var SLIME_DARK  = [0x1a7aaa, 0xc0392b];
 var HP_COLORS   = [0x4fc3f7, 0xff6b6b];
-var BOOM_COLORS = [0xffd54f, 0xff8a65];
+var DART_ABILITY_COLORS = { normal: null, poison: 0x39ff14, explosive: 0xff4500 };
+function getDartColor(d) { return DART_ABILITY_COLORS[d.ability] || SLIME_BASE[d.owner]; }
 
 var _pendingStates = [];
 
@@ -570,33 +571,42 @@ function _rp(cx, cy, x, y, cosA, sinA) {
   return [cx + dx * cosA - dy * sinA, cy + dx * sinA + dy * cosA];
 }
 
-function drawBoom(g, bx, by, col, returning, angleDeg, height) {
-  var h  = height || 0;
-  var vy = by - h * 42;   // visual Y: rises off ground at height
+// drawDart(g, x, y, ndx, ndy, col, alpha, scaleX, scaleY)
+// ndx/ndy = unit direction vector; scaleX/Y used for seep squash animation
+function drawDart(g, x, y, ndx, ndy, col, alpha, scaleX, scaleY) {
+  alpha  = (alpha  !== undefined) ? alpha  : 1;
+  scaleX = (scaleX !== undefined) ? scaleX : 1;
+  scaleY = (scaleY !== undefined) ? scaleY : 1;
 
-  // Floor shadow: grows and fades as height increases
-  g.fillStyle(0x000000, Math.max(0.07, 0.22 - h * 0.11));
-  g.fillEllipse(bx + 2, by + 18 + h * 20, 20 + h * 14, 6 + h * 3);
-
-  var a = ((angleDeg || 0) % 360) * Math.PI / 180;
+  var a    = Math.atan2(ndy, ndx);
   var cosA = Math.cos(a), sinA = Math.sin(a);
-  function rp(x, y) { return _rp(bx, vy, x, y, cosA, sinA); }
+  function rp(lx, ly) { return _rp(x, y, x + lx, y + ly, cosA, sinA); }
 
-  // Glow halos (at visual height)
-  g.fillStyle(col, 0.18 + h * 0.06); g.fillCircle(bx, vy, 20);
-  g.fillStyle(col, 0.07);             g.fillCircle(bx, vy, 30);
+  // Outer glow
+  g.fillStyle(col, 0.18 * alpha);
+  g.fillEllipse(x, y, 30 * scaleX, 14 * scaleY);
 
-  // Body: two rotated wings
-  var p1 = [rp(bx, vy-15), rp(bx-11, vy+7), rp(bx+1, vy+3)];
-  var p2 = [rp(bx, vy-15), rp(bx+11, vy+7), rp(bx-1, vy+3)];
-  g.fillStyle(col, 1);
-  g.fillTriangle(p1[0][0],p1[0][1], p1[1][0],p1[1][1], p1[2][0],p1[2][1]);
-  g.fillTriangle(p2[0][0],p2[0][1], p2[1][0],p2[1][1], p2[2][0],p2[2][1]);
+  // Body: elongated teardrop pointing in travel direction
+  var tip  = rp(12 * scaleX, 0);
+  var bl   = rp(-8 * scaleX,  5 * scaleY);
+  var br   = rp(-8 * scaleX, -5 * scaleY);
+  g.fillStyle(col, alpha);
+  g.fillTriangle(tip[0], tip[1], bl[0], bl[1], br[0], br[1]);
 
-  // Center hub
-  var hub = rp(bx, vy);
-  g.fillStyle(0xffffff, returning ? 0.9 : 0.5);
-  g.fillCircle(hub[0], hub[1], 4);
+  // Rounded back blob
+  g.fillStyle(col, alpha);
+  g.fillEllipse(x - 2 * scaleX, y, 10 * scaleX, 10 * scaleY);
+
+  // Trailing drip dots
+  for (var ti = 1; ti <= 3; ti++) {
+    var tp = rp(-10 * scaleX * (ti / 3), 0);
+    g.fillStyle(col, (0.35 - ti * 0.10) * alpha);
+    g.fillCircle(tp[0], tp[1], (3.5 - ti * 0.8) * scaleY);
+  }
+
+  // Bright core glint
+  g.fillStyle(0xffffff, 0.60 * alpha);
+  g.fillCircle(x, y, 3 * scaleY);
 }
 
 function applyState(sc, state) {
@@ -630,48 +640,99 @@ function applyState(sc, state) {
   // Sync crown state from server
   if (state.crowned && sc._crowned) sc._crowned = state.crowned.slice();
 
-  // Deflect detection: boomerang owner changed → spark burst at boom position
-  (state.boomerangs || []).forEach(function(b) {
-    var prev = sc._boomOwner[b.id];
-    if (prev !== undefined && prev !== b.owner && sc._particles) {
-      var bpos = sc._boomPos[b.id] || { x: b.x, y: b.y };
-      var sparkCol = BOOM_COLORS[b.owner];
+  // Deflect detection: dart owner changed → spark burst
+  (state.darts || []).forEach(function(d) {
+    var prev = sc._dartOwner[d.id];
+    if (prev !== undefined && prev !== d.owner && sc._particles) {
+      var dpos = sc._dartPos[d.id] || { x: d.x, y: d.y };
+      var sparkCol = getDartColor(d);
       for (var dp = 0; dp < 14; dp++) {
         var ang = Math.random() * Math.PI * 2;
         var spd = 3 + Math.random() * 7;
         sc._particles.push({
-          x: bpos.x, y: bpos.y,
+          x: dpos.x, y: dpos.y,
           vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 1,
           alpha: 1, size: 2 + Math.random() * 4, col: sparkCol, gravity: 0.14
         });
       }
       sc.cameras.main.shake(70, 0.004);
     }
-    sc._boomOwner[b.id] = b.owner;
+    sc._dartOwner[d.id] = d.owner;
+    // Record seep start the first frame we see stuck=true
+    if (d.stuck && !sc._dartSeepStart[d.id]) {
+      sc._dartSeepStart[d.id] = performance.now();
+    }
   });
-  // Clean up tracking for boomerangs that no longer exist
-  var liveBoomIds = new Set((state.boomerangs || []).map(function(b) { return b.id; }));
-  Object.keys(sc._boomOwner).forEach(function(id) {
-    if (!liveBoomIds.has(id)) delete sc._boomOwner[id];
-  });
+  var liveDartIds = new Set((state.darts || []).map(function(d) { return d.id; }));
+  Object.keys(sc._dartOwner).forEach(function(id)     { if (!liveDartIds.has(id)) delete sc._dartOwner[id]; });
+  Object.keys(sc._dartSeepStart).forEach(function(id) { if (!liveDartIds.has(id)) delete sc._dartSeepStart[id]; });
 
-  // Slash flash
+  // Slime-arm deflect animation
   sc.slashGfx.clear();
   (state.slashing || []).forEach(function(active, i) {
     if (!active || !state.players[i]) return;
-    var p = state.players[i];
-    var cy = p.y - 20;
-    sc.slashGfx.fillStyle(SLIME_BASE[i], 0.2);
-    sc.slashGfx.fillCircle(p.x, cy, 62);
-    sc.slashGfx.lineStyle(2, SLIME_BASE[i], 0.55);
-    sc.slashGfx.strokeCircle(p.x, cy, 62);
-  });
+    var p    = state.players[i];
+    var pcx  = p.x;
+    var pcy  = p.y - 10;
+    var base = SLIME_BASE[i];
+    var dark = SLIME_DARK[i];
 
-  // Charge bar
-  if (state.charge && playerSlot !== null) {
-    var myCharge = state.charge[playerSlot] || 0;
-    sc.cooldownBar.displayWidth = Math.round(140 * myCharge);
-  }
+    // Aim arm at nearest flying enemy dart; fall back to velocity, then side
+    var adx = i === 0 ? 1 : -1, ady = 0, minDist = Infinity;
+    (state.darts || []).forEach(function(d) {
+      if (d.owner === i || d.stuck) return;
+      var ddx = d.x - pcx, ddy = d.y - pcy;
+      var dist = Math.hypot(ddx, ddy);
+      if (dist < minDist) {
+        minDist = dist;
+        adx = ddx / (dist || 1);
+        ady = ddy / (dist || 1);
+      }
+    });
+    if (minDist === Infinity && sc._vel && sc._vel[i]) {
+      var vspd = Math.hypot(sc._vel[i].x, sc._vel[i].y);
+      if (vspd > 0.2) { adx = sc._vel[i].x / vspd; ady = sc._vel[i].y / vspd; }
+    }
+
+    var a = Math.atan2(ady, adx);
+    var cosA = Math.cos(a), sinA = Math.sin(a);
+    function rp(lx, ly) { return _rp(pcx, pcy, pcx + lx, pcy + ly, cosA, sinA); }
+
+    // Faint hitbox ring (shows deflect range)
+    sc.slashGfx.lineStyle(1.5, base, 0.20);
+    sc.slashGfx.strokeCircle(pcx, pcy, 62);
+
+    // Arm stretch: tapered from body edge to blob tip
+    var q1 = rp(28,   16);
+    var q2 = rp(28,  -16);
+    var q3 = rp(64,   11);
+    var q4 = rp(64,  -11);
+    sc.slashGfx.fillStyle(base, 0.80);
+    sc.slashGfx.fillTriangle(q1[0],q1[1], q2[0],q2[1], q4[0],q4[1]);
+    sc.slashGfx.fillTriangle(q1[0],q1[1], q3[0],q3[1], q4[0],q4[1]);
+
+    // Tip blob (the shield)
+    var tip = rp(72, 0);
+    sc.slashGfx.fillStyle(base, 0.90);
+    sc.slashGfx.fillCircle(tip[0], tip[1], 24);
+
+    // Underside shading
+    sc.slashGfx.fillStyle(dark, 0.22);
+    var shade = rp(76, 7);
+    sc.slashGfx.fillCircle(shade[0], shade[1], 18);
+
+    // Specular glint
+    sc.slashGfx.fillStyle(0xffffff, 0.48);
+    var glint = rp(64, -8);
+    sc.slashGfx.fillCircle(glint[0], glint[1], 8);
+
+    // Trailing drip off tip
+    sc.slashGfx.fillStyle(base, 0.42);
+    var drip1 = rp(96, 2);
+    var drip2 = rp(108, 5);
+    sc.slashGfx.fillCircle(drip1[0], drip1[1], 9);
+    sc.slashGfx.fillCircle(drip2[0], drip2[1], 5);
+  });
 
   // Round score
   if (state.rounds_won && sc._roundScoreText) {
@@ -716,6 +777,10 @@ function applyState(sc, state) {
     sc._splats         = [];
     sc._particles      = [];
     sc._walkTrail      = [[], []];
+    sc._dartPos        = {};
+    sc._dartTrail      = {};
+    sc._dartSeepStart  = {};
+    sc._dartOwner      = {};
     sc._splatGfx.clear();
     sc.overlayText.setVisible(false);
     sc.overlayBg.setVisible(false);
@@ -928,7 +993,7 @@ function launchPhaser() {
         ];
 
         // ── Throw charge bar ──────────────────────────
-        this.add.text(720, 790, 'CHARGE', {
+        this.add.text(720, 790, 'RELOAD', {
           fontSize: '9px', color: '#a0a0c0', letterSpacing: 3,
         }).setOrigin(0.5);
         this.cooldownBg  = this.add.rectangle(720, 800, 140, 6, 0x3a2860);
@@ -951,7 +1016,7 @@ function launchPhaser() {
         // ── Interpolation state ───────────────────────
         this._pos      = [{ x: 360, y: 405 }, { x: 1080, y: 405 }];
         this._pState   = null;
-        this._boomPos  = {};
+        this._dartPos  = {};
         this._gameOver = false;
         this._vel  = [{ x: 0, y: 0 }, { x: 0, y: 0 }];
         this._hist = [[], []];
@@ -961,10 +1026,9 @@ function launchPhaser() {
         this._hitStopEnd     = 0;
         this._slowMoEnd      = 0;
         this._prevHp         = [1, 1];
-        this._boomTrail      = {};
-        this._boomAngle      = {};
-        this._boomHeight     = {};
-        this._boomOwner      = {};
+        this._dartTrail      = {};
+        this._dartSeepStart  = {};
+        this._dartOwner      = {};
         this._splats         = [];
         this._roundOverShown = false;
         this._particles      = [];
@@ -973,24 +1037,16 @@ function launchPhaser() {
         this._crowned        = [false, false];
         this._dashWindup     = [0, 0];
         this._wasDashing     = [false, false];
-        var _chargingThrow = false;
         this.input.on('pointerdown', (ptr) => {
           if (!ws || ws.readyState !== WebSocket.OPEN || playerSlot === null) return;
           if (ptr.rightButtonDown()) {
-            _chargingThrow = true;
-            ws.send(JSON.stringify({ type: 'charge_start' }));
+            // Shoot dart toward cursor — server rejects if dart already in play
+            var me = this._pos[playerSlot];
+            var dx = ptr.x - me.x, dy = ptr.y - me.y;
+            var len = Math.hypot(dx, dy) || 1;
+            ws.send(JSON.stringify({ type: 'shoot', dx: dx / len, dy: dy / len }));
           } else if (ptr.leftButtonDown()) {
             ws.send(JSON.stringify({ type: 'slash' }));
-          }
-        });
-        this.input.on('pointerup', (ptr) => {
-          if (!_chargingThrow || !ws || ws.readyState !== WebSocket.OPEN || playerSlot === null) return;
-          if (!ptr.rightButtonDown()) {
-            _chargingThrow = false;
-            const me = this._pos[playerSlot];
-            const dx = ptr.x - me.x, dy = ptr.y - me.y;
-            const len = Math.hypot(dx, dy) || 1;
-            ws.send(JSON.stringify({ type: 'throw', dx: dx / len, dy: dy / len }));
           }
         });
 
@@ -1247,42 +1303,58 @@ function launchPhaser() {
           }
         });
 
-        // ── Boomerangs: lerp + trail + rotation + height arc ─
+        // ── Darts: fly → stick → seep into ground ─────
         this.boomGfx.clear();
-        (state.boomerangs || []).forEach((b) => {
-          if (!this._boomPos[b.id]) this._boomPos[b.id] = { x: b.x, y: b.y };
-          this._boomPos[b.id].x += (b.x - this._boomPos[b.id].x) * LERP;
-          this._boomPos[b.id].y += (b.y - this._boomPos[b.id].y) * LERP;
-          var bx = this._boomPos[b.id].x, by = this._boomPos[b.id].y;
+        var nowMs = performance.now();
+        (state.darts || []).forEach((d) => {
+          var col = getDartColor(d);
 
-          // Smooth height toward target: arcs up on outward, lerps to 0 on return
-          var targetH = b.returning ? 0 : Math.sin(Math.min(1, b.age / 22) * Math.PI) * 0.85;
-          if (this._boomHeight[b.id] === undefined) this._boomHeight[b.id] = 0;
-          this._boomHeight[b.id] += (targetH - this._boomHeight[b.id]) * 0.12;
-          var height = this._boomHeight[b.id];
+          if (d.stuck) {
+            // Seep animation: squash flat and fade over ~900ms
+            var seepStart = this._dartSeepStart[d.id] || nowMs;
+            var seepT  = Math.min(1, (nowMs - seepStart) / 900);
+            var alpha  = 1 - seepT;
+            var scaleX = 1 + seepT * 2.0;   // spreads outward
+            var scaleY = 1 - seepT * 0.85;  // flattens to ground
+            drawDart(this.boomGfx, d.x, d.y, d.ndx, d.ndy, col, alpha, scaleX, scaleY);
+          } else {
+            // Flying dart: LERP position
+            if (!this._dartPos[d.id]) this._dartPos[d.id] = { x: d.x, y: d.y };
+            this._dartPos[d.id].x += (d.x - this._dartPos[d.id].x) * LERP;
+            this._dartPos[d.id].y += (d.y - this._dartPos[d.id].y) * LERP;
+            var px = this._dartPos[d.id].x, py = this._dartPos[d.id].y;
 
-          // Trail: 8 fading ghost circles
-          if (!this._boomTrail[b.id]) this._boomTrail[b.id] = [];
-          this._boomTrail[b.id].unshift({ x: bx, y: by });
-          if (this._boomTrail[b.id].length > 9) this._boomTrail[b.id].length = 9;
-          var trail = this._boomTrail[b.id];
-          for (var t = trail.length - 1; t >= 1; t--) {
-            this.boomGfx.fillStyle(BOOM_COLORS[b.owner], (1 - t / trail.length) * 0.28);
-            this.boomGfx.fillCircle(trail[t].x, trail[t].y, Math.max(3, 10 - t));
+            // Trail: fading ghost drops
+            if (!this._dartTrail[d.id]) this._dartTrail[d.id] = [];
+            this._dartTrail[d.id].unshift({ x: px, y: py });
+            if (this._dartTrail[d.id].length > 7) this._dartTrail[d.id].length = 7;
+            var tr = this._dartTrail[d.id];
+            for (var t = tr.length - 1; t >= 1; t--) {
+              this.boomGfx.fillStyle(col, (1 - t / tr.length) * 0.30);
+              this.boomGfx.fillCircle(tr[t].x, tr[t].y, Math.max(2, 6 - t));
+            }
+
+            drawDart(this.boomGfx, px, py, d.ndx, d.ndy, col, 1, 1, 1);
           }
-
-          // Rotation angle
-          if (!this._boomAngle[b.id]) this._boomAngle[b.id] = 0;
-          this._boomAngle[b.id] = (this._boomAngle[b.id] + 11) % 360;
-
-          drawBoom(this.boomGfx, bx, by, BOOM_COLORS[b.owner], b.returning, this._boomAngle[b.id], height);
         });
 
-        var _live = new Set((state.boomerangs || []).map((b) => b.id));
-        Object.keys(this._boomPos).forEach((id)    => { if (!_live.has(id)) delete this._boomPos[id]; });
-        Object.keys(this._boomTrail).forEach((id)  => { if (!_live.has(id)) delete this._boomTrail[id]; });
-        Object.keys(this._boomAngle).forEach((id)  => { if (!_live.has(id)) delete this._boomAngle[id]; });
-        Object.keys(this._boomHeight).forEach((id) => { if (!_live.has(id)) delete this._boomHeight[id]; });
+        // Reload bar: full when no dart in play, fills as stuck dart seeps away
+        if (this.cooldownBar && playerSlot !== null) {
+          var myDart = (state.darts || []).find(function(d) { return d.owner === playerSlot; });
+          if (!myDart) {
+            this.cooldownBar.displayWidth = 140;
+          } else if (myDart.stuck) {
+            var sp = this._dartSeepStart[myDart.id];
+            var seepPct = sp ? Math.min(1, (nowMs - sp) / 900) : 0;
+            this.cooldownBar.displayWidth = Math.round(140 * seepPct);
+          } else {
+            this.cooldownBar.displayWidth = 0;
+          }
+        }
+
+        var _live = new Set((state.darts || []).map((d) => d.id));
+        Object.keys(this._dartPos).forEach((id)       => { if (!_live.has(id)) delete this._dartPos[id]; });
+        Object.keys(this._dartTrail).forEach((id)     => { if (!_live.has(id)) delete this._dartTrail[id]; });
       },
     },
   });

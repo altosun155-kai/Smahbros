@@ -13,12 +13,10 @@ FLOOR_T = 46
 FLOOR_B = 764
 PLAYER_SPEED      = 6
 PLAYER_R          = 24
-BOOM_R            = 8
-BOOM_SPEED        = 11
-BOOM_RETURN_AFTER = 18
-BOOM_CHARGE_BONUS = 9    # max extra speed at full charge
-BOOM_CHARGE_RANGE = 16   # max extra return-ticks at full charge
-MAX_THROW_CHARGE  = 40   # ticks to reach full charge (~2 s)
+DART_R            = 7
+DART_SPEED        = 16
+DART_MAX_FLIGHT   = 28   # ticks before dart auto-sticks (~1.4 s)
+DART_SEEP_TICKS   = 18   # ticks dart stays stuck before disappearing (~0.9 s)
 SLASH_R           = 60
 SLASH_COOLDOWN    = 40
 DASH_SPEED        = 14
@@ -76,6 +74,9 @@ class Player:
         self.kb_vy = 0.0
         self.kb_frames = 0
         self.has_crown = False
+        self.ability   = 'normal'
+        self.throw_charging = False   # kept for _advance_round compat
+        self.throw_charge   = 0
         if is_cpu:
             throw_cd, chase_dist, dodge_r, charge_r = _CPU_DIFF.get(cpu_diff, _CPU_DIFF["normal"])
             self.cpu_throw_cd     = throw_cd
@@ -85,19 +86,19 @@ class Player:
             self.cpu_throw_timer  = throw_cd
 
 
-class Boomerang:
+class Dart:
     def __init__(self, owner: int, x: float, y: float, dx: float, dy: float,
-                 speed: float = BOOM_SPEED, return_after: int = BOOM_RETURN_AFTER):
-        self.id           = uuid.uuid4().hex[:8]
-        self.owner        = owner
-        self.x            = x
-        self.y            = y
-        self.dx           = dx
-        self.dy           = dy
-        self.speed        = speed
-        self.return_after = return_after
-        self.returning    = False
-        self.age          = 0
+                 ability: str = 'normal'):
+        self.id          = uuid.uuid4().hex[:8]
+        self.owner       = owner
+        self.x           = x
+        self.y           = y
+        self.dx          = dx   # velocity components (pre-scaled to DART_SPEED)
+        self.dy          = dy
+        self.ability     = ability
+        self.stuck       = False
+        self.stuck_timer = DART_SEEP_TICKS
+        self.age         = 0
 
 
 class MovingWall:
@@ -116,7 +117,7 @@ class GameRoom:
     def __init__(self, room_id: str):
         self.room_id     = room_id
         self.players: list[Player | None] = [None, None]
-        self.boomerangs: list[Boomerang]  = []
+        self.darts: list[Dart]           = []
         self.walls       = [
             MovingWall(0, 'left',  270),   # upper-left slab
             MovingWall(1, 'right', 540),   # lower-right slab
@@ -184,7 +185,7 @@ def _advance_round(room: GameRoom) -> None:
     room.round_num += 1
     room.winner     = None
     room.phase      = "playing"
-    room.boomerangs.clear()
+    room.darts.clear()
     for w in room.walls:
         w.extend = 0.0
         w.target = 0.0
@@ -271,13 +272,13 @@ def _cpu_ai(cpu: Player, room: GameRoom) -> None:
     dy   = human.y - cpu.y
     dist = (dx * dx + dy * dy) ** 0.5 or 1.0
 
-    # Dash away from very close boomerangs
+    # Dash away from very close incoming darts
     if cpu.dash_cooldown <= 0 and cpu.dash_frames <= 0:
-        for b in room.boomerangs:
-            if b.owner == cpu.slot:
+        for d in room.darts:
+            if d.owner == cpu.slot or d.stuck:
                 continue
-            bdx = cpu.x - b.x
-            bdy = cpu.y - b.y
+            bdx = cpu.x - d.x
+            bdy = cpu.y - d.y
             b_dist = (bdx * bdx + bdy * bdy) ** 0.5 or 1.0
             if b_dist < cpu.cpu_dodge_range * 0.55:
                 cpu.dash_dx = bdx / b_dist * DASH_SPEED
@@ -286,19 +287,19 @@ def _cpu_ai(cpu: Player, room: GameRoom) -> None:
                 cpu.dash_cooldown = DASH_COOLDOWN
                 break
 
-    # Dodge incoming boomerangs first (movement-level)
+    # Dodge incoming darts (movement-level)
     dodging = False
-    for b in room.boomerangs:
-        if b.owner == cpu.slot:
+    for d in room.darts:
+        if d.owner == cpu.slot or d.stuck:
             continue
-        bdx = cpu.x - b.x
-        bdy = cpu.y - b.y
+        bdx = cpu.x - d.x
+        bdy = cpu.y - d.y
         if (bdx * bdx + bdy * bdy) ** 0.5 < cpu.cpu_dodge_range:
             cpu.inputs = {
-                "up":    b.dy > 0,
-                "down":  b.dy < 0,
-                "left":  b.dx > 0,
-                "right": b.dx < 0,
+                "up":    d.dy > 0,
+                "down":  d.dy < 0,
+                "left":  d.dx > 0,
+                "right": d.dx < 0,
             }
             dodging = True
             break
@@ -311,18 +312,15 @@ def _cpu_ai(cpu: Player, room: GameRoom) -> None:
             if dy >  20: cpu.inputs["down"]  = True
             elif dy < -20: cpu.inputs["up"]    = True
 
-    # Throw boomerang toward human (speed scales with cpu_charge_ratio)
-    has_boom = any(b.owner == cpu.slot for b in room.boomerangs)
-    if not has_boom:
+    # Shoot dart toward human
+    has_dart = any(d.owner == cpu.slot for d in room.darts)
+    if not has_dart:
         if cpu.cpu_throw_timer <= 0 and 110 < dist < 900:
             norm = dist or 1.0
-            cr = cpu.cpu_charge_ratio
-            spd = BOOM_SPEED + BOOM_CHARGE_BONUS * cr
-            rng = BOOM_RETURN_AFTER + int(BOOM_CHARGE_RANGE * cr)
-            room.boomerangs.append(
-                Boomerang(cpu.slot, cpu.x, cpu.y,
-                          dx / norm * spd, dy / norm * spd,
-                          speed=spd, return_after=rng)
+            room.darts.append(
+                Dart(cpu.slot, cpu.x, cpu.y,
+                     dx / norm * DART_SPEED, dy / norm * DART_SPEED,
+                     ability=cpu.ability)
             )
             cpu.cpu_throw_timer = cpu.cpu_throw_cd
         else:
@@ -375,23 +373,13 @@ def _step(room: GameRoom) -> None:
             px0, py0 = p.x, p.y
             px1 = max(PLAYER_R, min(ARENA_W - PLAYER_R, p.x + p.dash_dx))
             py1 = max(PLAYER_R, min(ARENA_H - PLAYER_R, p.y + p.dash_dy))
-            for b in list(room.boomerangs):
-                if b.owner == p.slot:
+            for d in list(room.darts):
+                if d.owner == p.slot or d.stuck:
                     continue
-                # Predict boom end-of-tick position for simultaneous movement
-                if not b.returning:
-                    bx_end, by_end = b.x + b.dx, b.y + b.dy
-                else:
-                    own = room.players[b.owner]
-                    if own:
-                        td = ((own.x - b.x) ** 2 + (own.y - b.y) ** 2) ** 0.5 or 1.0
-                        bx_end = b.x + (own.x - b.x) / td * b.speed
-                        by_end = b.y + (own.y - b.y) / td * b.speed
-                    else:
-                        bx_end, by_end = b.x, b.y
-                if _sweep_hit(px0, py0, px1, py1, bx_end, by_end, PLAYER_R + BOOM_R):
-                    room.boomerangs.remove(b)
-                    _resolve_hit(room, p, b.owner, b.x, b.y)
+                dx_end, dy_end = d.x + d.dx, d.y + d.dy
+                if _sweep_hit(px0, py0, px1, py1, dx_end, dy_end, PLAYER_R + DART_R):
+                    room.darts.remove(d)
+                    _resolve_hit(room, p, d.owner, d.x, d.y)
                     break
             p.x, p.y = px1, py1
             p.dash_frames -= 1
@@ -401,74 +389,70 @@ def _step(room: GameRoom) -> None:
             if p.inputs["up"]:    p.y = max(PLAYER_R, p.y - PLAYER_SPEED)
             if p.inputs["down"]:  p.y = min(ARENA_H - PLAYER_R, p.y + PLAYER_SPEED)
 
-    dead_booms: list[Boomerang] = []
-    for b in room.boomerangs:
-        b.age += 1
-        if b.age >= b.return_after:
-            b.returning = True
+    dead_darts: list[Dart] = []
+    for d in room.darts:
+        if d.stuck:
+            d.stuck_timer -= 1
+            if d.stuck_timer <= 0:
+                dead_darts.append(d)
+            continue
 
-        if b.returning:
-            owner = room.players[b.owner]
-            if owner is None:
-                dead_booms.append(b)
-                continue
-            dx, dy = owner.x - b.x, owner.y - b.y
-            dist = (dx * dx + dy * dy) ** 0.5
-            if dist < BOOM_R:
-                dead_booms.append(b)
-                continue
-            b.x += dx / dist * b.speed
-            b.y += dy / dist * b.speed
-        else:
-            b.x += b.dx
-            b.y += b.dy
-            if b.x < FLOOR_L:
-                b.x = FLOOR_L; b.dx = abs(b.dx)
-            elif b.x > FLOOR_R:
-                b.x = FLOOR_R; b.dx = -abs(b.dx)
-            if b.y < FLOOR_T:
-                b.y = FLOOR_T; b.dy = abs(b.dy)
-            elif b.y > FLOOR_B:
-                b.y = FLOOR_B; b.dy = -abs(b.dy)
-            # Bounce off moving wall faces
-            for w in room.walls:
-                rect = _wall_rect(w)
-                if not rect:
-                    continue
-                wx1, wy1, wx2, wy2 = rect
-                if wx1 <= b.x <= wx2 and wy1 <= b.y <= wy2:
-                    if w.side == 'left':
-                        b.x = wx2 + BOOM_R; b.dx = abs(b.dx)
-                    else:
-                        b.x = wx1 - BOOM_R; b.dx = -abs(b.dx)
+        d.age += 1
+        d.x   += d.dx
+        d.y   += d.dy
 
+        # Auto-stick at max range
+        if d.age >= DART_MAX_FLIGHT:
+            d.stuck = True
+            continue
+
+        # Arena wall → stick
+        wall_hit = False
+        if d.x < FLOOR_L:
+            d.x = FLOOR_L + DART_R; wall_hit = True
+        elif d.x > FLOOR_R:
+            d.x = FLOOR_R - DART_R; wall_hit = True
+        if d.y < FLOOR_T:
+            d.y = FLOOR_T + DART_R; wall_hit = True
+        elif d.y > FLOOR_B:
+            d.y = FLOOR_B - DART_R; wall_hit = True
+        if wall_hit:
+            d.stuck = True
+            continue
+
+        # Moving wall → stick
+        for w in room.walls:
+            rect = _wall_rect(w)
+            if rect and rect[0] <= d.x <= rect[2] and rect[1] <= d.y <= rect[3]:
+                d.stuck = True
+                break
+        if d.stuck:
+            continue
+
+        # Player hit / deflect
         for p in room.players:
-            if p is None or p.slot == b.owner:
+            if p is None or p.slot == d.owner:
                 continue
-            dx, dy = p.x - b.x, p.y - b.y
-            dist = (dx * dx + dy * dy) ** 0.5
-            if dist < PLAYER_R + BOOM_R:
+            pdx, pdy = p.x - d.x, p.y - d.y
+            if (pdx * pdx + pdy * pdy) ** 0.5 < PLAYER_R + DART_R:
                 if p.slashing > 0:
-                    # Deflect: redirect boomerang at the original owner
-                    orig = room.players[b.owner]
-                    b.owner     = p.slot
-                    b.returning = False
-                    b.age       = 0
-                    b.return_after = BOOM_RETURN_AFTER
+                    orig = room.players[d.owner]
+                    d.owner = p.slot
+                    d.age   = 0
                     if orig:
                         td = ((orig.x - p.x) ** 2 + (orig.y - p.y) ** 2) ** 0.5 or 1.0
-                        b.dx = (orig.x - p.x) / td * b.speed
-                        b.dy = (orig.y - p.y) / td * b.speed
+                        d.dx = (orig.x - p.x) / td * DART_SPEED
+                        d.dy = (orig.y - p.y) / td * DART_SPEED
                     else:
-                        b.dx, b.dy = -b.dx, -b.dy
+                        d.dx, d.dy = -d.dx, -d.dy
                 else:
-                    dead_booms.append(b)
-                    _resolve_hit(room, p, b.owner, b.x, b.y)
+                    dead_darts.append(d)
+                    _resolve_hit(room, p, d.owner, d.x, d.y)
                 break
 
-    for b in dead_booms:
-        if b in room.boomerangs:
-            room.boomerangs.remove(b)
+    for d in dead_darts:
+        if d in room.darts:
+            room.darts.remove(d)
 
     for p in room.players:
         if p is None:
@@ -476,8 +460,6 @@ def _step(room: GameRoom) -> None:
         if p.slash_cooldown > 0: p.slash_cooldown -= 1
         if p.slashing > 0:       p.slashing -= 1
         if p.dash_cooldown > 0:  p.dash_cooldown -= 1
-        if p.throw_charging and not any(b.owner == p.slot for b in room.boomerangs):
-            p.throw_charge = min(p.throw_charge + 1, MAX_THROW_CHARGE)
 
     # Moving walls: slide toward target, toggle on timer, push players out
     for w in room.walls:
@@ -509,15 +491,15 @@ async def _tick_loop(room: GameRoom) -> None:
                 if p else None
                 for p in room.players
             ],
-            "boomerangs": [
-                {"id": b.id, "x": round(b.x, 1), "y": round(b.y, 1),
-                 "owner": b.owner, "returning": b.returning, "age": b.age}
-                for b in room.boomerangs
+            "darts": [
+                {"id": d.id, "x": round(d.x, 1), "y": round(d.y, 1),
+                 "owner": d.owner, "stuck": d.stuck, "ability": d.ability,
+                 "ndx": round(d.dx / DART_SPEED, 3), "ndy": round(d.dy / DART_SPEED, 3)}
+                for d in room.darts
             ],
+            "dart_ready":   [not any(d.owner == i for d in room.darts) for i in range(2)],
             "slashing":     [p.slashing > 0 if p else False for p in room.players],
             "dashing":      [p.dash_frames > 0 if p else False for p in room.players],
-            "charge":       [round(p.throw_charge / MAX_THROW_CHARGE, 2) if p and not p.is_cpu else 0
-                             for p in room.players],
             "phase":        room.phase,
             "winner":       room.winner,
             "rounds_won":   room.rounds_won[:],
@@ -557,24 +539,16 @@ def handle_message(room: GameRoom, slot: int, msg: dict) -> None:
             if k in keys:
                 p.inputs[k] = bool(keys[k])
 
-    elif msg.get("type") == "charge_start":
-        if not any(b.owner == slot for b in room.boomerangs):
-            p.throw_charging = True
-
-    elif msg.get("type") == "throw":
-        charge_ratio     = p.throw_charge / MAX_THROW_CHARGE
-        p.throw_charging = False
-        p.throw_charge   = 0
-        if any(b.owner == slot for b in room.boomerangs):
-            return
+    elif msg.get("type") == "shoot":
+        if any(d.owner == slot for d in room.darts):
+            return  # dart still in play
         dx   = float(msg.get("dx", 1.0))
         dy   = float(msg.get("dy", 0.0))
         dist = (dx * dx + dy * dy) ** 0.5 or 1.0
-        spd  = BOOM_SPEED + BOOM_CHARGE_BONUS * charge_ratio
-        rng  = BOOM_RETURN_AFTER + int(BOOM_CHARGE_RANGE * charge_ratio)
-        room.boomerangs.append(
-            Boomerang(slot, p.x, p.y, dx / dist * spd, dy / dist * spd,
-                      speed=spd, return_after=rng)
+        room.darts.append(
+            Dart(slot, p.x, p.y,
+                 dx / dist * DART_SPEED, dy / dist * DART_SPEED,
+                 ability=p.ability)
         )
 
     elif msg.get("type") == "dash":

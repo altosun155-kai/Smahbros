@@ -32,6 +32,10 @@ WALL_MAX_EXT   = 280    # max extension into arena
 WALL_TIMER_MIN = 60     # ticks before toggling (~3 s at 20 tps)
 WALL_TIMER_MAX = 220    # ticks (~11 s)
 
+BUMPER_R    = 32
+GRATE_SLOW  = 0.42   # speed multiplier when standing on grate (~58 % slower)
+GRATE_RECTS = [(600, 560, 160, 80), (760, 170, 160, 80)]
+
 # CPU per-difficulty: (throw_interval_ticks, chase_distance, dodge_range, charge_ratio)
 _CPU_DIFF = {
     "easy":   (110, 430, 125, 0.0),
@@ -114,6 +118,23 @@ class MovingWall:
         self.timer   = random.randint(WALL_TIMER_MIN, WALL_TIMER_MAX)
 
 
+class JellyBumper:
+    def __init__(self, bid: int, x: float, y: float, r: float = BUMPER_R):
+        self.id        = bid
+        self.x, self.y = x, y
+        self.r         = r
+        self.hit_timer = 0   # counts down after a dart bounce (for squish anim)
+
+
+class ConveyorBelt:
+    def __init__(self, cid: int, x: float, y: float, w: float, h: float,
+                 vx: float, vy: float):
+        self.id         = cid
+        self.x, self.y  = x, y   # center
+        self.w, self.h  = w, h
+        self.vx, self.vy = vx, vy  # push velocity per tick
+
+
 class GameRoom:
     def __init__(self, room_id: str):
         self.room_id     = room_id
@@ -122,6 +143,14 @@ class GameRoom:
         self.walls       = [
             MovingWall(0, 'left',  270),   # upper-left slab
             MovingWall(1, 'right', 540),   # lower-right slab
+        ]
+        self.bumpers: list[JellyBumper] = [
+            JellyBumper(0,  460, 260),
+            JellyBumper(1,  980, 550),
+        ]
+        self.belts: list[ConveyorBelt] = [
+            ConveyorBelt(0,  310, 490, 200, 70,  3.0, 0.0),  # left side → pushes right
+            ConveyorBelt(1, 1130, 320, 200, 70, -3.0, 0.0),  # right side → pushes left
         ]
         self.phase       = "waiting"
         self.winner: int | None = None
@@ -187,6 +216,8 @@ def _advance_round(room: GameRoom) -> None:
     room.winner     = None
     room.phase      = "playing"
     room.darts.clear()
+    for b in room.bumpers:
+        b.hit_timer = 0
     for w in room.walls:
         w.extend = 0.0
         w.target = 0.0
@@ -385,14 +416,39 @@ def _step(room: GameRoom) -> None:
             p.x, p.y = px1, py1
             p.dash_frames -= 1
         else:
-            if p.inputs["left"]:  p.x = max(PLAYER_R, p.x - PLAYER_SPEED)
-            if p.inputs["right"]: p.x = min(ARENA_W - PLAYER_R, p.x + PLAYER_SPEED)
-            if p.inputs["up"]:    p.y = max(PLAYER_R, p.y - PLAYER_SPEED)
-            if p.inputs["down"]:  p.y = min(ARENA_H - PLAYER_R, p.y + PLAYER_SPEED)
+            spd = PLAYER_SPEED
+            for gx, gy, gw, gh in GRATE_RECTS:
+                if gx <= p.x <= gx + gw and gy <= p.y <= gy + gh:
+                    spd = max(1, int(PLAYER_SPEED * GRATE_SLOW))
+                    break
+            if p.inputs["left"]:  p.x = max(PLAYER_R, p.x - spd)
+            if p.inputs["right"]: p.x = min(ARENA_W - PLAYER_R, p.x + spd)
+            if p.inputs["up"]:    p.y = max(PLAYER_R, p.y - spd)
+            if p.inputs["down"]:  p.y = min(ARENA_H - PLAYER_R, p.y + spd)
+
+    # Conveyor belt push (skips knockback/dashing players)
+    for p in room.players:
+        if p is None or p.kb_frames > 0 or p.dash_frames > 0:
+            continue
+        for belt in room.belts:
+            bx1, bx2 = belt.x - belt.w / 2, belt.x + belt.w / 2
+            by1, by2 = belt.y - belt.h / 2, belt.y + belt.h / 2
+            if bx1 <= p.x <= bx2 and by1 <= p.y <= by2:
+                p.x = max(PLAYER_R, min(ARENA_W - PLAYER_R, p.x + belt.vx))
+                p.y = max(PLAYER_R, min(ARENA_H - PLAYER_R, p.y + belt.vy))
+                break
 
     dead_darts: list[Dart] = []
     for d in room.darts:
         if d.stuck:
+            # Belt slides stuck darts before they seep away
+            for belt in room.belts:
+                bx1, bx2 = belt.x - belt.w / 2, belt.x + belt.w / 2
+                by1, by2 = belt.y - belt.h / 2, belt.y + belt.h / 2
+                if bx1 <= d.x <= bx2 and by1 <= d.y <= by2:
+                    d.x = max(FLOOR_L, min(FLOOR_R, d.x + belt.vx))
+                    d.y = max(FLOOR_T, min(FLOOR_B, d.y + belt.vy))
+                    break
             d.stuck_timer -= 1
             if d.stuck_timer <= 0:
                 dead_darts.append(d)
@@ -431,6 +487,30 @@ def _step(room: GameRoom) -> None:
         if d.stuck:
             continue
 
+        # Jelly bumper → reflect velocity, reset range budget
+        bumper_hit = False
+        for b in room.bumpers:
+            bdx = d.x - b.x
+            bdy = d.y - b.y
+            bdist = (bdx * bdx + bdy * bdy) ** 0.5
+            if bdist < b.r + DART_R:
+                if bdist < 0.01:
+                    bdx, bdy, bdist = 1.0, 0.0, 1.0
+                nx, ny = bdx / bdist, bdy / bdist
+                dot = d.dx * nx + d.dy * ny
+                d.dx -= 2.0 * dot * nx
+                d.dy -= 2.0 * dot * ny
+                # push dart clear of bumper so it can't re-collide next tick
+                overlap = b.r + DART_R - bdist + 1.0
+                d.x += nx * overlap
+                d.y += ny * overlap
+                d.dist     = 0.0
+                b.hit_timer = 8
+                bumper_hit  = True
+                break
+        if bumper_hit:
+            continue
+
         # Player hit / deflect
         for p in room.players:
             if p is None or p.slot == d.owner:
@@ -463,6 +543,10 @@ def _step(room: GameRoom) -> None:
         if p.slash_cooldown > 0: p.slash_cooldown -= 1
         if p.slashing > 0:       p.slashing -= 1
         if p.dash_cooldown > 0:  p.dash_cooldown -= 1
+
+    for b in room.bumpers:
+        if b.hit_timer > 0:
+            b.hit_timer -= 1
 
     # Moving walls: slide toward target, toggle on timer, push players out
     for w in room.walls:
@@ -511,6 +595,7 @@ async def _tick_loop(room: GameRoom) -> None:
             "crowned":      [p.has_crown if p else False for p in room.players],
             "walls":        [{"id": w.id, "side": w.side, "y": w.y, "h": w.h,
                                "extend": round(w.extend, 1)} for w in room.walls],
+            "bumpers":      [{"id": b.id, "hit": b.hit_timer > 0} for b in room.bumpers],
         }
         await broadcast(room, state)
 

@@ -471,6 +471,11 @@ var DART_ABILITY_COLORS = { normal: null, poison: 0x39ff14, explosive: 0xff4500 
 var DART_RANGE_PX = 420;   // must match server DART_RANGE
 function getDartColor(d) { return DART_ABILITY_COLORS[d.ability] || SLIME_BASE[d.owner]; }
 
+// Arena hazards — positions must match server constants exactly
+var BUMPERS_S = [{id:0,x:460,y:260,r:32},{id:1,x:980,y:550,r:32}];
+var GRATES_S  = [{x:600,y:560,w:160,h:80},{x:760,y:170,w:160,h:80}];
+var BELTS_S   = [{x:310,y:490,w:200,h:70,vx:3},{x:1130,y:320,w:200,h:70,vx:-3}];
+
 var _pendingStates = [];
 
 // drawSlime(g, x, floorY, bodyY, idx, s, sx, sy, leanX, flash, crowned)
@@ -668,6 +673,27 @@ function applyState(sc, state) {
   Object.keys(sc._dartOwner).forEach(function(id)     { if (!liveDartIds.has(id)) delete sc._dartOwner[id]; });
   Object.keys(sc._dartSeepStart).forEach(function(id) { if (!liveDartIds.has(id)) delete sc._dartSeepStart[id]; });
 
+  // Bumper hit detection: leading edge only → emit bounce particles once per hit
+  (state.bumpers || []).forEach(function(b) {
+    var wasHit = sc._bumperWasHit[b.id] || false;
+    if (b.hit && !wasHit && sc._particles) {
+      sc._bumperHitEnd[b.id] = performance.now() + 280;
+      var bs = BUMPERS_S.find(function(s) { return s.id === b.id; });
+      if (bs) {
+        for (var bp = 0; bp < 10; bp++) {
+          var ang = Math.random() * Math.PI * 2;
+          var spd = 2 + Math.random() * 5;
+          sc._particles.push({
+            x: bs.x, y: bs.y,
+            vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 1,
+            alpha: 0.85, size: 2 + Math.random() * 4, col: 0x33ffaa, gravity: 0.12
+          });
+        }
+      }
+    }
+    sc._bumperWasHit[b.id] = b.hit;
+  });
+
   // Slime-arm deflect animation
   sc.slashGfx.clear();
   (state.slashing || []).forEach(function(active, i) {
@@ -782,6 +808,8 @@ function applyState(sc, state) {
     sc._dartTrail      = {};
     sc._dartSeepStart  = {};
     sc._dartOwner      = {};
+    sc._bumperHitEnd   = {};
+    sc._bumperWasHit   = {};
     sc._splatGfx.clear();
     sc.overlayText.setVisible(false);
     sc.overlayBg.setVisible(false);
@@ -950,8 +978,9 @@ function launchPhaser() {
         g.lineBetween(FR, FT, FR, FB);
 
         // ── Dynamic layers (order = depth order) ──────
-        this._wallGfx  = this.add.graphics();   // moving wall slabs — above floor, below goo
-        this._splatGfx = this.add.graphics();   // goo puddles
+        this._hazardGfx = this.add.graphics();   // grates + belts + bumpers — above floor, below walls
+        this._wallGfx   = this.add.graphics();   // moving wall slabs
+        this._splatGfx  = this.add.graphics();   // goo puddles
         this.slashGfx  = this.add.graphics();
         this.boomGfx   = this.add.graphics();
         this.slimeGfx  = this.add.graphics();
@@ -1038,6 +1067,9 @@ function launchPhaser() {
         this._crowned        = [false, false];
         this._dashWindup     = [0, 0];
         this._wasDashing     = [false, false];
+        this._bumperHitEnd   = {};
+        this._bumperWasHit   = {};
+        this._beltOffset     = 0;
         this._mouseX = 720;
         this._mouseY = 405;
         this.input.on('pointermove', (ptr) => {
@@ -1082,6 +1114,65 @@ function launchPhaser() {
         }
         // dt-independent LERP: same visual feel regardless of framerate
         var LERP = (now < this._hitStopEnd) ? 0 : 1 - Math.pow(0.75, dt / (1000 / 60));
+
+        // ── Hazards: grates, conveyor belts, bumpers ──
+        this._hazardGfx.clear();
+        var hg   = this._hazardGfx;
+        var self = this;
+        this._beltOffset = (this._beltOffset + 1) % 200;
+
+        // Floor grates — grid bars slow players who stand on them
+        GRATES_S.forEach(function(gr) {
+          hg.fillStyle(0x0c0820, 0.80);
+          hg.fillRect(gr.x, gr.y, gr.w, gr.h);
+          hg.lineStyle(1.5, 0x3a2060, 0.80);
+          for (var gx = gr.x + 10; gx < gr.x + gr.w; gx += 20)
+            hg.lineBetween(gx, gr.y, gx, gr.y + gr.h);
+          for (var gy = gr.y + 10; gy < gr.y + gr.h; gy += 20)
+            hg.lineBetween(gr.x, gy, gr.x + gr.w, gy);
+          hg.lineStyle(2, 0x5533aa, 0.55);
+          hg.strokeRect(gr.x, gr.y, gr.w, gr.h);
+        });
+
+        // Conveyor belts — scrolling chevron arrows show push direction
+        BELTS_S.forEach(function(belt) {
+          var bx  = belt.x - belt.w / 2;
+          var by  = belt.y - belt.h / 2;
+          var dir = belt.vx > 0 ? 1 : -1;
+          var off = ((self._beltOffset * 0.8 * dir) % 40 + 40) % 40;
+          hg.fillStyle(0x1a0c3a, 0.88);
+          hg.fillRect(bx, by, belt.w, belt.h);
+          for (var ax = off - 40; ax < belt.w + 40; ax += 40) {
+            var arX = bx + ax;
+            if (arX < bx || arX > bx + belt.w) continue;
+            hg.fillStyle(0x9966ff, 0.58);
+            hg.fillTriangle(arX + 14 * dir, belt.y,
+                            arX, belt.y - 9,
+                            arX, belt.y + 9);
+          }
+          hg.lineStyle(2, 0xbb88ff, 0.68);
+          hg.strokeRect(bx, by, belt.w, belt.h);
+        });
+
+        // Jelly bumpers — neon green circles that ricochet darts
+        BUMPERS_S.forEach(function(b) {
+          var hitT = self._bumperHitEnd[b.id]
+                     ? Math.max(0, (self._bumperHitEnd[b.id] - now) / 280) : 0;
+          var sqX  = 1 + hitT * 0.42;
+          var sqY  = 1 - hitT * 0.30;
+          hg.lineStyle(4, 0x33ffaa, 0.18 + hitT * 0.48);
+          hg.strokeEllipse(b.x, b.y, (b.r + 16) * 2 * sqX, (b.r + 16) * 2 * sqY);
+          hg.fillStyle(0x11cc88, 0.80 + hitT * 0.20);
+          hg.fillEllipse(b.x, b.y, b.r * 2 * sqX, b.r * 2 * sqY);
+          hg.lineStyle(2, 0x0a8855, 0.90);
+          hg.strokeEllipse(b.x, b.y, b.r * 2 * sqX, b.r * 2 * sqY);
+          hg.fillStyle(0xaaffdd, 0.55);
+          hg.fillCircle(b.x - b.r * 0.28, b.y - b.r * 0.32, b.r * 0.22);
+          if (hitT > 0.05) {
+            hg.fillStyle(0xffffff, hitT * 0.78);
+            hg.fillCircle(b.x, b.y, b.r * 0.38 * sqX);
+          }
+        });
 
         // ── Moving walls ──────────────────────────────
         this._wallGfx.clear();
@@ -1299,6 +1390,15 @@ function launchPhaser() {
           if (i === playerSlot) {
             self.slimeGfx.lineStyle(2, 0xffffff, 0.42);
             self.slimeGfx.strokeEllipse(self._pos[i].x, floorY + 6 * scale, 64*scale*squishX, 18*scale);
+          }
+          // Grate slow indicator: purple pulse under slime
+          var onGrate = GRATES_S.some(function(gr) {
+            return self._pos[i].x >= gr.x && self._pos[i].x <= gr.x + gr.w &&
+                   self._pos[i].y >= gr.y && self._pos[i].y <= gr.y + gr.h;
+          });
+          if (onGrate) {
+            self.slimeGfx.lineStyle(2, 0x7744ee, 0.60);
+            self.slimeGfx.strokeEllipse(self._pos[i].x, floorY + 4 * scale, 72*scale*squishX, 22*scale);
           }
           self.nameLabels[i].setPosition(self._pos[i].x + leanX * 0.4, bodyY - 50 * scale).setText(p.username);
 

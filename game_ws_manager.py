@@ -13,10 +13,10 @@ FLOOR_T = 46
 FLOOR_B = 764
 PLAYER_SPEED      = 6
 PLAYER_R          = 24
-DART_R            = 7
-DART_SPEED        = 16
-DART_MAX_FLIGHT   = 28   # ticks before dart auto-sticks (~1.4 s)
-DART_SEEP_TICKS   = 18   # ticks dart stays stuck before disappearing (~0.9 s)
+DART_R          = 7
+DART_SPEED      = 16
+DART_RANGE      = 420    # fixed flight distance in pixels
+DART_SEEP_TICKS = 18     # ticks dart stays stuck before disappearing (~0.9 s)
 SLASH_R           = 60
 SLASH_COOLDOWN    = 40
 DASH_SPEED        = 14
@@ -99,6 +99,7 @@ class Dart:
         self.stuck       = False
         self.stuck_timer = DART_SEEP_TICKS
         self.age         = 0
+        self.dist        = 0.0   # pixels traveled so far
 
 
 class MovingWall:
@@ -397,12 +398,13 @@ def _step(room: GameRoom) -> None:
                 dead_darts.append(d)
             continue
 
-        d.age += 1
-        d.x   += d.dx
-        d.y   += d.dy
+        d.age  += 1
+        d.dist += DART_SPEED
+        d.x    += d.dx
+        d.y    += d.dy
 
-        # Auto-stick at max range
-        if d.age >= DART_MAX_FLIGHT:
+        # Auto-stick when fixed range reached
+        if d.dist >= DART_RANGE:
             d.stuck = True
             continue
 
@@ -439,6 +441,7 @@ def _step(room: GameRoom) -> None:
                     orig = room.players[d.owner]
                     d.owner = p.slot
                     d.age   = 0
+                    d.dist  = 0.0
                     if orig:
                         td = ((orig.x - p.x) ** 2 + (orig.y - p.y) ** 2) ** 0.5 or 1.0
                         d.dx = (orig.x - p.x) / td * DART_SPEED

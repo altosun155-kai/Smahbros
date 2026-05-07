@@ -1,4 +1,4 @@
-hat<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -468,6 +468,7 @@ var SLIME_BASE  = [0x4fc3f7, 0xff6b6b];
 var SLIME_DARK  = [0x1a7aaa, 0xc0392b];
 var HP_COLORS   = [0x4fc3f7, 0xff6b6b];
 var DART_ABILITY_COLORS = { normal: null, poison: 0x39ff14, explosive: 0xff4500 };
+var DART_RANGE_PX = 420;   // must match server DART_RANGE
 function getDartColor(d) { return DART_ABILITY_COLORS[d.ability] || SLIME_BASE[d.owner]; }
 
 var _pendingStates = [];
@@ -1037,6 +1038,13 @@ function launchPhaser() {
         this._crowned        = [false, false];
         this._dashWindup     = [0, 0];
         this._wasDashing     = [false, false];
+        this._mouseX = 720;
+        this._mouseY = 405;
+        this.input.on('pointermove', (ptr) => {
+          this._mouseX = ptr.x;
+          this._mouseY = ptr.y;
+        });
+
         this.input.on('pointerdown', (ptr) => {
           if (!ws || ws.readyState !== WebSocket.OPEN || playerSlot === null) return;
           if (ptr.rightButtonDown()) {
@@ -1302,6 +1310,49 @@ function launchPhaser() {
               .setAlpha(p.hp > 0 ? 0.82 : 0);
           }
         });
+
+        // ── Aim arrow (local player, dart ready) ──────
+        if (playerSlot !== null && state.dart_ready && state.dart_ready[playerSlot]) {
+          var meCx = this._pos[playerSlot].x;
+          var meCy = this._pos[playerSlot].y - 10;
+          var adx2 = this._mouseX - meCx;
+          var ady2 = this._mouseY - meCy;
+          var alen2 = Math.hypot(adx2, ady2) || 1;
+          var ndx2 = adx2 / alen2, ndy2 = ady2 / alen2;
+          var acol = SLIME_BASE[playerSlot];
+          var ang2 = Math.atan2(ndy2, ndx2);
+          var cosA2 = Math.cos(ang2), sinA2 = Math.sin(ang2);
+          var lx2 = meCx + ndx2 * DART_RANGE_PX;
+          var ly2 = meCy + ndy2 * DART_RANGE_PX;
+
+          // Dotted flight path
+          for (var ri = 0.14; ri < 0.95; ri += 0.10) {
+            this.slimeGfx.fillStyle(acol, 0.13);
+            this.slimeGfx.fillCircle(meCx + ndx2 * DART_RANGE_PX * ri,
+                                     meCy + ndy2 * DART_RANGE_PX * ri, 2.5);
+          }
+
+          // Landing reticle
+          this.slimeGfx.lineStyle(1.5, acol, 0.45);
+          this.slimeGfx.strokeCircle(lx2, ly2, 12);
+          this.slimeGfx.fillStyle(acol, 0.25);
+          this.slimeGfx.fillCircle(lx2, ly2, 5);
+
+          // Arrowhead orbiting the slime, pointing at cursor
+          var arD = 50;
+          var atp  = _rp(meCx, meCy, meCx + arD + 13, meCy,      cosA2, sinA2);
+          var alb  = _rp(meCx, meCy, meCx + arD - 3,  meCy + 9,  cosA2, sinA2);
+          var arb  = _rp(meCx, meCy, meCx + arD - 3,  meCy - 9,  cosA2, sinA2);
+          this.slimeGfx.fillStyle(acol, 0.90);
+          this.slimeGfx.fillTriangle(atp[0], atp[1], alb[0], alb[1], arb[0], arb[1]);
+
+          // Inner chevron for depth
+          var atp2 = _rp(meCx, meCy, meCx + arD - 3,  meCy,      cosA2, sinA2);
+          var alb2 = _rp(meCx, meCy, meCx + arD - 12, meCy + 6,  cosA2, sinA2);
+          var arb2 = _rp(meCx, meCy, meCx + arD - 12, meCy - 6,  cosA2, sinA2);
+          this.slimeGfx.fillStyle(acol, 0.38);
+          this.slimeGfx.fillTriangle(atp2[0], atp2[1], alb2[0], alb2[1], arb2[0], arb2[1]);
+        }
 
         // ── Darts: fly → stick → seep into ground ─────
         this.boomGfx.clear();

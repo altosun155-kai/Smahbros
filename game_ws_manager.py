@@ -5,6 +5,11 @@ from fastapi import WebSocket
 TICK_RATE         = 20
 ARENA_W           = 1440
 ARENA_H           = 810
+# Playable floor inner boundaries (match client FL/FR/FT/FB)
+FLOOR_L = 26
+FLOOR_R = 1414
+FLOOR_T = 46
+FLOOR_B = 764
 PLAYER_SPEED      = 6
 PLAYER_R          = 24
 BOOM_R            = 8
@@ -360,10 +365,14 @@ def _step(room: GameRoom) -> None:
         else:
             b.x += b.dx
             b.y += b.dy
-            if b.x <= 0 or b.x >= ARENA_W:
-                b.dx, b.returning = -b.dx, True
-            if b.y <= 0 or b.y >= ARENA_H:
-                b.dy, b.returning = -b.dy, True
+            if b.x < FLOOR_L:
+                b.x = FLOOR_L; b.dx = abs(b.dx)
+            elif b.x > FLOOR_R:
+                b.x = FLOOR_R; b.dx = -abs(b.dx)
+            if b.y < FLOOR_T:
+                b.y = FLOOR_T; b.dy = abs(b.dy)
+            elif b.y > FLOOR_B:
+                b.y = FLOOR_B; b.dy = -abs(b.dy)
 
         for p in room.players:
             if p is None or p.slot == b.owner:

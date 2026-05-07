@@ -12,6 +12,9 @@ BOOM_SPEED        = 8
 BOOM_RETURN_AFTER = 30
 SLASH_R           = 60
 SLASH_COOLDOWN    = 40
+DASH_SPEED        = 14
+DASH_FRAMES       = 10
+DASH_COOLDOWN     = 45
 
 # CPU per-difficulty: (throw_interval_ticks, chase_distance, dodge_range)
 _CPU_DIFF = {
@@ -33,6 +36,10 @@ class Player:
         self.inputs        = {"up": False, "down": False, "left": False, "right": False}
         self.slash_cooldown = 0
         self.slashing       = 0
+        self.dash_frames    = 0
+        self.dash_cooldown  = 0
+        self.dash_dx        = 0.0
+        self.dash_dy        = 0.0
         if is_cpu:
             throw_cd, chase_dist, dodge_r = _CPU_DIFF.get(cpu_diff, _CPU_DIFF["normal"])
             self.cpu_throw_cd    = throw_cd
@@ -124,7 +131,22 @@ def _cpu_ai(cpu: Player, room: GameRoom) -> None:
     dy   = human.y - cpu.y
     dist = (dx * dx + dy * dy) ** 0.5 or 1.0
 
-    # Dodge incoming boomerangs first
+    # Dash away from very close boomerangs
+    if cpu.dash_cooldown <= 0 and cpu.dash_frames <= 0:
+        for b in room.boomerangs:
+            if b.owner == cpu.slot:
+                continue
+            bdx = cpu.x - b.x
+            bdy = cpu.y - b.y
+            b_dist = (bdx * bdx + bdy * bdy) ** 0.5 or 1.0
+            if b_dist < cpu.cpu_dodge_range * 0.55:
+                cpu.dash_dx = bdx / b_dist * DASH_SPEED
+                cpu.dash_dy = bdy / b_dist * DASH_SPEED
+                cpu.dash_frames   = DASH_FRAMES
+                cpu.dash_cooldown = DASH_COOLDOWN
+                break
+
+    # Dodge incoming boomerangs first (movement-level)
     dodging = False
     for b in room.boomerangs:
         if b.owner == cpu.slot:
@@ -187,10 +209,15 @@ def _step(room: GameRoom) -> None:
     for p in room.players:
         if p is None:
             continue
-        if p.inputs["left"]:  p.x = max(PLAYER_R, p.x - PLAYER_SPEED)
-        if p.inputs["right"]: p.x = min(ARENA_W - PLAYER_R, p.x + PLAYER_SPEED)
-        if p.inputs["up"]:    p.y = max(PLAYER_R, p.y - PLAYER_SPEED)
-        if p.inputs["down"]:  p.y = min(ARENA_H - PLAYER_R, p.y + PLAYER_SPEED)
+        if p.dash_frames > 0:
+            p.x = max(PLAYER_R, min(ARENA_W - PLAYER_R, p.x + p.dash_dx))
+            p.y = max(PLAYER_R, min(ARENA_H - PLAYER_R, p.y + p.dash_dy))
+            p.dash_frames -= 1
+        else:
+            if p.inputs["left"]:  p.x = max(PLAYER_R, p.x - PLAYER_SPEED)
+            if p.inputs["right"]: p.x = min(ARENA_W - PLAYER_R, p.x + PLAYER_SPEED)
+            if p.inputs["up"]:    p.y = max(PLAYER_R, p.y - PLAYER_SPEED)
+            if p.inputs["down"]:  p.y = min(ARENA_H - PLAYER_R, p.y + PLAYER_SPEED)
 
     dead_booms: list[Boomerang] = []
     for b in room.boomerangs:
@@ -239,6 +266,7 @@ def _step(room: GameRoom) -> None:
             continue
         if p.slash_cooldown > 0: p.slash_cooldown -= 1
         if p.slashing > 0:       p.slashing -= 1
+        if p.dash_cooldown > 0:  p.dash_cooldown -= 1
 
 
 async def _tick_loop(room: GameRoom) -> None:
@@ -259,6 +287,7 @@ async def _tick_loop(room: GameRoom) -> None:
                 for b in room.boomerangs
             ],
             "slashing": [p.slashing > 0 if p else False for p in room.players],
+            "dashing":  [p.dash_frames > 0 if p else False for p in room.players],
             "phase":  room.phase,
             "winner": room.winner,
         }
@@ -292,6 +321,23 @@ def handle_message(room: GameRoom, slot: int, msg: dict) -> None:
         room.boomerangs.append(
             Boomerang(slot, p.x, p.y, dx / dist * BOOM_SPEED, dy / dist * BOOM_SPEED)
         )
+
+    elif msg.get("type") == "dash":
+        if p.dash_cooldown > 0 or p.dash_frames > 0:
+            return
+        dx = float(msg.get("dx", 0.0))
+        dy = float(msg.get("dy", 0.0))
+        if dx == 0 and dy == 0:
+            other = next((op for op in room.players if op and op.slot != slot), None)
+            if other:
+                dx, dy = other.x - p.x, other.y - p.y
+            else:
+                dx = 1.0
+        dist = (dx * dx + dy * dy) ** 0.5 or 1.0
+        p.dash_dx = dx / dist * DASH_SPEED
+        p.dash_dy = dy / dist * DASH_SPEED
+        p.dash_frames   = DASH_FRAMES
+        p.dash_cooldown = DASH_COOLDOWN
 
     elif msg.get("type") == "slash":
         if p.slash_cooldown > 0:

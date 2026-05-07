@@ -5,23 +5,38 @@ from fastapi import WebSocket
 TICK_RATE         = 20
 ARENA_W           = 800
 ARENA_H           = 600
-PLAYER_SPEED      = 4
+PLAYER_SPEED      = 6
 PLAYER_R          = 24
 BOOM_R            = 8
-BOOM_SPEED        = 8
-BOOM_RETURN_AFTER = 30
+BOOM_SPEED        = 11
+BOOM_RETURN_AFTER = 18
+BOOM_CHARGE_BONUS = 9    # max extra speed at full charge
+BOOM_CHARGE_RANGE = 16   # max extra return-ticks at full charge
+MAX_THROW_CHARGE  = 40   # ticks to reach full charge (~2 s)
 SLASH_R           = 60
 SLASH_COOLDOWN    = 40
 DASH_SPEED        = 14
 DASH_FRAMES       = 10
 DASH_COOLDOWN     = 45
 
-# CPU per-difficulty: (throw_interval_ticks, chase_distance, dodge_range)
+# CPU per-difficulty: (throw_interval_ticks, chase_distance, dodge_range, charge_ratio)
 _CPU_DIFF = {
-    "easy":   (110, 240, 70),
-    "normal": (55,  130, 115),
-    "hard":   (28,  75,  160),
+    "easy":   (110, 240, 70,  0.0),
+    "normal": (55,  130, 115, 0.4),
+    "hard":   (28,  75,  160, 0.9),
 }
+
+
+def _sweep_hit(px0: float, py0: float, px1: float, py1: float,
+               bx: float, by: float, r: float) -> bool:
+    """True if circle of radius r centred at (bx,by) intersects segment (px0,py0)→(px1,py1)."""
+    dx, dy = px1 - px0, py1 - py0
+    d2 = dx * dx + dy * dy
+    if d2 == 0:
+        return (bx - px0) ** 2 + (by - py0) ** 2 < r * r
+    t = max(0.0, min(1.0, ((bx - px0) * dx + (by - py0) * dy) / d2))
+    nx, ny = px0 + t * dx - bx, py0 + t * dy - by
+    return nx * nx + ny * ny < r * r
 
 
 class Player:
@@ -40,24 +55,30 @@ class Player:
         self.dash_cooldown  = 0
         self.dash_dx        = 0.0
         self.dash_dy        = 0.0
+        self.throw_charging = False
+        self.throw_charge   = 0
         if is_cpu:
-            throw_cd, chase_dist, dodge_r = _CPU_DIFF.get(cpu_diff, _CPU_DIFF["normal"])
-            self.cpu_throw_cd    = throw_cd
-            self.cpu_chase_dist  = chase_dist
-            self.cpu_dodge_range = dodge_r
-            self.cpu_throw_timer = throw_cd
+            throw_cd, chase_dist, dodge_r, charge_r = _CPU_DIFF.get(cpu_diff, _CPU_DIFF["normal"])
+            self.cpu_throw_cd     = throw_cd
+            self.cpu_chase_dist   = chase_dist
+            self.cpu_dodge_range  = dodge_r
+            self.cpu_charge_ratio = charge_r
+            self.cpu_throw_timer  = throw_cd
 
 
 class Boomerang:
-    def __init__(self, owner: int, x: float, y: float, dx: float, dy: float):
-        self.id        = uuid.uuid4().hex[:8]
-        self.owner     = owner
-        self.x         = x
-        self.y         = y
-        self.dx        = dx
-        self.dy        = dy
-        self.returning = False
-        self.age       = 0
+    def __init__(self, owner: int, x: float, y: float, dx: float, dy: float,
+                 speed: float = BOOM_SPEED, return_after: int = BOOM_RETURN_AFTER):
+        self.id           = uuid.uuid4().hex[:8]
+        self.owner        = owner
+        self.x            = x
+        self.y            = y
+        self.dx           = dx
+        self.dy           = dy
+        self.speed        = speed
+        self.return_after = return_after
+        self.returning    = False
+        self.age          = 0
 
 
 class GameRoom:
@@ -171,14 +192,18 @@ def _cpu_ai(cpu: Player, room: GameRoom) -> None:
             if dy >  20: cpu.inputs["down"]  = True
             elif dy < -20: cpu.inputs["up"]    = True
 
-    # Throw boomerang toward human
+    # Throw boomerang toward human (speed scales with cpu_charge_ratio)
     has_boom = any(b.owner == cpu.slot for b in room.boomerangs)
     if not has_boom:
         if cpu.cpu_throw_timer <= 0 and 60 < dist < 520:
             norm = dist or 1.0
+            cr = cpu.cpu_charge_ratio
+            spd = BOOM_SPEED + BOOM_CHARGE_BONUS * cr
+            rng = BOOM_RETURN_AFTER + int(BOOM_CHARGE_RANGE * cr)
             room.boomerangs.append(
                 Boomerang(cpu.slot, cpu.x, cpu.y,
-                          dx / norm * BOOM_SPEED, dy / norm * BOOM_SPEED)
+                          dx / norm * spd, dy / norm * spd,
+                          speed=spd, return_after=rng)
             )
             cpu.cpu_throw_timer = cpu.cpu_throw_cd
         else:
@@ -210,8 +235,31 @@ def _step(room: GameRoom) -> None:
         if p is None:
             continue
         if p.dash_frames > 0:
-            p.x = max(PLAYER_R, min(ARENA_W - PLAYER_R, p.x + p.dash_dx))
-            p.y = max(PLAYER_R, min(ARENA_H - PLAYER_R, p.y + p.dash_dy))
+            px0, py0 = p.x, p.y
+            px1 = max(PLAYER_R, min(ARENA_W - PLAYER_R, p.x + p.dash_dx))
+            py1 = max(PLAYER_R, min(ARENA_H - PLAYER_R, p.y + p.dash_dy))
+            for b in list(room.boomerangs):
+                if b.owner == p.slot:
+                    continue
+                # Predict boom end-of-tick position for simultaneous movement
+                if not b.returning:
+                    bx_end, by_end = b.x + b.dx, b.y + b.dy
+                else:
+                    own = room.players[b.owner]
+                    if own:
+                        td = ((own.x - b.x) ** 2 + (own.y - b.y) ** 2) ** 0.5 or 1.0
+                        bx_end = b.x + (own.x - b.x) / td * b.speed
+                        by_end = b.y + (own.y - b.y) / td * b.speed
+                    else:
+                        bx_end, by_end = b.x, b.y
+                if _sweep_hit(px0, py0, px1, py1, bx_end, by_end, PLAYER_R + BOOM_R):
+                    room.boomerangs.remove(b)
+                    p.hp -= 1
+                    if p.hp <= 0:
+                        room.phase  = "done"
+                        room.winner = b.owner
+                    break
+            p.x, p.y = px1, py1
             p.dash_frames -= 1
         else:
             if p.inputs["left"]:  p.x = max(PLAYER_R, p.x - PLAYER_SPEED)
@@ -222,7 +270,7 @@ def _step(room: GameRoom) -> None:
     dead_booms: list[Boomerang] = []
     for b in room.boomerangs:
         b.age += 1
-        if b.age >= BOOM_RETURN_AFTER:
+        if b.age >= b.return_after:
             b.returning = True
 
         if b.returning:
@@ -235,8 +283,8 @@ def _step(room: GameRoom) -> None:
             if dist < BOOM_R:
                 dead_booms.append(b)
                 continue
-            b.x += dx / dist * BOOM_SPEED
-            b.y += dy / dist * BOOM_SPEED
+            b.x += dx / dist * b.speed
+            b.y += dy / dist * b.speed
         else:
             b.x += b.dx
             b.y += b.dy
@@ -267,6 +315,8 @@ def _step(room: GameRoom) -> None:
         if p.slash_cooldown > 0: p.slash_cooldown -= 1
         if p.slashing > 0:       p.slashing -= 1
         if p.dash_cooldown > 0:  p.dash_cooldown -= 1
+        if p.throw_charging and not any(b.owner == p.slot for b in room.boomerangs):
+            p.throw_charge = min(p.throw_charge + 1, MAX_THROW_CHARGE)
 
 
 async def _tick_loop(room: GameRoom) -> None:
@@ -288,6 +338,8 @@ async def _tick_loop(room: GameRoom) -> None:
             ],
             "slashing": [p.slashing > 0 if p else False for p in room.players],
             "dashing":  [p.dash_frames > 0 if p else False for p in room.players],
+            "charge":   [round(p.throw_charge / MAX_THROW_CHARGE, 2) if p and not p.is_cpu else 0
+                         for p in room.players],
             "phase":  room.phase,
             "winner": room.winner,
         }
@@ -312,14 +364,24 @@ def handle_message(room: GameRoom, slot: int, msg: dict) -> None:
             if k in keys:
                 p.inputs[k] = bool(keys[k])
 
+    elif msg.get("type") == "charge_start":
+        if not any(b.owner == slot for b in room.boomerangs):
+            p.throw_charging = True
+
     elif msg.get("type") == "throw":
+        charge_ratio     = p.throw_charge / MAX_THROW_CHARGE
+        p.throw_charging = False
+        p.throw_charge   = 0
         if any(b.owner == slot for b in room.boomerangs):
             return
         dx   = float(msg.get("dx", 1.0))
         dy   = float(msg.get("dy", 0.0))
         dist = (dx * dx + dy * dy) ** 0.5 or 1.0
+        spd  = BOOM_SPEED + BOOM_CHARGE_BONUS * charge_ratio
+        rng  = BOOM_RETURN_AFTER + int(BOOM_CHARGE_RANGE * charge_ratio)
         room.boomerangs.append(
-            Boomerang(slot, p.x, p.y, dx / dist * BOOM_SPEED, dy / dist * BOOM_SPEED)
+            Boomerang(slot, p.x, p.y, dx / dist * spd, dy / dist * spd,
+                      speed=spd, return_after=rng)
         )
 
     elif msg.get("type") == "dash":

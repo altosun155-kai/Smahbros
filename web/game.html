@@ -475,9 +475,9 @@ function drawSlime(g, x, floorY, bodyY, idx, s, sx, sy, leanX) {
   var bx   = x + leanX;   // body center x
   var base = SLIME_BASE[idx];
   var dark = SLIME_DARK[idx];
-  // Shadow follows lean slightly, stays on floor
-  g.fillStyle(0x000000, 0.2);
-  g.fillEllipse(x + leanX * 0.3 + 3*s, floorY + 24*s, 52*s*sx, 13*s);
+  // Shadow: flat on the floor plane, clearly separate from the hovering body
+  g.fillStyle(0x000000, 0.3);
+  g.fillEllipse(x + leanX * 0.15 + 2*s, floorY + 6*s, 60*s*sx, 16*s);
   // Body (squished in motion direction)
   g.fillStyle(base, 1);
   g.fillEllipse(bx, bodyY + 6*s, 50*s*sx, 30*s*sy);
@@ -503,8 +503,8 @@ function drawSlime(g, x, floorY, bodyY, idx, s, sx, sy, leanX) {
 }
 
 function drawBoom(g, bx, by, col, returning) {
-  g.fillStyle(0x000000, 0.25);
-  g.fillEllipse(bx + 3, by + 11, 18, 5);
+  g.fillStyle(0x000000, 0.2);
+  g.fillEllipse(bx + 3, by + 20, 22, 6);
   g.fillStyle(col, 1);
   g.fillTriangle(bx, by - 10, bx - 7, by + 4, bx + 1, by + 1);
   g.fillTriangle(bx, by - 10, bx + 7, by + 4, bx - 1, by + 1);
@@ -524,16 +524,23 @@ function applyState(sc, state) {
     }
   });
 
-  // Slash flash: short-lived effect, draw immediately at server position
+  // Slash flash: centered on body (which hovers ~20px above physics y)
   sc.slashGfx.clear();
   (state.slashing || []).forEach(function(active, i) {
     if (!active || !state.players[i]) return;
     var p = state.players[i];
+    var cy = p.y - 20;
     sc.slashGfx.fillStyle(SLIME_BASE[i], 0.2);
-    sc.slashGfx.fillCircle(p.x, p.y, 62);
+    sc.slashGfx.fillCircle(p.x, cy, 62);
     sc.slashGfx.lineStyle(2, SLIME_BASE[i], 0.55);
-    sc.slashGfx.strokeCircle(p.x, p.y, 62);
+    sc.slashGfx.strokeCircle(p.x, cy, 62);
   });
+
+  // Charge bar (your own charge level)
+  if (state.charge && playerSlot !== null) {
+    var myCharge = state.charge[playerSlot] || 0;
+    sc.cooldownBar.displayWidth = Math.round(140 * myCharge);
+  }
 
   // Win/lose (only trigger once)
   if (state.phase === 'done' && state.winner !== null && !sc._gameOver) {
@@ -580,37 +587,57 @@ function launchPhaser() {
         scene = this;
         const g = this.add.graphics();
 
-        // ── Grass floor (perspective grid) ───────────
-        g.fillStyle(GRASS_A, 1);
+        // ── Grass floor ───────────────────────────────
+        // Far end (top) darker, near end (bottom) brighter — depth gradient
+        g.fillGradientStyle(0x3a6b3a, 0x3a6b3a, 0x74c874, 0x74c874);
         g.fillRect(FL, FT, FR - FL, FB - FT);
-        // Depth-fade strip at top (far end appears darker)
-        g.fillStyle(0x000000, 0.1);
-        g.fillRect(FL, FT, FR - FL, 28);
-        // Radial lines converging to vanishing point at top-center
+        // Perspective grid converging to vanishing point at top-center
         const VP = (FL + FR) / 2;
-        g.lineStyle(1, GRASS_B, 0.4);
-        for (let i = 0; i <= 9; i++) {
-          const bx = FL + (FR - FL) * i / 9;
+        g.lineStyle(1, 0x000000, 0.17);
+        for (let i = 0; i <= 14; i++) {
+          const bx = FL + (FR - FL) * i / 14;
           g.lineBetween(VP, FT, bx, FB);
         }
-        // Horizontal cross-sections — denser near bottom (perspective compression)
-        for (let j = 1; j <= 6; j++) {
-          const t = Math.pow(j / 7, 1.5);
+        for (let j = 1; j <= 9; j++) {
+          const t = Math.pow(j / 10, 1.35);
           const ty = FT + (FB - FT) * t;
           g.lineBetween(VP + (FL - VP) * t, ty, VP + (FR - VP) * t, ty);
         }
+        // Center court oval (depth reference landmark)
+        g.lineStyle(1.5, 0x000000, 0.13);
+        g.strokeEllipse((FL + FR) / 2, FT + (FB - FT) * 0.63, 200, 88);
+        // Atmospheric depth haze — fade black overlay from top down (far = hazier)
+        g.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.28, 0.28, 0, 0);
+        g.fillRect(FL, FT, FR - FL, (FB - FT) * 0.46);
+        // Near-side brightness boost — brighter strip at bottom edge of floor
+        g.fillGradientStyle(0xffffff, 0xffffff, 0xffffff, 0xffffff, 0, 0, 0.07, 0.07);
+        g.fillRect(FL, FB - (FB - FT) * 0.18, FR - FL, (FB - FT) * 0.18);
 
         // ── Top wall — top face + front face ─────────
         g.fillStyle(W_TOP, 1);
-        g.fillRect(0, 0, 800, FT - 16);
+        g.fillRect(0, 0, 800, FT - 18);
+        // Perspective seams on top-face converging toward VP
+        g.lineStyle(1, W_DEEP, 0.22);
+        for (let wx = 0; wx <= 800; wx += 80) g.lineBetween(wx, 0, VP, FT - 18);
         g.fillStyle(W_FRONT, 1);
-        g.fillRect(0, FT - 16, 800, 16);
+        g.fillRect(0, FT - 18, 800, 18);
+        // Bright lit top edge of the front face
+        g.lineStyle(2, W_EDGE, 0.85);
+        g.lineBetween(0, FT - 18, 800, FT - 18);
 
-        // ── Bottom wall (closer = thicker) ───────────
+        // ── Bottom wall (nearest surface — thickest, most detail) ─
+        // Bright top-lit edge (catches most light)
+        g.fillStyle(W_EDGE, 1);
+        g.fillRect(0, FB, 800, 4);
+        // Main front face
         g.fillStyle(W_FRONT, 1);
-        g.fillRect(0, FB, 800, 28);
+        g.fillRect(0, FB + 4, 800, 24);
+        // Underside bevel (in shadow)
         g.fillStyle(W_DEEP, 1);
         g.fillRect(0, FB + 28, 800, 600 - FB - 28);
+        // Block seam lines on bottom wall front face
+        g.lineStyle(1, W_DEEP, 0.4);
+        for (let wx = 0; wx < 800; wx += 80) g.lineBetween(wx, FB + 4, wx, FB + 28);
 
         // ── Side walls ────────────────────────────────
         g.fillStyle(W_FRONT, 1);
@@ -673,7 +700,10 @@ function launchPhaser() {
           }
         }
 
-        // ── Cooldown bar ──────────────────────────────
+        // ── Throw charge bar ──────────────────────────
+        this.add.text(400, 572, 'CHARGE', {
+          fontSize: '9px', color: '#a0a0c0', letterSpacing: 3,
+        }).setOrigin(0.5);
         this.cooldownBg  = this.add.rectangle(400, 582, 140, 6, 0x3a2860);
         this.cooldownBar = this.add.rectangle(330, 582, 0, 6, SLIME_BASE[playerSlot ?? 0]).setOrigin(0, 0.5);
 
@@ -691,15 +721,24 @@ function launchPhaser() {
         this._gameOver = false;
         this._vel  = [{ x: 0, y: 0 }, { x: 0, y: 0 }];
         this._hist = [[], []];
+        var _chargingThrow = false;
         this.input.on('pointerdown', (ptr) => {
           if (!ws || ws.readyState !== WebSocket.OPEN || playerSlot === null) return;
-          const me = this._pos[playerSlot];
           if (ptr.rightButtonDown()) {
+            _chargingThrow = true;
+            ws.send(JSON.stringify({ type: 'charge_start' }));
+          } else if (ptr.leftButtonDown()) {
+            ws.send(JSON.stringify({ type: 'slash' }));
+          }
+        });
+        this.input.on('pointerup', (ptr) => {
+          if (!_chargingThrow || !ws || ws.readyState !== WebSocket.OPEN || playerSlot === null) return;
+          if (!ptr.rightButtonDown()) {
+            _chargingThrow = false;
+            const me = this._pos[playerSlot];
             const dx = ptr.x - me.x, dy = ptr.y - me.y;
             const len = Math.hypot(dx, dy) || 1;
             ws.send(JSON.stringify({ type: 'throw', dx: dx / len, dy: dy / len }));
-          } else if (ptr.leftButtonDown()) {
-            ws.send(JSON.stringify({ type: 'slash' }));
           }
         });
 
@@ -742,19 +781,19 @@ function launchPhaser() {
           var normY  = Math.max(0, Math.min(1, (this._pos[i].y - FT) / (FB - FT)));
           var scale  = 0.82 + 0.18 * normY;
           var floorY = this._pos[i].y;
+          // Body hovers above the floor — this gap is the primary 2.5D depth cue
+          var bodyY  = floorY - 30 * scale;
 
           var dashing = state.dashing && state.dashing[i];
 
           // ── Squish: direction-based slide (no bounce) ─
           var squishX = 1, squishY = 1, leanX = 0;
           if (dashing && speed > 0.3) {
-            // Extreme stretch during dash — very flat in direction of motion
             var nx = vx / speed, ny = vy / speed;
             squishX = 1 + nx * nx * 0.65 - ny * ny * 0.35;
             squishY = 1 + ny * ny * 0.65 - nx * nx * 0.35;
             leanX   = nx * 14;
           } else if (speed > 0.15) {
-            // Gentle slide squish during normal movement
             var nx = vx / speed, ny = vy / speed;
             var str = Math.min(speed * 0.1, 0.18);
             squishX = 1 + nx * nx * str - ny * ny * str * 0.5;
@@ -762,31 +801,47 @@ function launchPhaser() {
             leanX   = nx * Math.min(speed, 1.5) * 5;
           }
 
-          // ── Dash trail: ghost blobs at history positions
+          // ── Charge ring: grows and brightens as throw charges ─
+          if (state.charge && state.charge[i] > 0.02) {
+            var cr = state.charge[i];
+            var ringR = (32 + cr * 22) * scale;
+            this.slimeGfx.lineStyle(2 + cr * 2, SLIME_BASE[i], 0.25 + cr * 0.6);
+            this.slimeGfx.strokeCircle(this._pos[i].x, bodyY - 4 * scale, ringR);
+            if (cr > 0.85) {
+              // Full charge: extra bright flash ring
+              this.slimeGfx.lineStyle(3, 0xffffff, (cr - 0.85) * 3.5);
+              this.slimeGfx.strokeCircle(this._pos[i].x, bodyY - 4 * scale, ringR + 5 * scale);
+            }
+          }
+
+          // ── Soft colored floor glow (contact pool of light)
+          this.slimeGfx.fillStyle(SLIME_BASE[i], 0.09);
+          this.slimeGfx.fillEllipse(this._pos[i].x + leanX * 0.1, floorY + 5 * scale, 78 * scale * squishX, 26 * scale);
+
+          // ── Dash trail: ghost blobs at history positions ─
           if (dashing) {
-            // Soft glow behind the slime
             this.slimeGfx.fillStyle(SLIME_BASE[i], 0.12);
-            this.slimeGfx.fillCircle(this._pos[i].x - leanX * 0.5, floorY, 68 * scale);
-            // Ghost blob trail (3 echoes, fading out)
+            this.slimeGfx.fillCircle(this._pos[i].x - leanX * 0.5, floorY - 10 * scale, 68 * scale);
             var trailA = [0.38, 0.2, 0.1];
             trailA.forEach((alpha, gi) => {
               var h = this._hist[i][gi + 2];
               if (!h) return;
               var ts = scale * (1 - gi * 0.05);
+              var trailBodyY = h.y - 30 * ts;
               this.slimeGfx.fillStyle(SLIME_BASE[i], alpha);
-              this.slimeGfx.fillEllipse(h.x, h.y + 6*ts, 50*ts*squishX, 28*ts*squishY);
-              this.slimeGfx.fillEllipse(h.x, h.y - 4*ts, 42*ts*squishX, 30*ts*squishY);
+              this.slimeGfx.fillEllipse(h.x, trailBodyY + 6*ts, 50*ts*squishX, 28*ts*squishY);
+              this.slimeGfx.fillEllipse(h.x, trailBodyY - 4*ts, 42*ts*squishX, 30*ts*squishY);
             });
           }
 
-          drawSlime(this.slimeGfx, this._pos[i].x, floorY, floorY, i, scale, squishX, squishY, leanX);
+          drawSlime(this.slimeGfx, this._pos[i].x, floorY, bodyY, i, scale, squishX, squishY, leanX);
 
-          // "You" indicator ring on ground plane
+          // "You" indicator ring on the floor plane (not on body)
           if (i === playerSlot) {
-            this.slimeGfx.lineStyle(2, 0xffffff, 0.38);
-            this.slimeGfx.strokeEllipse(this._pos[i].x, floorY + 24 * scale, 50*scale*squishX, 13*scale);
+            this.slimeGfx.lineStyle(2, 0xffffff, 0.42);
+            this.slimeGfx.strokeEllipse(this._pos[i].x, floorY + 5 * scale, 52*scale*squishX, 14*scale);
           }
-          this.nameLabels[i].setPosition(this._pos[i].x + leanX * 0.4, floorY - 38 * scale).setText(p.username);
+          this.nameLabels[i].setPosition(this._pos[i].x + leanX * 0.4, bodyY - 28 * scale).setText(p.username);
         });
 
         // ── Boomerangs: lerp each by id ───────────────

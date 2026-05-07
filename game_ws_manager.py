@@ -47,7 +47,7 @@ class Player:
         self.is_cpu   = is_cpu
         self.x        = 360.0 if slot == 0 else 1080.0
         self.y        = 405.0
-        self.hp            = 3
+        self.hp            = 1
         self.inputs        = {"up": False, "down": False, "left": False, "right": False}
         self.slash_cooldown = 0
         self.slashing       = 0

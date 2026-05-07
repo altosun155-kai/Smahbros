@@ -497,14 +497,18 @@ function drawBoom(g, bx, by, col, returning) {
 }
 
 function applyState(sc, state) {
+  // Store as interpolation target — rendering happens in update() at 60fps
+  sc._pState = state;
+
+  // HUD: HP pips update immediately (not position-dependent)
   state.players.forEach(function(p, i) {
     if (!p) return;
-    sc._pos[i] = { x: p.x, y: p.y };
-    sc.nameLabels[i].setPosition(p.x, p.y - 42).setText(p.username);
     for (var h = 0; h < 3; h++) {
       sc.hpPips[i][h].setAlpha(h < p.hp ? 1 : 0.15);
     }
   });
+
+  // Slash flash: short-lived effect, draw immediately at server position
   sc.slashGfx.clear();
   (state.slashing || []).forEach(function(active, i) {
     if (!active || !state.players[i]) return;
@@ -514,21 +518,10 @@ function applyState(sc, state) {
     sc.slashGfx.lineStyle(2, SLIME_BASE[i], 0.55);
     sc.slashGfx.strokeCircle(p.x, p.y, 62);
   });
-  sc.boomGfx.clear();
-  (state.boomerangs || []).forEach(function(b) {
-    drawBoom(sc.boomGfx, b.x, b.y, BOOM_COLORS[b.owner], b.returning);
-  });
-  sc.slimeGfx.clear();
-  state.players.forEach(function(p, i) {
-    if (!p) return;
-    sc._pos[i] = { x: p.x, y: p.y };
-    drawSlime(sc.slimeGfx, p.x, p.y, i);
-    if (i === playerSlot) {
-      sc.slimeGfx.lineStyle(2.5, 0xffffff, 0.45);
-      sc.slimeGfx.strokeEllipse(p.x, p.y + 25, 46, 12);
-    }
-  });
-  if (state.phase === 'done' && state.winner !== null) {
+
+  // Win/lose (only trigger once)
+  if (state.phase === 'done' && state.winner !== null && !sc._gameOver) {
+    sc._gameOver = true;
     showOverlay(sc, state.winner === playerSlot ? 'You Win!' : 'You Lose');
   }
 }
@@ -663,8 +656,11 @@ function launchPhaser() {
           stroke: '#000000', strokeThickness: 6,
         }).setOrigin(0.5).setVisible(false);
 
-        // ── Mouse input ───────────────────────────────
-        this._pos = [{ x: 200, y: 300 }, { x: 600, y: 300 }];
+        // ── Interpolation state ───────────────────────
+        this._pos      = [{ x: 200, y: 300 }, { x: 600, y: 300 }];
+        this._pState   = null;
+        this._boomPos  = {};
+        this._gameOver = false;
         this.input.on('pointerdown', (ptr) => {
           if (!ws || ws.readyState !== WebSocket.OPEN || playerSlot === null) return;
           const me = this._pos[playerSlot];
@@ -681,7 +677,36 @@ function launchPhaser() {
         while (_pendingStates.length) applyState(this, _pendingStates.shift());
       },
 
-      update() {},
+      update() {
+        var state = this._pState;
+        if (!state) return;
+        var LERP = 0.25;  // fraction to close per frame @ 60fps
+
+        // ── Slimes: lerp toward server position ───────
+        this.slimeGfx.clear();
+        state.players.forEach((p, i) => {
+          if (!p) return;
+          this._pos[i].x += (p.x - this._pos[i].x) * LERP;
+          this._pos[i].y += (p.y - this._pos[i].y) * LERP;
+          drawSlime(this.slimeGfx, this._pos[i].x, this._pos[i].y, i);
+          if (i === playerSlot) {
+            this.slimeGfx.lineStyle(2.5, 0xffffff, 0.45);
+            this.slimeGfx.strokeEllipse(this._pos[i].x, this._pos[i].y + 25, 46, 12);
+          }
+          this.nameLabels[i].setPosition(this._pos[i].x, this._pos[i].y - 42).setText(p.username);
+        });
+
+        // ── Boomerangs: lerp each by id ───────────────
+        this.boomGfx.clear();
+        (state.boomerangs || []).forEach((b) => {
+          if (!this._boomPos[b.id]) this._boomPos[b.id] = { x: b.x, y: b.y };
+          this._boomPos[b.id].x += (b.x - this._boomPos[b.id].x) * LERP;
+          this._boomPos[b.id].y += (b.y - this._boomPos[b.id].y) * LERP;
+          drawBoom(this.boomGfx, this._boomPos[b.id].x, this._boomPos[b.id].y, BOOM_COLORS[b.owner], b.returning);
+        });
+        var _live = new Set((state.boomerangs || []).map((b) => b.id));
+        Object.keys(this._boomPos).forEach((id) => { if (!_live.has(id)) delete this._boomPos[id]; });
+      },
     },
   });
 }

@@ -558,18 +558,22 @@
         <div class="stat-box">
           <div class="stat-label">Top Elo</div>
           <div class="stat-val cyan" id="stat-elo">—</div>
+          <div class="stat-sub" id="stat-elo-char"></div>
         </div>
         <div class="stat-box">
           <div class="stat-label">Best Rank</div>
           <div class="stat-val violet" id="stat-rank">—</div>
+          <div class="stat-sub" id="stat-rank-char"></div>
         </div>
         <div class="stat-box">
           <div class="stat-label">Total Wins</div>
           <div class="stat-val green" id="stat-wins">—</div>
+          <div class="stat-sub">all characters</div>
         </div>
         <div class="stat-box">
-          <div class="stat-label">Win Rate</div>
+          <div class="stat-label">Best Win%</div>
           <div class="stat-val yellow" id="stat-wr">—</div>
+          <div class="stat-sub" id="stat-wr-char"></div>
         </div>
       </div>
 
@@ -746,25 +750,39 @@ carCards.forEach(function(card) {
   var username = getUsername() || '—';
   document.getElementById('hub-username').textContent = username;
 
-  // Fetch leaderboard to get rank + stats for this user
-  apiGet('/leaderboard').then(function(lb) {
-    if (!lb || !Array.isArray(lb)) return;
-    var myEntry = null;
-    var myRank = null;
-    for (var i = 0; i < lb.length; i++) {
-      if (lb[i].username === username) {
-        myEntry = lb[i];
-        myRank  = i + 1;
-        break;
+  // Fetch per-character stats (same source as index.html)
+  apiGet('/characters/stats').then(function(stats) {
+    if (!Array.isArray(stats) || !stats.length) return;
+    var byElo = stats.slice().sort(function(a, b) { return (b.elo || 1000) - (a.elo || 1000); });
+    var top = byElo[0];
+    document.getElementById('stat-elo').textContent      = top.elo || 1000;
+    document.getElementById('stat-elo-char').textContent = top.character;
+    var totalWins = stats.reduce(function(acc, r) { return acc + (r.wins || 0); }, 0);
+    document.getElementById('stat-wins').textContent = totalWins;
+    var qualified = stats.filter(function(s) { return (s.wins || 0) + (s.losses || 0) >= 3; });
+    if (qualified.length) {
+      var best = qualified.slice().sort(function(a, b) {
+        return (b.wins / (b.wins + b.losses)) - (a.wins / (a.wins + a.losses));
+      })[0];
+      document.getElementById('stat-wr').textContent      = Math.round(best.wins / (best.wins + best.losses) * 100) + '%';
+      document.getElementById('stat-wr-char').textContent = best.character;
+    }
+    apiGet('/characters/stats/leaderboard/elo').then(function(lb) {
+      if (!lb || !lb.length) return;
+      var bestRank = Infinity, bestRankChar = '';
+      for (var si = 0; si < stats.length; si++) {
+        var rank = 1;
+        for (var li = 0; li < lb.length; li++) {
+          if (lb[li].username === username && lb[li].character === stats[si].character) continue;
+          if ((lb[li].elo || 1000) > (stats[si].elo || 1000)) rank++;
+        }
+        if (rank < bestRank) { bestRank = rank; bestRankChar = stats[si].character; }
       }
-    }
-    if (myEntry) {
-      document.getElementById('stat-elo').textContent  = myEntry.player_elo ? Math.round(myEntry.player_elo) : '—';
-      document.getElementById('stat-rank').textContent = '#' + myRank;
-      document.getElementById('stat-wins').textContent = myEntry.wins || '0';
-      var wr = myEntry.win_rate != null ? Math.round(myEntry.win_rate * 100) + '%' : '—';
-      document.getElementById('stat-wr').textContent   = wr;
-    }
+      if (bestRank !== Infinity) {
+        document.getElementById('stat-rank').textContent      = '#' + bestRank;
+        document.getElementById('stat-rank-char').textContent = bestRankChar;
+      }
+    }).catch(function() {});
   }).catch(function() {});
 
   // Fetch /users/me for badge + featured char

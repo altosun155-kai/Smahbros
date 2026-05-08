@@ -757,6 +757,10 @@ carCards.forEach(function(card) {
     var top = byElo[0];
     document.getElementById('stat-elo').textContent      = top.elo || 1000;
     document.getElementById('stat-elo-char').textContent = top.character;
+    // Show the top-elo character's art
+    var charImg = document.getElementById('hub-char-img');
+    charImg.src = charImgUrl(top.character);
+    charImg.alt = top.character;
     var totalWins = stats.reduce(function(acc, r) { return acc + (r.wins || 0); }, 0);
     document.getElementById('stat-wins').textContent = totalWins;
     var qualified = stats.filter(function(s) { return (s.wins || 0) + (s.losses || 0) >= 3; });
@@ -791,13 +795,7 @@ carCards.forEach(function(card) {
     var badge = me.featured_badge || 'Smash Veteran';
     document.getElementById('hub-badge').textContent = badge;
 
-    // Pick a character image — use avatar char if available, else random
-    var charName = me.avatar_char || null;
-    var FALLBACKS = ['Mario','Link','Pikachu','Samus','Fox','Kirby','Marth'];
-    if (!charName) charName = FALLBACKS[Math.floor(Math.random() * FALLBACKS.length)];
-    var img = document.getElementById('hub-char-img');
-    img.src = charImgUrl(charName);
-    img.alt = charName;
+    // Character image is set by the stats fetch above; nothing extra needed here
   }).catch(function() {
     document.getElementById('hub-badge').textContent = 'Smash Veteran';
   });

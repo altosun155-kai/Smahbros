@@ -884,24 +884,22 @@ function launchPhaser() {
 
   // Arena geometry (matches server physics boundary)
   const FL = 26, FR = 1414, FT = 46, FB = 764;
-  const WALL_H = 46;   // wall face height in screen px
-  const LEDGE  = 14;   // world-unit depth of wall ledge cap
+  const WALL_H = 62;   // wall face height in screen px
+  const LEDGE  = 12;   // world-unit depth of wall ledge cap
 
-  // Wall palette — 4 distinct face shades + cap + crevice + edge
-  const W_CAP   = 0xf2eeff;  // ledge top face — most lit
-  const W_LEFT  = 0x7050b4;  // x=FL side face
-  const W_BACK  = 0x4e3a94;  // y=FT back face — darkest
-  const W_RIGHT = 0x8a68c4;  // x=FR near-right face
-  const W_NEAR  = 0xa884d4;  // y=FB near-front face — brightest face
-  const W_DEEP  = 0x120c30;  // crevice shadow
-  const W_EDGE  = 0xfcf8ff;  // crisp edge highlight
+  // Glass-neon wall palette
+  const W_GLASS = 0x06021a;  // dark glass fill for all wall faces
+  const W_GLOW  = 0xaa66ff;  // neon glow color (purple-violet)
+  const W_CAP   = 0xfff8ff;  // ledge cap / rim top
+  const W_DEEP  = 0x030110;  // crevice shadow
+  const W_EDGE  = 0xfff4ff;  // core bright edge
 
   // Floor palette
-  const F_BG   = 0x070418;
-  const F_DARK = 0x0e082a;
-  const F_MID  = 0x1a1238;
-  const F_LINE = 0x2e1e98;
-  const F_GLOW = 0x5840bc;
+  const F_BG   = 0x050318;
+  const F_DARK = 0x0a062a;
+  const F_MID  = 0x140e34;
+  const F_HEX  = 0x2a1880;  // hex tile line
+  const F_GLOW = 0x5038b0;  // center accent
 
   return new Phaser.Game({
     type: Phaser.AUTO,
@@ -934,95 +932,97 @@ function launchPhaser() {
         const lR1 = w2s(FR-LEDGE, FT), lR2 = w2s(FR-LEDGE, FB);
         const lN1 = w2s(FL, FB-LEDGE), lN2 = w2s(FR, FB-LEDGE);
 
+        // Bloom helper: 3-layer neon glow line
+        function glow(gfx, x1,y1,x2,y2) {
+          gfx.lineStyle(18, W_GLOW, 0.07); gfx.lineBetween(x1,y1,x2,y2);
+          gfx.lineStyle(7,  W_GLOW, 0.28); gfx.lineBetween(x1,y1,x2,y2);
+          gfx.lineStyle(1.5, W_EDGE, 0.92); gfx.lineBetween(x1,y1,x2,y2);
+        }
+        // Glowing corner post (vertical)
+        function post(gfx, x, y) {
+          gfx.lineStyle(20, W_GLOW, 0.10); gfx.lineBetween(x, y, x, y-WALL_H);
+          gfx.lineStyle(9,  W_GLOW, 0.35); gfx.lineBetween(x, y, x, y-WALL_H);
+          gfx.lineStyle(2.5, W_EDGE, 1.0); gfx.lineBetween(x, y, x, y-WALL_H);
+        }
+
         // ── 1. Background void ──────────────────────────────────────────
         g.fillStyle(F_BG, 1);
         g.fillRect(0, 0, 1440, 810);
 
-        // ── 2. Far-left wall face (world x=FL, cTL→cBL) ────────────────
-        g.fillStyle(W_LEFT, 1);
+        // ── 2. Far-left wall face (dark glass) ─────────────────────────
+        g.fillStyle(W_GLASS, 0.88);
         g.fillPoints([cTL, cBL,
           {x:cBL.x,y:cBL.y-WALL_H}, {x:cTL.x,y:cTL.y-WALL_H}], true);
-        g.lineStyle(1, W_DEEP, 0.18);
+        // Faint internal reflection lines
+        g.lineStyle(1, W_GLOW, 0.08);
         for (let h = 18; h < WALL_H; h += 18)
           g.lineBetween(cTL.x, cTL.y-h, cBL.x, cBL.y-h);
-        // Ledge cap on top of left wall
-        g.fillStyle(W_CAP, 0.88);
+        // Ledge cap
+        g.fillStyle(W_CAP, 0.12);
         g.fillPoints([
-          {x:cTL.x,y:cTL.y-WALL_H}, {x:cBL.x,y:cBL.y-WALL_H},
-          {x:lL2.x,y:lL2.y-WALL_H}, {x:lL1.x,y:lL1.y-WALL_H}
+          {x:cTL.x,y:cTL.y-WALL_H},{x:cBL.x,y:cBL.y-WALL_H},
+          {x:lL2.x,y:lL2.y-WALL_H},{x:lL1.x,y:lL1.y-WALL_H}
         ], true);
 
-        // ── 3. Far-back wall face (world y=FT, cTL→cTR) ────────────────
-        g.fillStyle(W_BACK, 1);
+        // ── 3. Far-back wall face (dark glass) ─────────────────────────
+        g.fillStyle(W_GLASS, 0.78);
         g.fillPoints([cTL, cTR,
-          {x:cTR.x,y:cTR.y-WALL_H}, {x:cTL.x,y:cTL.y-WALL_H}], true);
-        g.lineStyle(1, W_DEEP, 0.15);
+          {x:cTR.x,y:cTR.y-WALL_H},{x:cTL.x,y:cTL.y-WALL_H}], true);
+        g.lineStyle(1, W_GLOW, 0.06);
         for (let h = 18; h < WALL_H; h += 18)
           g.lineBetween(cTL.x, cTL.y-h, cTR.x, cTR.y-h);
-        // Ledge cap on top of back wall
-        g.fillStyle(W_CAP, 0.82);
+        // Ledge cap
+        g.fillStyle(W_CAP, 0.10);
         g.fillPoints([
-          {x:cTL.x,y:cTL.y-WALL_H}, {x:cTR.x,y:cTR.y-WALL_H},
-          {x:lB2.x,y:lB2.y-WALL_H}, {x:lB1.x,y:lB1.y-WALL_H}
+          {x:cTL.x,y:cTL.y-WALL_H},{x:cTR.x,y:cTR.y-WALL_H},
+          {x:lB2.x,y:lB2.y-WALL_H},{x:lB1.x,y:lB1.y-WALL_H}
         ], true);
 
-        // ── 4. Far wall top-edge highlights ────────────────────────────
-        g.lineStyle(2.5, W_EDGE, 0.80);
-        g.lineBetween(cTL.x, cTL.y-WALL_H, cBL.x, cBL.y-WALL_H);
-        g.lineBetween(cTL.x, cTL.y-WALL_H, cTR.x, cTR.y-WALL_H);
-        // Corner post at cTL
-        g.lineStyle(2, W_EDGE, 0.60);
-        g.lineBetween(cTL.x, cTL.y, cTL.x, cTL.y-WALL_H);
+        // ── 4. Far wall neon rim + corner posts ────────────────────────
+        glow(g, cTL.x, cTL.y-WALL_H, cBL.x, cBL.y-WALL_H);  // left wall top
+        glow(g, cTL.x, cTL.y-WALL_H, cTR.x, cTR.y-WALL_H);  // back wall top
+        post(g, cTL.x, cTL.y);   // far corner post
 
         // ── 5. Floor diamond ────────────────────────────────────────────
         g.fillGradientStyle(F_DARK, F_DARK, F_MID, F_MID);
         g.fillPoints([cTL, cTR, cBR, cBL], true);
 
-        // ── 6. Floor/wall seam lines ────────────────────────────────────
-        g.lineStyle(1.5, W_EDGE, 0.28);
-        g.lineBetween(cTL.x, cTL.y, cBL.x, cBL.y);
-        g.lineBetween(cTL.x, cTL.y, cTR.x, cTR.y);
-
-        // ── 7. Isometric tile grid ──────────────────────────────────────
-        const TW = 90, TH = 70;
-        g.lineStyle(1, F_LINE, 0.13);
-        for (let wx = FL; wx <= FR; wx += TW) {
-          const t = w2s(wx, FT), b = w2s(wx, FB);
-          g.lineBetween(t.x, t.y, b.x, b.y);
-        }
-        for (let wy = FT; wy <= FB; wy += TH) {
-          const l = w2s(FL, wy), r = w2s(FR, wy);
-          g.lineBetween(l.x, l.y, r.x, r.y);
-        }
-        // Subtle checkerboard
-        for (let row = 0; row < Math.ceil((FB-FT)/TH); row++) {
-          for (let col = 0; col < Math.ceil((FR-FL)/TW); col++) {
-            if ((row+col)%2 === 0) {
-              const p1=w2s(FL+col*TW,     FT+row*TH);
-              const p2=w2s(FL+col*TW+TW,  FT+row*TH);
-              const p3=w2s(FL+col*TW+TW,  FT+row*TH+TH);
-              const p4=w2s(FL+col*TW,     FT+row*TH+TH);
-              g.fillStyle(0xffffff, 0.022);
-              g.fillPoints([p1,p2,p3,p4], true);
+        // ── 6. Hexagonal tile grid ──────────────────────────────────────
+        const HEX_R  = 55;
+        const HEX_DX = HEX_R * 1.5;
+        const HEX_DY = HEX_R * Math.sqrt(3);
+        g.lineStyle(1, F_HEX, 0.40);
+        for (let col = 0; col * HEX_DX + FL <= FR + HEX_R; col++) {
+          for (let row = -1; FT + row * HEX_DY <= FB + HEX_R; row++) {
+            const cx = FL + col * HEX_DX;
+            const cy = FT + row * HEX_DY + (col % 2 ? HEX_DY * 0.5 : 0);
+            if (cx < FL - HEX_R || cx > FR + HEX_R || cy < FT - HEX_R || cy > FB + HEX_R) continue;
+            const verts = [];
+            for (let v = 0; v < 6; v++) {
+              const a = v * Math.PI / 3;
+              verts.push(w2s(
+                Math.max(FL, Math.min(FR, cx + HEX_R * Math.cos(a))),
+                Math.max(FT, Math.min(FB, cy + HEX_R * Math.sin(a)))
+              ));
             }
+            g.strokePoints(verts, true);
           }
         }
 
-        // ── 8. Center rings + crosshairs ────────────────────────────────
-        const cI = [w2s(ISO_WCX+175,ISO_WCY), w2s(ISO_WCX,ISO_WCY+175),
-                    w2s(ISO_WCX-175,ISO_WCY), w2s(ISO_WCX,ISO_WCY-175)];
-        const cO = [w2s(ISO_WCX+360,ISO_WCY), w2s(ISO_WCX,ISO_WCY+360),
-                    w2s(ISO_WCX-360,ISO_WCY), w2s(ISO_WCX,ISO_WCY-360)];
-        g.lineStyle(2.5, F_GLOW, 0.50);
+        // ── 7. Floor edge seam + center glow ───────────────────────────
+        g.lineStyle(2, W_GLOW, 0.22);
+        g.lineBetween(cTL.x, cTL.y, cBL.x, cBL.y);
+        g.lineBetween(cTL.x, cTL.y, cTR.x, cTR.y);
+        // Center accent ring
+        const cI = [w2s(ISO_WCX+200,ISO_WCY), w2s(ISO_WCX,ISO_WCY+200),
+                    w2s(ISO_WCX-200,ISO_WCY), w2s(ISO_WCX,ISO_WCY-200)];
+        g.lineStyle(3, F_GLOW, 0.40);
         g.strokePoints(cI, true);
-        g.lineStyle(1, F_GLOW, 0.18);
-        g.strokePoints(cO, true);
-        g.lineStyle(1, F_GLOW, 0.10);
-        g.lineBetween(cI[0].x,cI[0].y, cI[2].x,cI[2].y);
-        g.lineBetween(cI[1].x,cI[1].y, cI[3].x,cI[3].y);
+        g.lineStyle(10, F_GLOW, 0.06);
+        g.strokePoints(cI, true);
 
-        // ── 9. Depth haze (far corner darker) ──────────────────────────
-        g.fillGradientStyle(0x000000,0x000000,0x000000,0x000000, 0.32,0.08,0,0);
+        // ── 8. Depth haze (far corner darker) ──────────────────────────
+        g.fillGradientStyle(0x000000,0x000000,0x000000,0x000000, 0.28,0.06,0,0);
         g.fillPoints([cTL, cTR, cBR, cBL], true);
 
         // ── Dynamic layers (order = depth order) ──────
@@ -1037,50 +1037,46 @@ function launchPhaser() {
         this._nearWallGfx = this.add.graphics();
         const nw = this._nearWallGfx;
 
-        // Near-right wall face (world x=FR, cTR→cBR)
-        nw.fillStyle(W_RIGHT, 1);
+        // Near-right wall face (dark glass, world x=FR)
+        nw.fillStyle(W_GLASS, 0.88);
         nw.fillPoints([cTR, cBR,
-          {x:cBR.x,y:cBR.y-WALL_H}, {x:cTR.x,y:cTR.y-WALL_H}], true);
-        nw.lineStyle(1, W_DEEP, 0.18);
+          {x:cBR.x,y:cBR.y-WALL_H},{x:cTR.x,y:cTR.y-WALL_H}], true);
+        nw.lineStyle(1, W_GLOW, 0.08);
         for (let h = 18; h < WALL_H; h += 18)
           nw.lineBetween(cTR.x, cTR.y-h, cBR.x, cBR.y-h);
-        // Ledge cap
-        nw.fillStyle(W_CAP, 0.90);
+        nw.fillStyle(W_CAP, 0.12);
         nw.fillPoints([
-          {x:cTR.x,y:cTR.y-WALL_H}, {x:cBR.x,y:cBR.y-WALL_H},
-          {x:lR2.x,y:lR2.y-WALL_H}, {x:lR1.x,y:lR1.y-WALL_H}
+          {x:cTR.x,y:cTR.y-WALL_H},{x:cBR.x,y:cBR.y-WALL_H},
+          {x:lR2.x,y:lR2.y-WALL_H},{x:lR1.x,y:lR1.y-WALL_H}
         ], true);
 
-        // Near-front wall face (world y=FB, cBL→cBR) — brightest, closest to viewer
-        nw.fillStyle(W_NEAR, 1);
+        // Near-front wall face (dark glass, world y=FB)
+        nw.fillStyle(W_GLASS, 0.92);
         nw.fillPoints([cBL, cBR,
-          {x:cBR.x,y:cBR.y-WALL_H}, {x:cBL.x,y:cBL.y-WALL_H}], true);
-        nw.lineStyle(1, W_DEEP, 0.20);
+          {x:cBR.x,y:cBR.y-WALL_H},{x:cBL.x,y:cBL.y-WALL_H}], true);
+        nw.lineStyle(1, W_GLOW, 0.10);
         for (let h = 18; h < WALL_H; h += 18)
           nw.lineBetween(cBL.x, cBL.y-h, cBR.x, cBR.y-h);
-        // Ledge cap
-        nw.fillStyle(W_CAP, 0.95);
+        nw.fillStyle(W_CAP, 0.14);
         nw.fillPoints([
-          {x:cBL.x,y:cBL.y-WALL_H}, {x:cBR.x,y:cBR.y-WALL_H},
-          {x:lN2.x,y:lN2.y-WALL_H}, {x:lN1.x,y:lN1.y-WALL_H}
+          {x:cBL.x,y:cBL.y-WALL_H},{x:cBR.x,y:cBR.y-WALL_H},
+          {x:lN2.x,y:lN2.y-WALL_H},{x:lN1.x,y:lN1.y-WALL_H}
         ], true);
 
-        // Inner ledge shadow lines
-        nw.lineStyle(1, W_DEEP, 0.30);
-        nw.lineBetween(lR1.x, lR1.y-WALL_H, lR2.x, lR2.y-WALL_H);
-        nw.lineBetween(lN1.x, lN1.y-WALL_H, lN2.x, lN2.y-WALL_H);
+        // Neon bloom rims on near wall tops
+        glow(nw, cBL.x, cBL.y-WALL_H, cBR.x, cBR.y-WALL_H);  // front wall top
+        glow(nw, cTR.x, cTR.y-WALL_H, cBR.x, cBR.y-WALL_H);  // right wall top
 
-        // Top-edge highlights (bright rim on each wall top)
-        nw.lineStyle(2.5, W_EDGE, 0.92);
-        nw.lineBetween(cBL.x, cBL.y-WALL_H, cBR.x, cBR.y-WALL_H);
-        nw.lineBetween(cTR.x, cTR.y-WALL_H, cBR.x, cBR.y-WALL_H);
+        // Corner posts: cBL, cTR, cBR
+        post(nw, cBL.x, cBL.y);
+        post(nw, cTR.x, cTR.y);
+        post(nw, cBR.x, cBR.y);
 
-        // Corner post at cBR — vertical edge where both near walls meet
-        nw.lineStyle(3, W_EDGE, 0.95);
-        nw.lineBetween(cBR.x, cBR.y, cBR.x, cBR.y-WALL_H);
-
-        // Floor seam lines
-        nw.lineStyle(1.5, W_EDGE, 0.32);
+        // Floor seam glow
+        nw.lineStyle(6, W_GLOW, 0.12);
+        nw.lineBetween(cBL.x, cBL.y, cBR.x, cBR.y);
+        nw.lineBetween(cTR.x, cTR.y, cBR.x, cBR.y);
+        nw.lineStyle(1.5, W_EDGE, 0.35);
         nw.lineBetween(cBL.x, cBL.y, cBR.x, cBR.y);
         nw.lineBetween(cTR.x, cTR.y, cBR.x, cBR.y);
 
@@ -1302,19 +1298,21 @@ function launchPhaser() {
           var wBL = w2s(wx,       y1);
           var WH  = 28;
           var wg  = this._wallGfx;
-          // Top face (iso roof)
-          wg.fillStyle(W_CAP, 1);
+          // Top cap (bright neon rim)
+          wg.fillStyle(W_CAP, 0.18);
           wg.fillPoints([{x:wTL.x,y:wTL.y-WH},{x:wTR.x,y:wTR.y-WH},
                          {x:wBR.x,y:wBR.y-WH},{x:wBL.x,y:wBL.y-WH}], true);
-          // Near face (bottom iso edge)
-          wg.fillStyle(W_NEAR, 1);
+          // Near face (dark glass)
+          wg.fillStyle(W_GLASS, 0.92);
           wg.fillPoints([wBL, wBR,
                          {x:wBR.x,y:wBR.y-WH}, {x:wBL.x,y:wBL.y-WH}], true);
-          wg.lineStyle(1, W_DEEP, 0.38);
-          for (var ty = 8; ty < WH; ty += 10)
+          wg.lineStyle(1, W_GLOW, 0.10);
+          for (var ty = 10; ty < WH; ty += 10)
             wg.lineBetween(wBL.x, wBL.y - ty, wBR.x, wBR.y - ty);
-          wg.lineStyle(2, W_EDGE, 0.88);
-          wg.lineBetween(wBL.x, wBL.y - WH, wBR.x, wBR.y - WH);
+          // Bloom top edge
+          wg.lineStyle(10, W_GLOW, 0.12); wg.lineBetween(wBL.x,wBL.y-WH,wBR.x,wBR.y-WH);
+          wg.lineStyle(4, W_GLOW, 0.35);  wg.lineBetween(wBL.x,wBL.y-WH,wBR.x,wBR.y-WH);
+          wg.lineStyle(1.5, W_EDGE, 0.92); wg.lineBetween(wBL.x,wBL.y-WH,wBR.x,wBR.y-WH);
         });
 
         // ── _splatGfx: walk trail + splats + particles ─

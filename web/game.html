@@ -883,24 +883,29 @@ function _showCountdown(sc) {
 function launchPhaser() {
 
   // Arena geometry (matches server physics boundary)
-  const FL = 26, FR = 1414, FT = 46, FB = 764;   // floor left/right/top/bottom
-  const WALL_H = 90;    // screen-space height of wall slab faces
+  const FL = 26, FR = 1414, FT = 46, FB = 764;
+  const WALL_H = 46;   // wall face height in screen px
+  const LEDGE  = 14;   // world-unit depth of wall ledge cap
 
-  // Wall palette
-  const W_TOP   = 0xb09ae8;   // top face of wall block (light purple)
-  const W_FRONT = 0x7a55cc;   // front face
-  const W_DEEP  = 0x4a3090;   // inner shadow / corner
-  const W_EDGE  = 0x9070d8;   // bright edge line
+  // Wall palette — 4 distinct face shades + cap + crevice + edge
+  const W_CAP   = 0xf2eeff;  // ledge top face — most lit
+  const W_LEFT  = 0x7050b4;  // x=FL side face
+  const W_BACK  = 0x4e3a94;  // y=FT back face — darkest
+  const W_RIGHT = 0x8a68c4;  // x=FR near-right face
+  const W_NEAR  = 0xa884d4;  // y=FB near-front face — brightest face
+  const W_DEEP  = 0x120c30;  // crevice shadow
+  const W_EDGE  = 0xfcf8ff;  // crisp edge highlight
 
   // Floor palette
-  const F_BASE = 0x150b28;   // deep dark base
-  const F_MID  = 0x221540;   // mid-depth
-  const F_LINE = 0x5535a0;   // tile line glow
-  const F_GLOW = 0x7755d8;   // accent glow
+  const F_BG   = 0x070418;
+  const F_DARK = 0x0e082a;
+  const F_MID  = 0x1a1238;
+  const F_LINE = 0x2e1e98;
+  const F_GLOW = 0x5840bc;
 
   return new Phaser.Game({
     type: Phaser.AUTO,
-    backgroundColor: '#1a1025',
+    backgroundColor: '#070418',
     parent: 'game-wrap',
     input: { mouse: { preventDefaultDown: true } },
     scale: {
@@ -917,91 +922,107 @@ function launchPhaser() {
         scene = this;
         const g = this.add.graphics();
 
-        // ── Isometric arena: diamond floor + parallelogram walls ──
-        // Pre-compute the four world-corner screen positions
-        const cTL = w2s(FL, FT);   // top-left world    → left-top screen  (≈500, 60)
-        const cTR = w2s(FR, FT);   // top-right world   → right screen      (≈1410,515)
-        const cBR = w2s(FR, FB);   // bottom-right world → bottom screen    (≈940, 750)
-        const cBL = w2s(FL, FB);   // bottom-left world  → left screen      (≈30,  295)
-        const cCT = w2s(ISO_WCX, ISO_WCY);   // world center → screen (720, 405)
+        // ── Pre-compute all screen-space corner positions ─────────────
+        const cTL = w2s(FL, FT);
+        const cTR = w2s(FR, FT);
+        const cBR = w2s(FR, FB);
+        const cBL = w2s(FL, FB);
 
-        // ── Background — fills everything outside the diamond ──
-        g.fillStyle(W_DEEP, 1);
+        // Ledge inset corners (LEDGE world units in from each wall edge)
+        const lL1 = w2s(FL+LEDGE, FT), lL2 = w2s(FL+LEDGE, FB);
+        const lB1 = w2s(FL, FT+LEDGE), lB2 = w2s(FR, FT+LEDGE);
+        const lR1 = w2s(FR-LEDGE, FT), lR2 = w2s(FR-LEDGE, FB);
+        const lN1 = w2s(FL, FB-LEDGE), lN2 = w2s(FR, FB-LEDGE);
+
+        // ── 1. Background void ──────────────────────────────────────────
+        g.fillStyle(F_BG, 1);
         g.fillRect(0, 0, 1440, 810);
 
-        // ── Far wall faces (behind floor, draw first) ─
-        // Left face: world x=FL edge (from cTL to cBL), rises WALL_H px upward
-        g.fillStyle(W_TOP, 0.9);
+        // ── 2. Far-left wall face (world x=FL, cTL→cBL) ────────────────
+        g.fillStyle(W_LEFT, 1);
         g.fillPoints([cTL, cBL,
-                      {x:cBL.x, y:cBL.y-WALL_H}, {x:cTL.x, y:cTL.y-WALL_H}], true);
-        g.lineStyle(1, W_DEEP, 0.30);
-        for (let si = 0; si < WALL_H; si += 22) {
-          g.lineBetween(cTL.x, cTL.y-si, cBL.x, cBL.y-si);
-        }
-        // Top face: world y=FT edge (from cTL to cTR), rises WALL_H px upward
-        g.fillStyle(W_FRONT, 0.88);
-        g.fillPoints([cTL, cTR,
-                      {x:cTR.x, y:cTR.y-WALL_H}, {x:cTL.x, y:cTL.y-WALL_H}], true);
-        g.lineStyle(1, W_DEEP, 0.28);
-        for (let si = 0; si < WALL_H; si += 22) {
-          g.lineBetween(cTL.x, cTL.y-si, cTR.x, cTR.y-si);
-        }
-        // Far wall edge highlights
-        g.lineStyle(2, W_EDGE, 0.75);
-        g.lineBetween(cTL.x, cTL.y, cTR.x, cTR.y);
-        g.lineBetween(cTL.x, cTL.y, cBL.x, cBL.y);
+          {x:cBL.x,y:cBL.y-WALL_H}, {x:cTL.x,y:cTL.y-WALL_H}], true);
+        g.lineStyle(1, W_DEEP, 0.18);
+        for (let h = 18; h < WALL_H; h += 18)
+          g.lineBetween(cTL.x, cTL.y-h, cBL.x, cBL.y-h);
+        // Ledge cap on top of left wall
+        g.fillStyle(W_CAP, 0.88);
+        g.fillPoints([
+          {x:cTL.x,y:cTL.y-WALL_H}, {x:cBL.x,y:cBL.y-WALL_H},
+          {x:lL2.x,y:lL2.y-WALL_H}, {x:lL1.x,y:lL1.y-WALL_H}
+        ], true);
 
-        // ── Floor diamond fill (gradient far→near) ───
-        g.fillGradientStyle(F_BASE, F_MID, F_MID, F_MID);
+        // ── 3. Far-back wall face (world y=FT, cTL→cTR) ────────────────
+        g.fillStyle(W_BACK, 1);
+        g.fillPoints([cTL, cTR,
+          {x:cTR.x,y:cTR.y-WALL_H}, {x:cTL.x,y:cTL.y-WALL_H}], true);
+        g.lineStyle(1, W_DEEP, 0.15);
+        for (let h = 18; h < WALL_H; h += 18)
+          g.lineBetween(cTL.x, cTL.y-h, cTR.x, cTR.y-h);
+        // Ledge cap on top of back wall
+        g.fillStyle(W_CAP, 0.82);
+        g.fillPoints([
+          {x:cTL.x,y:cTL.y-WALL_H}, {x:cTR.x,y:cTR.y-WALL_H},
+          {x:lB2.x,y:lB2.y-WALL_H}, {x:lB1.x,y:lB1.y-WALL_H}
+        ], true);
+
+        // ── 4. Far wall top-edge highlights ────────────────────────────
+        g.lineStyle(2.5, W_EDGE, 0.80);
+        g.lineBetween(cTL.x, cTL.y-WALL_H, cBL.x, cBL.y-WALL_H);
+        g.lineBetween(cTL.x, cTL.y-WALL_H, cTR.x, cTR.y-WALL_H);
+        // Corner post at cTL
+        g.lineStyle(2, W_EDGE, 0.60);
+        g.lineBetween(cTL.x, cTL.y, cTL.x, cTL.y-WALL_H);
+
+        // ── 5. Floor diamond ────────────────────────────────────────────
+        g.fillGradientStyle(F_DARK, F_DARK, F_MID, F_MID);
         g.fillPoints([cTL, cTR, cBR, cBL], true);
 
-        // ── Isometric tile grid ───────────────────────
+        // ── 6. Floor/wall seam lines ────────────────────────────────────
+        g.lineStyle(1.5, W_EDGE, 0.28);
+        g.lineBetween(cTL.x, cTL.y, cBL.x, cBL.y);
+        g.lineBetween(cTL.x, cTL.y, cTR.x, cTR.y);
+
+        // ── 7. Isometric tile grid ──────────────────────────────────────
         const TW = 90, TH = 70;
-        g.lineStyle(1, F_LINE, 0.15);
-        // World-X lines (constant worldX, run from FT to FB diagonally)
+        g.lineStyle(1, F_LINE, 0.13);
         for (let wx = FL; wx <= FR; wx += TW) {
           const t = w2s(wx, FT), b = w2s(wx, FB);
           g.lineBetween(t.x, t.y, b.x, b.y);
         }
-        // World-Y lines (constant worldY, run from FL to FR diagonally)
         for (let wy = FT; wy <= FB; wy += TH) {
           const l = w2s(FL, wy), r = w2s(FR, wy);
           g.lineBetween(l.x, l.y, r.x, r.y);
         }
-        // Checkerboard — each tile is a parallelogram quad
-        for (let row = 0; row < Math.ceil((FB - FT) / TH); row++) {
-          for (let col = 0; col < Math.ceil((FR - FL) / TW); col++) {
-            if ((row + col) % 2 === 0) {
-              const wx1 = FL + col * TW, wy1 = FT + row * TH;
-              const p1 = w2s(wx1, wy1),     p2 = w2s(wx1+TW, wy1);
-              const p3 = w2s(wx1+TW, wy1+TH), p4 = w2s(wx1, wy1+TH);
-              g.fillStyle(0xffffff, 0.016);
-              g.fillPoints([p1, p2, p3, p4], true);
+        // Subtle checkerboard
+        for (let row = 0; row < Math.ceil((FB-FT)/TH); row++) {
+          for (let col = 0; col < Math.ceil((FR-FL)/TW); col++) {
+            if ((row+col)%2 === 0) {
+              const p1=w2s(FL+col*TW,     FT+row*TH);
+              const p2=w2s(FL+col*TW+TW,  FT+row*TH);
+              const p3=w2s(FL+col*TW+TW,  FT+row*TH+TH);
+              const p4=w2s(FL+col*TW,     FT+row*TH+TH);
+              g.fillStyle(0xffffff, 0.022);
+              g.fillPoints([p1,p2,p3,p4], true);
             }
           }
         }
 
-        // ── Center diamond ring + crosshairs (on floor) ─
-        // Center ellipse approximation: inner circle R=175 in world → isometric diamond
-        const cInner1 = w2s(ISO_WCX + 175, ISO_WCY);
-        const cInner2 = w2s(ISO_WCX - 175, ISO_WCY);
-        const cInner3 = w2s(ISO_WCX, ISO_WCY + 175);
-        const cInner4 = w2s(ISO_WCX, ISO_WCY - 175);
-        g.lineStyle(3, F_GLOW, 0.55);
-        g.strokePoints([cInner1, cInner3, cInner2, cInner4], true);
-        // Outer ring
-        const cOuter1 = w2s(ISO_WCX + 360, ISO_WCY);
-        const cOuter2 = w2s(ISO_WCX - 360, ISO_WCY);
-        const cOuter3 = w2s(ISO_WCX, ISO_WCY + 360);
-        const cOuter4 = w2s(ISO_WCX, ISO_WCY - 360);
-        g.lineStyle(1, F_GLOW, 0.22);
-        g.strokePoints([cOuter1, cOuter3, cOuter2, cOuter4], true);
-        // Crosshairs along world axes
-        g.lineStyle(1, F_GLOW, 0.14);
-        g.lineBetween(cInner4.x, cInner4.y, cInner3.x, cInner3.y);  // world-Y axis
-        g.lineBetween(cInner2.x, cInner2.y, cInner1.x, cInner1.y);  // world-X axis
-        // Depth haze: dark gradient toward the far corner (top-left of diamond)
-        g.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.35, 0, 0, 0);
+        // ── 8. Center rings + crosshairs ────────────────────────────────
+        const cI = [w2s(ISO_WCX+175,ISO_WCY), w2s(ISO_WCX,ISO_WCY+175),
+                    w2s(ISO_WCX-175,ISO_WCY), w2s(ISO_WCX,ISO_WCY-175)];
+        const cO = [w2s(ISO_WCX+360,ISO_WCY), w2s(ISO_WCX,ISO_WCY+360),
+                    w2s(ISO_WCX-360,ISO_WCY), w2s(ISO_WCX,ISO_WCY-360)];
+        g.lineStyle(2.5, F_GLOW, 0.50);
+        g.strokePoints(cI, true);
+        g.lineStyle(1, F_GLOW, 0.18);
+        g.strokePoints(cO, true);
+        g.lineStyle(1, F_GLOW, 0.10);
+        g.lineBetween(cI[0].x,cI[0].y, cI[2].x,cI[2].y);
+        g.lineBetween(cI[1].x,cI[1].y, cI[3].x,cI[3].y);
+
+        // ── 9. Depth haze (far corner darker) ──────────────────────────
+        g.fillGradientStyle(0x000000,0x000000,0x000000,0x000000, 0.32,0.08,0,0);
         g.fillPoints([cTL, cTR, cBR, cBL], true);
 
         // ── Dynamic layers (order = depth order) ──────
@@ -1012,26 +1033,56 @@ function launchPhaser() {
         this.boomGfx   = this.add.graphics();
         this.slimeGfx  = this.add.graphics();
 
-        // ── Near-wall overlay — drawn above slimes so front walls occlude players ──
-        // Right face: world x=FR edge (cTR → cBR), rises WALL_H upward
-        // Bottom face: world y=FB edge (cBL → cBR), rises WALL_H upward
+        // ── Near-wall overlay — drawn above slimes for correct depth occlusion ──
         this._nearWallGfx = this.add.graphics();
-        this._nearWallGfx.fillStyle(W_FRONT, 0.92);
-        this._nearWallGfx.fillPoints([cTR, cBR,
-          {x:cBR.x, y:cBR.y-WALL_H}, {x:cTR.x, y:cTR.y-WALL_H}], true);
-        this._nearWallGfx.fillStyle(W_TOP, 0.95);
-        this._nearWallGfx.fillPoints([cBL, cBR,
-          {x:cBR.x, y:cBR.y-WALL_H}, {x:cBL.x, y:cBL.y-WALL_H}], true);
-        // Texture lines on near walls
-        this._nearWallGfx.lineStyle(1, W_DEEP, 0.28);
-        for (let si = 0; si < WALL_H; si += 22) {
-          this._nearWallGfx.lineBetween(cTR.x, cTR.y-si, cBR.x, cBR.y-si);
-          this._nearWallGfx.lineBetween(cBL.x, cBL.y-si, cBR.x, cBR.y-si);
-        }
-        // Bright edge highlights
-        this._nearWallGfx.lineStyle(2, W_EDGE, 0.85);
-        this._nearWallGfx.lineBetween(cBL.x, cBL.y, cBR.x, cBR.y);
-        this._nearWallGfx.lineBetween(cTR.x, cTR.y, cBR.x, cBR.y);
+        const nw = this._nearWallGfx;
+
+        // Near-right wall face (world x=FR, cTR→cBR)
+        nw.fillStyle(W_RIGHT, 1);
+        nw.fillPoints([cTR, cBR,
+          {x:cBR.x,y:cBR.y-WALL_H}, {x:cTR.x,y:cTR.y-WALL_H}], true);
+        nw.lineStyle(1, W_DEEP, 0.18);
+        for (let h = 18; h < WALL_H; h += 18)
+          nw.lineBetween(cTR.x, cTR.y-h, cBR.x, cBR.y-h);
+        // Ledge cap
+        nw.fillStyle(W_CAP, 0.90);
+        nw.fillPoints([
+          {x:cTR.x,y:cTR.y-WALL_H}, {x:cBR.x,y:cBR.y-WALL_H},
+          {x:lR2.x,y:lR2.y-WALL_H}, {x:lR1.x,y:lR1.y-WALL_H}
+        ], true);
+
+        // Near-front wall face (world y=FB, cBL→cBR) — brightest, closest to viewer
+        nw.fillStyle(W_NEAR, 1);
+        nw.fillPoints([cBL, cBR,
+          {x:cBR.x,y:cBR.y-WALL_H}, {x:cBL.x,y:cBL.y-WALL_H}], true);
+        nw.lineStyle(1, W_DEEP, 0.20);
+        for (let h = 18; h < WALL_H; h += 18)
+          nw.lineBetween(cBL.x, cBL.y-h, cBR.x, cBR.y-h);
+        // Ledge cap
+        nw.fillStyle(W_CAP, 0.95);
+        nw.fillPoints([
+          {x:cBL.x,y:cBL.y-WALL_H}, {x:cBR.x,y:cBR.y-WALL_H},
+          {x:lN2.x,y:lN2.y-WALL_H}, {x:lN1.x,y:lN1.y-WALL_H}
+        ], true);
+
+        // Inner ledge shadow lines
+        nw.lineStyle(1, W_DEEP, 0.30);
+        nw.lineBetween(lR1.x, lR1.y-WALL_H, lR2.x, lR2.y-WALL_H);
+        nw.lineBetween(lN1.x, lN1.y-WALL_H, lN2.x, lN2.y-WALL_H);
+
+        // Top-edge highlights (bright rim on each wall top)
+        nw.lineStyle(2.5, W_EDGE, 0.92);
+        nw.lineBetween(cBL.x, cBL.y-WALL_H, cBR.x, cBR.y-WALL_H);
+        nw.lineBetween(cTR.x, cTR.y-WALL_H, cBR.x, cBR.y-WALL_H);
+
+        // Corner post at cBR — vertical edge where both near walls meet
+        nw.lineStyle(3, W_EDGE, 0.95);
+        nw.lineBetween(cBR.x, cBR.y, cBR.x, cBR.y-WALL_H);
+
+        // Floor seam lines
+        nw.lineStyle(1.5, W_EDGE, 0.32);
+        nw.lineBetween(cBL.x, cBL.y, cBR.x, cBR.y);
+        nw.lineBetween(cTR.x, cTR.y, cBR.x, cBR.y);
 
         // ── Name labels ───────────────────────────────
         this.nameLabels = [
@@ -1252,11 +1303,11 @@ function launchPhaser() {
           var WH  = 28;
           var wg  = this._wallGfx;
           // Top face (iso roof)
-          wg.fillStyle(W_TOP, 1);
+          wg.fillStyle(W_CAP, 1);
           wg.fillPoints([{x:wTL.x,y:wTL.y-WH},{x:wTR.x,y:wTR.y-WH},
                          {x:wBR.x,y:wBR.y-WH},{x:wBL.x,y:wBL.y-WH}], true);
           // Near face (bottom iso edge)
-          wg.fillStyle(W_FRONT, 1);
+          wg.fillStyle(W_NEAR, 1);
           wg.fillPoints([wBL, wBR,
                          {x:wBR.x,y:wBR.y-WH}, {x:wBL.x,y:wBL.y-WH}], true);
           wg.lineStyle(1, W_DEEP, 0.38);

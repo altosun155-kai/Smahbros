@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "github": {
+      "source": "callstackincubator/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/github/SKILL.md",
+      "computedHash": "32131aefe2317287d83e1d3ed5b2a83ca5b1a08142ee3b9bb4fc9d54ea348c31"
+    },
+    "render-deploy": {
+      "source": "openai/skills",
+      "sourceType": "github",
+      "skillPath": "skills/.curated/render-deploy/SKILL.md",
+      "computedHash": "3d5d532563bea44a0bd852b9d890fea848e1549035638e3ca119f0016bfb4632"
+    },
+    "sentry-python-sdk": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "skillPath": "skills/sentry-python-sdk/SKILL.md",
+      "computedHash": "3c13c8277daf5c7ff76dbbb30562fcb0b43c9a12152f48a94f2ab114b18dbc84"
+    },
+    "supabase-postgres-best-practices": {
+      "source": "supabase/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/supabase-postgres-best-practices/SKILL.md",
+      "computedHash": "d606a1146be6d54fb9e73f718b5320b9acac5ff2ba2d7230a555df4b5a923b4a"
+    },
+    "vercel-deploy": {
+      "source": "openai/skills",
+      "sourceType": "github",
+      "skillPath": "skills/.curated/vercel-deploy/SKILL.md",
+      "computedHash": "1bbc267739a93506229ae565d8dc56a13caae8dfc3b727957b966109a8da00d0"
+    }
+  }
+}

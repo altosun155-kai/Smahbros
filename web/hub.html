@@ -38,6 +38,7 @@
       position: fixed;
       inset: 0;
       z-index: 0;
+      will-change: transform;
     }
 
     /* ── Nebula gradients ── */
@@ -46,6 +47,7 @@
       inset: 0;
       z-index: 1;
       pointer-events: none;
+      will-change: transform;
     }
     .nebula::before {
       content: '';
@@ -126,6 +128,8 @@
       position: relative;
       overflow: hidden;
       animation: fadeUp 0.5s ease both;
+      will-change: transform;
+      transform-style: preserve-3d;
     }
     .user-card::before {
       content: '';
@@ -799,6 +803,55 @@ carCards.forEach(function(card) {
   }).catch(function() {
     document.getElementById('hub-badge').textContent = 'Smash Veteran';
   });
+})();
+
+// ── Mouse parallax ──
+(function() {
+  var tx = 0, ty = 0, cx = 0, cy = 0;
+  var starEl    = document.getElementById('starfield');
+  var nebEl     = document.querySelector('.nebula');
+  var cardEl    = document.querySelector('.user-card');
+  var carEl     = document.getElementById('carousel');
+  var bottomEl  = document.querySelector('.bottom-bar');
+  var topbarEl  = document.querySelector('.topbar');
+  var paralaxOn = window.matchMedia('(pointer: fine)').matches;
+
+  if (!paralaxOn) return; // skip on touch devices
+
+  document.addEventListener('mousemove', function(e) {
+    tx = (e.clientX / window.innerWidth  - 0.5) * 2;
+    ty = (e.clientY / window.innerHeight - 0.5) * 2;
+  });
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  function tick() {
+    cx = lerp(cx, tx, 0.055);
+    cy = lerp(cy, ty, 0.055);
+
+    // Deep layer — starfield canvas drifts very little
+    starEl.style.transform = 'translate3d(' + (cx * 10) + 'px,' + (cy * 6) + 'px,0)';
+
+    // Nebula — slightly more
+    nebEl.style.transform = 'translate3d(' + (cx * 18) + 'px,' + (cy * 12) + 'px,0)';
+
+    // User card — 3D tilt with perspective
+    cardEl.style.transform =
+      'perspective(800px) rotateX(' + (-cy * 5) + 'deg) rotateY(' + (cx * 5) + 'deg) translateZ(4px)';
+
+    // Carousel — counter-translate so it feels on a different plane
+    carEl.style.transform =
+      'translate3d(' + (-cx * 22) + 'px,' + (-cy * 12) + 'px,0)';
+
+    // Bottom bar — subtle drift
+    bottomEl.style.transform = 'translate3d(' + (cx * 8) + 'px,' + (cy * 4) + 'px,0)';
+
+    // Top bar — opposite of bottom for depth illusion
+    topbarEl.style.transform = 'translate3d(' + (-cx * 6) + 'px,' + (-cy * 3) + 'px,0)';
+
+    requestAnimationFrame(tick);
+  }
+  tick();
 })();
 
 // ── AI assistant (placeholder) ──

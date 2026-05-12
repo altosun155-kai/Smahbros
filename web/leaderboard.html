@@ -6,6 +6,7 @@
   <title>Smash Bracket — Leaderboard</title>
   <link rel="stylesheet" href="css/reset.css" />
   <link rel="stylesheet" href="css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
   <script src="js/auth.js"></script>
   <style>
     .char-img-sm { width: 28px; height: 28px; object-fit: contain; border-radius: 50%; background: var(--card-bg2); }
@@ -190,6 +191,578 @@
 </head>
 <body>
 <script>requireAuth();</script>
+
+<!-- ══════════════════════════════════════════
+     3D FRIENDS PODIUM STAGE
+     Covers the full page on load; slides away
+     when the user clicks "View Full Leaderboard"
+══════════════════════════════════════════ -->
+<style>
+  /* ── Stage shell ── */
+  #friends-stage {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    background: #06060f;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    overflow: hidden;
+    transition: transform 0.75s cubic-bezier(.7,0,.3,1), opacity 0.5s ease;
+  }
+  #friends-stage.slide-away {
+    transform: translateY(-105%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* ── Canvas + nebula ── */
+  #fs-canvas { position: absolute; inset: 0; z-index: 0; }
+  .fs-nebula  {
+    position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  }
+  .fs-nebula::before {
+    content: '';
+    position: absolute;
+    width: 70vw; height: 70vw;
+    top: -25vw; right: -15vw;
+    background: radial-gradient(circle, rgba(79,195,247,0.09) 0%, transparent 65%);
+    animation: fsNeb 16s ease-in-out infinite alternate;
+  }
+  .fs-nebula::after {
+    content: '';
+    position: absolute;
+    width: 55vw; height: 55vw;
+    bottom: -10vw; left: -8vw;
+    background: radial-gradient(circle, rgba(167,139,250,0.08) 0%, transparent 65%);
+    animation: fsNeb 21s ease-in-out infinite alternate-reverse;
+  }
+  @keyframes fsNeb {
+    from { transform: translate(0,0); }
+    to   { transform: translate(5vw, 4vw); }
+  }
+
+  /* ── Content ── */
+  .fs-content {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 900px;
+    padding: 28px 32px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+  }
+
+  /* ── Header ── */
+  .fs-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 6px;
+  }
+  .fs-wordmark {
+    font-family: 'Bebas Neue', 'Arial Black', sans-serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.2em;
+    color: rgba(232,232,244,0.3);
+  }
+  .fs-skip {
+    font-size: 0.6rem;
+    letter-spacing: 0.14em;
+    color: rgba(232,232,244,0.35);
+    cursor: pointer;
+    text-transform: uppercase;
+    border: none;
+    background: none;
+    padding: 0;
+    transition: color 0.15s;
+  }
+  .fs-skip:hover { color: rgba(232,232,244,0.8); }
+
+  /* ── Title ── */
+  .fs-title {
+    font-family: 'Bebas Neue', 'Arial Black', sans-serif;
+    font-size: clamp(2.2rem, 5vw, 3.5rem);
+    letter-spacing: 0.1em;
+    color: #e8e8f4;
+    margin-bottom: 2px;
+    text-align: center;
+  }
+  .fs-title span { color: #4fc3f7; }
+  .fs-subtitle {
+    font-size: 0.55rem;
+    letter-spacing: 0.22em;
+    color: rgba(232,232,244,0.35);
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+
+  /* ── Podium scene ── */
+  .podium-scene {
+    perspective: 700px;
+    perspective-origin: 50% 30%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    flex: 1;
+    padding-bottom: 16px;
+  }
+
+  /* ── Individual podium slot ── */
+  .pod-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 0;
+    transform: translateY(40px);
+    transition: opacity 0.6s ease, transform 0.6s cubic-bezier(.25,.8,.25,1);
+  }
+  .pod-slot.visible { opacity: 1; transform: translateY(0); }
+
+  /* Character floating above pedestal */
+  .pod-char-wrap {
+    position: relative;
+    width: 100px;
+    height: 120px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    margin-bottom: -8px;
+  }
+  .pod-char-img {
+    max-width: 90px;
+    max-height: 110px;
+    object-fit: contain;
+    object-position: bottom;
+    filter: drop-shadow(0 8px 16px rgba(0,0,0,0.7));
+    animation: podFloat 3s ease-in-out infinite;
+  }
+  .pod-slot:nth-child(2) .pod-char-img { animation-delay: -1s; }
+  .pod-slot:nth-child(3) .pod-char-img { animation-delay: -2s; }
+  @keyframes podFloat {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-8px); }
+  }
+
+  /* Glow halo under character */
+  .pod-glow {
+    width: 70px; height: 18px;
+    border-radius: 50%;
+    margin-bottom: 4px;
+    opacity: 0.5;
+    filter: blur(8px);
+    animation: podFloat 3s ease-in-out infinite;
+  }
+  .pod-slot:nth-child(2) .pod-glow { animation-delay: -1s; }
+  .pod-slot:nth-child(3) .pod-glow { animation-delay: -2s; }
+
+  /* Pedestal 3D box */
+  .pod-base {
+    width: 130px;
+    transform-style: preserve-3d;
+    transform: rotateX(-12deg);
+  }
+  .pod-top {
+    width: 100%;
+    height: 16px;
+    border-radius: 4px 4px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pod-medal {
+    font-size: 1rem;
+    line-height: 1;
+    margin-top: -2px;
+  }
+  .pod-front {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0 0 6px 6px;
+    padding: 8px 6px;
+    gap: 4px;
+  }
+  .pod-username {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #e8e8f4;
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+  }
+  .pod-stat {
+    font-size: 0.5rem;
+    letter-spacing: 0.12em;
+    color: rgba(232,232,244,0.5);
+    text-align: center;
+  }
+  .pod-stat strong {
+    font-size: 0.75rem;
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.05em;
+    display: block;
+    color: #e8e8f4;
+  }
+
+  /* Rank-specific sizing and colours */
+  .pod-rank-1 .pod-base { width: 150px; }
+  .pod-rank-1 .pod-char-wrap { width: 120px; height: 145px; }
+  .pod-rank-1 .pod-char-img  { max-width: 110px; max-height: 135px; }
+  .pod-rank-1 .pod-glow  { background: rgba(79,195,247,0.8); width: 90px; }
+  .pod-rank-1 .pod-top   { background: linear-gradient(135deg, #4fc3f7, #1565c0); }
+  .pod-rank-1 .pod-front { background: linear-gradient(180deg, rgba(79,195,247,0.18), rgba(79,195,247,0.06)); border: 1px solid rgba(79,195,247,0.25); }
+
+  .pod-rank-2 .pod-glow  { background: rgba(167,139,250,0.8); }
+  .pod-rank-2 .pod-top   { background: linear-gradient(135deg, #a78bfa, #5b21b6); }
+  .pod-rank-2 .pod-front { background: linear-gradient(180deg, rgba(167,139,250,0.14), rgba(167,139,250,0.04)); border: 1px solid rgba(167,139,250,0.2); }
+
+  .pod-rank-3 .pod-glow  { background: rgba(251,191,36,0.7); }
+  .pod-rank-3 .pod-top   { background: linear-gradient(135deg, #fbbf24, #92400e); }
+  .pod-rank-3 .pod-front { background: linear-gradient(180deg, rgba(251,191,36,0.12), rgba(251,191,36,0.03)); border: 1px solid rgba(251,191,36,0.18); }
+
+  /* Height for 1-2-3 podium steps: 2nd is shorter, 3rd shorter still */
+  .pod-rank-1 .pod-front { min-height: 90px; }
+  .pod-rank-2 .pod-front { min-height: 70px; }
+  .pod-rank-3 .pod-front { min-height: 55px; }
+
+  /* ── Remaining friends row ── */
+  .fs-rest {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 0 16px 12px;
+    position: relative;
+    z-index: 2;
+    max-width: 900px;
+    width: 100%;
+  }
+  .fs-rest-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.4s ease, transform 0.4s cubic-bezier(.25,.8,.25,1);
+  }
+  .fs-rest-card.visible { opacity: 1; transform: translateY(0); }
+  .fs-rest-char { width: 36px; height: 40px; object-fit: contain; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5)); }
+  .fs-rest-info {}
+  .fs-rest-name { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.1em; color: #e8e8f4; text-transform: uppercase; }
+  .fs-rest-stat { font-size: 0.5rem; color: rgba(232,232,244,0.45); letter-spacing: 0.08em; }
+
+  /* ── No friends state ── */
+  .fs-no-friends {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    color: rgba(232,232,244,0.4);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-align: center;
+  }
+  .fs-no-friends a {
+    color: #4fc3f7;
+    text-decoration: underline;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+  }
+
+  /* ── CTA button ── */
+  .fs-cta-row {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: center;
+    padding-bottom: 24px;
+  }
+  .fs-cta {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #e8e8f4;
+    background: rgba(79,195,247,0.12);
+    border: 1px solid rgba(79,195,247,0.35);
+    border-radius: 999px;
+    padding: 10px 28px;
+    cursor: pointer;
+    transition: background 0.18s, border-color 0.18s;
+  }
+  .fs-cta:hover { background: rgba(79,195,247,0.22); border-color: rgba(79,195,247,0.6); }
+
+  /* ── Loading state ── */
+  .fs-loading {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: rgba(232,232,244,0.35);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+  }
+  .fs-spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(79,195,247,0.3);
+    border-top-color: #4fc3f7;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<div id="friends-stage">
+  <canvas id="fs-canvas"></canvas>
+  <div class="fs-nebula"></div>
+
+  <div class="fs-content">
+    <div class="fs-header">
+      <div class="fs-wordmark">SMASHBROS</div>
+      <button class="fs-skip" id="fs-skip-btn">Skip &#8594;</button>
+    </div>
+
+    <div class="fs-title">Friends <span>Arena</span></div>
+    <div class="fs-subtitle">Your crew's rankings</div>
+
+    <!-- Podium (top 3 friends) -->
+    <div class="podium-scene" id="fs-podium">
+      <div class="fs-loading" id="fs-loading">
+        <div class="fs-spinner"></div> Loading friends…
+      </div>
+    </div>
+  </div>
+
+  <!-- Rest of friends (4+) -->
+  <div class="fs-rest" id="fs-rest"></div>
+
+  <!-- CTA -->
+  <div class="fs-cta-row">
+    <button class="fs-cta" id="fs-cta-btn">View Full Leaderboard &#8595;</button>
+  </div>
+</div>
+
+<script>
+// ── Friends Stage ──
+(function() {
+  var stage     = document.getElementById('friends-stage');
+  var skipBtn   = document.getElementById('fs-skip-btn');
+  var ctaBtn    = document.getElementById('fs-cta-btn');
+  var podiumEl  = document.getElementById('fs-podium');
+  var restEl    = document.getElementById('fs-rest');
+  var loadingEl = document.getElementById('fs-loading');
+
+  // ── Mini starfield ──
+  (function() {
+    var c   = document.getElementById('fs-canvas');
+    var ctx = c.getContext('2d');
+    var W, H, stars = [];
+
+    function resize() {
+      W = c.width  = window.innerWidth;
+      H = c.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    for (var i = 0; i < 180; i++) {
+      stars.push({ x: Math.random(), y: Math.random(), r: Math.random() * 1.1 + 0.15,
+        spd: Math.random() * 0.00012 + 0.00004, a: Math.random() * 0.6 + 0.1,
+        tw: Math.random() * Math.PI * 2 });
+    }
+    function draw() {
+      if (!stage || stage.classList.contains('slide-away')) { requestAnimationFrame(draw); return; }
+      ctx.clearRect(0, 0, W, H);
+      for (var i = 0; i < stars.length; i++) {
+        var s = stars[i];
+        s.y += s.spd; if (s.y > 1) { s.y = 0; s.x = Math.random(); }
+        s.tw += 0.016;
+        var a = s.a * (0.7 + 0.3 * Math.sin(s.tw));
+        ctx.beginPath();
+        ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(232,232,244,' + a + ')';
+        ctx.fill();
+      }
+      requestAnimationFrame(draw);
+    }
+    draw();
+  })();
+
+  // ── Mouse parallax on the stage ──
+  var tx = 0, ty = 0, cx = 0, cy = 0;
+  document.addEventListener('mousemove', function(e) {
+    tx = (e.clientX / window.innerWidth  - 0.5) * 2;
+    ty = (e.clientY / window.innerHeight - 0.5) * 2;
+  });
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  (function tick() {
+    if (stage.classList.contains('slide-away')) return;
+    cx = lerp(cx, tx, 0.05);
+    cy = lerp(cy, ty, 0.05);
+    podiumEl.style.transform = 'translate3d(' + (-cx * 14) + 'px,' + (-cy * 8) + 'px,0)';
+    requestAnimationFrame(tick);
+  })();
+
+  // ── Deterministic character from username ──
+  var PODIUM_CHARS = ['Mario','Link','Pikachu','Fox','Samus','Kirby','Marth','Falco',
+    'Sheik','Zelda','Ganondorf','Yoshi','Donkey Kong','Ness','Peach','Mewtwo',
+    'Captain Falcon','Jigglypuff','Luigi','Ike','Snake','Sonic','Lucario',
+    'Pit','Zero Suit Samus','Wario','Meta Knight','Pokemon Trainer','Diddy Kong',
+    'Lucas','King Dedede','Olimar','R.O.B.','Toon Link','Wolf'];
+  function charForUser(name) {
+    var h = 0;
+    for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+    return PODIUM_CHARS[Math.abs(h) % PODIUM_CHARS.length];
+  }
+
+  var MEDALS = ['🥇','🥈','🥉'];
+
+  function buildPodiumSlot(rank, entry) {
+    var charName = charForUser(entry.username);
+    var imgUrl   = charImgUrl(charName);
+    var elo      = entry.player_elo ? Math.round(entry.player_elo) : '—';
+    var wins     = entry.wins || 0;
+    var wr       = entry.win_rate != null ? Math.round(entry.win_rate) + '%' : (wins ? Math.round(wins / ((entry.wins||0)+(entry.losses||0)) * 100) + '%' : '—');
+    var rankCls  = 'pod-rank-' + rank;
+    var medal    = MEDALS[rank - 1] || ('#' + rank);
+    var delay    = (rank === 1 ? 0.1 : rank === 2 ? 0.25 : 0.4) + 's';
+
+    var el = document.createElement('div');
+    el.className = 'pod-slot ' + rankCls;
+    el.style.transitionDelay = delay;
+    el.innerHTML =
+      '<div class="pod-char-wrap">' +
+        '<img class="pod-char-img" src="' + imgUrl + '" alt="' + charName + '" />' +
+      '</div>' +
+      '<div class="pod-glow"></div>' +
+      '<div class="pod-base">' +
+        '<div class="pod-top"><span class="pod-medal">' + medal + '</span></div>' +
+        '<div class="pod-front">' +
+          '<div class="pod-username">' + escHtmlSimple(entry.username) + '</div>' +
+          '<div class="pod-stat"><strong>' + elo + '</strong>ELO</div>' +
+          '<div class="pod-stat"><strong>' + wins + '</strong>Wins</div>' +
+        '</div>' +
+      '</div>';
+    return el;
+  }
+
+  function buildRestCard(entry) {
+    var charName = charForUser(entry.username);
+    var imgUrl   = charImgUrl(charName);
+    var elo      = entry.player_elo ? Math.round(entry.player_elo) : '—';
+    var el = document.createElement('div');
+    el.className = 'fs-rest-card';
+    el.innerHTML =
+      '<img class="fs-rest-char" src="' + imgUrl + '" alt="' + charName + '" />' +
+      '<div class="fs-rest-info">' +
+        '<div class="fs-rest-name">' + escHtmlSimple(entry.username) + '</div>' +
+        '<div class="fs-rest-stat">ELO ' + elo + ' · ' + (entry.wins || 0) + ' wins</div>' +
+      '</div>';
+    return el;
+  }
+
+  function escHtmlSimple(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function dismissStage() {
+    stage.classList.add('slide-away');
+    setTimeout(function() { stage.style.display = 'none'; }, 800);
+  }
+
+  skipBtn.addEventListener('click', dismissStage);
+  ctaBtn.addEventListener('click', dismissStage);
+
+  // ── Load data ──
+  Promise.all([apiGet('/friends'), apiGet('/leaderboard')]).then(function(results) {
+    var friends = results[0] || [];
+    var lb      = results[1] || [];
+
+    loadingEl.style.display = 'none';
+
+    if (!friends.length) {
+      podiumEl.innerHTML = '<div class="fs-no-friends">' +
+        '<div>No friends yet!</div>' +
+        '<a href="friends.html">Add friends to see them here &#8594;</a>' +
+        '</div>';
+      return;
+    }
+
+    // Build lookup: username → lb entry (with rank)
+    var lbMap = {};
+    for (var i = 0; i < lb.length; i++) {
+      lbMap[lb[i].username] = Object.assign({ _rank: i + 1 }, lb[i]);
+    }
+
+    // Match friends to lb entries (friends without lb entries get default stats)
+    var matched = friends.map(function(f) {
+      return lbMap[f.username] || { username: f.username, wins: 0, losses: 0, player_elo: null, win_rate: null, _rank: 9999 };
+    });
+
+    // Sort by elo desc
+    matched.sort(function(a, b) { return (b.player_elo || 0) - (a.player_elo || 0); });
+
+    var top3 = matched.slice(0, 3);
+    var rest  = matched.slice(3);
+
+    // Render in 1-2-3 display order: 2nd left, 1st center, 3rd right
+    var order = top3.length >= 2 ? [top3[1], top3[0], top3[2]].filter(Boolean)
+                                  : top3;
+    var rankMap = {};
+    for (var i = 0; i < top3.length; i++) rankMap[top3[i].username] = i + 1;
+
+    order.forEach(function(entry) {
+      var rank = rankMap[entry.username];
+      podiumEl.appendChild(buildPodiumSlot(rank, entry));
+    });
+
+    // Stagger-animate podium slots into view
+    setTimeout(function() {
+      document.querySelectorAll('.pod-slot').forEach(function(el) {
+        el.classList.add('visible');
+      });
+    }, 80);
+
+    // Render rest cards
+    rest.forEach(function(entry, i) {
+      var card = buildRestCard(entry);
+      card.style.transitionDelay = (0.5 + i * 0.08) + 's';
+      restEl.appendChild(card);
+    });
+    setTimeout(function() {
+      document.querySelectorAll('.fs-rest-card').forEach(function(el) {
+        el.classList.add('visible');
+      });
+    }, 120);
+
+  }).catch(function() {
+    loadingEl.innerHTML = '<span style="color:rgba(232,232,244,0.35);">Could not load friends.</span>';
+  });
+})();
+</script>
+
 <div id="toast-container"></div>
 
 <nav class="navbar" id="main-nav"></nav>

@@ -59,4 +59,12 @@
       `<a href="profile.html" class="bnav-item${currentPage === 'profile.html' ? ' active' : ''}"><span class="bnav-icon">👤</span>Profile</a>`;
     document.body.appendChild(bnav);
   }
+
+  // Load transitions.js on all nav-injected pages
+  if (!document.getElementById('_txScript')) {
+    const txs = document.createElement('script');
+    txs.id  = '_txScript';
+    txs.src = 'js/transitions.js';
+    document.body.appendChild(txs);
+  }
 })();

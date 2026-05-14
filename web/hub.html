@@ -272,20 +272,15 @@
     }
     .c-card:hover { filter: brightness(1.1); }
 
-    .c-card.pos-left {
-      transform: translateX(-220px) rotateY(28deg) scale(0.82);
-      opacity: 0.55;
-      z-index: 1;
-    }
-    .c-card.pos-center {
-      transform: translateX(0) rotateY(0deg) scale(1);
+    .c-card.pos-active {
+      transform: translateX(-130px) rotateY(0deg) scale(1);
       opacity: 1;
       z-index: 3;
       box-shadow: 0 0 40px rgba(79,195,247,0.18), 0 20px 60px rgba(0,0,0,0.5);
       border-color: rgba(79,195,247,0.25);
     }
-    .c-card.pos-right {
-      transform: translateX(220px) rotateY(-28deg) scale(0.82);
+    .c-card.pos-inactive {
+      transform: translateX(160px) rotateY(-28deg) scale(0.82);
       opacity: 0.55;
       z-index: 1;
     }
@@ -515,8 +510,8 @@
     @media (max-width: 860px) {
       .user-card { flex: 0 0 240px; }
       .c-card { width: 200px; }
-      .c-card.pos-left  { transform: translateX(-175px) rotateY(25deg) scale(0.78); }
-      .c-card.pos-right { transform: translateX(175px)  rotateY(-25deg) scale(0.78); }
+      .c-card.pos-active   { transform: translateX(-110px) rotateY(0deg) scale(1); }
+      .c-card.pos-inactive { transform: translateX(130px) rotateY(-25deg) scale(0.78); }
     }
     @media (max-width: 680px) {
       #app { padding: 16px 18px 14px; }
@@ -587,21 +582,7 @@
       <div class="carousel-label">Select Mode</div>
       <div class="carousel-track" id="carousel">
 
-        <a class="c-card pos-left" href="my-brackets.html" data-idx="0">
-          <div class="card-chrome">
-            <div class="chrome-dot"></div><div class="chrome-dot"></div><div class="chrome-dot"></div>
-            <span class="chrome-url">brackets.smash</span>
-          </div>
-          <div class="card-body">
-            <div class="card-bg-art"><div class="card-bg-text">TOUR</div></div>
-            <div class="card-tag">Compete</div>
-            <div class="card-title">TOURNAMENTS</div>
-            <div class="card-sub">Bracket challenge</div>
-          </div>
-          <div class="card-accent" style="--accent-color: var(--green)"></div>
-        </a>
-
-        <a class="c-card pos-center" href="game.html" data-idx="1">
+        <a class="c-card pos-active" href="game.html" data-idx="0">
           <div class="card-chrome">
             <div class="chrome-dot"></div><div class="chrome-dot"></div><div class="chrome-dot"></div>
             <span class="chrome-url">arena.smash</span>
@@ -615,16 +596,16 @@
           <div class="card-accent" style="--accent-color: var(--cyan)"></div>
         </a>
 
-        <a class="c-card pos-right" href="practice.html" data-idx="2">
+        <a class="c-card pos-inactive" href="index.html" data-idx="1">
           <div class="card-chrome">
             <div class="chrome-dot"></div><div class="chrome-dot"></div><div class="chrome-dot"></div>
-            <span class="chrome-url">practice.smash</span>
+            <span class="chrome-url">home.smash</span>
           </div>
           <div class="card-body">
-            <div class="card-bg-art"><div class="card-bg-text">SOLO</div></div>
-            <div class="card-tag">Train</div>
-            <div class="card-title">PRACTICE<br>MODE</div>
-            <div class="card-sub">Track your growth</div>
+            <div class="card-bg-art"><div class="card-bg-text">HOME</div></div>
+            <div class="card-tag">Dashboard</div>
+            <div class="card-title">SMASH<br>TRACKER</div>
+            <div class="card-sub">Stats &amp; history</div>
           </div>
           <div class="card-accent" style="--accent-color: var(--violet)"></div>
         </a>
@@ -709,38 +690,27 @@
   draw();
 })();
 
-// ── Carousel ──
-var carPos = 1; // 0=left,1=center,2=right
+// ── Carousel (2 cards: active / inactive) ──
 var carCards = document.querySelectorAll('.c-card');
-var POS_CLASSES = ['pos-left', 'pos-center', 'pos-right'];
 
-function carRotate(dir) {
-  // dir: 1 = rotate right (right arrow), -1 = rotate left
+function carSwap() {
   carCards.forEach(function(card) {
     var idx = parseInt(card.getAttribute('data-idx'));
-    // shift card idx
-    card.setAttribute('data-idx', (idx + dir + 3) % 3);
-  });
-  updateCarousel();
-}
-
-function updateCarousel() {
-  carCards.forEach(function(card) {
-    var idx = parseInt(card.getAttribute('data-idx'));
-    card.className = 'c-card ' + POS_CLASSES[idx];
+    var next = (idx + 1) % 2;
+    card.setAttribute('data-idx', next);
+    card.className = 'c-card ' + (next === 0 ? 'pos-active' : 'pos-inactive');
   });
 }
 
-document.getElementById('car-left').addEventListener('click', function() { carRotate(1); });
-document.getElementById('car-right').addEventListener('click', function() { carRotate(-1); });
+document.getElementById('car-left').addEventListener('click', carSwap);
+document.getElementById('car-right').addEventListener('click', carSwap);
 
-// Click center card to navigate
+// Click the inactive card to bring it forward
 carCards.forEach(function(card) {
   card.addEventListener('click', function(e) {
-    var idx = parseInt(card.getAttribute('data-idx'));
-    if (idx !== 1) {
+    if (parseInt(card.getAttribute('data-idx')) !== 0) {
       e.preventDefault();
-      carRotate(idx === 0 ? 1 : -1);
+      carSwap();
     }
   });
 });
@@ -813,5 +783,6 @@ document.getElementById('ai-input').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') document.getElementById('ai-send').click();
 });
 </script>
+<script src="js/transitions.js"></script>
 </body>
 </html>

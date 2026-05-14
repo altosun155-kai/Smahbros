@@ -1,281 +1,319 @@
-// transitions.js — cinematic page transitions for Smahbros
-// Intercepts internal link clicks, plays a themed overlay, then navigates.
-// Loaded by nav-inject.js (all nav pages) and manually on hub.html.
+// transitions.js — 16-chapter cinematic page transitions
 (function () {
   'use strict';
 
-  // ─── Config: page → transition ───────────────────────────────────────────
   var TX_MAP = {
-    'index.html':        { cls: 'tx-smash',   dur: 1000, mid: 480 },
-    'hub.html':          { cls: 'tx-smash',   dur: 1000, mid: 480 },
-    'practice.html':     { cls: 'tx-smash',   dur: 1000, mid: 480 },
-    'bracket.html':      { cls: 'tx-bracket', dur: 900,  mid: 420 },
-    'my-brackets.html':  { cls: 'tx-bracket', dur: 900,  mid: 420 },
-    'teams-bracket.html':{ cls: 'tx-bracket', dur: 900,  mid: 420 },
-    'roundrobin.html':   { cls: 'tx-bracket', dur: 900,  mid: 420 },
-    'game.html':         { cls: 'tx-duel',    dur: 1300, mid: 620 },
-    'duel.html':         { cls: 'tx-duel',    dur: 1300, mid: 620 },
-    'leaderboard.html':  { cls: 'tx-lb',      dur: 1200, mid: 560 },
-    'team-standings.html':{ cls:'tx-lb',      dur: 1200, mid: 560 },
-    'stats.html':        { cls: 'tx-stats',   dur: 1100, mid: 520 },
-    'mastery.html':      { cls: 'tx-mastery', dur: 1100, mid: 520 },
-    'friends.html':      { cls: 'tx-friends', dur: 1200, mid: 560 },
-    'tier-list.html':    { cls: 'tx-friends', dur: 1200, mid: 560 },
-    'favorites.html':    { cls: 'tx-friends', dur: 1200, mid: 560 },
-    'profile.html':      { cls: 'tx-profile', dur: 1100, mid: 520 },
+    'index.html':         { cls: 'tx-iris',    num: '001', word: 'ARENA',       dur: 1300, mid: 625 },
+    'hub.html':           { cls: 'tx-iris',    num: '001', word: 'ARENA',       dur: 1300, mid: 625 },
+    'bracket.html':       { cls: 'tx-blade',   num: '002', word: 'BRACKET',     dur: 1300, mid: 625 },
+    'teams-bracket.html': { cls: 'tx-corners', num: '003', word: 'TEAM BATTLE', dur: 1300, mid: 625 },
+    'team-standings.html':{ cls: 'tx-rows',    num: '004', word: 'STANDINGS',   dur: 1400, mid: 625 },
+    'duel.html':          { cls: 'tx-split',   num: '005', word: '1V1 DUEL',    dur: 1300, mid: 625 },
+    'game.html':          { cls: 'tx-ripple',  num: '006', word: 'ARENA',       dur: 1300, mid: 625 },
+    'roundrobin.html':    { cls: 'tx-clock',   num: '007', word: 'ROUND ROBIN', dur: 1350, mid: 625 },
+    'my-brackets.html':   { cls: 'tx-stack',   num: '008', word: 'MY BRACKETS', dur: 1400, mid: 700 },
+    'stats.html':         { cls: 'tx-trio',    num: '009', word: 'STATS',       dur: 1350, mid: 625 },
+    'leaderboard.html':   { cls: 'tx-curtain', num: '010', word: 'THE THRONE',  dur: 1300, mid: 625 },
+    'mastery.html':       { cls: 'tx-wave',    num: '011', word: 'MASTERY',     dur: 1500, mid: 625 },
+    'practice.html':      { cls: 'tx-scan',    num: '012', word: 'PRACTICE',    dur: 1400, mid: 625 },
+    'tier-list.html':     { cls: 'tx-tiers',   num: '013', word: 'TIER LIST',   dur: 1500, mid: 700 },
+    'favorites.html':     { cls: 'tx-star',    num: '014', word: 'FAVORITES',   dur: 1350, mid: 625 },
+    'friends.html':       { cls: 'tx-blue',    num: '015', word: 'YOUR CIRCLE', dur: 1300, mid: 625 },
+    'profile.html':       { cls: 'tx-close',   num: '016', word: 'PROFILE',     dur: 1300, mid: 625 },
   };
-  var DEFAULT_TX = { cls: 'tx-smash', dur: 1000, mid: 480 };
+  var DEFAULT_TX = TX_MAP['index.html'];
 
-  // ─── Inject CSS ───────────────────────────────────────────────────────────
-  var s = document.createElement('style');
-  s.textContent = [
-    /* overlay base */
-    '.tx{position:fixed;inset:0;z-index:9000;pointer-events:none;opacity:0}',
-    '.tx.go{opacity:1}',
+  var pendingEnter = null;
+  try {
+    pendingEnter = sessionStorage.getItem('txEnter');
+    if (pendingEnter) sessionStorage.removeItem('txEnter');
+  } catch (e) {}
 
-    /* ── entry veil (new-page reveal) ── */
-    '#tx-veil{position:fixed;inset:0;z-index:8999;background:#08080a;pointer-events:none;',
-    'transition:opacity 0.42s cubic-bezier(.2,.7,.2,1)}',
+  // ── CSS ────────────────────────────────────────────────────────────────────
+  var css = document.createElement('style');
+  css.textContent =
+    '@property --p{syntax:"<angle>";inherits:false;initial-value:0deg}' +
 
-    /* ── smash impact ── */
-    '.tx-smash{background:transparent;display:grid;place-items:center}',
-    '.tx-smash .ring1,.tx-smash .ring2{position:absolute;left:50%;top:50%;border-radius:50%;',
-    'border:3px solid #ffb800;width:0;height:0;transform:translate(-50%,-50%)}',
-    '.tx-smash.go .ring1{animation:_smashring 1s cubic-bezier(.2,.7,.2,1) forwards}',
-    '.tx-smash.go .ring2{animation:_smashring 1s .12s cubic-bezier(.2,.7,.2,1) forwards;border-color:#ff4419}',
-    '@keyframes _smashring{0%{width:0;height:0;opacity:1}60%{opacity:.8}100%{width:200vmax;height:200vmax;opacity:0;border-width:0}}',
-    '.tx-smash .flash{position:absolute;inset:0;background:radial-gradient(closest-side,#ffb800,transparent 50%);opacity:0}',
-    '.tx-smash.go .flash{animation:_flash .35s ease-out forwards}',
-    '@keyframes _flash{0%{opacity:0}30%{opacity:.85}100%{opacity:0}}',
+    // Base
+    '.tx{position:fixed;inset:0;z-index:9000;pointer-events:none;display:none;overflow:hidden}' +
+    '.tx.go{display:block;pointer-events:auto}' +
+    '.tx-trio.go{display:flex}' +
+    '.tx-wave.go{display:grid;grid-template-columns:repeat(20,1fr);grid-template-rows:repeat(12,1fr)}' +
 
-    /* ── bracket — lightning slice ── */
-    '.tx-bracket{background:transparent;overflow:hidden}',
-    '.tx-bracket .slice{position:absolute;left:-20%;top:-20%;width:140%;height:140%;',
-    'background:#ff4419;transform:translateY(120%) rotate(-12deg)}',
-    '.tx-bracket.go .slice{animation:_bracketSlice .9s cubic-bezier(.65,0,.35,1) forwards}',
-    '@keyframes _bracketSlice{0%{transform:translateY(120%) rotate(-12deg)}50%{transform:translateY(0%) rotate(-12deg)}100%{transform:translateY(-120%) rotate(-12deg)}}',
-    '.tx-bracket .bolt{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(0);',
-    'font-family:Anton,Impact,sans-serif;font-size:30vw;color:#fff;line-height:1;letter-spacing:.02em;',
-    'text-shadow:0 0 60px rgba(255,255,255,.6);opacity:0}',
-    '.tx-bracket.go .bolt{animation:_bracketBolt .9s ease-out forwards}',
-    '@keyframes _bracketBolt{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}30%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}60%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.4)}}',
+    // Label
+    '.tx .label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10;text-align:center;opacity:0;pointer-events:none}' +
+    '.tx .label .num{display:block;font:700 13px/1 monospace;letter-spacing:.4em;color:#f0eee8;opacity:.65;margin-bottom:14px}' +
+    '.tx .label .word{display:block;font-family:Anton,Impact,sans-serif;font-size:clamp(60px,10vw,160px);line-height:.9;letter-spacing:.02em;color:#f0eee8}' +
+    '.tx.go .label{animation:_lbl 700ms 350ms cubic-bezier(.4,0,.2,1) forwards}' +
+    '@keyframes _lbl{0%{opacity:0;transform:translate(-50%,-30%)}25%,75%{opacity:1;transform:translate(-50%,-50%)}100%{opacity:0;transform:translate(-50%,-70%)}}' +
+    '.tx.dark-label .label .num,.tx.dark-label .label .word{color:#0a0a0c}' +
+    '.tx.go.enter .label{animation:none;opacity:0}' +
 
-    /* ── duel — VS slam ── */
-    '.tx-duel{overflow:hidden}',
-    '.tx-duel .bar-t,.tx-duel .bar-b{position:absolute;left:0;right:0;height:50%;background:#08080a}',
-    '.tx-duel .bar-t{top:-50%;clip-path:polygon(0 0,100% 0,100% 100%,0 85%)}',
-    '.tx-duel .bar-b{bottom:-50%;clip-path:polygon(0 15%,100% 0,100% 100%,0 100%)}',
-    '.tx-duel.go .bar-t{animation:_duelBarT 1.3s cubic-bezier(.7,0,.3,1) forwards}',
-    '.tx-duel.go .bar-b{animation:_duelBarB 1.3s cubic-bezier(.7,0,.3,1) forwards}',
-    '@keyframes _duelBarT{0%{top:-50%}30%{top:0%}70%{top:0%}100%{top:-50%}}',
-    '@keyframes _duelBarB{0%{bottom:-50%}30%{bottom:0%}70%{bottom:0%}100%{bottom:-50%}}',
-    '.tx-duel .pname{position:absolute;font-family:Anton,Impact,sans-serif;font-size:14vw;line-height:.9;letter-spacing:.02em;color:#f0eee8;opacity:0}',
-    '.tx-duel .p1n{top:18%;left:6%;transform:translateX(-50%)}',
-    '.tx-duel .p2n{bottom:18%;right:6%;text-align:right;transform:translateX(50%)}',
-    '.tx-duel.go .p1n{animation:_duelP1 1.3s cubic-bezier(.2,.7,.2,1) forwards}',
-    '.tx-duel.go .p2n{animation:_duelP2 1.3s cubic-bezier(.2,.7,.2,1) forwards}',
-    '@keyframes _duelP1{0%{opacity:0;transform:translateX(-50%)}35%{opacity:1;transform:translateX(0)}70%{opacity:1;transform:translateX(0)}100%{opacity:0;transform:translateX(-50%)}}',
-    '@keyframes _duelP2{0%{opacity:0;transform:translateX(50%)}35%{opacity:1;transform:translateX(0)}70%{opacity:1;transform:translateX(0)}100%{opacity:0;transform:translateX(50%)}}',
-    '.tx-duel .vsBig{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.4);',
-    'font-family:Anton,Impact,sans-serif;font-size:25vw;line-height:1;color:#ff4419;letter-spacing:.04em;',
-    'text-shadow:0 0 40px rgba(255,68,25,.5);opacity:0}',
-    '.tx-duel.go .vsBig{animation:_duelVS 1.3s cubic-bezier(.2,.7,.2,1) forwards}',
-    '@keyframes _duelVS{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}30%{opacity:0;transform:translate(-50%,-50%) scale(.6)}45%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}55%{transform:translate(-50%,-50%) scale(1)}70%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.4)}}',
+    // 1. IRIS — index/hub
+    '.tx-iris .circle{position:absolute;border-radius:50%;background:#0a0a0c;left:var(--mx,50%);top:var(--my,50%);width:0;height:0;transform:translate(-50%,-50%)}' +
+    '.tx-iris.go .circle{animation:_irisIn 500ms cubic-bezier(.77,0,.175,1) forwards}' +
+    '@keyframes _irisIn{to{width:300vmax;height:300vmax}}' +
+    '.tx-iris.go.enter .circle{animation:_irisOut 500ms cubic-bezier(.77,0,.175,1) both}' +
+    '@keyframes _irisOut{from{width:300vmax;height:300vmax;opacity:1}to{width:0;height:0;opacity:.8}}' +
 
-    /* ── leaderboard — gold curtain ── */
-    '.tx-lb{overflow:hidden}',
-    '.tx-lb .curtain{position:absolute;left:0;right:0;bottom:-100%;height:100%;',
-    'background:linear-gradient(180deg,#ffb800,#7a5c00 80%,#08080a)}',
-    '.tx-lb.go .curtain{animation:_lbCurtain 1.2s cubic-bezier(.7,0,.3,1) forwards}',
-    '@keyframes _lbCurtain{0%{bottom:-100%}45%{bottom:0%}55%{bottom:0%}100%{bottom:100%}}',
-    '.tx-lb .trophy{position:absolute;left:50%;top:60%;transform:translate(-50%,-50%) translateY(60vh);font-size:25vw;line-height:1;opacity:0;filter:drop-shadow(0 0 60px rgba(0,0,0,.4))}',
-    '.tx-lb.go .trophy{animation:_lbTrophy 1.2s cubic-bezier(.2,.7,.2,1) forwards}',
-    '@keyframes _lbTrophy{0%{opacity:0;transform:translate(-50%,-50%) translateY(60vh) scale(.5) rotate(-20deg)}35%{opacity:1;transform:translate(-50%,-50%) translateY(0) scale(1) rotate(0deg)}65%{opacity:1;transform:translate(-50%,-50%) translateY(0) scale(1) rotate(0deg)}100%{opacity:0;transform:translate(-50%,-50%) translateY(-60vh) scale(.8)}}',
-    '.tx-lb .lbtitle{position:absolute;left:0;right:0;top:38%;text-align:center;font-family:Anton,Impact,sans-serif;font-size:11vw;color:#08080a;letter-spacing:.04em;opacity:0;line-height:1}',
-    '.tx-lb.go .lbtitle{animation:_lbTitle 1.2s cubic-bezier(.2,.7,.2,1) .1s forwards}',
-    '@keyframes _lbTitle{0%{opacity:0;transform:translateY(20px) scale(.95)}35%{opacity:1;transform:translateY(0) scale(1)}65%{opacity:1}100%{opacity:0;transform:translateY(-20px) scale(1.05)}}',
+    // 2. BLADE — bracket
+    '.tx-blade .blade{position:absolute;left:-50%;top:-50%;width:200%;height:200%;background:#ff4419;transform:translateX(120%) rotate(-12deg)}' +
+    '.tx-blade.go .blade{animation:_bladeIn 500ms cubic-bezier(.77,0,.175,1) forwards}' +
+    '@keyframes _bladeIn{to{transform:translateX(0) rotate(-12deg)}}' +
+    '.tx-blade.go.enter .blade{animation:_bladeOut 500ms cubic-bezier(.77,0,.175,1) both}' +
+    '@keyframes _bladeOut{from{transform:translateX(0) rotate(-12deg)}to{transform:translateX(-120%) rotate(-12deg)}}' +
 
-    /* ── stats — matrix rain ── */
-    '.tx-stats{overflow:hidden;background:#08080a}',
-    '.tx-stats.go{animation:_statsBg 1.1s steps(8,end) forwards}',
-    '@keyframes _statsBg{0%{opacity:0}20%{opacity:1}80%{opacity:1}100%{opacity:0}}',
-    '.tx-stats .col{position:absolute;top:-20%;width:30px;font:700 16px/1.4 monospace;color:#ff4419;text-align:center;opacity:.8;text-shadow:0 0 8px #ff4419}',
-    '.tx-stats.go .col{animation:_statsRain 1.1s cubic-bezier(.4,0,.6,1) forwards}',
-    '@keyframes _statsRain{0%{transform:translateY(0)}100%{transform:translateY(140vh)}}',
-    '.tx-stats .bignum{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:Anton,Impact,sans-serif;font-size:25vw;color:#ff4419;letter-spacing:-.02em;opacity:0;text-shadow:0 0 50px rgba(255,68,25,.5);line-height:1}',
-    '.tx-stats.go .bignum{animation:_statsNum 1.1s cubic-bezier(.2,.7,.2,1) forwards}',
-    '@keyframes _statsNum{0%{opacity:0;transform:translate(-50%,-50%) scale(.6)}40%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}60%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.3)}}',
+    // 3. CORNERS — teams-bracket
+    '.tx-corners .qd{position:absolute;width:50%;height:50%}' +
+    '.tx-corners .qd.tl{top:0;left:0;background:#3a86ff;transform:translate(-100%,-100%)}' +
+    '.tx-corners .qd.tr{top:0;right:0;background:#ff4419;transform:translate(100%,-100%)}' +
+    '.tx-corners .qd.bl{bottom:0;left:0;background:#ffb800;transform:translate(-100%,100%)}' +
+    '.tx-corners .qd.br{bottom:0;right:0;background:#3dd17f;transform:translate(100%,100%)}' +
+    '.tx-corners.go .qd{animation:_cornerIn 500ms cubic-bezier(.77,0,.175,1) forwards}' +
+    '@keyframes _cornerIn{to{transform:translate(0,0)}}' +
+    '.tx-corners.go.enter .qd.tl{animation:_cOutTL 500ms cubic-bezier(.77,0,.175,1) both}' +
+    '.tx-corners.go.enter .qd.tr{animation:_cOutTR 500ms cubic-bezier(.77,0,.175,1) both}' +
+    '.tx-corners.go.enter .qd.bl{animation:_cOutBL 500ms cubic-bezier(.77,0,.175,1) both}' +
+    '.tx-corners.go.enter .qd.br{animation:_cOutBR 500ms cubic-bezier(.77,0,.175,1) both}' +
+    '@keyframes _cOutTL{from{transform:translate(0,0)}to{transform:translate(-100%,-100%)}}' +
+    '@keyframes _cOutTR{from{transform:translate(0,0)}to{transform:translate(100%,-100%)}}' +
+    '@keyframes _cOutBL{from{transform:translate(0,0)}to{transform:translate(-100%,100%)}}' +
+    '@keyframes _cOutBR{from{transform:translate(0,0)}to{transform:translate(100%,100%)}}' +
 
-    /* ── mastery — grid construct ── */
-    '.tx-mastery{overflow:hidden;background:#08080a}',
-    '.tx-mastery.go{animation:_mastBg 1.1s ease forwards}',
-    '@keyframes _mastBg{0%{opacity:0}20%{opacity:1}80%{opacity:1}100%{opacity:0}}',
-    '.tx-mastery .gx{position:absolute;width:5vw;height:5vw;background:#ff4419;transform:scale(0);box-shadow:0 0 12px #ff4419}',
-    '.tx-mastery.go .gx{animation:_mastCell .8s cubic-bezier(.2,.7,.2,1) forwards}',
-    '@keyframes _mastCell{0%{transform:scale(0) rotate(0deg);background:#ff4419}40%{transform:scale(1) rotate(45deg);background:#ffb800}100%{transform:scale(0) rotate(90deg);opacity:0}}',
+    // 4. ROWS — team-standings
+    '.tx-rows .rw{position:absolute;left:0;width:100%;height:16.67%;background:#ffb800;transform:translateX(-100%)}' +
+    '.tx-rows .rw:nth-child(1){top:0%}.tx-rows .rw:nth-child(2){top:16.67%}.tx-rows .rw:nth-child(3){top:33.33%}' +
+    '.tx-rows .rw:nth-child(4){top:50%}.tx-rows .rw:nth-child(5){top:66.67%}.tx-rows .rw:nth-child(6){top:83.33%}' +
+    '.tx-rows.go .rw{animation:_rowIn 400ms cubic-bezier(.77,0,.175,1) both}' +
+    '.tx-rows.go .rw:nth-child(1){animation-delay:0ms}.tx-rows.go .rw:nth-child(2){animation-delay:50ms}' +
+    '.tx-rows.go .rw:nth-child(3){animation-delay:100ms}.tx-rows.go .rw:nth-child(4){animation-delay:150ms}' +
+    '.tx-rows.go .rw:nth-child(5){animation-delay:200ms}.tx-rows.go .rw:nth-child(6){animation-delay:250ms}' +
+    '@keyframes _rowIn{to{transform:translateX(0)}}' +
+    '.tx-rows.go.enter .rw{animation:_rowOut 400ms cubic-bezier(.77,0,.175,1) both}' +
+    '.tx-rows.go.enter .rw:nth-child(1){animation-delay:0ms}.tx-rows.go.enter .rw:nth-child(2){animation-delay:0ms}' +
+    '.tx-rows.go.enter .rw:nth-child(3){animation-delay:0ms}.tx-rows.go.enter .rw:nth-child(4){animation-delay:0ms}' +
+    '.tx-rows.go.enter .rw:nth-child(5){animation-delay:0ms}.tx-rows.go.enter .rw:nth-child(6){animation-delay:0ms}' +
+    '@keyframes _rowOut{from{transform:translateX(0)}to{transform:translateX(100%)}}' +
 
-    /* ── friends — orbit assemble ── */
-    '.tx-friends{overflow:hidden;background:radial-gradient(circle at center,#0a1424,#08080a)}',
-    '.tx-friends.go{animation:_frBg 1.2s ease forwards}',
-    '@keyframes _frBg{0%{opacity:0}20%{opacity:1}80%{opacity:1}100%{opacity:0}}',
-    '.tx-friends .orbit{position:absolute;left:50%;top:50%;width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#3a86ff,#1a3a8a);display:grid;place-items:center;font-weight:800;font-size:18px;color:#fff;box-shadow:0 0 30px rgba(58,134,255,.5);opacity:0}',
-    '.tx-friends.go .orbit{animation:_frOrbit 1.2s cubic-bezier(.2,.7,.2,1) forwards}',
-    '@keyframes _frOrbit{0%{transform:translate(-50%,-50%) scale(.3);opacity:0}35%{transform:translate(-50%,-50%) scale(1);opacity:1}65%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-50%) scale(.5);opacity:0}}',
-    '.tx-friends .center-pulse{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:120px;height:120px;border-radius:50%;background:#3a86ff;opacity:0;box-shadow:0 0 80px #3a86ff}',
-    '.tx-friends.go .center-pulse{animation:_frPulse 1.2s ease forwards}',
-    '@keyframes _frPulse{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}40%{opacity:.8;transform:translate(-50%,-50%) scale(1.2)}60%{opacity:.8;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(2)}}',
+    // 5. SPLIT — duel
+    '.tx-split .half{position:absolute;top:0;height:100%;width:50%}' +
+    '.tx-split .half.l{left:0;background:#0a0a0c;transform:translateX(-100%)}' +
+    '.tx-split .half.r{right:0;background:#dad5cb;transform:translateX(100%)}' +
+    '.tx-split.go .half.l{animation:_splitInL 500ms cubic-bezier(.77,0,.175,1) forwards}' +
+    '.tx-split.go .half.r{animation:_splitInR 500ms cubic-bezier(.77,0,.175,1) forwards}' +
+    '@keyframes _splitInL{to{transform:translateX(0)}}' +
+    '@keyframes _splitInR{to{transform:translateX(0)}}' +
+    '.tx-split.go.enter .half.l{animation:_splitOutL 500ms cubic-bezier(.77,0,.175,1) both}' +
+    '.tx-split.go.enter .half.r{animation:_splitOutR 500ms cubic-bezier(.77,0,.175,1) both}' +
+    '@keyframes _splitOutL{from{transform:translateX(0)}to{transform:translateY(-100%)}}' +
+    '@keyframes _splitOutR{from{transform:translateX(0)}to{transform:translateY(100%)}}' +
 
-    /* ── profile — radial reveal ── */
-    '.tx-profile{overflow:hidden}',
-    '.tx-profile .veil{position:absolute;inset:0;background:#08080a;clip-path:circle(0% at 50% 50%)}',
-    '.tx-profile.go .veil{animation:_pfVeil 1.1s cubic-bezier(.7,0,.3,1) forwards}',
-    '@keyframes _pfVeil{0%{clip-path:circle(0% at 50% 50%)}40%{clip-path:circle(150% at 50% 50%)}60%{clip-path:circle(150% at 50% 50%)}100%{clip-path:circle(0% at 50% 50%)}}',
-    '.tx-profile .silhouette{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.5);font-size:50vh;line-height:1;opacity:0;filter:drop-shadow(0 0 60px rgba(255,44,95,.5))}',
-    '.tx-profile.go .silhouette{animation:_pfSil 1.1s cubic-bezier(.2,.7,.2,1) forwards}',
-    '@keyframes _pfSil{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}40%{opacity:1;transform:translate(-50%,-50%) scale(1)}60%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.2)}}',
-    '.tx-profile .pftitle{position:absolute;left:0;right:0;top:50%;text-align:center;font-family:Anton,Impact,sans-serif;font-size:9vw;color:#ff2c5f;letter-spacing:.02em;line-height:1;transform:translateY(-50%);opacity:0}',
-    '.tx-profile.go .pftitle{animation:_pfTitle 1.1s .1s ease forwards}',
-    '@keyframes _pfTitle{0%,30%{opacity:0;letter-spacing:.5em}50%{opacity:1;letter-spacing:.02em}70%{opacity:1}100%{opacity:0;letter-spacing:-.05em}}',
-  ].join('');
-  document.head.appendChild(s);
+    // 6. RIPPLE — game
+    '.tx-ripple .r1,.tx-ripple .r2,.tx-ripple .r3{position:absolute;left:50%;top:50%;border-radius:50%;background:#3a86ff;width:0;height:0;transform:translate(-50%,-50%);opacity:0}' +
+    '.tx-ripple.go .r1{animation:_ripIn 700ms cubic-bezier(.4,0,.2,1) forwards}' +
+    '.tx-ripple.go .r2{animation:_ripIn 700ms 80ms cubic-bezier(.4,0,.2,1) forwards}' +
+    '.tx-ripple.go .r3{animation:_ripIn 700ms 160ms cubic-bezier(.4,0,.2,1) forwards}' +
+    '@keyframes _ripIn{50%{opacity:.4}100%{width:300vmax;height:300vmax;opacity:1}}' +
+    '.tx-ripple.go.enter .r1,.tx-ripple.go.enter .r2,.tx-ripple.go.enter .r3{animation:_ripOut 500ms cubic-bezier(.4,0,.2,1) both}' +
+    '@keyframes _ripOut{from{width:300vmax;height:300vmax;opacity:1}to{opacity:0;transform:translate(-50%,-50%) scale(1.1)}}' +
 
-  // ─── Inject overlay HTML ──────────────────────────────────────────────────
+    // 7. CLOCK — roundrobin (conic sweep; requires @property --p)
+    '.tx-clock .panel{position:absolute;inset:0;background:conic-gradient(from -90deg,#ffb800 0deg,#ffb800 var(--p,0deg),transparent var(--p,0deg))}' +
+    '.tx-clock.go .panel{animation:_clockIn 600ms cubic-bezier(.77,0,.175,1) forwards}' +
+    '@keyframes _clockIn{to{--p:360deg}}' +
+    '.tx-clock.go.enter .panel{animation:_clockOut 500ms cubic-bezier(.77,0,.175,1) both}' +
+    '@keyframes _clockOut{from{--p:360deg;opacity:1}to{--p:360deg;opacity:0}}' +
+
+    // 8. STACK — my-brackets
+    '.tx-stack .card{position:absolute;left:50%;bottom:50%;width:60vw;height:55vh;background:linear-gradient(180deg,#1a1a26,#0a0a0c);border:1px solid #ff4419;border-radius:14px;transform:translate(-50%,150%)}' +
+    '.tx-stack .card.c1{transform:translate(-50%,150%) rotate(-3deg)}' +
+    '.tx-stack .card.c2{transform:translate(-50%,150%) rotate(0deg)}' +
+    '.tx-stack .card.c3{transform:translate(-50%,150%) rotate(3deg)}' +
+    '.tx-stack.go .card{animation:_stackIn 500ms cubic-bezier(.77,0,.175,1) forwards}' +
+    '.tx-stack.go .card.c1{animation-delay:0ms;--r:-3deg}' +
+    '.tx-stack.go .card.c2{animation-delay:80ms;--r:0deg}' +
+    '.tx-stack.go .card.c3{animation-delay:160ms;--r:3deg}' +
+    '@keyframes _stackIn{to{transform:translate(-50%,50%) rotate(var(--r,0deg))}}' +
+    '.tx-stack.go.enter .card{animation:_stackOut 500ms cubic-bezier(.77,0,.175,1) both}' +
+    '.tx-stack.go.enter .card.c1{animation-delay:0ms}.tx-stack.go.enter .card.c2{animation-delay:0ms}.tx-stack.go.enter .card.c3{animation-delay:0ms}' +
+    '@keyframes _stackOut{from{transform:translate(-50%,50%) rotate(var(--r,0deg))}to{transform:translate(-50%,-200%) rotate(var(--r,0deg))}}' +
+
+    // 9. TRIO — stats
+    '.tx-trio{flex-direction:row}' +
+    '.tx-trio .bar{flex:1;background:#ff4419;transform:translateY(-100%)}' +
+    '.tx-trio.go .bar{animation:_trioIn 450ms cubic-bezier(.77,0,.175,1) forwards}' +
+    '.tx-trio.go .bar:nth-child(1){animation-delay:0ms}' +
+    '.tx-trio.go .bar:nth-child(2){animation-delay:100ms}' +
+    '.tx-trio.go .bar:nth-child(3){animation-delay:200ms}' +
+    '@keyframes _trioIn{to{transform:translateY(0)}}' +
+    '.tx-trio.go.enter .bar{animation:_trioOut 450ms cubic-bezier(.77,0,.175,1) both}' +
+    '.tx-trio.go.enter .bar:nth-child(1){animation-delay:0ms}' +
+    '.tx-trio.go.enter .bar:nth-child(2){animation-delay:0ms}' +
+    '.tx-trio.go.enter .bar:nth-child(3){animation-delay:0ms}' +
+    '@keyframes _trioOut{from{transform:translateY(0)}to{transform:translateY(100%)}}' +
+
+    // 10. CURTAIN — leaderboard
+    '.tx-curtain .panel{position:absolute;inset:0;background:#d4a017;transform:translateY(100%)}' +
+    '.tx-curtain.go .panel{animation:_curtainIn 500ms cubic-bezier(.77,0,.175,1) forwards}' +
+    '@keyframes _curtainIn{to{transform:translateY(0)}}' +
+    '.tx-curtain.go.enter .panel{animation:_curtainOut 500ms cubic-bezier(.77,0,.175,1) both}' +
+    '@keyframes _curtainOut{from{transform:translateY(0)}to{transform:translateY(-100%)}}' +
+
+    // 11. WAVE — mastery (tiles built programmatically)
+    '.tx-wave .tl{background:#ff4419;transform:scale(0);transform-origin:center}' +
+    '.tx-wave.go .tl{animation:_tlPop 350ms cubic-bezier(.5,0,.5,1) forwards}' +
+    '@keyframes _tlPop{to{transform:scale(1)}}' +
+    '.tx-wave.go.enter .tl{animation:_tlFade 350ms cubic-bezier(.5,0,.5,1) both}' +
+    '@keyframes _tlFade{from{transform:scale(1)}to{transform:scale(0);opacity:0}}' +
+
+    // 12. SCAN — practice (7 skewed bars)
+    '.tx-scan .ln{position:absolute;left:-50%;width:200%;height:14.29%;background:#ff2c5f;transform:translateX(-100%)}' +
+    '.tx-scan .ln:nth-child(1){top:0%}.tx-scan .ln:nth-child(2){top:14.29%}.tx-scan .ln:nth-child(3){top:28.57%}' +
+    '.tx-scan .ln:nth-child(4){top:42.86%}.tx-scan .ln:nth-child(5){top:57.14%}.tx-scan .ln:nth-child(6){top:71.43%}.tx-scan .ln:nth-child(7){top:85.71%}' +
+    '.tx-scan.go .ln{animation:_scanIn 400ms cubic-bezier(.77,0,.175,1) both}' +
+    '.tx-scan.go .ln:nth-child(odd){animation-delay:0ms}.tx-scan.go .ln:nth-child(even){animation-delay:80ms}' +
+    '@keyframes _scanIn{to{transform:translateX(50%)}}' +
+    '.tx-scan.go.enter .ln{animation:_scanOut 400ms cubic-bezier(.77,0,.175,1) both}' +
+    '.tx-scan.go.enter .ln:nth-child(odd){animation-delay:0ms}.tx-scan.go.enter .ln:nth-child(even){animation-delay:0ms}' +
+    '@keyframes _scanOut{from{transform:translateX(50%)}to{transform:translateX(150%)}}' +
+
+    // 13. TIERS — tier-list
+    '.tx-tiers .t{position:absolute;left:0;width:100%;height:16.67%;transform:translateY(-100%);display:flex;align-items:center;padding-left:60px;font-family:Anton,Impact,sans-serif;font-size:80px;color:#0a0a0c;letter-spacing:.04em}' +
+    '.tx-tiers .t.s{top:0%;background:#ff2c5f}.tx-tiers .t.a{top:16.67%;background:#ff8a3d}' +
+    '.tx-tiers .t.b{top:33.33%;background:#ffd23f}.tx-tiers .t.c{top:50%;background:#3dd17f}' +
+    '.tx-tiers .t.d{top:66.67%;background:#3a86ff}.tx-tiers .t.f{top:83.33%;background:#a878ff}' +
+    '.tx-tiers.go .t{animation:_tierIn 400ms cubic-bezier(.77,0,.175,1) both}' +
+    '.tx-tiers.go .t.s{animation-delay:0ms}.tx-tiers.go .t.a{animation-delay:50ms}' +
+    '.tx-tiers.go .t.b{animation-delay:100ms}.tx-tiers.go .t.c{animation-delay:150ms}' +
+    '.tx-tiers.go .t.d{animation-delay:200ms}.tx-tiers.go .t.f{animation-delay:250ms}' +
+    '@keyframes _tierIn{to{transform:translateY(0)}}' +
+    '.tx-tiers.go.enter .t{animation:_tierOut 400ms cubic-bezier(.77,0,.175,1) both}' +
+    '.tx-tiers.go.enter .t.s,.tx-tiers.go.enter .t.a,.tx-tiers.go.enter .t.b,' +
+    '.tx-tiers.go.enter .t.c,.tx-tiers.go.enter .t.d,.tx-tiers.go.enter .t.f{animation-delay:0ms}' +
+    '@keyframes _tierOut{from{transform:translateY(0)}to{transform:translateY(100%)}}' +
+
+    // 14. STAR — favorites
+    '.tx-star .star-shape{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(0);width:200vmax;height:200vmax;background:#ffb800;clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}' +
+    '.tx-star.go .star-shape{animation:_starIn 550ms cubic-bezier(.7,0,.3,1) forwards}' +
+    '@keyframes _starIn{to{transform:translate(-50%,-50%) scale(1) rotate(0deg)}}' +
+    '.tx-star.go.enter .star-shape{animation:_starOut 500ms cubic-bezier(.4,0,.2,1) both}' +
+    '@keyframes _starOut{from{transform:translate(-50%,-50%) scale(1) rotate(0deg);opacity:1}to{transform:translate(-50%,-50%) scale(.3) rotate(72deg);opacity:0}}' +
+
+    // 15. BLUE — friends
+    '.tx-blue .panel{position:absolute;inset:0;background:#3a86ff;transform:translateX(100%)}' +
+    '.tx-blue.go .panel{animation:_blueIn 500ms cubic-bezier(.77,0,.175,1) forwards}' +
+    '@keyframes _blueIn{to{transform:translateX(0)}}' +
+    '.tx-blue.go.enter .panel{animation:_blueOut 500ms cubic-bezier(.77,0,.175,1) both}' +
+    '@keyframes _blueOut{from{transform:translateX(0)}to{transform:translateX(-100%)}}' +
+
+    // 16. CLOSE — profile (iris close)
+    '.tx-close .panel{position:absolute;inset:0;background:#0a0a0c;clip-path:circle(0% at 50% 50%)}' +
+    '.tx-close.go .panel{animation:_closeIn 500ms cubic-bezier(.77,0,.175,1) forwards}' +
+    '@keyframes _closeIn{to{clip-path:circle(150vmax at 50% 50%)}}' +
+    '.tx-close.go.enter .panel{animation:_closeOut 500ms cubic-bezier(.77,0,.175,1) both}' +
+    '@keyframes _closeOut{from{clip-path:circle(150vmax at 50% 50%)}to{clip-path:circle(0% at 50% 50%)}}';
+
+  document.head.appendChild(css);
+
+  // ── Overlay HTML ───────────────────────────────────────────────────────────
   var wrap = document.createElement('div');
   wrap.id = 'tx-overlays';
   wrap.innerHTML =
-    '<div class="tx tx-smash"><div class="flash"></div><div class="ring1"></div><div class="ring2"></div></div>' +
-    '<div class="tx tx-bracket"><div class="slice"></div><div class="bolt">⚡</div></div>' +
-    '<div class="tx tx-duel"><div class="bar-t"></div><div class="bar-b"></div><div class="pname p1n"></div><div class="pname p2n"></div><div class="vsBig">VS</div></div>' +
-    '<div class="tx tx-lb"><div class="curtain"></div><div class="trophy">🏆</div><div class="lbtitle">THE THRONE</div></div>' +
-    '<div class="tx tx-stats"><div class="bignum">99</div></div>' +
-    '<div class="tx tx-mastery"></div>' +
-    '<div class="tx tx-friends"><div class="center-pulse"></div></div>' +
-    '<div class="tx tx-profile"><div class="veil"></div><div class="silhouette">👤</div><div class="pftitle">PROFILE</div></div>';
+    '<div class="tx tx-iris"><div class="circle"></div><div class="label"><span class="num">001</span><span class="word">ARENA</span></div></div>' +
+    '<div class="tx tx-blade"><div class="blade"></div><div class="label"><span class="num">002</span><span class="word">BRACKET</span></div></div>' +
+    '<div class="tx tx-corners"><div class="qd tl"></div><div class="qd tr"></div><div class="qd bl"></div><div class="qd br"></div><div class="label"><span class="num">003</span><span class="word">TEAM BATTLE</span></div></div>' +
+    '<div class="tx tx-rows dark-label"><div class="rw"></div><div class="rw"></div><div class="rw"></div><div class="rw"></div><div class="rw"></div><div class="rw"></div><div class="label"><span class="num">004</span><span class="word">STANDINGS</span></div></div>' +
+    '<div class="tx tx-split"><div class="half l"></div><div class="half r"></div><div class="label"><span class="num">005</span><span class="word">1V1 DUEL</span></div></div>' +
+    '<div class="tx tx-ripple"><div class="r1"></div><div class="r2"></div><div class="r3"></div><div class="label"><span class="num">006</span><span class="word">ARENA</span></div></div>' +
+    '<div class="tx tx-clock dark-label"><div class="panel"></div><div class="label"><span class="num">007</span><span class="word">ROUND ROBIN</span></div></div>' +
+    '<div class="tx tx-stack"><div class="card c1"></div><div class="card c2"></div><div class="card c3"></div><div class="label"><span class="num">008</span><span class="word">MY BRACKETS</span></div></div>' +
+    '<div class="tx tx-trio"><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="label"><span class="num">009</span><span class="word">STATS</span></div></div>' +
+    '<div class="tx tx-curtain dark-label"><div class="panel"></div><div class="label"><span class="num">010</span><span class="word">THE THRONE</span></div></div>' +
+    '<div class="tx tx-wave"><div class="label"><span class="num">011</span><span class="word">MASTERY</span></div></div>' +
+    '<div class="tx tx-scan"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="label"><span class="num">012</span><span class="word">PRACTICE</span></div></div>' +
+    '<div class="tx tx-tiers dark-label"><div class="t s">S</div><div class="t a">A</div><div class="t b">B</div><div class="t c">C</div><div class="t d">D</div><div class="t f">F</div><div class="label"><span class="num">013</span><span class="word">TIER LIST</span></div></div>' +
+    '<div class="tx tx-star dark-label"><div class="star-shape"></div><div class="label"><span class="num">014</span><span class="word">FAVORITES</span></div></div>' +
+    '<div class="tx tx-blue"><div class="panel"></div><div class="label"><span class="num">015</span><span class="word">YOUR CIRCLE</span></div></div>' +
+    '<div class="tx tx-close"><div class="panel"></div><div class="label"><span class="num">016</span><span class="word">PROFILE</span></div></div>';
   document.body.appendChild(wrap);
 
-  // ─── Entry veil: covers page then immediately fades out ───────────────────
-  var veil = document.createElement('div');
-  veil.id = 'tx-veil';
-  document.body.appendChild(veil);
-  // Two rAF ensures the div is painted before we start the transition
-  requestAnimationFrame(function () {
-    requestAnimationFrame(function () {
-      veil.style.opacity = '0';
-      setTimeout(function () { veil.parentNode && veil.parentNode.removeChild(veil); }, 460);
-    });
-  });
-
-  // ─── Dynamic setup functions ──────────────────────────────────────────────
-  function setupStatsRain(el) {
-    el.querySelectorAll('.col').forEach(function (c) { c.parentNode.removeChild(c); });
-    var cols = Math.floor(window.innerWidth / 34);
-    for (var i = 0; i < cols; i++) {
-      var c = document.createElement('div');
-      c.className = 'col';
-      c.style.left = (i * 34 + 6) + 'px';
-      c.style.animationDelay = (Math.random() * 0.4) + 's';
-      var txt = '';
-      var rows = 8 + Math.floor(Math.random() * 10);
-      for (var j = 0; j < rows; j++) txt += (Math.random() > .5 ? '1' : '0') + '<br>';
-      c.innerHTML = txt;
-      el.appendChild(c);
+  // ── Wave tile grid (12 rows × 20 cols = 240 tiles) ────────────────────────
+  function buildWave(el) {
+    el.querySelectorAll('.tl').forEach(function (t) { t.parentNode.removeChild(t); });
+    var label = el.querySelector('.label');
+    for (var r = 0; r < 12; r++) {
+      for (var c = 0; c < 20; c++) {
+        var t = document.createElement('div');
+        t.className = 'tl';
+        t.style.animationDelay = (c * 22 + Math.abs(r - 6) * 8) + 'ms';
+        el.insertBefore(t, label);
+      }
     }
   }
 
-  function setupMasteryCells(el) {
-    el.querySelectorAll('.gx').forEach(function (c) { c.parentNode.removeChild(c); });
-    var total = 120;
-    var cx = window.innerWidth / 2, cy = window.innerHeight / 2;
-    var span = Math.max(window.innerWidth, window.innerHeight);
-    for (var i = 0; i < total; i++) {
-      var c = document.createElement('div');
-      c.className = 'gx';
-      var angle = Math.random() * Math.PI * 2;
-      var dist = Math.random() * span / 2;
-      c.style.left = (cx + Math.cos(angle) * dist) + 'px';
-      c.style.top  = (cy + Math.sin(angle) * dist) + 'px';
-      c.style.animationDelay = (dist / span * 0.5) + 's';
-      el.appendChild(c);
-    }
+  // ── Enter animation (destination page reveals) ────────────────────────────
+  function playEnter(cls) {
+    var el = document.querySelector('.' + cls);
+    if (!el) return;
+    if (cls === 'tx-wave') buildWave(el);
+    el.classList.add('go', 'enter');
+    // stack/rows/tiers/scan stagger max ~250ms + 500ms animation = 750ms
+    var cleanup = (cls === 'tx-wave') ? 900 : 750;
+    setTimeout(function () { el.classList.remove('go', 'enter'); }, cleanup);
   }
 
-  function setupFriendOrbits(el) {
-    el.querySelectorAll('.orbit').forEach(function (c) { c.parentNode.removeChild(c); });
-    var cx = window.innerWidth / 2, cy = window.innerHeight / 2;
-    var names  = ['K', 'V', 'L', 'R', 'J', 'S', 'T', 'M'];
-    var colors = ['#ff4419','#ffb800','#3dd17f','#ff2c5f','#3a86ff','#a878ff','#ff8a3d','#2bd9ff'];
-    for (var i = 0; i < 8; i++) {
-      var a = (i / 8) * Math.PI * 2;
-      var r = 180 + Math.random() * 60;
-      var o = document.createElement('div');
-      o.className = 'orbit';
-      o.style.left = (cx + Math.cos(a) * r) + 'px';
-      o.style.top  = (cy + Math.sin(a) * r) + 'px';
-      o.style.background = 'linear-gradient(135deg,' + colors[i] + ',#08080a)';
-      o.style.animationDelay = (i * 0.05) + 's';
-      o.textContent = names[i];
-      el.appendChild(o);
-    }
-  }
+  if (pendingEnter) playEnter(pendingEnter);
 
-  var SETUPS = {
-    'tx-stats':   setupStatsRain,
-    'tx-mastery': setupMasteryCells,
-    'tx-friends': setupFriendOrbits,
-  };
+  // ── Track last click position for iris origin ──────────────────────────────
+  var lastX = window.innerWidth / 2;
+  var lastY = window.innerHeight / 2;
+  document.addEventListener('click', function (e) { lastX = e.clientX; lastY = e.clientY; }, true);
 
-  // ─── Navigate with transition ─────────────────────────────────────────────
+  // ── Exit animation + page navigation ──────────────────────────────────────
   var busy = false;
 
-  function navigate(href, txCfg) {
-    if (busy) return;
+  function doNav(href, cfg, el) {
     busy = true;
 
-    var txEl = document.querySelector('.' + txCfg.cls);
-    if (!txEl) { window.location.href = href; return; }
+    // Update label text to match destination
+    var numEl = el.querySelector('.num');
+    var wordEl = el.querySelector('.word');
+    if (numEl) numEl.textContent = cfg.num;
+    if (wordEl) wordEl.textContent = cfg.word;
 
-    // Populate duel player names from auth context
-    if (txCfg.cls === 'tx-duel') {
-      var p1 = txEl.querySelector('.p1n');
-      var p2 = txEl.querySelector('.p2n');
-      if (p1) p1.textContent = ((localStorage.username || 'P1') + '').toUpperCase().slice(0, 8);
-      if (p2) p2.textContent = 'VS';
+    if (cfg.cls === 'tx-iris') {
+      el.style.setProperty('--mx', lastX + 'px');
+      el.style.setProperty('--my', lastY + 'px');
     }
+    if (cfg.cls === 'tx-wave') buildWave(el);
 
-    if (SETUPS[txCfg.cls]) SETUPS[txCfg.cls](txEl);
-
-    txEl.classList.add('go');
-
-    setTimeout(function () {
-      window.location.href = href;
-    }, txCfg.mid);
+    try { sessionStorage.setItem('txEnter', cfg.cls); } catch (e) {}
+    el.classList.add('go');
+    setTimeout(function () { window.location.href = href; }, cfg.mid);
   }
 
-  function getTx(filename) {
-    return TX_MAP[filename] || DEFAULT_TX;
-  }
-
-  // ─── Intercept internal link clicks ──────────────────────────────────────
+  // ── Click interception ─────────────────────────────────────────────────────
   document.addEventListener('click', function (e) {
-    // Skip if another handler already prevented the default action
     if (e.defaultPrevented) return;
 
     var a = e.target.closest('a[href]');
     if (!a) return;
     var href = a.getAttribute('href');
     if (!href) return;
-
-    // Skip external, hash-only, protocol links, and new-tab targets
     if (/^(https?:|\/\/|javascript:|mailto:|#)/.test(href)) return;
     if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
     if (a.target === '_blank') return;
     if (a.hasAttribute('download')) return;
 
-    var filename = href.split('/').pop().split('?')[0];
-    if (!filename) filename = 'index.html';
+    var filename = href.split('/').pop().split('?')[0] || 'index.html';
+    var cfg = TX_MAP[filename] || DEFAULT_TX;
+    var el = document.querySelector('.' + cfg.cls);
+
+    // Must confirm overlay exists and not mid-transition before preventing default
+    if (!el || busy) return;
 
     e.preventDefault();
-    navigate(href, getTx(filename));
+    doNav(href, cfg, el);
   });
 
 })();

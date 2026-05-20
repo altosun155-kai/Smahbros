@@ -4,12 +4,10 @@
 
   var TX_MAP = {
     'index.html':         { cls: 'tx-iris',    num: '001', word: 'ARENA',       dur: 1300, mid: 625 },
-    'hub.html':           { cls: 'tx-iris',    num: '001', word: 'ARENA',       dur: 1300, mid: 625 },
     'bracket.html':       { cls: 'tx-blade',   num: '002', word: 'BRACKET',     dur: 1300, mid: 625 },
     'teams-bracket.html': { cls: 'tx-corners', num: '003', word: 'TEAM BATTLE', dur: 1300, mid: 625 },
     'team-standings.html':{ cls: 'tx-rows',    num: '004', word: 'STANDINGS',   dur: 1400, mid: 625 },
     'duel.html':          { cls: 'tx-split',   num: '005', word: '1V1 DUEL',    dur: 1300, mid: 625 },
-    'game.html':          { cls: 'tx-ripple',  num: '006', word: 'ARENA',       dur: 1300, mid: 625 },
     'roundrobin.html':    { cls: 'tx-clock',   num: '007', word: 'ROUND ROBIN', dur: 1350, mid: 625 },
     'my-brackets.html':   { cls: 'tx-stack',   num: '008', word: 'MY BRACKETS', dur: 1400, mid: 700 },
     'stats.html':         { cls: 'tx-trio',    num: '009', word: 'STATS',       dur: 1350, mid: 625 },

@@ -11,7 +11,6 @@
     { href: 'teams-bracket.html',  label: 'Team Battle',     icon: '👥' },
     { href: 'team-standings.html', label: 'Team Standings', icon: '🤝' },
     { href: 'duel.html',         label: '1v1 Duel',     icon: '⚔️' },
-    { href: 'game.html',         label: 'Arena',        icon: '🪃' },
     { href: 'roundrobin.html',   label: 'Round Robin',  icon: '🔄' },
     { href: 'my-brackets.html',  label: 'My Brackets',  icon: '📁' },
     { section: 'Track' },
@@ -60,11 +59,4 @@
     document.body.appendChild(bnav);
   }
 
-  // Load transitions.js on all nav-injected pages
-  if (!document.getElementById('_txScript')) {
-    const txs = document.createElement('script');
-    txs.id  = '_txScript';
-    txs.src = 'js/transitions.js';
-    document.body.appendChild(txs);
-  }
 })();

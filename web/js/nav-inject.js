@@ -58,13 +58,4 @@
       `<a href="profile.html" class="bnav-item${currentPage === 'profile.html' ? ' active' : ''}"><span class="bnav-icon">👤</span>Profile</a>`;
     document.body.appendChild(bnav);
   }
-
-  // Pixel dissolve transitions
-  if (!document.getElementById('_ptxScript')) {
-    var ptx = document.createElement('script');
-    ptx.id  = '_ptxScript';
-    ptx.src = 'js/pixeltx.js';
-    document.body.appendChild(ptx);
-  }
-
 })();

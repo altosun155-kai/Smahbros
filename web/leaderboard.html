@@ -147,106 +147,7 @@
     .avg-card.me-card .avg-card-header { background: rgba(0,119,200,0.08); border-bottom: none; }
     .avg-card.me-card { border-color: rgba(0,119,200,0.3); }
 
-    /* ── Hero banner ── */
-    .lb-hero {
-      background: linear-gradient(135deg, rgba(255,199,0,.07) 0%, transparent 55%);
-      border: 1px solid rgba(255,199,0,.18);
-      border-radius: 16px;
-      padding: 32px 36px;
-      margin-bottom: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 24px;
-      position: relative;
-      overflow: hidden;
-    }
-    .lb-hero::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(ellipse 60% 80% at 80% 50%, rgba(255,199,0,.06) 0%, transparent 70%);
-      pointer-events: none;
-    }
-    .lb-hero-eyebrow {
-      font-size: .7rem;
-      font-weight: 800;
-      letter-spacing: .25em;
-      text-transform: uppercase;
-      color: var(--accent-gold);
-      margin-bottom: 10px;
-    }
-    .lb-hero-title {
-      font-size: clamp(40px, 6vw, 76px);
-      font-weight: 900;
-      line-height: .88;
-      color: var(--text);
-      letter-spacing: -.01em;
-      margin: 0;
-    }
-    .lb-hero-sub { font-size: .82rem; color: var(--text-muted); margin-top: 12px; }
-    .lb-hero-trophy {
-      font-size: clamp(60px, 8vw, 96px);
-      filter: drop-shadow(0 0 40px rgba(255,199,0,.35));
-      flex-shrink: 0;
-      line-height: 1;
-    }
-
-    /* ── Podium cards ── */
-    .lb-podium { display: flex; gap: 14px; margin-bottom: 24px; align-items: flex-end; }
-    .lb-pod {
-      flex: 1; background: var(--card-bg); border: 1px solid var(--border);
-      border-radius: 14px; padding: 20px 12px 16px; text-align: center;
-      transition: transform .2s, box-shadow .2s; position: relative; overflow: hidden;
-    }
-    .lb-pod:hover { transform: translateY(-5px); box-shadow: 0 10px 28px rgba(0,0,0,.4); }
-    .lb-pod.p1 { border-color: #ffd700; background: linear-gradient(160deg, rgba(255,215,0,.09) 0%, var(--card-bg) 65%); order: 2; }
-    .lb-pod.p2 { order: 1; } .lb-pod.p3 { order: 3; }
-    .lb-pod .pod-crown { font-size: 1.7rem; line-height: 1; margin-bottom: 6px; }
-    .lb-pod .pod-av { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; margin: 0 auto 10px; display: block; }
-    .lb-pod .pod-name { font-weight: 800; font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .lb-pod .pod-elo { font-size: 1.45rem; font-weight: 800; color: var(--accent-gold); margin-top: 4px; line-height: 1; }
-    .lb-pod .pod-sub { font-size: .68rem; color: var(--text-muted); margin-top: 6px; line-height: 1.5; }
-    .lb-pod .pod-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; }
-    .lb-pod.p1 .pod-bar { background: linear-gradient(90deg, #ffd700, #e67e22); }
-    .lb-pod.p2 .pod-bar { background: #c0c0c0; }
-    .lb-pod.p3 .pod-bar { background: #cd7f32; }
-    @keyframes _podIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
-    .lb-pod { animation: _podIn .35s ease both; }
-    .lb-pod.p2 { animation-delay: .04s; } .lb-pod.p1 { animation-delay: .1s; } .lb-pod.p3 { animation-delay: .16s; }
-
-    /* ── Row entrance ── */
-    @keyframes _rowIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
-    .r-anim { animation: _rowIn .2s ease both; }
-
-    /* ── Hover hint (shows on tr:hover) ── */
-    .row-hint {
-      display: inline-block; opacity: 0; transition: opacity .15s;
-      font-size: .68rem; font-weight: 700; background: var(--card-bg2);
-      border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px;
-      margin-left: 7px; color: var(--accent-blue); vertical-align: middle; white-space: nowrap;
-    }
-    tr:hover .row-hint { opacity: 1; }
-
-    /* ── Number pop on load ── */
-    @keyframes _numPop { 0% { opacity: 0; transform: scale(.75); } 60% { transform: scale(1.06); } 100% { opacity: 1; transform: scale(1); } }
-    .n-pop { animation: _numPop .4s cubic-bezier(.2,.7,.2,1) both; display: inline-block; }
-
-    /* ── Matrix cell hover ── */
-    #matrixTable td:not(.matrix-self) { transition: background .12s; cursor: default; }
-    #matrixTable td.matrix-win:hover  { background: rgba(39,174,96,.15) !important; }
-    #matrixTable td.matrix-loss:hover { background: rgba(231,76,60,.15) !important; }
-    #matrixTable td.matrix-even:hover { background: rgba(255,255,255,.06) !important; }
-
     @media (max-width: 700px) {
-      .lb-hero { padding: 20px; }
-      .lb-hero-trophy { display: none; }
-      .lb-podium { gap: 8px; }
-      .lb-pod { padding: 12px 8px 10px; }
-      .lb-pod .pod-elo { font-size: 1.1rem; }
-      .lb-pod .pod-av  { width: 36px; height: 36px; }
-      .lb-pod .pod-crown { font-size: 1.3rem; }
-      .lb-pod .pod-sub { display: none; }
       /* Stack split-pane vertically on mobile */
       #bottomSplit { flex-direction: column; gap: 0; margin-top: 24px; }
       #globalSection { order: 1; }
@@ -294,16 +195,10 @@
 <nav class="navbar" id="main-nav"></nav>
 
 <main class="page-container">
-  <div class="lb-hero">
-    <div class="lb-hero-left">
-      <div class="lb-hero-eyebrow">Hall of Honor · Season Rankings</div>
-      <h1 class="lb-hero-title">THE<br>THRONE.</h1>
-      <p class="lb-hero-sub">Click any column to sort · Win % requires 3+ games</p>
-    </div>
-    <div class="lb-hero-trophy">🏆</div>
+  <div class="page-header">
+    <h1>🏆 Leaderboard</h1>
+    <p>Click any column header to sort. Win % requires 3+ games.</p>
   </div>
-
-  <div id="lbPodium" style="display:none;"></div>
 
   <!-- Character stats leaderboard -->
   <div class="section-label">Character Stats</div>
@@ -453,18 +348,6 @@
   let sortDir = 'desc';
   let myUsername  = '';
 
-  function countUp(el, target, dur) {
-    var start = performance.now();
-    dur = dur || 650;
-    function step(now) {
-      var p = Math.min((now - start) / dur, 1);
-      var ease = 1 - Math.pow(1 - p, 3);
-      el.textContent = Math.round(target * ease);
-      if (p < 1) requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
-  }
-
   function sortBy(col) {
     if (sortCol === col) {
       sortDir = sortDir === 'desc' ? 'asc' : 'desc';
@@ -541,7 +424,7 @@
     if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
 
     const body = document.getElementById('charBody');
-    body.innerHTML = page.map((entry, pageIdx) => {
+    body.innerHTML = page.map(entry => {
       const i = entry.globalRank - 1;
       const rankLabel = i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${entry.globalRank}`;
       const isMine = entry.username === myUsername;
@@ -563,11 +446,11 @@
         ? `<span style="font-weight:700;color:${kdVal >= 1.2 ? '#27ae60' : kdVal >= 1.0 ? '#ffe066' : '#e74c3c'};">${kdVal.toFixed(2)}</span>`
         : ((entry.kills ?? 0) > 0 ? `<span style="color:#27ae60;font-weight:700;">∞</span>` : '—');
 
-      return `<tr class="${rowClass} char-row-clickable r-anim" style="animation-delay:${pageIdx * 25}ms" data-u="${escHtml(entry.username)}" data-c="${escHtml(entry.character)}" onclick="openEloHist(this.dataset.u,this.dataset.c)">
+      return `<tr class="${rowClass} char-row-clickable" data-u="${escHtml(entry.username)}" data-c="${escHtml(entry.character)}" onclick="openEloHist(this.dataset.u,this.dataset.c)">
         <td style="font-weight:800;">${rankLabel}</td>
         <td><div style="display:flex;align-items:center;gap:8px;">
           <img class="user-av" src="${av}" alt="${escHtml(entry.username)}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}'" />
-          <span style="font-weight:600;">${escHtml(entry.username)}</span><span class="row-hint">history ↗</span>
+          <span style="font-weight:600;">${escHtml(entry.username)}</span>
         </div></td>
         <td><div style="display:flex;align-items:center;gap:8px;">${charImg}<span>${entry.character}</span></div></td>
         <td style="font-weight:800;color:var(--accent-gold);">${entry.elo ?? 1000}</td>
@@ -619,32 +502,6 @@
       let allBadgeMap = {};
       try { allBadgeMap = await apiGet('/users/badges/all') || {}; } catch (_) {}
 
-      // Build podium for top 3
-      const podiumEl = document.getElementById('lbPodium');
-      if (podiumEl && data.length >= 1) {
-        const avFb = u => `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}`;
-        const podClasses = ['p1','p2','p3'];
-        const podCrowns  = ['👑','🥈','🥉'];
-        podiumEl.className = 'lb-podium';
-        podiumEl.innerHTML = data.slice(0, Math.min(3, data.length)).map((u, i) => {
-          const av  = u.avatar_url || avFb(u.username);
-          const pct = u.win_rate != null ? `${u.win_rate}% win rate` : '';
-          const rec = (u.wins || 0) + 'W · ' + (u.losses || 0) + 'L';
-          return `<div class="lb-pod ${podClasses[i]}">
-            <div class="pod-crown">${podCrowns[i]}</div>
-            <img class="pod-av" src="${av}" alt="${escHtml(u.username)}" onerror="this.src='${avFb(u.username)}'" />
-            <div class="pod-name">${escHtml(u.username)}</div>
-            <div class="pod-elo"><span class="pod-elo-num n-pop" data-val="${u.player_elo ?? 1000}">${u.player_elo ?? 1000}</span></div>
-            <div class="pod-sub">${rec}${pct ? ' · ' + pct : ''}</div>
-            <div class="pod-bar"></div>
-          </div>`;
-        }).join('');
-        podiumEl.style.display = 'flex';
-        podiumEl.querySelectorAll('.pod-elo-num').forEach(function(el) {
-          countUp(el, parseInt(el.dataset.val, 10) || 1000, 700);
-        });
-      }
-
       body.innerHTML = data.map((u, i) => {
         const isMine     = u.username === myUsername;
         const rowClass   = isMine ? 'char-row-mine' : (i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '');
@@ -656,10 +513,10 @@
         const badgeEntry = allBadgeMap[u.username];
         const badgeHtml  = badgeEntry && typeof badgePill === 'function' ? badgePill(badgeEntry) : '';
 
-        return `<tr class="${rowClass} r-anim" style="animation-delay:${i * 30}ms">
+        return `<tr class="${rowClass}">
           <td style="font-weight:700;">${rankSymbol}</td>
           <td style="font-weight:600;">${escHtml(u.username)}</td>
-          <td style="font-weight:800;color:var(--accent-gold);"><span class="n-pop" style="animation-delay:${i * 30 + 200}ms" data-val="${u.player_elo ?? 1000}">${u.player_elo ?? 1000}</span></td>
+          <td style="font-weight:800;color:var(--accent-gold);">${u.player_elo ?? 1000}</td>
           <td style="color:#27ae60;font-weight:700;">${u.wins || 0}</td>
           <td style="color:#e74c3c;font-weight:700;">${u.losses || 0}</td>
           <td style="font-weight:800;color:${pctColor};">${pctStr}</td>

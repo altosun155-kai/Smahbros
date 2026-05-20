@@ -147,6 +147,51 @@
     .avg-card.me-card .avg-card-header { background: rgba(0,119,200,0.08); border-bottom: none; }
     .avg-card.me-card { border-color: rgba(0,119,200,0.3); }
 
+    /* ── Hero banner ── */
+    .lb-hero {
+      background: linear-gradient(135deg, rgba(255,199,0,.07) 0%, transparent 55%);
+      border: 1px solid rgba(255,199,0,.18);
+      border-radius: 16px;
+      padding: 32px 36px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .lb-hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 60% 80% at 80% 50%, rgba(255,199,0,.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .lb-hero-eyebrow {
+      font-size: .7rem;
+      font-weight: 800;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      color: var(--accent-gold);
+      margin-bottom: 10px;
+    }
+    .lb-hero-title {
+      font-size: clamp(40px, 6vw, 76px);
+      font-weight: 900;
+      line-height: .88;
+      color: var(--text);
+      letter-spacing: -.01em;
+      margin: 0;
+    }
+    .lb-hero-sub { font-size: .82rem; color: var(--text-muted); margin-top: 12px; }
+    .lb-hero-trophy {
+      font-size: clamp(60px, 8vw, 96px);
+      filter: drop-shadow(0 0 40px rgba(255,199,0,.35));
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
     /* ── Podium cards ── */
     .lb-podium { display: flex; gap: 14px; margin-bottom: 24px; align-items: flex-end; }
     .lb-pod {
@@ -194,6 +239,8 @@
     #matrixTable td.matrix-even:hover { background: rgba(255,255,255,.06) !important; }
 
     @media (max-width: 700px) {
+      .lb-hero { padding: 20px; }
+      .lb-hero-trophy { display: none; }
       .lb-podium { gap: 8px; }
       .lb-pod { padding: 12px 8px 10px; }
       .lb-pod .pod-elo { font-size: 1.1rem; }
@@ -247,10 +294,16 @@
 <nav class="navbar" id="main-nav"></nav>
 
 <main class="page-container">
-  <div class="page-header">
-    <h1>🏆 Leaderboard</h1>
-    <p>Click any column header to sort. Win % requires 3+ games.</p>
+  <div class="lb-hero">
+    <div class="lb-hero-left">
+      <div class="lb-hero-eyebrow">Hall of Honor · Season Rankings</div>
+      <h1 class="lb-hero-title">THE<br>THRONE.</h1>
+      <p class="lb-hero-sub">Click any column to sort · Win % requires 3+ games</p>
+    </div>
+    <div class="lb-hero-trophy">🏆</div>
   </div>
+
+  <div id="lbPodium" style="display:none;"></div>
 
   <!-- Character stats leaderboard -->
   <div class="section-label">Character Stats</div>
@@ -309,7 +362,6 @@
         <p style="margin-bottom:12px;">No global stats yet — be the first to start a session!</p>
         <a href="roundrobin.html" class="btn btn-primary btn-sm">▶ Start a Session</a>
       </div>
-      <div id="lbPodium" style="display:none;"></div>
       <div style="overflow-x:auto;" id="globalTableWrap">
         <table class="data-table" id="globalTable">
           <thead>

@@ -73,11 +73,18 @@
     .h2h-labels { display: flex; justify-content: space-between; font-size: 0.82rem; }
 
     /* Activity feed */
+    .feed-day-header { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--text-muted); padding: 12px 0 4px; }
+    .feed-day-header:first-child { padding-top: 0; }
     .feed-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.84rem; }
     .feed-item:last-child { border-bottom: none; }
+    .feed-desc { flex: 1; min-width: 0; overflow-wrap: break-word; }
     .feed-win  { color: #4caf50; font-weight: 700; font-size: 0.72rem; text-transform: uppercase; flex-shrink: 0; }
     .feed-loss { color: #e74c3c; font-weight: 700; font-size: 0.72rem; text-transform: uppercase; flex-shrink: 0; }
-    .feed-date { font-size: 0.75rem; color: var(--text-muted); margin-left: auto; flex-shrink: 0; }
+    .feed-date { font-size: 0.75rem; color: var(--text-muted); margin-left: auto; flex-shrink: 0; white-space: nowrap; }
+    @media (max-width: 700px) {
+      .feed-item { flex-wrap: wrap; }
+      .feed-date { margin-left: 0; flex-basis: 100%; order: 3; }
+    }
 
     /* GG wall */
     .comment-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -852,6 +859,25 @@
   });
 
   // ── Activity feed ─────────────────────────────────
+  function feedTimeAgo(iso) {
+    const s = Math.floor((Date.now() - new Date(iso)) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+    if (s < 604800) return `${Math.floor(s / 86400)}d ago`;
+    return new Date(iso).toLocaleDateString();
+  }
+
+  function feedDayLabel(iso) {
+    const d = new Date(iso);
+    const today = new Date();
+    const yest = new Date(today); yest.setDate(yest.getDate() - 1);
+    const sameDay = (a, b) => a.toDateString() === b.toDateString();
+    if (sameDay(d, today)) return 'Today';
+    if (sameDay(d, yest)) return 'Yesterday';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() === today.getFullYear() ? undefined : 'numeric' });
+  }
+
   async function loadActivity() {
     try {
       const data = await apiGet(`/users/${encodeURIComponent(currentUsername)}/activity`);
@@ -862,6 +888,7 @@
       }
       const feed = document.getElementById('activityFeed');
       feed.style.display = 'block';
+      let lastDay = null;
       feed.innerHTML = data.map(r => {
         const won = r.winner === currentUsername;
         const tag = won
@@ -870,14 +897,20 @@
         const desc = won
           ? `<span style="color:var(--text);">${escHtml(r.winner_char)}</span> <span style="color:var(--text-muted);">beat</span> ${escHtml(r.loser)} <span style="color:var(--text-muted);">playing</span> ${escHtml(r.loser_char)}`
           : `<span style="color:var(--text);">${escHtml(r.loser_char)}</span> <span style="color:var(--text-muted);">lost to</span> ${escHtml(r.winner)} <span style="color:var(--text-muted);">playing</span> ${escHtml(r.winner_char)}`;
-        const date = r.created_at ? new Date(r.created_at).toLocaleString() : '';
+        let dayHeader = '';
+        if (r.created_at) {
+          const day = feedDayLabel(r.created_at);
+          if (day !== lastDay) { dayHeader = `<div class="feed-day-header">${day}</div>`; lastDay = day; }
+        }
+        const dateLabel = r.created_at ? feedTimeAgo(r.created_at) : '';
+        const dateTitle = r.created_at ? new Date(r.created_at).toLocaleString() : '';
         let eloBadge = '';
         if (r.elo_delta) {
           const gain = won ? r.elo_delta : -r.elo_delta;
           const col = gain > 0 ? '#4caf50' : '#e74c3c';
           eloBadge = `<span style="font-size:0.78rem;font-weight:700;color:${col};flex-shrink:0;">${gain > 0 ? '+' : ''}${gain}</span>`;
         }
-        return `<div class="feed-item">${tag}<span style="flex:1;">${desc}</span>${eloBadge}<span class="feed-date">${date}</span></div>`;
+        return `${dayHeader}<div class="feed-item">${tag}<span class="feed-desc">${desc}</span>${eloBadge}<span class="feed-date" title="${dateTitle}">${dateLabel}</span></div>`;
       }).join('');
     } catch (err) {
       document.getElementById('activityLoading').style.display = 'none';

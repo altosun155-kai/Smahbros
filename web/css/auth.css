@@ -240,6 +240,11 @@
   opacity: 0.6;
 }
 
+.tile-btn.tile-armed {
+  border-color: var(--accent-blue);
+  background: rgba(0,119,200,0.18);
+}
+
 .tile-btn-new {
   background: none;
   border: 1px dashed rgba(255,255,255,0.25);

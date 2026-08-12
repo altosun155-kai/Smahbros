@@ -121,6 +121,19 @@
   const newPlayerToggle = document.getElementById('newPlayerToggle');
   const newPlayerForm = document.getElementById('newPlayerForm');
 
+  // ── Tap-to-arm, tap-again-to-confirm (prevents fat-finger mis-clicks) ──
+  let armedTile = null;
+  let armedTimeout = null;
+
+  function disarmTile() {
+    if (armedTile) {
+      armedTile.classList.remove('tile-armed');
+      armedTile.textContent = armedTile.dataset.username;
+    }
+    armedTile = null;
+    clearTimeout(armedTimeout);
+  }
+
   function appendTiles(names) {
     names.forEach(function(name) {
       const tile = document.createElement('button');
@@ -129,7 +142,16 @@
       tile.dataset.username = name;
       tile.textContent = name;
       tile.addEventListener('click', function() {
-        enter(tile.dataset.username, tile, 'One sec…');
+        if (armedTile === tile) {
+          disarmTile();
+          enter(tile.dataset.username, tile, 'One sec…');
+          return;
+        }
+        disarmTile();
+        armedTile = tile;
+        tile.classList.add('tile-armed');
+        tile.textContent = 'Tap again to confirm';
+        armedTimeout = setTimeout(disarmTile, 2500);
       });
       userTiles.appendChild(tile);
     });

@@ -3,6 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png" />
+  <meta name="theme-color" content="#0f0f17" />
   <title>Smash Bracket — Team Battle</title>
   <link rel="stylesheet" href="css/reset.css" />
   <link rel="stylesheet" href="css/style.css" />
@@ -59,9 +64,6 @@
     .char-row { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; padding-left: 4px; }
     .char-inp { flex: 1; min-width: 80px; padding: 4px 7px; font-size: 0.78rem; background: #0f0f17; border: 1px solid rgba(255,255,255,0.1); border-radius: 5px; color: var(--text); }
     .char-inp:focus { outline: none; border-color: var(--accent-blue); }
-
-    /* ── Sticky generate button ── */
-    .sticky-bar { position: sticky; bottom: 0; z-index: 30; background: var(--navbar-bg); border-top: 1px solid var(--border); padding: 12px 0; display: flex; gap: 10px; align-items: center; margin-top: 20px; }
 
     /* ── Bracket main area ── */
     .bracket-rounds { display: flex; gap: 32px; overflow-x: auto; padding-bottom: 16px; align-items: start; }
@@ -307,7 +309,6 @@
 
 <script src="js/nav-inject.js"></script>
 <script src="js/api.js"></script>
-<script src="js/nav.js"></script>
 <script src="js/bracket-engine.js"></script>
 <script>
 // ── State ─────────────────────────────────────────────────────────────────

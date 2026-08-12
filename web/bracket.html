@@ -3,6 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png" />
+  <meta name="theme-color" content="#0f0f17" />
   <title>Smash Bracket — Bracket Generator</title>
   <link rel="stylesheet" href="css/reset.css" />
   <link rel="stylesheet" href="css/style.css" />
@@ -33,7 +38,6 @@
     .round-col { min-width: 200px; }
     .round-col.grand-final .round-title { color: var(--accent-gold); }
     .round-col.grand-final .match-box { border-color: rgba(245,166,35,0.45); box-shadow: 0 0 18px rgba(245,166,35,0.12); background: linear-gradient(135deg, #1a150a, #16213e); }
-    .sticky-bar { position: sticky; bottom: 0; z-index: 30; background: var(--navbar-bg); border-top: 1px solid var(--border); padding: 12px 0; display: flex; gap: 10px; align-items: center; margin-top: 20px; }
     .winner-select { width: 100%; padding: 5px 8px; font-size: 0.8rem; margin-top: 4px; }
     .char-picker { position: relative; flex: 1; }
     .char-picker-input { width: 100%; padding: 6px 8px; font-size: 0.82rem; background: #0f0f17; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #e8edf3; box-sizing: border-box; cursor: pointer; }
@@ -371,7 +375,6 @@
 <script src="js/api.js"></script>
 <script src="js/badges.js"></script>
 <script src="js/nav-inject.js"></script>
-<script src="js/nav.js"></script>
 <script src="js/chars.js"></script>
 <script src="js/bracket-options.js"></script>
 <script src="js/bracket-engine.js"></script>

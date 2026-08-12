@@ -240,6 +240,9 @@ a:hover {
   }
 }
 
+/* ── Sticky primary-action bar (bracket.html, teams-bracket.html, duel.html) ── */
+.sticky-bar { position: sticky; bottom: 0; z-index: 30; background: var(--navbar-bg); border-top: 1px solid var(--border); padding: 12px 0; display: flex; gap: 10px; align-items: center; margin-top: 20px; }
+
 /* ── Mobile Bottom Nav ──────────────────────────────── */
 #bottomNav {
   display: none;
@@ -281,8 +284,21 @@ a:hover {
   .bnav-item:active { color: var(--accent-blue, #0077c8); opacity: 0.75; }
   .bnav-icon { font-size: 1.3rem; line-height: 1; }
   main.page-container { padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important; }
-  /* Hide the friends sidebar toggle tab on mobile (bottom nav handles social) */
-  #fsbTab { display: none; }
+
+  /* Primary action bar floats above the bottom nav instead of waiting at the true bottom of the page */
+  .sticky-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+    z-index: 601;
+    margin-top: 0;
+    padding: 12px 16px;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.35);
+  }
+  body:has(.sticky-bar) main.page-container {
+    padding-bottom: calc(150px + env(safe-area-inset-bottom, 0px)) !important;
+  }
 }
 
 /* ── Page header ──────────────────────────────────── */
@@ -718,53 +734,8 @@ a:hover {
 }
 .tip:hover::after { opacity: 1; }
 
-/* ── Hamburger menu ───────────────────────────────── */
-.hamburger-btn {
-  display: none;
-  flex-direction: column;
-  justify-content: center;
-  gap: 5px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 6px;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-.hamburger-btn span {
-  display: block;
-  width: 22px;
-  height: 2px;
-  background: var(--text);
-  border-radius: 2px;
-  transition: transform 0.2s, opacity 0.2s;
-}
-
-.nav-dropdown {
-  display: none;
-  position: absolute;
-  top: 52px;
-  right: 0;
-  left: 0;
-  background: var(--navbar-bg);
-  border-bottom: 1px solid var(--border);
-  z-index: 500;
-  padding: 8px 0;
-}
-.nav-dropdown.open { display: block; }
-.nav-dropdown a {
-  display: block;
-  padding: 11px 20px;
-  color: #8892a4;
-  font-size: 0.92rem;
-  text-decoration: none;
-  border-left: 3px solid transparent;
-}
-.nav-dropdown a:hover { background: rgba(255,255,255,0.06); color: var(--text); }
-.nav-dropdown a.active { color: var(--accent-blue); border-left-color: var(--accent-blue); background: rgba(0,119,200,0.08); }
-
 /* ── Responsive ───────────────────────────────────── */
-@media (max-width: 768px) {
+@media (max-width: 700px) {
   .page-container {
     padding: 24px 16px 48px;
   }
@@ -776,10 +747,6 @@ a:hover {
 
   .nav-links {
     display: none;
-  }
-
-  .hamburger-btn {
-    display: flex;
   }
 
   .nav-right {

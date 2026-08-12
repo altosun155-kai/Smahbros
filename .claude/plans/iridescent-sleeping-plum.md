@@ -1,37 +1,52 @@
-# Remove Practice, and hide test accounts from every listing/picker
+# Mobile UX — priority items 1-4
 
 ## Context
 
-Two separate cleanups: (1) delete the Practice feature entirely, and (2) make sure a real (non-test) user can never see a test account (`testuser1`-`testuser4`, marked by `User.is_test`) anywhere on the site — leaderboards, mastery boards, player pickers, search, badges, team-battle standings, presets. So far `is_test` is only respected by `GET /auth/users` and `GET /users/connections`; two Explore passes confirmed at least a dozen other endpoints leak test accounts into lists a real user sees.
+A mobile design review came back blunt: "there is no mobile version — there's a desktop site being viewed on a phone." The review ends with an explicit priority list; per the user's own framing ("Do 1–4 and it stops feeling like a website on a phone. Do the rest and it's an app."), this round scopes to exactly items 1-4. Items 5-9 and the aesthetic long-tail are deferred to a follow-up round.
 
-### Practice — fully isolated, clean deletion
-- `database.py:50` `User.practice_sessions` relationship, `database.py:129` `CharacterStats.practice_elo` column (separate from the real `CharacterStats.elo`), `database.py:135-150` `PracticeSession` model.
-- `routers/practice.py` (277 lines) — self-contained elo/placement logic, zero imports to/from `routers/matches.py` or any other router. Confirmed via repo-wide grep: `PracticeSession`/`practice_elo` appear only in `database.py`, `api.py`, `routers/practice.py`.
-- `api.py:13` (import), `api.py:63,77-78,177-182` (migrations: table creation + 2 `ADD COLUMN`s, Postgres and SQLite branches), `api.py:248` (`include_router`).
-- `web/practice.html` (919-line standalone page, all styling inline). `web/js/nav-inject.js:19` sidebar entry (Practice was never in the mobile bottom-nav). Confirmed via grep: no other page references "practice" at all.
+Research (2 Explore passes) found each of these 4 items maps to a concrete, well-understood root cause:
 
-### Test-account visibility — one pattern, many call sites
-Every leaking endpoint falls into one of two shapes, and the fix is the same one-line addition in each case — **unconditionally exclude `is_test` users from these public/shared listings**, regardless of who's viewing (simpler and safer than making previously-public endpoints viewer-aware; test accounts have no legitimate reason to appear on the real leaderboard/pickers for anyone). This does *not* touch `GET /users/connections` or `/characters/mastery/connections`, which correctly stay viewer-relative (that's the one place "test accounts see only test accounts" actually matters).
+1. **No manifest/standalone mode** — confirmed zero PWA setup anywhere: no `manifest.json`, no `apple-mobile-web-app-*` meta tags on any of the 15 `web/*.html` pages, and `web/img/` is empty (no icon asset exists yet).
 
-**Shape A — queries `User` directly**: add `.filter(User.is_test == False)` to the query.
-- `routers/leaderboard.py` `GET /leaderboard` (the `db.query(User).filter(User.id.in_(stats.keys()))` line) and `GET /leaderboard/h2h-matrix` (the `db.query(User.id, User.username).filter(User.id.in_(user_ids))` line — this alone also scrubs test accounts out of the matrix itself, since the existing `if w and l:` guard already skips any pairing where a username lookup misses).
-- `routers/users.py:61` `/users/all`, `routers/users.py:96` `/users/badges/all` (`all_users_list`), `routers/users.py:341` `/users/search`.
+2. **Two nav systems fighting each other, not one being deleted** — there are actually **three** nav surfaces: the sidebar (`web/js/nav-inject.js`, 13 links), a hamburger dropdown (`web/js/nav.js`, entirely separate, rebuilds its own link list from the sidebar's `<a>` tags), and the 5-item bottom bar (also from `nav-inject.js`). Worse, there's a real breakpoint bug: `.nav-links` hides and `.hamburger-btn` appears at `@media (max-width: 768px)` (`web/css/style.css:767-794`), but `#bottomNav` only appears at `@media (max-width: 700px)` (`style.css:247-260`). **Viewports 701-768px wide get the hamburger with no bottom bar; viewports ≤700px get both simultaneously.** `web/js/nav.js` (48 lines) is *entirely* hamburger logic — nothing else lives in that file, so it can be deleted outright rather than edited.
 
-**Shape B — queries `CharacterStats`/`MatchResult`/`Bracket`/`TournamentPreset` and reads a `.owner`/`.winner`/`.loser`/`.creator` relationship**: add a one-line skip/filter keyed off that relationship's `.is_test`.
-- `routers/characters.py` — `/characters/mastery` (skip `row.owner.is_test` in the loop), `/characters/stats/leaderboard`, `/characters/stats/leaderboard/kills`, `/characters/stats/leaderboard/winpct`, `/characters/stats/leaderboard/elo` (same pattern, or add `.join(User, CharacterStats.user_id == User.id).filter(User.is_test == False)` to the query — either works, query-level join is preferred since it's one extra clause vs. a loop-body `continue`). `/characters/user-averages` (line ~312, `user = stats[0].owner` — add `if user.is_test: continue` right after).
-- `routers/matches.py:114-141` `/matches/shame` — filter the final list comprehension to `for r in rows if not r.winner.is_test and not r.loser.is_test`.
-- `routers/brackets.py:138-146` `/brackets/team-battles` — filter `if not b.owner.is_test` when building the returned list.
-- `routers/presets.py:49-52` `/presets` — filter `if not p.creator.is_test` when building the returned list.
+3. **The two remaining broken tables already have a working sibling to copy** — `web/leaderboard.html`'s "User Avg Stats" table already has a complete, working mobile card fallback (`#avgCardList`, swapped in via `@media (max-width: 700px) { #avgTableWrap{display:none!important} #avgCardList{display:block} }`, `style.css` lines ~150-158, cards styled at lines 112-148). The other two tables on the same page — `#charTable` (Character Stats, 10 columns, paginated+sortable, feeds `openEloHist` row-click) and `#globalTable` (Global, 8 columns incl. badge pills) — have no such fallback, which is exactly the "Joker row stacking 3/6 across three lines" and clipped-header complaint. Both live inside their own wrapper divs (`#charTableWrap`, `#globalTableWrap`) with the exact sibling-div slot already implied by the avg pattern.
 
-**Frontend — no changes needed for most pages.** `web/duel.html`, `web/teams-bracket.html`, `web/tier-list.html`, and `web/stats.html` all populate their player pickers from `/users/all`; fixing that one endpoint server-side clears test accounts out of all four pickers for free. Same for `web/profile.html`/`web/invites.html`'s autocomplete, both backed by `/users/search`. `web/bracket.html`/`web/tournament.html`'s `/users/all` usage is just an avatar-lookup cache, already harmless either way.
+4. **The primary action isn't unstyled, it's mispositioned** — `web/bracket.html:362-366` and `web/teams-bracket.html:258-260` *already* wrap "Generate Bracket" in a `.sticky-bar` div, but that class is `position: sticky` (not `fixed`) and duplicated verbatim inline in each page's own `<style>` block (`bracket.html:36`, `teams-bracket.html:64`) — never promoted to `style.css`. Since it's the last element in a scrolling column, `position: sticky` never actually engages until you're nearly at the true bottom of the page — it behaves like static positioning, which is exactly the "requires the longest scroll on the page" complaint. `web/duel.html`'s "Start Series" button (`duel.html:229`) has no sticky wrapper at all and needs one added, per the review calling it out by name ("Same pattern on Start Series").
 
-**Explicitly out of scope**: single-username lookups where the caller already knows/types the exact name (`/users/{username}/profile`, `/h2h/{other}`, `/activity`, `/comments`, `/stats`, `/badges`, `/characters/ranking/{username}`, `/characters/favorites/{username}`, `/characters/stats/{username}`). These aren't discovery surfaces — a real user would have to already know a test username to hit them — so they're left alone rather than adding is_test gating to every single-user route in the app.
+## Approach
+
+### 1. Manifest + standalone mode
+- Generate three PNG icons via a small one-off Python/Pillow script (Pillow confirmed available) — dark background (`#0f0f17`, matching `--bg`) with the app's blue accent (`#0077c8`) — saved to `web/img/icon-192.png`, `web/img/icon-512.png`, `web/img/apple-touch-icon.png` (180×180).
+- Add `web/manifest.json`: `name`/`short_name` "SmashBros", `display: "standalone"`, `background_color`/`theme_color` matching `--bg`, icon entries.
+- Add to every page's `<head>` (all 15 files, same 3-4 lines each, matching this codebase's existing per-page-duplication convention rather than inventing a shared include): `<link rel="manifest" href="manifest.json">`, `<meta name="apple-mobile-web-app-capable" content="yes">`, `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">`, `<link rel="apple-touch-icon" href="img/apple-touch-icon.png">`, `<meta name="theme-color" content="#0f0f17">`.
+
+### 2. Delete the hamburger; unify the breakpoint
+- Delete `web/js/nav.js` outright (confirmed to contain nothing but hamburger logic).
+- Remove its `<script src="js/nav.js"></script>` include from all 14 pages that have it.
+- Remove `.hamburger-btn`/`.nav-dropdown` rule blocks from `style.css` (lines ~721-764).
+- Change the `@media (max-width: 768px)` block (`style.css:767-794`) to `@media (max-width: 700px)` so `.nav-links` hides at exactly the width `#bottomNav` appears — closes the 701-768px gap and the ≤700px double-nav overlap in one change. Drop the now-dead `.hamburger-btn { display: flex; }` line from inside it.
+- Incidental one-line cleanup while in this block: remove the dead `#fsbTab { display: none; }` rule (`style.css:284-285`) — leftover from the friends-sidebar widget deleted earlier this session; the selector no longer matches anything.
+
+### 3. Sticky action bar, actually fixed this time
+- Move `.sticky-bar`'s rule out of `bracket.html`'s and `teams-bracket.html`'s inline `<style>` blocks into `web/css/style.css` as the single canonical definition (same desktop appearance, no visual change above 700px).
+- Add a `@media (max-width: 700px)` override: `position: fixed; left: 0; right: 0; bottom: calc(60px + env(safe-area-inset-bottom, 0px));` (clearing `#bottomNav`, which is `z-index: 600`) with a z-index just above it, full-width background/shadow.
+- Add bottom padding to the scrolling content on pages using `.sticky-bar`, sized to clear both the fixed bar and the bottom nav — exact value tuned empirically against a real 390px viewport rather than guessed.
+- Wrap `web/duel.html`'s "Start Series" button (`duel.html:229`) in the same `.sticky-bar` markup, matching the pattern already used on the other two pages.
+
+### 4. Character/Global tables → mobile cards
+- For both `#charTable` and `#globalTable`, add a sibling `#charCardList`/`#globalCardList` div (mirroring `#avgCardList`'s placement as a sibling of its `*TableWrap`), reuse the exact `.avg-card`/`.avg-card-header`/`.avg-card-detail` CSS classes already in `style.css` (generalizing their names slightly if needed, or reusing as-is — they're not `avg`-specific in what they style) rather than inventing new ones.
+- `renderCharTable()` gains a card-rendering counterpart consuming the same `page` array (rank, avatar, username, character, elo, kills/deaths/kd, wins/losses, win_pct) — expandable card, tap-to-open detail like the avg cards, preserving the existing sort/filter/pagination state (cards render whatever `page` currently holds; sort/filter controls stay visible above the card list on mobile since headers disappear but the filter inputs and pager don't).
+- `loadGlobal()` gains a card-rendering counterpart for `#globalCardList` (rank, avatar, username, elo, wins/losses, win_pct, kills, badge pill) — no sort control needed since this table has none today either.
+- Same `@media (max-width: 700px)` swap pattern as `#avgTableWrap`/`#avgCardList`.
 
 ## Verification
 
-1. Boot the backend locally against a throwaway SQLite copy (same disposable-venv approach used throughout this session).
-2. Delete `PracticeSession`/`practice_elo` from `database.py` and confirm the app still boots with no import errors (`api.py`, `routers/leaderboard.py` etc. don't reference them).
-3. Confirm `/practice/*` routes 404 and `web/practice.html` is gone with no nav link anywhere.
-4. Seed one real account (`Kai`) and one test account (`testuser1`, auto-flagged `is_test` on restart per the existing backfill), plus a `MatchResult` between two *other* real accounts and one involving `testuser1`.
-5. Confirm `GET /leaderboard`, `/leaderboard/h2h-matrix`, `/users/all`, `/users/badges/all`, `/users/search?q=test`, `/characters/mastery`, and the four `/characters/stats/leaderboard*` variants all omit `testuser1` entirely.
-6. Load `web/duel.html`'s opponent picker in a browser (patched `API_BASE`, as done throughout this session) and confirm `testuser1` doesn't appear as a selectable option.
+1. Serve `web/` locally (same disposable-static-server approach used throughout this session) against the local backend.
+2. Load the manifest URL directly and confirm valid JSON; confirm the meta tags render in a page's source.
+3. Drive the app with Playwright at a 390×844 (iPhone-sized) viewport:
+   - Confirm exactly one nav is visible at any width across 650px, 700px, 720px, 768px, 900px — no gap, no double-nav.
+   - Confirm no console errors after deleting `nav.js`'s include.
+   - On `bracket.html`/`teams-bracket.html`/`duel.html`, confirm the primary button is visible without scrolling to the true bottom, and stays fixed while scrolling the form above it.
+   - On `leaderboard.html`, confirm `#charTable`/`#globalTable` are replaced by cards at 390px and the existing sort/filter/pagination controls still work against the card view; confirm nothing is clipped or overflows horizontally.
+4. Spot-check at a tablet-ish width (e.g. 730px) to confirm the sidebar (not bottom nav, not hamburger) is what shows.

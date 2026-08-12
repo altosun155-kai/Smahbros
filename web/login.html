@@ -25,6 +25,8 @@
     <p class="tiles-status" id="tilesStatus">Loading players…</p>
     <div class="user-tiles" id="userTiles"></div>
 
+    <a href="#" class="show-hidden-link" id="showHiddenLink" style="display:none;">show test accounts</a>
+
     <button type="button" class="tile-btn tile-btn-new" id="newPlayerToggle" style="display:none;">+ New player</button>
 
     <form id="newPlayerForm" class="new-player-form" novalidate style="display:none;">
@@ -110,24 +112,41 @@
   // ── Player tiles ──────────────────────────────────────
   const tilesStatus = document.getElementById('tilesStatus');
   const userTiles = document.getElementById('userTiles');
+  const showHiddenLink = document.getElementById('showHiddenLink');
   const newPlayerToggle = document.getElementById('newPlayerToggle');
   const newPlayerForm = document.getElementById('newPlayerForm');
+
+  function appendTiles(names) {
+    names.forEach(function(name) {
+      const tile = document.createElement('button');
+      tile.type = 'button';
+      tile.className = 'tile-btn';
+      tile.dataset.username = name;
+      tile.textContent = name;
+      tile.addEventListener('click', function() {
+        enter(tile.dataset.username, tile, 'One sec…');
+      });
+      userTiles.appendChild(tile);
+    });
+  }
 
   async function loadPlayerTiles() {
     try {
       const data = await apiFetch('GET', '/auth/users', null, false);
       const usernames = data.usernames || [];
+      const hiddenUsernames = data.hidden_usernames || [];
 
       tilesStatus.style.display = 'none';
-      userTiles.innerHTML = usernames.map(name =>
-        `<button type="button" class="tile-btn" data-username="${escHtml(name)}">${escHtml(name)}</button>`
-      ).join('');
+      appendTiles(usernames);
 
-      userTiles.querySelectorAll('.tile-btn').forEach(function(tile) {
-        tile.addEventListener('click', function() {
-          enter(tile.dataset.username, tile, 'One sec…');
+      if (hiddenUsernames.length) {
+        showHiddenLink.style.display = 'inline-block';
+        showHiddenLink.addEventListener('click', function(e) {
+          e.preventDefault();
+          appendTiles(hiddenUsernames);
+          showHiddenLink.style.display = 'none';
         });
-      });
+      }
     } catch (err) {
       tilesStatus.textContent = 'Could not load players. You can still enter a name below.';
     } finally {

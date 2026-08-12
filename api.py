@@ -46,6 +46,8 @@ def _run_migrations():
             conn.execute(text("ALTER TABLE character_stats ADD COLUMN IF NOT EXISTS sacrifices INTEGER DEFAULT 0"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE NOT NULL"))
             conn.execute(text("UPDATE users SET is_admin = TRUE WHERE username = 'kai'"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_test BOOLEAN DEFAULT FALSE NOT NULL"))
+            conn.execute(text("UPDATE users SET is_test = TRUE WHERE username ILIKE 'testuser%'"))
             # Indexes for hot query paths
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_winner_id  ON match_results(winner_id)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_loser_id   ON match_results(loser_id)"))
@@ -163,7 +165,10 @@ def _run_migrations():
                 conn.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0"))
             if "elo" not in u_cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN elo INTEGER DEFAULT 1000"))
+            if "is_test" not in u_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN is_test BOOLEAN DEFAULT 0"))
             conn.execute(text("UPDATE users SET is_admin = 1 WHERE username = 'kai'"))
+            conn.execute(text("UPDATE users SET is_test = 1 WHERE username LIKE 'testuser%'"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_winner_id  ON match_results(winner_id)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_loser_id   ON match_results(loser_id)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_bracket_id ON match_results(bracket_id)"))

@@ -256,6 +256,21 @@
   margin-top: 14px;
 }
 
+.show-hidden-link {
+  display: block;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  opacity: 0.6;
+  text-decoration: none;
+  margin-bottom: 14px;
+}
+
+.show-hidden-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
 /* ── Responsive ─────────────────────────────────── */
 @media (max-width: 480px) {
   .auth-card {

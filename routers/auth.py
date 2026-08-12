@@ -18,8 +18,11 @@ class EnterRequest(BaseModel):
 @router.get("/users")
 def list_users(request: Request, db: Session = Depends(get_db)):
     rate_limit(request, max_req=30, window=60)
-    usernames = [u.username for u in db.query(User).order_by(User.username.asc()).all()]
-    return {"usernames": usernames}
+    users = db.query(User).order_by(User.username.asc()).all()
+    return {
+        "usernames": [u.username for u in users if not u.is_test],
+        "hidden_usernames": [u.username for u in users if u.is_test],
+    }
 
 
 @router.post("/enter")

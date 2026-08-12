@@ -155,6 +155,7 @@ def list_team_battles(db: Session = Depends(get_db), _: User = Depends(get_curre
             "created_at": b.created_at.isoformat(),
         }
         for b in brackets
+        if not b.owner.is_test
     ]
 
 

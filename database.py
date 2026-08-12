@@ -42,13 +42,11 @@ class User(Base):
     created_at      = Column(DateTime, default=_now)
 
     brackets          = relationship("Bracket", back_populates="owner", cascade="all, delete-orphan")
-    rr_sessions       = relationship("RoundRobinResult", back_populates="owner", cascade="all, delete-orphan")
     character_ranking = relationship("CharacterRanking", back_populates="owner", uselist=False, cascade="all, delete-orphan")
     sent_invites        = relationship("TournamentInvite", foreign_keys="TournamentInvite.inviter_id", back_populates="inviter")
     received_invites    = relationship("TournamentInvite", foreign_keys="TournamentInvite.invitee_id", back_populates="invitee")
     favorite_characters = relationship("FavoriteCharacters", back_populates="owner", uselist=False, cascade="all, delete-orphan")
     character_stats     = relationship("CharacterStats", back_populates="owner", cascade="all, delete-orphan")
-    practice_sessions        = relationship("PracticeSession", back_populates="owner", cascade="all, delete-orphan")
 
 
 class Bracket(Base):
@@ -74,20 +72,6 @@ class Bracket(Base):
 
     owner   = relationship("User", back_populates="brackets")
     invites = relationship("TournamentInvite", back_populates="bracket", cascade="all, delete-orphan")
-
-
-class RoundRobinResult(Base):
-    __tablename__ = "roundrobin_results"
-
-    id         = Column(Integer, primary_key=True, index=True)
-    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
-    name       = Column(String, nullable=False)
-    players    = Column(JSON, default=list)
-    results    = Column(JSON, default=dict)
-    records    = Column(JSON, default=dict)
-    created_at = Column(DateTime, default=_now)
-
-    owner = relationship("User", back_populates="rr_sessions")
 
 
 class CharacterRanking(Base):
@@ -141,28 +125,9 @@ class CharacterStats(Base):
     wins       = Column(Integer, default=0, nullable=False)
     losses     = Column(Integer, default=0, nullable=False)
     sacrifices    = Column(Integer, default=0, nullable=False)
-    practice_elo  = Column(Integer, nullable=True)   # NULL until 5 practice sessions (placement)
     updated_at    = Column(DateTime, default=_now, onupdate=_now)
 
     owner = relationship("User", back_populates="character_stats")
-
-
-class PracticeSession(Base):
-    __tablename__ = "practice_sessions"
-
-    id         = Column(Integer, primary_key=True, index=True)
-    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
-    my_char    = Column(String, nullable=False)
-    cpu_char   = Column(String, nullable=False)
-    cpu_level  = Column(Integer, default=9)
-    my_stocks  = Column(Integer, default=3)
-    cpu_stocks = Column(Integer, default=0)
-    won        = Column(Boolean, default=True)
-    notes      = Column(String(500), nullable=True)
-    elo_delta  = Column(Integer, default=0, nullable=False)
-    created_at = Column(DateTime, default=_now)
-
-    owner = relationship("User", back_populates="practice_sessions")
 
 
 class MatchResult(Base):

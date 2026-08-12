@@ -142,7 +142,12 @@ def get_stats(db: Session = Depends(get_db), current_user: User = Depends(get_cu
 @router.get("/characters/mastery")
 def character_mastery(db: Session = Depends(get_db)):
     """For each character, returns the user with the most points."""
-    rows = db.query(CharacterStats).filter(CharacterStats.points > 0).all()
+    rows = (
+        db.query(CharacterStats)
+        .join(User, CharacterStats.user_id == User.id)
+        .filter(CharacterStats.points > 0, User.is_test == False)
+        .all()
+    )
     char_map = {}
     for row in rows:
         char = row.character
@@ -186,7 +191,7 @@ def character_mastery_connections(db: Session = Depends(get_db), current_user: U
 
 @router.get("/characters/stats/leaderboard")
 def character_leaderboard(db: Session = Depends(get_db)):
-    rows = db.query(CharacterStats).all()
+    rows = db.query(CharacterStats).join(User, CharacterStats.user_id == User.id).filter(User.is_test == False).all()
     results = []
     for row in rows:
         w = row.wins or 0
@@ -216,7 +221,13 @@ def character_leaderboard(db: Session = Depends(get_db)):
 
 @router.get("/characters/stats/leaderboard/kills")
 def kills_leaderboard(db: Session = Depends(get_db)):
-    rows = db.query(CharacterStats).filter(CharacterStats.kills > 0).order_by(CharacterStats.kills.desc()).all()
+    rows = (
+        db.query(CharacterStats)
+        .join(User, CharacterStats.user_id == User.id)
+        .filter(CharacterStats.kills > 0, User.is_test == False)
+        .order_by(CharacterStats.kills.desc())
+        .all()
+    )
     return [
         {
             "username":   row.owner.username,
@@ -232,9 +243,12 @@ def kills_leaderboard(db: Session = Depends(get_db)):
 @router.get("/characters/stats/leaderboard/winpct")
 def winpct_leaderboard(db: Session = Depends(get_db)):
     # Filter at SQL level (#5)
-    rows = db.query(CharacterStats).filter(
-        (CharacterStats.wins + CharacterStats.losses) >= 3
-    ).all()
+    rows = (
+        db.query(CharacterStats)
+        .join(User, CharacterStats.user_id == User.id)
+        .filter((CharacterStats.wins + CharacterStats.losses) >= 3, User.is_test == False)
+        .all()
+    )
     results = []
     for row in rows:
         w = row.wins or 0
@@ -256,9 +270,13 @@ def winpct_leaderboard(db: Session = Depends(get_db)):
 
 @router.get("/characters/stats/leaderboard/elo")
 def elo_leaderboard(db: Session = Depends(get_db)):
-    rows = db.query(CharacterStats).filter(
-        (CharacterStats.wins + CharacterStats.losses) >= 3
-    ).order_by(CharacterStats.elo.desc()).all()
+    rows = (
+        db.query(CharacterStats)
+        .join(User, CharacterStats.user_id == User.id)
+        .filter((CharacterStats.wins + CharacterStats.losses) >= 3, User.is_test == False)
+        .order_by(CharacterStats.elo.desc())
+        .all()
+    )
     results = []
     for row in rows:
         w = row.wins or 0
@@ -310,6 +328,8 @@ def user_averages_leaderboard(db: Session = Depends(get_db)):
     results = []
     for _uid, stats in by_user.items():
         user = stats[0].owner
+        if user.is_test:
+            continue
         games_per = [(s.wins or 0) + (s.losses or 0) for s in stats]
         total_games = sum(games_per)
         total_wins  = sum(s.wins or 0 for s in stats)
@@ -324,7 +344,7 @@ def user_averages_leaderboard(db: Session = Depends(get_db)):
         ranks  = [elo_rank_map[s.id] for s in stats if s.id in elo_rank_map]
 
         unweighted = {
-            "avg_elo":     round(sum(elos) / len(elos), 1),
+            "avg_elo":     user.elo or 1000,
             "avg_kills":   round(sum(kills_l) / len(kills_l), 1),
             "avg_kd":      round(sum(kd_l) / len(kd_l), 2)  if kd_l  else None,
             "avg_win_pct": round(sum(wp_l)  / len(wp_l),  1) if wp_l  else None,
@@ -332,18 +352,11 @@ def user_averages_leaderboard(db: Session = Depends(get_db)):
         }
 
         # Weighted formulas:
-        # Elo   : Σ(elo × win_pct) / num_chars  — elo pulled up by win rate
+        # Elo   : the player's real overall Elo (per-character averaging was unsound —
+        #          low-win% characters dragged the average toward zero without a real loss)
         # Win%  : Σ(wins) / Σ(total matches)    — true overall win rate
         # K/D   : Σ(kd × elo) / Σ(elo)          — power-weighted by elo (screenshot 3)
         # Kills : total kills / total games       — kills per match
-        # Only include chars that appear on the elo leaderboard (>= 3 games)
-        lb_pairs = [(s.elo or 1000, (s.wins or 0) / g)
-                    for s, g in zip(stats, games_per) if g >= 3]
-        n_wp = len(lb_pairs)
-        w_elo = (
-            sum(e * wp for e, wp in lb_pairs) / n_wp
-            if n_wp else unweighted["avg_elo"]
-        )
 
         # Power K/D: Σ(kd_i × elo_i) / Σ(elo_i)
         kd_elo_pairs = [
@@ -363,7 +376,7 @@ def user_averages_leaderboard(db: Session = Depends(get_db)):
         )
 
         weighted = {
-            "avg_elo":     round(w_elo, 1),
+            "avg_elo":     user.elo or 1000,
             "avg_kills":   round(total_kills / total_games, 2) if total_games else 0,
             "avg_kd":      power_kd,
             "avg_win_pct": round(total_wins / total_games * 100, 1) if total_games else None,

@@ -10,7 +10,7 @@ import logging
 
 from database import engine, Base, SessionLocal, Bracket, TournamentInvite
 from auth import decode_token
-from routers import auth, users, brackets, characters, matches, roundrobin, invites, leaderboard, practice, presets
+from routers import auth, users, brackets, characters, matches, invites, leaderboard, presets
 from routers.brackets import bracket_to_dict
 import ws_manager
 
@@ -59,23 +59,6 @@ def _run_migrations():
                 conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_cs_user_char ON character_stats(user_id, character)"))
             except Exception:
                 pass
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS practice_sessions (
-                    id SERIAL PRIMARY KEY,
-                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                    my_char VARCHAR NOT NULL,
-                    cpu_char VARCHAR NOT NULL,
-                    cpu_level INTEGER DEFAULT 9,
-                    my_stocks INTEGER DEFAULT 3,
-                    cpu_stocks INTEGER DEFAULT 0,
-                    won BOOLEAN DEFAULT TRUE,
-                    notes VARCHAR(500),
-                    elo_delta INTEGER DEFAULT 0,
-                    created_at TIMESTAMP DEFAULT NOW()
-                )
-            """))
-            conn.execute(text("ALTER TABLE practice_sessions ADD COLUMN IF NOT EXISTS elo_delta INTEGER DEFAULT 0"))
-            conn.execute(text("ALTER TABLE character_stats ADD COLUMN IF NOT EXISTS practice_elo INTEGER DEFAULT NULL"))
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS character_matchups (
                     id SERIAL PRIMARY KEY,
@@ -174,12 +157,6 @@ def _run_migrations():
                 conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_cs_user_char ON character_stats(user_id, character)"))
             except Exception:
                 pass
-            ps_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(practice_sessions)"))}
-            if "elo_delta" not in ps_cols:
-                conn.execute(text("ALTER TABLE practice_sessions ADD COLUMN elo_delta INTEGER DEFAULT 0"))
-            cs_cols2 = {row[1] for row in conn.execute(text("PRAGMA table_info(character_stats)"))}
-            if "practice_elo" not in cs_cols2:
-                conn.execute(text("ALTER TABLE character_stats ADD COLUMN practice_elo INTEGER DEFAULT NULL"))
             existing = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))}
             if "character_matchups" not in existing:
                 conn.execute(text("""
@@ -243,10 +220,8 @@ app.include_router(users.router)
 app.include_router(brackets.router)
 app.include_router(characters.router)
 app.include_router(matches.router)
-app.include_router(roundrobin.router)
 app.include_router(invites.router)
 app.include_router(leaderboard.router)
-app.include_router(practice.router)
 app.include_router(presets.router)
 
 

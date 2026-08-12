@@ -31,6 +31,10 @@ class FeaturedBadgeUpdate(BaseModel):
     badge_id: str  # e.g. "char_Joker" or "" to clear
 
 
+class SetTestFlag(BaseModel):
+    is_test: bool
+
+
 @router.get("/users/me")
 def get_me(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     current_user.last_seen = datetime.utcnow()
@@ -58,7 +62,7 @@ def set_featured_badge(req: FeaturedBadgeUpdate, db: Session = Depends(get_db), 
 
 @router.get("/users/all")
 def all_users(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    users = db.query(User).order_by(User.username).all()
+    users = db.query(User).filter(User.is_test == False).order_by(User.username).all()
     return [{"id": u.id, "username": u.username, "avatar_url": u.avatar_url} for u in users]
 
 
@@ -77,6 +81,19 @@ def list_connections(db: Session = Depends(get_db), current_user: User = Depends
     return [{"id": u.id, "username": u.username, "avatar_url": u.avatar_url, "active": _is_active(u.last_seen)} for u in others]
 
 
+@router.patch("/users/{username}/is_test")
+def set_is_test(username: str, req: SetTestFlag, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Admin-only: hide/unhide an account from every listing, independent of username pattern."""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin only")
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.is_test = req.is_test
+    db.commit()
+    return {"ok": True, "username": user.username, "is_test": user.is_test}
+
+
 @router.get("/users/badges/all")
 def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_current_user)):
     """Batch: returns {username: display_badge} for every user. Respects featured_badge. Cached 30s."""
@@ -93,7 +110,7 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
         'consistent','allrounder','specialist','pacifist','sacrificer',
     ]
 
-    all_users_list = db.query(User).all()
+    all_users_list = db.query(User).filter(User.is_test == False).all()
     username_to_uid = {u.username: u.id for u in all_users_list}
 
     # ── All CharacterStats (one query) ───────────────────────────────────────
@@ -338,7 +355,7 @@ def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_curre
 
 @router.get("/users/search")
 def search_users(q: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    users = db.query(User).filter(User.username.ilike(f"%{q}%")).limit(10).all()
+    users = db.query(User).filter(User.username.ilike(f"%{q}%"), User.is_test == False).limit(10).all()
     return [{"id": u.id, "username": u.username} for u in users if u.id != current_user.id]
 
 

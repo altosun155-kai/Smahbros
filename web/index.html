@@ -88,7 +88,7 @@
     .section-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.3); margin: 24px 0 10px; }
 
     /* Primary cards */
-    .primary-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 12px; }
+    .primary-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; margin-bottom: 12px; }
     .primary-card { text-decoration: none; border-radius: 16px; padding: 22px 20px; display: flex; flex-direction: column; gap: 10px; position: relative; overflow: hidden; transition: transform 0.15s, box-shadow 0.15s; }
     .primary-card:hover { transform: translateY(-3px); }
     .primary-card.duel    { background: linear-gradient(135deg, rgba(0,100,220,.25), rgba(0,60,140,.15));  border: 1px solid rgba(0,120,255,.3); }
@@ -476,14 +476,6 @@
         <div class="primary-desc">Single-elimination with elo rewards.</div>
       </div>
     </a>
-    <a href="roundrobin.html" class="primary-card rr">
-      <span class="primary-arrow">›</span>
-      <div class="primary-icon">🔄</div>
-      <div>
-        <div class="primary-title">Round Robin</div>
-        <div class="primary-desc">Everyone plays everyone.</div>
-      </div>
-    </a>
   </div>
 
   <!-- ══ SQUAD ALERTS ══ -->
@@ -495,7 +487,7 @@
   <div class="secondary-grid">
     <a href="leaderboard.html" class="secondary-card">
       <span class="sec-icon">📈</span>
-      <div class="sec-text"><h3>Leaderboard</h3><p>Elo, wins, kills & sessions</p></div>
+      <div class="sec-text"><h3>Leaderboard</h3><p>Elo, wins, kills & win rate</p></div>
       <span class="sec-arrow">›</span>
     </a>
     <a href="mastery.html" class="secondary-card">

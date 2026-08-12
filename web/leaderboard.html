@@ -249,13 +249,13 @@
 
     <!-- Global (RR sessions) leaderboard -->
     <div id="globalSection">
-      <div class="section-label">Global (Round Robin)</div>
+      <div class="section-label">Global</div>
       <div id="globalLoading" class="loading-center">
         <div class="spinner"></div><span>Loading global leaderboard…</span>
       </div>
       <div id="globalEmpty" class="empty-state" style="display:none;">
-        <p style="margin-bottom:12px;">No global stats yet — be the first to start a session!</p>
-        <a href="roundrobin.html" class="btn btn-primary btn-sm">▶ Start a Session</a>
+        <p style="margin-bottom:12px;">No match history yet — play a 1v1 Duel or Tournament to get on the board!</p>
+        <a href="duel.html" class="btn btn-primary btn-sm">▶ Play a Duel</a>
       </div>
       <div style="overflow-x:auto;" id="globalTableWrap">
         <table class="data-table" id="globalTable">
@@ -268,7 +268,6 @@
               <th>Losses</th>
               <th title="Win rate (requires 5+ games to qualify for ranking)">Win %</th>
               <th>Kills</th>
-              <th>Sessions</th>
               <th title="Hover to see all earned badges">Badges</th>
             </tr>
           </thead>
@@ -521,7 +520,6 @@
           <td style="color:#e74c3c;font-weight:700;">${u.losses || 0}</td>
           <td style="font-weight:800;color:${pctColor};">${pctStr}</td>
           <td style="color:#e67e22;font-weight:700;">${u.kills || 0}</td>
-          <td>${u.sessions || 0}</td>
           <td>${badgeHtml}</td>
         </tr>`;
       }).join('');

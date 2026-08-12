@@ -2,9 +2,9 @@ import time
 import threading
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
-from database import User, RoundRobinResult, MatchResult
+from database import User, MatchResult
 from auth import get_db
 
 router = APIRouter(tags=["leaderboard"])
@@ -27,45 +27,39 @@ def leaderboard(db: Session = Depends(get_db)):
         if _lb_cache["data"] is not None and now - _lb_cache["ts"] < _LB_TTL:
             return _lb_cache["data"]
 
-    # Only load users that actually have RR sessions (SQL-level filter, #3)
-    users = (
-        db.query(User)
-        .join(RoundRobinResult, RoundRobinResult.user_id == User.id)
-        .options(joinedload(User.rr_sessions))
-        .distinct()
-        .all()
-    )
-    result = []
-    for u in users:
-        sessions = len(u.rr_sessions)
-        wins = losses = kills = 0
-        for rr in u.rr_sessions:
-            for rec in (rr.records or {}).values():
-                if isinstance(rec, dict):
-                    # Normalise inconsistent key casing (#4)
-                    wins   += rec.get("wins",   rec.get("Wins",   0))
-                    losses += rec.get("losses", rec.get("Losses", 0))
-                    kills  += rec.get("kills",  0)
-        total = wins + losses
-        # Rank by win rate for qualified players; raw wins as secondary (#1)
-        win_rate = round(wins / total * 100, 1) if total >= MIN_RANKED_GAMES else None
-        result.append({
-            "username":   u.username,
-            "avatar_url": u.avatar_url,
-            "wins":       wins,
-            "losses":     losses,
-            "kills":      kills,
-            "sessions":   sessions,
-            "win_rate":   win_rate,
-            "player_elo": u.elo or 1000,
-        })
+    # Aggregate wins/losses/kills per user from real match history
+    stats: dict = {}
+    for m in db.query(MatchResult).all():
+        w = stats.setdefault(m.winner_id, {"wins": 0, "losses": 0, "kills": 0})
+        w["wins"] += 1
+        w["kills"] += m.winner_kills or 0
+        l = stats.setdefault(m.loser_id, {"wins": 0, "losses": 0, "kills": 0})
+        l["losses"] += 1
+        l["kills"] += m.loser_kills or 0
 
-    # Qualified players sorted by win rate; unqualified at bottom by raw wins (#1)
-    result.sort(key=lambda x: (
-        0 if x["win_rate"] is not None else 1,
-        -(x["win_rate"] or 0),
-        -(x["wins"] + x["losses"]),
-    ))
+    result = []
+    if stats:
+        for u in db.query(User).filter(User.id.in_(stats.keys()), User.is_test == False).all():
+            s = stats[u.id]
+            total = s["wins"] + s["losses"]
+            # Rank by win rate for qualified players; raw wins as secondary (#1)
+            win_rate = round(s["wins"] / total * 100, 1) if total >= MIN_RANKED_GAMES else None
+            result.append({
+                "username":   u.username,
+                "avatar_url": u.avatar_url,
+                "wins":       s["wins"],
+                "losses":     s["losses"],
+                "kills":      s["kills"],
+                "win_rate":   win_rate,
+                "player_elo": u.elo or 1000,
+            })
+
+        # Qualified players sorted by win rate; unqualified at bottom by raw wins (#1)
+        result.sort(key=lambda x: (
+            0 if x["win_rate"] is not None else 1,
+            -(x["win_rate"] or 0),
+            -(x["wins"] + x["losses"]),
+        ))
 
     with _lb_lock:
         _lb_cache["data"] = result
@@ -87,7 +81,7 @@ def h2h_matrix(db: Session = Depends(get_db)):
         .all()
     )
     user_ids = {r.winner_id for r in rows} | {r.loser_id for r in rows}
-    users = db.query(User.id, User.username).filter(User.id.in_(user_ids)).all()
+    users = db.query(User.id, User.username).filter(User.id.in_(user_ids), User.is_test == False).all()
     uid_to_name = {u.id: u.username for u in users}
 
     # {winner_username: {loser_username: win_count}}

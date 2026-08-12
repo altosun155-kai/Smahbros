@@ -47,7 +47,7 @@ def _elo_change(winner_elo: int, loser_elo: int, winner_kills: int, loser_kills:
     expected = 1 / (1 + 10 ** ((loser_elo - winner_elo) / 400))
     mov = _mov_multiplier(winner_kills, loser_kills)
     surprise = 1 - expected
-    return max(1, round(winner_k * surprise * mov)), max(1, round(loser_k * surprise * mov))
+    return round(winner_k * surprise * mov), round(loser_k * surprise * mov)
 
 
 def _get_or_create_stat(db: Session, user_id: int, character: str) -> CharacterStats:
@@ -138,7 +138,7 @@ def shame_feed(
         "loser_char": r.loser_char,
         "loser_avatar": r.loser.avatar_url,
         "created_at": r.created_at.isoformat(),
-    } for r in rows]
+    } for r in rows if not r.winner.is_test and not r.loser.is_test]
 
 
 @router.post("/matches/record")
@@ -167,7 +167,7 @@ def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: 
     l_char_k = _k_factor(l_char_rank)
     delta, loser_char_delta = _elo_change(ws.elo or ELO_DEFAULT, ls.elo or ELO_DEFAULT, req.winner_kills, req.loser_kills, w_char_k, l_char_k)
     ws.elo = (ws.elo or ELO_DEFAULT) + delta
-    ls.elo = max(100, (ls.elo or ELO_DEFAULT) - loser_char_delta)
+    ls.elo = (ls.elo or ELO_DEFAULT) - loser_char_delta
 
     # Player-level Elo: each player's K from their own player rank (#8)
     w_player_elo = winner.elo or ELO_DEFAULT
@@ -176,7 +176,7 @@ def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: 
     l_player_rank = db.query(User).filter(User.elo > l_player_elo).count() + 1
     w_player_delta, l_player_delta = _elo_change(w_player_elo, l_player_elo, req.winner_kills, req.loser_kills, _k_factor(w_player_rank), _k_factor(l_player_rank))
     winner.elo = w_player_elo + w_player_delta
-    loser.elo  = max(100, l_player_elo - l_player_delta)
+    loser.elo  = l_player_elo - l_player_delta
 
     # Points (net wins, used for seeding — kept separate from Elo)
     ws.points = (ws.points or 0) + 1

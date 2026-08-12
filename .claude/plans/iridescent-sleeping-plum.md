@@ -1,80 +1,37 @@
-# Remove the friend-request system; make "connection" implicit by account type
+# Remove Practice, and hide test accounts from every listing/picker
 
 ## Context
 
-The app currently has a full friend-request system (send/accept/decline/remove, a dedicated Friends page, and a duplicate friends sidebar widget with a notification badge). The user wants this removed entirely and replaced with an implicit rule: every account is automatically "connected" to every other account, except test accounts (`User.is_test`, added earlier this session), which should only be considered connected to other test accounts.
+Two separate cleanups: (1) delete the Practice feature entirely, and (2) make sure a real (non-test) user can never see a test account (`testuser1`-`testuser4`, marked by `User.is_test`) anywhere on the site — leaderboards, mastery boards, player pickers, search, badges, team-battle standings, presets. So far `is_test` is only respected by `GET /auth/users` and `GET /users/connections`; two Explore passes confirmed at least a dozen other endpoints leak test accounts into lists a real user sees.
 
-Research (via Explore agent, confirmed against source) found the friend system's *actual* footprint is much smaller than its UI surface suggests:
-- **`Friendship` model** (`database.py:152-163`): `requester_id`, `addressee_id`, `status` ("pending"/"accepted"), unique pair constraint `uq_friendship_pair`. `User` has two cascading relationships to it (`database.py:51-52`).
-- **`routers/friends.py`**: 6 routes (list friends, list pending requests, send/accept/decline/remove) — all standard `Depends(get_current_user)`.
-- **Only two other things ever depended on friendship status**:
-  1. `routers/characters.py:162-183` `GET /characters/mastery/friends` — scopes the character-mastery view to `{self} ∪ accepted friends}`.
-  2. The "quick add" chip UI in `web/bracket.html:1156-1180` and `web/teams-bracket.html:553-590` — pulls `GET /friends` to autofill the player-list textarea. This is a convenience, not a restriction.
-- **Nothing else is gated on friendship.** `routers/invites.py`, `routers/matches.py`, `routers/brackets.py`, `routers/roundrobin.py` already let you reference *any* registered username with zero friend check — confirmed via repo-wide grep. So "every account connected to every account" is already true for actual gameplay; this change is about the two friend-scoped features above, plus deleting the request/accept workflow and its UI.
-- Frontend surface to remove: `web/friends.html` (dedicated page), `web/js/friends-sidebar.js` (duplicate panel + notification badge, injected into `bracket.html`, `my-brackets.html`, `tournament.html`), and the "Friends" nav entry in `web/js/nav-inject.js:24`.
+### Practice — fully isolated, clean deletion
+- `database.py:50` `User.practice_sessions` relationship, `database.py:129` `CharacterStats.practice_elo` column (separate from the real `CharacterStats.elo`), `database.py:135-150` `PracticeSession` model.
+- `routers/practice.py` (277 lines) — self-contained elo/placement logic, zero imports to/from `routers/matches.py` or any other router. Confirmed via repo-wide grep: `PracticeSession`/`practice_elo` appear only in `database.py`, `api.py`, `routers/practice.py`.
+- `api.py:13` (import), `api.py:63,77-78,177-182` (migrations: table creation + 2 `ADD COLUMN`s, Postgres and SQLite branches), `api.py:248` (`include_router`).
+- `web/practice.html` (919-line standalone page, all styling inline). `web/js/nav-inject.js:19` sidebar entry (Practice was never in the mobile bottom-nav). Confirmed via grep: no other page references "practice" at all.
 
-## Approach
+### Test-account visibility — one pattern, many call sites
+Every leaking endpoint falls into one of two shapes, and the fix is the same one-line addition in each case — **unconditionally exclude `is_test` users from these public/shared listings**, regardless of who's viewing (simpler and safer than making previously-public endpoints viewer-aware; test accounts have no legitimate reason to appear on the real leaderboard/pickers for anyone). This does *not* touch `GET /users/connections` or `/characters/mastery/connections`, which correctly stay viewer-relative (that's the one place "test accounts see only test accounts" actually matters).
 
-Replace the `Friendship` table/workflow with a computed rule: **a user's "connections" = every other user with the same `is_test` value.** No new table, no request/accept state — it's just a query (`User.is_test == current_user.is_test`, excluding self). This mirrors the plan from the earlier `is_test` change (same column, same reasoning: real accounts and test accounts should never mix).
+**Shape A — queries `User` directly**: add `.filter(User.is_test == False)` to the query.
+- `routers/leaderboard.py` `GET /leaderboard` (the `db.query(User).filter(User.id.in_(stats.keys()))` line) and `GET /leaderboard/h2h-matrix` (the `db.query(User.id, User.username).filter(User.id.in_(user_ids))` line — this alone also scrubs test accounts out of the matrix itself, since the existing `if w and l:` guard already skips any pairing where a username lookup misses).
+- `routers/users.py:61` `/users/all`, `routers/users.py:96` `/users/badges/all` (`all_users_list`), `routers/users.py:341` `/users/search`.
 
-### Backend
+**Shape B — queries `CharacterStats`/`MatchResult`/`Bracket`/`TournamentPreset` and reads a `.owner`/`.winner`/`.loser`/`.creator` relationship**: add a one-line skip/filter keyed off that relationship's `.is_test`.
+- `routers/characters.py` — `/characters/mastery` (skip `row.owner.is_test` in the loop), `/characters/stats/leaderboard`, `/characters/stats/leaderboard/kills`, `/characters/stats/leaderboard/winpct`, `/characters/stats/leaderboard/elo` (same pattern, or add `.join(User, CharacterStats.user_id == User.id).filter(User.is_test == False)` to the query — either works, query-level join is preferred since it's one extra clause vs. a loop-body `continue`). `/characters/user-averages` (line ~312, `user = stats[0].owner` — add `if user.is_test: continue` right after).
+- `routers/matches.py:114-141` `/matches/shame` — filter the final list comprehension to `for r in rows if not r.winner.is_test and not r.loser.is_test`.
+- `routers/brackets.py:138-146` `/brackets/team-battles` — filter `if not b.owner.is_test` when building the returned list.
+- `routers/presets.py:49-52` `/presets` — filter `if not p.creator.is_test` when building the returned list.
 
-**`database.py`** — delete the `Friendship` class (lines 152-163) and the two relationships on `User` that reference it (`sent_friend_requests`, `received_friend_requests`, lines 51-52).
+**Frontend — no changes needed for most pages.** `web/duel.html`, `web/teams-bracket.html`, `web/tier-list.html`, and `web/stats.html` all populate their player pickers from `/users/all`; fixing that one endpoint server-side clears test accounts out of all four pickers for free. Same for `web/profile.html`/`web/invites.html`'s autocomplete, both backed by `/users/search`. `web/bracket.html`/`web/tournament.html`'s `/users/all` usage is just an avatar-lookup cache, already harmless either way.
 
-**`routers/friends.py`** — delete the file entirely.
-
-**`api.py`**:
-- Remove `friends` from the router import (line 13) and `app.include_router(friends.router)` (line 256).
-- Remove both `CREATE UNIQUE INDEX IF NOT EXISTS uq_friendship_pair ON friendships(...)` lines (lines 63, 182) — the table itself is left alone in the existing production DB (no `DROP TABLE`, consistent with this project's habit of not running destructive migrations), but a *fresh* install should no longer reference a table that's no longer created via `Base.metadata.create_all`.
-
-**`routers/users.py`** — add a new route near `/users/all`:
-```python
-def _is_active(last_seen) -> bool:
-    if not last_seen:
-        return False
-    return (datetime.utcnow() - last_seen).total_seconds() < 600
-
-
-@router.get("/users/connections")
-def list_connections(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    others = db.query(User).filter(
-        User.is_test == current_user.is_test,
-        User.id != current_user.id,
-    ).order_by(User.username).all()
-    return [{"id": u.id, "username": u.username, "avatar_url": u.avatar_url, "active": _is_active(u.last_seen)} for u in others]
-```
-This returns the exact same shape the old `GET /friends` did (`{id, username, avatar_url, active}`), so the two frontend call sites need only a URL change, not a shape change. (`_is_active` is copied verbatim from the deleted `routers/friends.py:12-15`.)
-
-**`routers/characters.py`** — in `character_mastery_friends` (line 162), drop the `Friendship` import/query and the endpoint path itself; replace with a connections-scoped query, renamed to match reality:
-```python
-@router.get("/characters/mastery/connections")
-def character_mastery_connections(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    connection_ids = {u.id for u in db.query(User.id).filter(User.is_test == current_user.is_test).all()}
-    rows = db.query(CharacterStats).filter(
-        CharacterStats.user_id.in_(connection_ids),
-        CharacterStats.points > 0,
-    ).all()
-    ...  # rest of function body unchanged
-```
-Remove `Friendship` from the `from database import ...` line at the top of the file (it becomes unused).
-
-### Frontend
-
-- **Delete** `web/friends.html` and `web/js/friends-sidebar.js`.
-- **`web/js/nav-inject.js:24`** — remove the `{ href: 'friends.html', label: 'Friends', icon: '👥' }` nav entry.
-- **`web/bracket.html`, `web/my-brackets.html`, `web/tournament.html`** — remove the `<script src="js/friends-sidebar.js"></script>` include from each.
-- **`web/bracket.html`** (~line 313, ~1161) and **`web/teams-bracket.html`** (~line 214, ~582) — in the "quick add" block: change `apiGet('/friends')` → `apiGet('/users/connections')` (both the initial load and, in `teams-bracket.html`, the 30s polling refresh), change the `<h2>Add Friends</h2>` heading to `<h2>Add Players</h2>`, and change the empty-state text ("No friends yet — add some on the Friends page." / "No friends yet.") to something like "No other players yet."
-- **`web/mastery.html`** (line 201, 406) — change the fetch call to `/characters/mastery/connections` and soften the copy "Who in your friend circle dominates each character?" → "Who in your circle dominates each character?"
-
-### Files that do NOT change
-`routers/invites.py`, `routers/matches.py`, `routers/brackets.py`, `routers/roundrobin.py`, `ws_manager.py`, `auth.py` — none of them ever referenced `Friendship`; player/opponent/invite selection was already open to any username.
+**Explicitly out of scope**: single-username lookups where the caller already knows/types the exact name (`/users/{username}/profile`, `/h2h/{other}`, `/activity`, `/comments`, `/stats`, `/badges`, `/characters/ranking/{username}`, `/characters/favorites/{username}`, `/characters/stats/{username}`). These aren't discovery surfaces — a real user would have to already know a test username to hit them — so they're left alone rather than adding is_test gating to every single-user route in the app.
 
 ## Verification
 
-1. Start the backend locally against a throwaway SQLite copy (same approach as the earlier auth testing this session — disposable venv, never touch the real `smash.db` or hit production).
-2. Create two non-test accounts (`Kai`, `Leap`) and one `testuser1` account via `/auth/enter`.
-3. `GET /users/connections` as `Kai` → should list `Leap`, not `testuser1`. As `testuser1` → should list nothing (only test account) unless another test account exists.
-4. Confirm `routers/friends.py` is gone and the app still boots (`app.include_router(friends.router)` removed cleanly, no import errors).
-5. Load `web/bracket.html` and `web/teams-bracket.html` in a browser (patched `API_BASE`, as done earlier this session) — confirm the "Add Players" chip list populates from `/users/connections` and clicking a chip still adds the username to the player textarea.
-6. Load `web/mastery.html` — confirm `/characters/mastery/connections` returns data and the page renders without console errors.
-7. Confirm `web/friends.html` returns 404/is gone, and no page shows a "Friends" nav link or the old sidebar tab.
+1. Boot the backend locally against a throwaway SQLite copy (same disposable-venv approach used throughout this session).
+2. Delete `PracticeSession`/`practice_elo` from `database.py` and confirm the app still boots with no import errors (`api.py`, `routers/leaderboard.py` etc. don't reference them).
+3. Confirm `/practice/*` routes 404 and `web/practice.html` is gone with no nav link anywhere.
+4. Seed one real account (`Kai`) and one test account (`testuser1`, auto-flagged `is_test` on restart per the existing backfill), plus a `MatchResult` between two *other* real accounts and one involving `testuser1`.
+5. Confirm `GET /leaderboard`, `/leaderboard/h2h-matrix`, `/users/all`, `/users/badges/all`, `/users/search?q=test`, `/characters/mastery`, and the four `/characters/stats/leaderboard*` variants all omit `testuser1` entirely.
+6. Load `web/duel.html`'s opponent picker in a browser (patched `API_BASE`, as done throughout this session) and confirm `testuser1` doesn't appear as a selectable option.

@@ -49,7 +49,7 @@ def _preset_to_dict(p: TournamentPreset) -> dict:
 @router.get("/presets")
 def list_presets(db: Session = Depends(get_db), _cu: User = Depends(get_current_user)):
     presets = db.query(TournamentPreset).order_by(TournamentPreset.created_at.desc()).all()
-    return [_preset_to_dict(p) for p in presets]
+    return [_preset_to_dict(p) for p in presets if not p.creator.is_test]
 
 
 @router.post("/presets")

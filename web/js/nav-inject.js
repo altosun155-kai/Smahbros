@@ -11,13 +11,11 @@
     { href: 'teams-bracket.html',  label: 'Team Battle',     icon: '👥' },
     { href: 'team-standings.html', label: 'Team Standings', icon: '🤝' },
     { href: 'duel.html',         label: '1v1 Duel',     icon: '⚔️' },
-    { href: 'roundrobin.html',   label: 'Round Robin',  icon: '🔄' },
     { href: 'my-brackets.html',  label: 'My Brackets',  icon: '📁' },
     { section: 'Track' },
     { href: 'stats.html',       label: 'Stats',        icon: '📊' },
     { href: 'leaderboard.html', label: 'Leaderboard',  icon: '📈' },
     { href: 'mastery.html',     label: 'Mastery',      icon: '🎯' },
-    { href: 'practice.html',    label: 'Practice',     icon: '🥊' },
     { section: 'My Stuff' },
     { href: 'tier-list.html',    label: 'Tier List',    icon: '🎖️' },
     { href: 'favorites.html',   label: 'Favorites',    icon: '⭐' },
@@ -48,7 +46,7 @@
     bnav.id = 'bottomNav';
     bnav.setAttribute('role', 'navigation');
     bnav.setAttribute('aria-label', 'Main navigation');
-    const playPages = ['duel.html', 'tournament.html', 'roundrobin.html'];
+    const playPages = ['duel.html', 'tournament.html'];
     bnav.innerHTML =
       `<a href="index.html" class="bnav-item${currentPage === 'index.html' ? ' active' : ''}"><span class="bnav-icon">🏠</span>Home</a>` +
       `<a href="duel.html" class="bnav-item${playPages.includes(currentPage) ? ' active' : ''}"><span class="bnav-icon">⚔️</span>Play</a>` +

@@ -1,44 +1,42 @@
+import secrets
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from database import User
-from auth import get_db, hash_password, verify_password, make_token
+from auth import get_db, hash_password, make_token
 from routers.ratelimit import rate_limit
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-class RegisterRequest(BaseModel):
+class EnterRequest(BaseModel):
     username: str
-    password: str
 
 
-class LoginRequest(BaseModel):
-    username: str
-    password: str
+@router.get("/users")
+def list_users(request: Request, db: Session = Depends(get_db)):
+    rate_limit(request, max_req=30, window=60)
+    usernames = [u.username for u in db.query(User).order_by(User.username.asc()).all()]
+    return {"usernames": usernames}
 
 
-@router.post("/register")
-def register(req: RegisterRequest, request: Request, db: Session = Depends(get_db)):
-    rate_limit(request, max_req=5, window=60)
-    if len(req.username.strip()) < 3:
-        raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
-    if len(req.password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
-    if db.query(User).filter(User.username == req.username).first():
-        raise HTTPException(status_code=400, detail="Username already taken")
-    user = User(username=req.username, hashed_password=hash_password(req.password))
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return {"token": make_token(user.id), "username": user.username}
-
-
-@router.post("/login")
-def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
+@router.post("/enter")
+def enter(req: EnterRequest, request: Request, db: Session = Depends(get_db)):
     rate_limit(request, max_req=10, window=60)
-    user = db.query(User).filter(User.username == req.username).first()
-    if not user or not verify_password(req.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Incorrect username or password")
+
+    name = req.username.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Enter a name")
+    if len(name) > 24:
+        raise HTTPException(status_code=400, detail="Name is too long")
+
+    user = db.query(User).filter(func.lower(User.username) == name.lower()).first()
+    if not user:
+        user = User(username=name, hashed_password=hash_password(secrets.token_urlsafe(24)))
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
     return {"token": make_token(user.id), "username": user.username}

@@ -20,81 +20,30 @@
 
   <div class="auth-card">
 
-    <div class="auth-tabs">
-      <button class="auth-tab-btn active" id="tabSignIn" onclick="switchTab('signin')">Sign In</button>
-      <button class="auth-tab-btn" id="tabSignUp" onclick="switchTab('signup')">Sign Up</button>
-    </div>
+    <div class="auth-error-banner" id="enterError" role="alert"></div>
 
-    <!-- Sign In Panel -->
-    <div class="auth-panel active" id="panelSignin">
-      <div class="auth-error-banner" id="signinError" role="alert"></div>
+    <p class="tiles-status" id="tilesStatus">Loading players…</p>
+    <div class="user-tiles" id="userTiles"></div>
 
-      <form id="signinForm" novalidate>
-        <div class="form-group">
-          <label for="signinUsername">Username</label>
-          <input
-            type="text"
-            id="signinUsername"
-            name="username"
-            placeholder="Your username"
-            autocomplete="username"
-            required
-          />
-          <p class="field-error" id="signinUsernameError">Username is required.</p>
-        </div>
+    <button type="button" class="tile-btn tile-btn-new" id="newPlayerToggle" style="display:none;">+ New player</button>
 
-        <div class="form-group">
-          <label for="signinPassword">Password</label>
-          <input
-            type="password"
-            id="signinPassword"
-            name="password"
-            placeholder="Your password"
-            autocomplete="current-password"
-            required
-          />
-          <p class="field-error" id="signinPasswordError">Password is required.</p>
-        </div>
+    <form id="newPlayerForm" class="new-player-form" novalidate style="display:none;">
+      <div class="form-group">
+        <label for="newPlayerName">Your name</label>
+        <input
+          type="text"
+          id="newPlayerName"
+          name="username"
+          placeholder="Your name"
+          autocomplete="username"
+          maxlength="24"
+          required
+        />
+        <p class="field-error" id="newPlayerNameError">Enter your name.</p>
+      </div>
 
-        <button type="submit" class="auth-submit" id="signinBtn">Sign In</button>
-      </form>
-    </div>
-
-    <!-- Sign Up Panel -->
-    <div class="auth-panel" id="panelSignup">
-      <div class="auth-error-banner" id="signupError" role="alert"></div>
-      <div class="auth-success-banner" id="signupSuccess" role="alert"></div>
-
-      <form id="signupForm" novalidate>
-        <div class="form-group">
-          <label for="signupUsername">Username</label>
-          <input
-            type="text"
-            id="signupUsername"
-            name="username"
-            placeholder="Choose a username"
-            autocomplete="username"
-            required
-          />
-          <p class="field-error" id="signupUsernameError">Username is required.</p>
-        </div>
-
-        <div class="form-group">
-          <label for="signupPassword">Password</label>
-          <input
-            type="password"
-            id="signupPassword"
-            name="password"
-            placeholder="Choose a password"
-            autocomplete="new-password"
-            required
-          />
-          <p class="field-error" id="signupPasswordError">Password is required.</p>
-        </div>
-
-        <button type="submit" class="auth-submit" id="signupBtn">Create Account</button>
-      </form>
-    </div>
+      <button type="submit" class="auth-submit" id="enterBtn">Let's go</button>
+    </form>
 
   </div>
 </div>
@@ -102,21 +51,17 @@
 <script src="js/api.js"></script>
 <script>
   // ── Server ready gate ────────────────────────────────────────────────────────
-  // Disable both submit buttons and show a status banner until /health responds.
-  const signinBtn  = document.getElementById('signinBtn');
-  const signupBtn  = document.getElementById('signupBtn');
-  const errorBannerSignin = document.getElementById('signinError');
+  // Disable the submit button and show a status banner until /health responds.
+  const enterBtn = document.getElementById('enterBtn');
+  const errorBannerEnter = document.getElementById('enterError');
 
   function setServerReady(ready) {
-    signinBtn.disabled = !ready;
-    signupBtn.disabled = !ready;
+    enterBtn.disabled = !ready;
     if (ready) {
-      signinBtn.textContent = 'Sign In';
-      signupBtn.textContent = 'Create Account';
-      errorBannerSignin.classList.remove('visible');
+      enterBtn.textContent = "Let's go";
+      errorBannerEnter.classList.remove('visible');
     } else {
-      signinBtn.textContent = 'Connecting to server…';
-      signupBtn.textContent = 'Connecting to server…';
+      enterBtn.textContent = 'Connecting to server…';
     }
   }
 
@@ -131,52 +76,23 @@
     }
     // Give up waiting — let them try anyway
     setServerReady(true);
-    errorBannerSignin.textContent = 'Server may still be starting. If login fails, wait 30 s and try again.';
-    errorBannerSignin.classList.add('visible');
+    errorBannerEnter.textContent = 'Server may still be starting. If this fails, wait 30 s and try again.';
+    errorBannerEnter.classList.add('visible');
   }
 
   waitForServer();
 
-  function switchTab(tab) {
-    document.getElementById('panelSignin').classList.toggle('active', tab === 'signin');
-    document.getElementById('panelSignup').classList.toggle('active', tab === 'signup');
-    document.getElementById('tabSignIn').classList.toggle('active', tab === 'signin');
-    document.getElementById('tabSignUp').classList.toggle('active', tab === 'signup');
-  }
+  // ── Enter (shared by tile click + new-player form) ──────────────────────
+  const errorBanner = document.getElementById('enterError');
 
-  // ── Sign In ──────────────────────────────────────
-  document.getElementById('signinForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const username = document.getElementById('signinUsername').value.trim();
-    const password = document.getElementById('signinPassword').value;
-    const errorBanner = document.getElementById('signinError');
-    const btn = document.getElementById('signinBtn');
-
-    // Clear errors
+  async function enter(username, triggerEl, busyText) {
     errorBanner.classList.remove('visible');
-    document.getElementById('signinUsernameError').classList.remove('visible');
-    document.getElementById('signinPasswordError').classList.remove('visible');
-    document.getElementById('signinUsername').classList.remove('input-error');
-    document.getElementById('signinPassword').classList.remove('input-error');
-
-    let valid = true;
-    if (!username) {
-      document.getElementById('signinUsername').classList.add('input-error');
-      document.getElementById('signinUsernameError').classList.add('visible');
-      valid = false;
-    }
-    if (!password) {
-      document.getElementById('signinPassword').classList.add('input-error');
-      document.getElementById('signinPasswordError').classList.add('visible');
-      valid = false;
-    }
-    if (!valid) return;
-
-    btn.disabled = true;
-    btn.textContent = 'Signing in…';
+    const originalText = triggerEl.textContent;
+    triggerEl.disabled = true;
+    if (busyText) triggerEl.textContent = busyText;
 
     try {
-      const data = await apiFetch('POST', '/auth/login', { username, password }, false);
+      const data = await apiFetch('POST', '/auth/enter', { username }, false);
 
       setToken(data.token);
       setUsername(data.username);
@@ -184,66 +100,70 @@
       localStorage.removeItem('loginReturnUrl');
       window.location.href = returnUrl || 'index.html';
     } catch (err) {
-      errorBanner.textContent = err.message || 'Invalid username or password.';
+      errorBanner.textContent = err.message || 'Something went wrong.';
       errorBanner.classList.add('visible');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Sign In';
+      triggerEl.disabled = false;
+      triggerEl.textContent = originalText;
     }
+  }
+
+  // ── Player tiles ──────────────────────────────────────
+  const tilesStatus = document.getElementById('tilesStatus');
+  const userTiles = document.getElementById('userTiles');
+  const newPlayerToggle = document.getElementById('newPlayerToggle');
+  const newPlayerForm = document.getElementById('newPlayerForm');
+
+  async function loadPlayerTiles() {
+    try {
+      const data = await apiFetch('GET', '/auth/users', null, false);
+      const usernames = data.usernames || [];
+
+      tilesStatus.style.display = 'none';
+      userTiles.innerHTML = usernames.map(name =>
+        `<button type="button" class="tile-btn" data-username="${escHtml(name)}">${escHtml(name)}</button>`
+      ).join('');
+
+      userTiles.querySelectorAll('.tile-btn').forEach(function(tile) {
+        tile.addEventListener('click', function() {
+          enter(tile.dataset.username, tile, 'One sec…');
+        });
+      });
+    } catch (err) {
+      tilesStatus.textContent = 'Could not load players. You can still enter a name below.';
+    } finally {
+      newPlayerToggle.style.display = 'inline-block';
+    }
+  }
+
+  loadPlayerTiles();
+
+  // ── New player ──────────────────────────────────────
+  newPlayerToggle.addEventListener('click', function() {
+    newPlayerToggle.style.display = 'none';
+    newPlayerForm.style.display = 'block';
+    document.getElementById('newPlayerName').focus();
   });
 
-  // ── Sign Up ──────────────────────────────────────
-  document.getElementById('signupForm').addEventListener('submit', async function(e) {
+  newPlayerForm.addEventListener('submit', async function(e) {
     e.preventDefault();
-    const username = document.getElementById('signupUsername').value.trim();
-    const password = document.getElementById('signupPassword').value;
-    const errorBanner = document.getElementById('signupError');
-    const successBanner = document.getElementById('signupSuccess');
-    const btn = document.getElementById('signupBtn');
+    const username = document.getElementById('newPlayerName').value.trim();
+    const btn = document.getElementById('enterBtn');
 
-    errorBanner.classList.remove('visible');
-    successBanner.classList.remove('visible');
-    document.getElementById('signupUsernameError').classList.remove('visible');
-    document.getElementById('signupPasswordError').classList.remove('visible');
-    document.getElementById('signupUsername').classList.remove('input-error');
-    document.getElementById('signupPassword').classList.remove('input-error');
+    document.getElementById('newPlayerNameError').classList.remove('visible');
+    document.getElementById('newPlayerName').classList.remove('input-error');
 
-    let valid = true;
     if (!username) {
-      document.getElementById('signupUsername').classList.add('input-error');
-      document.getElementById('signupUsernameError').classList.add('visible');
-      valid = false;
+      document.getElementById('newPlayerName').classList.add('input-error');
+      document.getElementById('newPlayerNameError').classList.add('visible');
+      return;
     }
-    if (!password) {
-      document.getElementById('signupPassword').classList.add('input-error');
-      document.getElementById('signupPasswordError').classList.add('visible');
-      valid = false;
-    }
-    if (!valid) return;
 
-    btn.disabled = true;
-    btn.textContent = 'Creating account…';
-
-    try {
-      await apiFetch('POST', '/auth/register', { username, password }, false);
-      successBanner.textContent = 'Account created! You can now sign in.';
-      successBanner.classList.add('visible');
-      document.getElementById('signupForm').reset();
-      setTimeout(() => switchTab('signin'), 1500);
-    } catch (err) {
-      errorBanner.textContent = err.message || 'Could not create account.';
-      errorBanner.classList.add('visible');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Create Account';
-    }
+    enter(username, btn, 'One sec…');
   });
 
   // Clear errors on input
-  ['signinUsername','signinPassword','signupUsername','signupPassword'].forEach(id => {
-    document.getElementById(id).addEventListener('input', function() {
-      this.classList.remove('input-error');
-    });
+  document.getElementById('newPlayerName').addEventListener('input', function() {
+    this.classList.remove('input-error');
   });
 </script>
 

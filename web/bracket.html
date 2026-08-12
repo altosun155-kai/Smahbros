@@ -308,9 +308,9 @@
           </div>
         </div>
 
-        <!-- Friends quick-add -->
+        <!-- Quick-add players -->
         <div id="friendsQuickAdd" style="display:none;margin-bottom:14px;">
-          <h2>Add Friends</h2>
+          <h2>Add Players</h2>
           <div id="friendChips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
         </div>
 
@@ -370,7 +370,6 @@
 
 <script src="js/api.js"></script>
 <script src="js/badges.js"></script>
-<script src="js/friends-sidebar.js"></script>
 <script src="js/nav-inject.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/chars.js"></script>
@@ -1153,14 +1152,14 @@ async function endTournament() {
     allUsers.forEach(u => { allUserAvatars[u.username] = u.avatar_url || null; });
   } catch (_) {}
 
-  // Load friends for quick-add
+  // Load connections for quick-add
   const section = document.getElementById('friendsQuickAdd');
   const chips = document.getElementById('friendChips');
   section.style.display = 'block';
   try {
-    const friends = await apiGet('/friends');
-    if (friends && friends.length) {
-      friends.forEach(f => {
+    const connections = await apiGet('/users/connections');
+    if (connections && connections.length) {
+      connections.forEach(f => {
         const chip = document.createElement('div');
         chip.className = 'friend-chip';
         chip.id = `chip_${f.username}`;
@@ -1174,10 +1173,10 @@ async function endTournament() {
         chips.appendChild(chip);
       });
     } else {
-      chips.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">No friends yet — add some on the Friends page.</span>';
+      chips.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">No other players yet.</span>';
     }
   } catch (_) {
-    chips.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">No friends yet — add some on the Friends page.</span>';
+    chips.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">No other players yet.</span>';
   }
 
   // Check for live tournaments the user is in (own or invited)

@@ -10,7 +10,7 @@ import logging
 
 from database import engine, Base, SessionLocal, Bracket, TournamentInvite
 from auth import decode_token
-from routers import auth, users, brackets, characters, matches, roundrobin, invites, friends, leaderboard, practice, presets
+from routers import auth, users, brackets, characters, matches, roundrobin, invites, leaderboard, practice, presets
 from routers.brackets import bracket_to_dict
 import ws_manager
 
@@ -57,10 +57,6 @@ def _run_migrations():
             # Unique constraints (wrapped — fail gracefully if duplicates exist)
             try:
                 conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_cs_user_char ON character_stats(user_id, character)"))
-            except Exception:
-                pass
-            try:
-                conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_friendship_pair ON friendships(requester_id, addressee_id)"))
             except Exception:
                 pass
             conn.execute(text("""
@@ -178,10 +174,6 @@ def _run_migrations():
                 conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_cs_user_char ON character_stats(user_id, character)"))
             except Exception:
                 pass
-            try:
-                conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_friendship_pair ON friendships(requester_id, addressee_id)"))
-            except Exception:
-                pass
             ps_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(practice_sessions)"))}
             if "elo_delta" not in ps_cols:
                 conn.execute(text("ALTER TABLE practice_sessions ADD COLUMN elo_delta INTEGER DEFAULT 0"))
@@ -253,7 +245,6 @@ app.include_router(characters.router)
 app.include_router(matches.router)
 app.include_router(roundrobin.router)
 app.include_router(invites.router)
-app.include_router(friends.router)
 app.include_router(leaderboard.router)
 app.include_router(practice.router)
 app.include_router(presets.router)

@@ -21,7 +21,6 @@
     { section: 'My Stuff' },
     { href: 'tier-list.html',    label: 'Tier List',    icon: '🎖️' },
     { href: 'favorites.html',   label: 'Favorites',    icon: '⭐' },
-    { href: 'friends.html',     label: 'Friends',      icon: '👥' },
     { href: 'profile.html',     label: 'Profile',      icon: '👤' },
   ];
 

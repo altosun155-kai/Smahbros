@@ -1,85 +1,80 @@
-# Frictionless auth: replace password login with "pick a name"
+# Remove the friend-request system; make "connection" implicit by account type
 
 ## Context
 
-Smahbros is currently deployed for a private group of 4 friends. The user wants to drop the login friction. A full removal of auth was ruled out because `User.id`/JWT identity is load-bearing for friends, invites, matches, and bracket ownership (`get_current_user` is used across nearly every router). The agreed direction instead: keep the existing JWT identity model, but let someone log in by just typing a name — no password, and no separate signup step. Everything downstream of "a valid JWT exists" (`get_current_user`, WebSocket auth, friends/invites lookups by username) stays untouched; only how the token gets minted changes.
+The app currently has a full friend-request system (send/accept/decline/remove, a dedicated Friends page, and a duplicate friends sidebar widget with a notification badge). The user wants this removed entirely and replaced with an implicit rule: every account is automatically "connected" to every other account, except test accounts (`User.is_test`, added earlier this session), which should only be considered connected to other test accounts.
 
-Verified against the live source (not assumptions):
-- `auth.py` — `make_token(user_id)`, `decode_token(token)`, `get_current_user` (reads `Authorization: Bearer …` header) all only care about `user_id`; none of them touch passwords. `hash_password`/`verify_password` (lines 30-35) wrap werkzeug's hasher and are used only by `routers/auth.py`.
-- `routers/auth.py` — `POST /auth/register` (needs username≥3, password≥8, uniqueness) and `POST /auth/login` (verifies password) are the *only* callers of `hash_password`/`verify_password`, and the only routes `web/login.html` calls.
-- `database.py` `User` model — `hashed_password` is `String, nullable=False`. No email/other identity column. `username` is the only unique constraint.
-- `web/login.html` — tabbed Sign In / Sign Up form calling `/auth/login` and `/auth/register` respectively, storing the returned token via `setToken`/`setUsername` from `web/js/auth.js`.
-- `web/js/auth.js` (`requireAuth`, `isLoggedIn`, `setToken`) and `web/js/api.js` (`apiFetch`, 401 handling) have zero knowledge of how a token was minted — no changes needed there.
-- Every other router (`matches.py`, `friends.py`, `invites.py`, `roundrobin.py`, `presets.py`, `users.py`, `brackets.py`, `practice.py`, `characters.py`) depends on `get_current_user`, unaffected by this change. `friends.py`/`invites.py` resolve other users purely by `username` string, so nothing there needs to change either.
-- Aside (not in scope): `game_ws_manager.py`, listed in `CLAUDE.md` as a key file, was deleted in commit `8d097f1` ("reset") and no longer exists in the tree. Unrelated to this change — not touched or resurrected here.
+Research (via Explore agent, confirmed against source) found the friend system's *actual* footprint is much smaller than its UI surface suggests:
+- **`Friendship` model** (`database.py:152-163`): `requester_id`, `addressee_id`, `status` ("pending"/"accepted"), unique pair constraint `uq_friendship_pair`. `User` has two cascading relationships to it (`database.py:51-52`).
+- **`routers/friends.py`**: 6 routes (list friends, list pending requests, send/accept/decline/remove) — all standard `Depends(get_current_user)`.
+- **Only two other things ever depended on friendship status**:
+  1. `routers/characters.py:162-183` `GET /characters/mastery/friends` — scopes the character-mastery view to `{self} ∪ accepted friends}`.
+  2. The "quick add" chip UI in `web/bracket.html:1156-1180` and `web/teams-bracket.html:553-590` — pulls `GET /friends` to autofill the player-list textarea. This is a convenience, not a restriction.
+- **Nothing else is gated on friendship.** `routers/invites.py`, `routers/matches.py`, `routers/brackets.py`, `routers/roundrobin.py` already let you reference *any* registered username with zero friend check — confirmed via repo-wide grep. So "every account connected to every account" is already true for actual gameplay; this change is about the two friend-scoped features above, plus deleting the request/accept workflow and its UI.
+- Frontend surface to remove: `web/friends.html` (dedicated page), `web/js/friends-sidebar.js` (duplicate panel + notification badge, injected into `bracket.html`, `my-brackets.html`, `tournament.html`), and the "Friends" nav entry in `web/js/nav-inject.js:24`.
 
 ## Approach
 
-Replace `/auth/register` + `/auth/login` with a single **`POST /auth/enter`**: given a username, log in if it exists, create it on the spot if it doesn't. This avoids any DB migration — `hashed_password` stays `NOT NULL` and gets satisfied with a random per-user placeholder hash that's never checked again (`verify_password` becomes unused dead code, left in place).
+Replace the `Friendship` table/workflow with a computed rule: **a user's "connections" = every other user with the same `is_test` value.** No new table, no request/accept state — it's just a query (`User.is_test == current_user.is_test`, excluding self). This mirrors the plan from the earlier `is_test` change (same column, same reasoning: real accounts and test accounts should never mix).
 
-### `routers/auth.py` — replace both routes with one
+### Backend
 
+**`database.py`** — delete the `Friendship` class (lines 152-163) and the two relationships on `User` that reference it (`sent_friend_requests`, `received_friend_requests`, lines 51-52).
+
+**`routers/friends.py`** — delete the file entirely.
+
+**`api.py`**:
+- Remove `friends` from the router import (line 13) and `app.include_router(friends.router)` (line 256).
+- Remove both `CREATE UNIQUE INDEX IF NOT EXISTS uq_friendship_pair ON friendships(...)` lines (lines 63, 182) — the table itself is left alone in the existing production DB (no `DROP TABLE`, consistent with this project's habit of not running destructive migrations), but a *fresh* install should no longer reference a table that's no longer created via `Base.metadata.create_all`.
+
+**`routers/users.py`** — add a new route near `/users/all`:
 ```python
-import secrets
-from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import func
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
-
-from database import User
-from auth import get_db, hash_password, make_token
-from routers.ratelimit import rate_limit
-
-router = APIRouter(prefix="/auth", tags=["auth"])
+def _is_active(last_seen) -> bool:
+    if not last_seen:
+        return False
+    return (datetime.utcnow() - last_seen).total_seconds() < 600
 
 
-class EnterRequest(BaseModel):
-    username: str
-
-
-@router.post("/enter")
-def enter(req: EnterRequest, request: Request, db: Session = Depends(get_db)):
-    rate_limit(request, max_req=10, window=60)
-
-    name = req.username.strip()
-    if not name:
-        raise HTTPException(status_code=400, detail="Enter a name")
-    if len(name) > 24:
-        raise HTTPException(status_code=400, detail="Name is too long")
-
-    user = db.query(User).filter(func.lower(User.username) == name.lower()).first()
-    if not user:
-        user = User(username=name, hashed_password=hash_password(secrets.token_urlsafe(24)))
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-    return {"token": make_token(user.id), "username": user.username}
+@router.get("/users/connections")
+def list_connections(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    others = db.query(User).filter(
+        User.is_test == current_user.is_test,
+        User.id != current_user.id,
+    ).order_by(User.username).all()
+    return [{"id": u.id, "username": u.username, "avatar_url": u.avatar_url, "active": _is_active(u.last_seen)} for u in others]
 ```
+This returns the exact same shape the old `GET /friends` did (`{id, username, avatar_url, active}`), so the two frontend call sites need only a URL change, not a shape change. (`_is_active` is copied verbatim from the deleted `routers/friends.py:12-15`.)
 
-Notes:
-- Case-insensitive username match (`func.lower`) so "Kai"/"kai" resolve to one account; stored casing is whatever was typed first.
-- Rate limit kept at the old login's `10/60s` via the existing `rate_limit` helper from `routers/ratelimit.py`.
-- A same-instant race between two different capitalizations of one name creating two rows is a theoretical edge case, accepted as low-stakes for a 4-person app (not engineered around).
+**`routers/characters.py`** — in `character_mastery_friends` (line 162), drop the `Friendship` import/query and the endpoint path itself; replace with a connections-scoped query, renamed to match reality:
+```python
+@router.get("/characters/mastery/connections")
+def character_mastery_connections(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    connection_ids = {u.id for u in db.query(User.id).filter(User.is_test == current_user.is_test).all()}
+    rows = db.query(CharacterStats).filter(
+        CharacterStats.user_id.in_(connection_ids),
+        CharacterStats.points > 0,
+    ).all()
+    ...  # rest of function body unchanged
+```
+Remove `Friendship` from the `from database import ...` line at the top of the file (it becomes unused).
 
-### `web/login.html` — one field, no tabs
+### Frontend
 
-Replace the `.auth-tabs` + `#panelSignin`/`#panelSignup` markup (lines 23-97) with a single form: one "Your name" text input (`maxlength="24"`, `autocomplete="username"`), one submit button.
-
-Replace the two submit listeners (`signinForm`, `signupForm`, lines 148-240) with one handler that calls `apiFetch('POST', '/auth/enter', { username }, false)`, then `setToken`/`setUsername` and redirect to `loginReturnUrl || 'index.html'` — same pattern as the current sign-in handler, just one fewer field and one endpoint.
-
-Retarget `waitForServer()`/`setServerReady()` (lines 104-136) to the single new button instead of `signinBtn`/`signupBtn`. Delete `switchTab()` (no tabs left). Leave `web/css/auth.css`'s now-unused `.auth-tabs`/`.auth-tab-btn` rules in place — dead CSS, zero risk, not worth touching.
-
-`redirectIfLoggedIn()` at the top of the page and everything in `js/auth.js`/`js/api.js` stay exactly as-is.
+- **Delete** `web/friends.html` and `web/js/friends-sidebar.js`.
+- **`web/js/nav-inject.js:24`** — remove the `{ href: 'friends.html', label: 'Friends', icon: '👥' }` nav entry.
+- **`web/bracket.html`, `web/my-brackets.html`, `web/tournament.html`** — remove the `<script src="js/friends-sidebar.js"></script>` include from each.
+- **`web/bracket.html`** (~line 313, ~1161) and **`web/teams-bracket.html`** (~line 214, ~582) — in the "quick add" block: change `apiGet('/friends')` → `apiGet('/users/connections')` (both the initial load and, in `teams-bracket.html`, the 30s polling refresh), change the `<h2>Add Friends</h2>` heading to `<h2>Add Players</h2>`, and change the empty-state text ("No friends yet — add some on the Friends page." / "No friends yet.") to something like "No other players yet."
+- **`web/mastery.html`** (line 201, 406) — change the fetch call to `/characters/mastery/connections` and soften the copy "Who in your friend circle dominates each character?" → "Who in your circle dominates each character?"
 
 ### Files that do NOT change
-`auth.py`, `web/js/auth.js`, `web/js/api.js`, `database.py`, `api.py`'s `_run_migrations()`, every router besides `routers/auth.py`, and all WebSocket auth (`api.py`'s tournament WS handshake, `ws_manager.py`).
+`routers/invites.py`, `routers/matches.py`, `routers/brackets.py`, `routers/roundrobin.py`, `ws_manager.py`, `auth.py` — none of them ever referenced `Friendship`; player/opponent/invite selection was already open to any username.
 
 ## Verification
 
-1. Run the backend locally (`uvicorn api:app --reload`) against local `smash.db`.
-2. Open `web/login.html`, type a brand-new name, submit — confirm a new `User` row is created, a token is returned, and you land on `index.html` fully authenticated (nav shows username, `requireAuth()`-gated pages load).
-3. Log out, re-enter the same name (try a different case, e.g. "KAI" vs "kai") — confirm it logs into the *same* account (same `user.id`, same friends/matches/brackets visible), not a duplicate.
-4. Confirm an existing pre-migration account (created via the old password flow, if any exist in the DB) can still log in through `/auth/enter` with just its username.
-5. Hit `/auth/enter` >10 times in 60s and confirm the existing rate-limit response still triggers.
-6. Spot-check one downstream authenticated flow (e.g. sending a friend request) still works unchanged, confirming `get_current_user` didn't need touching.
+1. Start the backend locally against a throwaway SQLite copy (same approach as the earlier auth testing this session — disposable venv, never touch the real `smash.db` or hit production).
+2. Create two non-test accounts (`Kai`, `Leap`) and one `testuser1` account via `/auth/enter`.
+3. `GET /users/connections` as `Kai` → should list `Leap`, not `testuser1`. As `testuser1` → should list nothing (only test account) unless another test account exists.
+4. Confirm `routers/friends.py` is gone and the app still boots (`app.include_router(friends.router)` removed cleanly, no import errors).
+5. Load `web/bracket.html` and `web/teams-bracket.html` in a browser (patched `API_BASE`, as done earlier this session) — confirm the "Add Players" chip list populates from `/users/connections` and clicking a chip still adds the username to the player textarea.
+6. Load `web/mastery.html` — confirm `/characters/mastery/connections` returns data and the page renders without console errors.
+7. Confirm `web/friends.html` returns 404/is gone, and no page shows a "Friends" nav link or the old sidebar tab.

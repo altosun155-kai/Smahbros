@@ -5,8 +5,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
 
-from sqlalchemy import or_, and_
-from database import User, CharacterRanking, CharacterStats, FavoriteCharacters, Friendship, CharacterMatchup
+from database import User, CharacterRanking, CharacterStats, FavoriteCharacters, CharacterMatchup
 from auth import get_db, get_current_user
 
 _avg_cache: dict = {"data": None, "ts": 0.0}
@@ -159,19 +158,13 @@ def character_mastery(db: Session = Depends(get_db)):
     return list(char_map.values())
 
 
-@router.get("/characters/mastery/friends")
-def character_mastery_friends(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Returns character mastery scoped to the current user + their accepted friends."""
-    friend_rows = db.query(Friendship).filter(
-        Friendship.status == "accepted",
-        or_(Friendship.requester_id == current_user.id, Friendship.addressee_id == current_user.id),
-    ).all()
-    friend_ids = {current_user.id}
-    for row in friend_rows:
-        friend_ids.add(row.addressee_id if row.requester_id == current_user.id else row.requester_id)
+@router.get("/characters/mastery/connections")
+def character_mastery_connections(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Returns character mastery scoped to the current user's connections (same is_test group)."""
+    connection_ids = {u.id for u in db.query(User.id).filter(User.is_test == current_user.is_test).all()}
 
     rows = db.query(CharacterStats).filter(
-        CharacterStats.user_id.in_(friend_ids),
+        CharacterStats.user_id.in_(connection_ids),
         CharacterStats.points > 0,
     ).all()
 

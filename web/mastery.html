@@ -198,7 +198,7 @@
 <main class="page-container">
   <div class="page-header">
     <h1>Character Mastery</h1>
-    <p>Who in your friend circle dominates each character? Greyed = unclaimed. Colored = point leader.</p>
+    <p>Who in your circle dominates each character? Greyed = unclaimed. Colored = point leader.</p>
   </div>
 
   <div id="loadingState" class="loading-center">
@@ -403,7 +403,7 @@
     } catch (_) {}
 
     try {
-      const data = await apiGet('/characters/mastery/friends');
+      const data = await apiGet('/characters/mastery/connections');
 
       // Build mastery map: char -> { username, points, wins, losses, avatar_url }
       const masteryMap = {};

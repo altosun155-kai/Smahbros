@@ -62,6 +62,21 @@ def all_users(db: Session = Depends(get_db), current_user: User = Depends(get_cu
     return [{"id": u.id, "username": u.username, "avatar_url": u.avatar_url} for u in users]
 
 
+def _is_active(last_seen) -> bool:
+    if not last_seen:
+        return False
+    return (datetime.utcnow() - last_seen).total_seconds() < 600
+
+
+@router.get("/users/connections")
+def list_connections(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    others = db.query(User).filter(
+        User.is_test == current_user.is_test,
+        User.id != current_user.id,
+    ).order_by(User.username).all()
+    return [{"id": u.id, "username": u.username, "avatar_url": u.avatar_url, "active": _is_active(u.last_seen)} for u in others]
+
+
 @router.get("/users/badges/all")
 def all_user_badges(db: Session = Depends(get_db), _cu: User = Depends(get_current_user)):
     """Batch: returns {username: display_badge} for every user. Respects featured_badge. Cached 30s."""

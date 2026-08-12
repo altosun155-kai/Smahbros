@@ -209,9 +209,9 @@
             <input type="text" id="tourneyName" placeholder="Tournament name" maxlength="50" />
           </div>
 
-          <!-- Friends quick-add (both modes) -->
+          <!-- Quick-add players (both modes) -->
           <div id="friendsQuickAdd" style="display:none;margin-bottom:14px;">
-            <h2>Add Friends</h2>
+            <h2>Add Players</h2>
             <div id="friendChips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
           </div>
 
@@ -550,15 +550,15 @@ async function generateTeamBracket() {
   } catch { showToast('Failed to create bracket.', 'error'); }
 }
 
-// ── Friends quick-add ─────────────────────────────────────────────────────
+// ── Quick-add players ─────────────────────────────────────────────────────
 async function loadFriends() {
   const section = document.getElementById('friendsQuickAdd');
   const chips   = document.getElementById('friendChips');
   section.style.display = 'block';
   try {
-    const friends = await apiGet('/friends');
-    if (friends && friends.length) {
-      friends.forEach(f => {
+    const connections = await apiGet('/users/connections');
+    if (connections && connections.length) {
+      connections.forEach(f => {
         const chip = document.createElement('div');
         chip.className = 'friend-chip';
         chip.id = `chip_${f.username}`;
@@ -571,15 +571,15 @@ async function loadFriends() {
         chips.appendChild(chip);
       });
     } else {
-      chips.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">No friends yet.</span>';
+      chips.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">No other players yet.</span>';
     }
   } catch (_) {
-    chips.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">No friends yet.</span>';
+    chips.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">No other players yet.</span>';
   }
   // Poll every 30s to refresh online status dots
   setInterval(async () => {
     try {
-      const updated = await apiGet('/friends');
+      const updated = await apiGet('/users/connections');
       (updated || []).forEach(f => {
         const chip = document.getElementById(`chip_${f.username}`);
         if (!chip) return;

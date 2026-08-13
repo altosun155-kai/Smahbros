@@ -1,6 +1,7 @@
 /* style.css — Smash Bros dark gaming theme global styles */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
 
 /* ── CSS Variables ────────────────────────────────── */
 :root {
@@ -20,6 +21,17 @@
   --tier-c:       #7fff7f;
   --tier-d:       #7fbfff;
   --tier-f:       #bf7fff;
+
+  --font-display: 'Space Grotesk', var(--font-system);
+  --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --glass-bg:        rgba(255,255,255,0.045);
+  --glass-bg-strong: rgba(255,255,255,0.07);
+  --glass-border:    rgba(255,255,255,0.09);
+  --glass-blur:      20px;
+
+  --blob-a: rgba(0,90,200,0.30);
+  --blob-b: rgba(120,20,180,0.22);
 }
 
 /* ── Base ─────────────────────────────────────────── */
@@ -28,6 +40,40 @@ body {
   background-color: var(--bg);
   color: var(--text);
   min-height: 100vh;
+  position: relative;
+}
+
+/* ── Ambient background ──────────────────────────────
+   Two slow-drifting blurred gradient blobs, fixed behind all content. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: -10%;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 40% at 18% 12%, var(--blob-a) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 38% at 85% 78%, var(--blob-b) 0%, transparent 60%);
+  animation: ambientDrift 40s ease-in-out infinite alternate;
+}
+
+@keyframes ambientDrift {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(3%, -2%) scale(1.08); }
+  100% { transform: translate(-2%, 3%) scale(1); }
+}
+
+/* ── Noise overlay ────────────────────────────────────
+   Subtle grain via inline SVG feTurbulence — no binary asset needed. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
 }
 
 a {
@@ -55,6 +101,7 @@ a:hover {
 }
 
 .navbar .logo {
+  font-family: var(--font-display);
   font-size: 1.2rem;
   font-weight: 700;
   color: var(--text);
@@ -307,6 +354,7 @@ a:hover {
 }
 
 .page-header h1 {
+  font-family: var(--font-display);
   font-size: 1.8rem;
   font-weight: 700;
   color: var(--text);
@@ -320,11 +368,55 @@ a:hover {
 
 /* ── Cards ────────────────────────────────────────── */
 .card {
-  background: var(--card-bg);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border-radius: var(--radius);
   padding: 24px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   transition: border-color 0.2s, transform 0.15s;
+}
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+}
+
+/* ── Numeric display font — apply to Elo/K/D/W-L/score values ── */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Winner ring flash — positioned via getBoundingClientRect() at creation time ── */
+.ring-flash {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.85);
+  box-shadow: 0 0 24px rgba(255,255,255,0.55);
+  animation: ringFlashAnim 0.6s ease-out forwards;
+}
+@keyframes ringFlashAnim {
+  from { transform: scale(0.6); opacity: 0.9; }
+  to   { transform: scale(1.9); opacity: 0; }
+}
+
+/* ── Scroll-driven entrance (progressive enhancement — no-op if unsupported) */
+@keyframes enterViewFade {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@supports (animation-timeline: view()) {
+  .enter-view {
+    animation: enterViewFade 0.6s ease-out both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 30%;
+  }
 }
 
 .card-hover:hover {

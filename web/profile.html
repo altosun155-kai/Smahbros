@@ -8,13 +8,14 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png" />
   <meta name="theme-color" content="#0f0f17" />
+  <meta name="view-transition" content="same-origin" />
   <title>Smash Bracket — Profile</title>
   <link rel="stylesheet" href="css/reset.css" />
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/auth.js"></script>
   <style>
     .profile-layout { display: grid; grid-template-columns: 220px 1fr; gap: 28px; align-items: start; }
-    .profile-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; text-align: center; position: sticky; top: 72px; }
+    .profile-card { background: var(--glass-bg); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); border-radius: var(--radius); padding: 24px; text-align: center; position: sticky; top: 72px; }
     .profile-avatar { width: 90px; height: 90px; border-radius: 50%; background: var(--card-bg2); margin: 0 auto 14px; object-fit: cover; display: block; }
     .profile-username { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
     .profile-id { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 14px; }
@@ -63,13 +64,22 @@
     .style-btn.active { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
 
     /* Sections */
-    .prof-section { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 18px; }
+    .prof-section { background: var(--glass-bg); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); border-radius: var(--radius); padding: 20px; margin-bottom: 18px; }
     .prof-section-title { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; }
 
     /* H2H */
-    .h2h-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin: 10px 0; }
-    .h2h-bar-left  { background: var(--accent-blue); transition: width 0.4s; }
-    .h2h-bar-right { background: var(--accent-gold); transition: width 0.4s; }
+    .h2h-bar {
+      display: flex; height: 12px; border-radius: 6px; overflow: hidden; margin: 10px 0;
+      position: relative;
+      background: var(--glass-bg); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--glass-border);
+    }
+    .h2h-bar::after {
+      content: ''; position: absolute; top: -2px; bottom: -2px; left: 50%; width: 2px;
+      background: rgba(255,255,255,0.35); transform: translateX(-1px); z-index: 2; pointer-events: none;
+    }
+    .h2h-bar-left  { background: var(--accent-blue); transition: width 0.5s cubic-bezier(.34,1.56,.64,1); }
+    .h2h-bar-right { background: var(--accent-gold); transition: width 0.5s cubic-bezier(.34,1.56,.64,1); }
     .h2h-labels { display: flex; justify-content: space-between; font-size: 0.82rem; }
 
     /* Activity feed */
@@ -231,15 +241,15 @@
           <div style="display:flex;flex-direction:column;gap:6px;font-size:0.82rem;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <span style="color:var(--text-muted);">🏆 Tournament Wins</span>
-              <span id="statTourneyWins" style="font-weight:700;color:var(--text);">—</span>
+              <span id="statTourneyWins" class="num" style="font-weight:700;color:var(--text);">—</span>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <span style="color:var(--text-muted);">⚡ 3-Stocks Given</span>
-              <span id="statGiven" style="font-weight:700;color:#00bcd4;">—</span>
+              <span id="statGiven" class="num" style="font-weight:700;color:#00bcd4;">—</span>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <span style="color:var(--text-muted);">💀 Times 3-Stocked</span>
-              <span id="statReceived" style="font-weight:700;color:#e74c3c;">—</span>
+              <span id="statReceived" class="num" style="font-weight:700;color:#e74c3c;">—</span>
             </div>
           </div>
         </div>
@@ -395,10 +405,15 @@
   </div>
 </div>
 
+<script src="js/color-utils.js"></script>
 <script src="js/api.js"></script>
 <script src="js/chars.js"></script>
 <script src="js/nav-inject.js"></script>
 <script>
+  function slugifyChar(c) {
+    return c.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  }
+
   const DICEBEAR_STYLES = ['pixel-art','adventurer','bottts','fun-emoji','shapes','identicon'];
   let selectedStyle = 'pixel-art';
   let currentUsername = '';
@@ -602,7 +617,7 @@
       const tbody = document.getElementById('h2hCharBody');
       tbody.innerHTML = rows.map(r => {
         const winPct = r.total > 0 ? Math.round((r.wins / r.total) * 100) : 0;
-        const barColor = winPct >= 50 ? '#4caf50' : '#e74c3c';
+        const barColor = winPctColor(winPct);
         const kd = r.deaths > 0 ? (r.kills / r.deaths).toFixed(2) : (r.kills > 0 ? '∞' : '—');
         const kdColor = r.deaths === 0 ? (r.kills > 0 ? '#4caf50' : 'var(--text-muted)')
           : (r.kills / r.deaths >= 1 ? '#4caf50' : '#e74c3c');
@@ -632,7 +647,7 @@
       if (muRows.length) {
         muBody.innerHTML = muRows.map(m => {
           const winPct = m.total > 0 ? Math.round((m.user1_wins / m.total) * 100) : 0;
-          const barColor = winPct >= 50 ? '#4caf50' : '#e74c3c';
+          const barColor = winPctColor(winPct);
           const u1k = m.user1_kills || 0;
           const u2k = m.user2_kills || 0;
           const killsStr = (u1k + u2k) > 0
@@ -687,8 +702,9 @@
         const winPct = games > 0 ? Math.round(s.wins / games * 100) : 0;
         const eloColor = elo >= 1200 ? '#f5a623' : elo >= 1100 ? '#4caf50' : elo < 900 ? '#e74c3c' : 'var(--text)';
         const img = typeof charImgUrl === 'function' ? charImgUrl(s.character) : '';
+        const vtName = i === 0 ? `view-transition-name:char-portrait-${slugifyChar(s.character)};` : '';
         return `<div class="showcase-card${i === 0 ? ' active' : ''}" data-char="${escHtml(s.character)}" onclick="selectShowcaseChar(this)">
-          <div class="showcase-art" style="background-image:url('${img}')"></div>
+          <div class="showcase-art" style="background-image:url('${img}');${vtName}"></div>
           <div class="showcase-name" title="${escHtml(s.character)}">${escHtml(s.character)}</div>
           <div class="showcase-elo" style="color:${eloColor};">${elo}</div>
           <div class="showcase-record">${winPct}%&nbsp; ${s.wins}W ${s.losses}L</div>
@@ -804,16 +820,24 @@
     const anchor = lx + 44 > W ? 'end' : 'start';
     const lxOff = anchor === 'end' ? lx - 7 : lx + 7;
 
+    const fid = `${gid}glow`;
     svg.innerHTML = `
       <defs>
         <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stop-color="${col}" stop-opacity="0.28"/>
           <stop offset="100%" stop-color="${col}" stop-opacity="0.02"/>
         </linearGradient>
+        <filter id="${fid}" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="2.5" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
       </defs>
       ${grid}${base1000}
       <path d="${areaPath}" fill="url(#${gid})"/>
-      <path d="${linePath}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      <path d="${linePath}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" filter="url(#${fid})"/>
       ${dots}
       <text x="${lxOff.toFixed(1)}" y="${(ly+4).toFixed(1)}" text-anchor="${anchor}" font-size="11" font-weight="700" fill="${col}">${currentElo}</text>
       ${xLabels}
@@ -910,7 +934,7 @@
           const col = gain > 0 ? '#4caf50' : '#e74c3c';
           eloBadge = `<span style="font-size:0.78rem;font-weight:700;color:${col};flex-shrink:0;">${gain > 0 ? '+' : ''}${gain}</span>`;
         }
-        return `${dayHeader}<div class="feed-item">${tag}<span class="feed-desc">${desc}</span>${eloBadge}<span class="feed-date" title="${dateTitle}">${dateLabel}</span></div>`;
+        return `${dayHeader}<div class="feed-item enter-view">${tag}<span class="feed-desc">${desc}</span>${eloBadge}<span class="feed-date" title="${dateTitle}">${dateLabel}</span></div>`;
       }).join('');
     } catch (err) {
       document.getElementById('activityLoading').style.display = 'none';

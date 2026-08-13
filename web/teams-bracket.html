@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png" />
   <meta name="theme-color" content="#0f0f17" />
+  <meta name="view-transition" content="same-origin" />
   <title>Smash Bracket — Team Battle</title>
   <link rel="stylesheet" href="css/reset.css" />
   <link rel="stylesheet" href="css/style.css" />
@@ -17,7 +18,7 @@
     /* ── Layout (mirrors bracket.html) ── */
     .bracket-layout { display: flex; gap: 24px; align-items: start; }
     .sidebar-wrap { width: 320px; flex-shrink: 0; }
-    .sidebar-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+    .sidebar-card { background: var(--glass-bg); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
     .sidebar-card h2 { font-size: 0.88rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; }
 
     /* ── Player row (like bracket.html entry grid) ── */
@@ -66,7 +67,8 @@
     .char-inp:focus { outline: none; border-color: var(--accent-blue); }
 
     /* ── Bracket main area ── */
-    .bracket-rounds { display: flex; gap: 32px; overflow-x: auto; padding-bottom: 16px; align-items: start; }
+    .bracket-rounds { display: flex; gap: 32px; overflow-x: auto; padding-bottom: 16px; align-items: start; position: relative; }
+    #bracketConnectors { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 1; }
     .round-col { flex-shrink: 0; }
     .round-title { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
     .round-col.grand-final .round-title { color: var(--accent-gold); }
@@ -118,10 +120,17 @@
     .m-undo-btn:hover { border-color: rgba(255,255,255,0.3); color: var(--text); }
 
     /* ── Winner banner ── */
-    #winnerBanner { display: none; text-align: center; padding: 22px; border-radius: 14px; margin-bottom: 20px; border: 1.5px solid rgba(245,166,35,0.5); background: linear-gradient(135deg, rgba(245,166,35,0.18), rgba(255,200,60,0.1)); transition: background 0.4s, border-color 0.4s; }
+    #winnerBanner { display: none; position: relative; overflow: hidden; text-align: center; padding: 22px; border-radius: 14px; margin-bottom: 20px; border: 1.5px solid rgba(245,166,35,0.5); background: linear-gradient(135deg, rgba(245,166,35,0.18), rgba(255,200,60,0.1)); transition: background 0.4s, border-color 0.4s; }
     #winnerBanner.show { display: block; }
     #winnerBanner .win-title { font-size: 0.7rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-gold); margin-bottom: 6px; }
     #winnerBanner .win-name { font-size: 1.6rem; font-weight: 900; }
+    #winnerBanner::after {
+      content: ''; position: absolute; top: 0; left: -150%; width: 55%; height: 100%;
+      background: linear-gradient(75deg, transparent, rgba(255,255,255,0.55), transparent);
+      transform: skewX(-20deg); pointer-events: none;
+    }
+    #winnerBanner.show::after { animation: shimmerSweep 1.1s ease-out 0.2s 1; }
+    @keyframes shimmerSweep { from { left: -150%; } to { left: 150%; } }
 
     #bracketEmpty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
     #bracketEmpty .empty-icon { font-size: 3rem; margin-bottom: 12px; }
@@ -307,6 +316,7 @@
   </div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
 <script src="js/nav-inject.js"></script>
 <script src="js/api.js"></script>
 <script src="js/bracket-engine.js"></script>
@@ -987,6 +997,7 @@ function renderBracket() {
 
       const grp=document.createElement('div');
       grp.className='match-group'+(matchWinner?' done':'');
+      grp.dataset.key=key;
 
       // TBD / BYE
       if(isBye||!aName||!bName){
@@ -1088,7 +1099,66 @@ function renderBracket() {
 
     container.appendChild(col);
   });
+
+  drawConnectors(rounds);
 }
+
+const SVG_NS='http://www.w3.org/2000/svg';
+
+function drawConnectors(rounds) {
+  const container=document.getElementById('bracketRounds');
+  if(!container||!rounds||rounds.length<2) return;
+
+  let svg=document.getElementById('bracketConnectors');
+  if(svg) svg.remove();
+  svg=document.createElementNS(SVG_NS,'svg');
+  svg.id='bracketConnectors';
+
+  const cRect=container.getBoundingClientRect();
+  svg.setAttribute('width',container.scrollWidth);
+  svg.setAttribute('height',container.scrollHeight);
+
+  for(let ri=0;ri<rounds.length-1;ri++){
+    const mis=Object.keys(rounds[ri]).map(Number).sort((a,b)=>a-b);
+    mis.forEach(mi=>{
+      const fromKey=`r${ri}_m${mi}`;
+      const toKey=`r${ri+1}_m${Math.floor(mis.indexOf(mi)/2)}`;
+      const fromBox=container.querySelector(`.match-group[data-key="${fromKey}"]`);
+      const toBox=container.querySelector(`.match-group[data-key="${toKey}"]`);
+      if(!fromBox||!toBox) return;
+
+      const fr=fromBox.getBoundingClientRect();
+      const tr=toBox.getBoundingClientRect();
+      const x1=fr.right-cRect.left+container.scrollLeft;
+      const y1=fr.top+fr.height/2-cRect.top+container.scrollTop;
+      const x2=tr.left-cRect.left+container.scrollLeft;
+      const y2=tr.top+tr.height/2-cRect.top+container.scrollTop;
+      const midX=(x1+x2)/2;
+
+      const path=document.createElementNS(SVG_NS,'path');
+      path.setAttribute('d',`M${x1},${y1} L${midX},${y1} L${midX},${y2} L${x2},${y2}`);
+      path.setAttribute('fill','none');
+      path.setAttribute('stroke',state.roundWinners[fromKey]?'rgba(0,180,255,0.6)':'rgba(255,255,255,0.12)');
+      path.setAttribute('stroke-width','2');
+      path.dataset.key=fromKey;
+      svg.appendChild(path);
+    });
+  }
+
+  container.appendChild(svg);
+}
+
+function animateConnector(key) {
+  const svg=document.getElementById('bracketConnectors');
+  if(!svg||typeof gsap==='undefined') return;
+  const path=svg.querySelector(`path[data-key="${key}"]`);
+  if(!path) return;
+  const len=path.getTotalLength();
+  path.style.strokeDasharray=len;
+  gsap.fromTo(path,{strokeDashoffset:len},{strokeDashoffset:0,duration:0.6,ease:'power2.out'});
+}
+
+window.addEventListener('resize', () => { if (state.bracketData) renderBracket(); });
 
 // ── Game & match recording ────────────────────────────────────────────────
 async function recordGame(gKey, teamName, isUndo) {
@@ -1112,16 +1182,21 @@ async function setMatchWinner(key, teamName, ri) {
     if(isGF){
       state.winner=teamName;
       const wt=getTeam(teamName);
-      document.getElementById('winnerName').textContent=teamName;
-      document.getElementById('winnerName').style.color=wt?.color||'#ffe066';
+      const nameEl=document.getElementById('winnerName');
+      nameEl.textContent=teamName;
+      nameEl.style.color=wt?.color||'#ffe066';
       const banner=document.getElementById('winnerBanner');
       if(wt?.color){
         banner.style.background=`linear-gradient(135deg, ${wt.color}22, ${wt.color}10)`;
         banner.style.borderColor=`${wt.color}88`;
       }
       banner.classList.add('show');
+      if(typeof gsap!=='undefined'){
+        gsap.fromTo(nameEl,{scale:0.4,opacity:0.3},{scale:1,opacity:1,duration:0.5,ease:'back.out(1.7)'});
+      }
     }
     renderBracket();
+    animateConnector(key);
     renderRoster();
   } catch { showToast('Failed to record match winner.','error'); }
 }

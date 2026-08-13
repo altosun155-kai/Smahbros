@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png" />
   <meta name="theme-color" content="#0f0f17" />
+  <meta name="view-transition" content="same-origin" />
   <title>Smash Bracket — Character Mastery</title>
   <link rel="stylesheet" href="css/reset.css" />
   <link rel="stylesheet" href="css/style.css" />
@@ -30,7 +31,14 @@
       background: #111;
       cursor: default;
       transition: transform 0.12s, box-shadow 0.12s;
+      transform-style: preserve-3d;
     }
+
+    /* Claim animation: unowned -> owned flips the tile and fades in color */
+    @keyframes tileFlip { 0% { transform: rotateY(0deg); } 50% { transform: rotateY(90deg); } 100% { transform: rotateY(0deg); } }
+    @keyframes tileFlipColor { 0%, 50% { filter: grayscale(1) brightness(0.4); } 100% { filter: grayscale(0) brightness(1); } }
+    .mastery-tile.flip-in { animation: tileFlip 0.6s ease-in-out; }
+    .mastery-tile.flip-in img { animation: tileFlipColor 0.6s ease-in-out; }
 
     .mastery-tile:hover {
       transform: scale(1.12);
@@ -177,7 +185,8 @@
     .player-showcase { display:flex; flex-wrap:wrap; gap:12px; margin-top:16px; }
     .player-showcase-card {
       flex:1; min-width:160px; max-width:260px;
-      background:var(--card-bg); border:1px solid var(--border); border-radius:12px;
+      background:var(--glass-bg); backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
+      border:1px solid var(--glass-border); border-radius:12px;
       padding:12px 14px; border-top-width:3px;
     }
     .psc-header { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
@@ -270,14 +279,20 @@
     }).join('');
   }
 
+  let prevMasteryMap = {};
+
   function buildGrid(masteryMap, playerColorMap) {
     const grid = document.getElementById('masteryGrid');
     grid.innerHTML = '';
 
     ROSTER.forEach(char => {
       const data = masteryMap[char];
+      const justClaimed = !prevMasteryMap[char] && !!data;
       const tile = document.createElement('div');
-      tile.className = 'mastery-tile ' + (data ? 'owned' : 'unowned');
+      tile.className = 'mastery-tile enter-view ' + (data ? 'owned' : 'unowned') + (justClaimed ? ' flip-in' : '');
+      if (justClaimed) {
+        tile.addEventListener('animationend', () => tile.classList.remove('flip-in'), { once: true });
+      }
 
       if (data) {
         const color = playerColorMap[data.username];
@@ -331,6 +346,8 @@
 
       grid.appendChild(tile);
     });
+
+    prevMasteryMap = masteryMap;
   }
 
   function buildLegend(playerColorMap, masteryMap) {
@@ -395,17 +412,9 @@
     el.textContent = s < t ? `${s} of ${t} characters` : `${t} characters`;
   }
 
-  (async function init() {
-    try {
-      const me = await apiGet('/users/me');
-      if (me) {
-        document.getElementById('navUsername').textContent = me.username;
-        const url = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
-        const av = document.getElementById('navAvatar');
-        av.src = url; av.style.display = 'block';
-      }
-    } catch (_) {}
+  let masteryLoaded = false;
 
+  async function loadMastery() {
     try {
       const data = await apiGet('/characters/mastery/connections');
 
@@ -436,11 +445,32 @@
 
       document.getElementById('loadingState').style.display = 'none';
       document.getElementById('masteryContent').style.display = 'block';
+      masteryLoaded = true;
     } catch (err) {
       document.getElementById('loadingState').innerHTML =
         `<p style="color:var(--text-muted)">Failed to load mastery data.</p>`;
       showToast('Error loading mastery: ' + err.message, 'error');
     }
+  }
+
+  // Re-fetch when the tab regains focus, so a character claimed elsewhere
+  // (or in another tab) actually gets a chance to play its claim-flip animation.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && masteryLoaded) loadMastery();
+  });
+
+  (async function init() {
+    try {
+      const me = await apiGet('/users/me');
+      if (me) {
+        document.getElementById('navUsername').textContent = me.username;
+        const url = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
+        const av = document.getElementById('navAvatar');
+        av.src = url; av.style.display = 'block';
+      }
+    } catch (_) {}
+
+    await loadMastery();
   })();
 </script>
 

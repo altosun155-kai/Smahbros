@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png" />
   <meta name="theme-color" content="#0f0f17" />
+  <meta name="view-transition" content="same-origin" />
   <title>Smash Bracket — Leaderboard</title>
   <link rel="stylesheet" href="css/reset.css" />
   <link rel="stylesheet" href="css/style.css" />
@@ -55,7 +56,7 @@
     .elohist-box h3 { font-size:0.95rem; font-weight:700; margin-bottom:14px; }
     .elohist-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:0.83rem; }
     .elohist-row:last-child { border-bottom:none; }
-    .elohist-delta { font-size:1rem; font-weight:800; min-width:52px; }
+    .elohist-delta { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size:1rem; font-weight:800; min-width:52px; }
     .elohist-vs { flex:1; color:var(--text-muted); }
     .elohist-score { font-size:0.75rem; color:var(--text-muted); }
     .elohist-date { font-size:0.72rem; color:var(--text-muted); white-space:nowrap; }
@@ -89,6 +90,13 @@
       background: rgba(255,255,255,0.025);
     }
 
+    /* ── Streak flame ── */
+    .streak-flame { display: inline-block; margin-left: 4px; font-size: 0.85em; animation: flameFlicker 1.4s ease-in-out infinite; }
+    @keyframes flameFlicker {
+      0%, 100% { transform: scale(1) rotate(-2deg); opacity: 0.92; }
+      50%      { transform: scale(1.12) rotate(2deg); opacity: 1; }
+    }
+
     /* ── Win% progress bar ── */
     .winpct-bar {
       height: 3px;
@@ -116,6 +124,13 @@
 
     /* ── Expandable stat cards (mobile only) ── */
     #avgCardList, #charCardList, #globalCardList { display: none; }
+    @supports (animation-timeline: view()) {
+      #charTable tbody tr, #globalTable tbody tr, #avgTable tbody tr, .avg-card {
+        animation: enterViewFade 0.5s ease-out both;
+        animation-timeline: view();
+        animation-range: entry 0% cover 25%;
+      }
+    }
     .avg-card {
       background: var(--card-bg);
       border: 1px solid var(--border);
@@ -134,7 +149,7 @@
     .avg-card-header:active { background: rgba(255,255,255,0.04); }
     .avg-card-rank  { font-size: 1.05rem; font-weight: 800; min-width: 28px; text-align: center; }
     .avg-card-name  { flex: 1; font-weight: 600; font-size: 0.92rem; }
-    .avg-card-elo   { font-weight: 800; color: var(--accent-gold); font-size: 0.95rem; }
+    .avg-card-elo   { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 800; color: var(--accent-gold); font-size: 0.95rem; }
     .avg-card-chevron { color: var(--text-muted); font-size: 1rem; transition: transform 0.2s; margin-left: 4px; }
     .avg-card.open .avg-card-chevron { transform: rotate(90deg); }
     .avg-card-detail {
@@ -346,6 +361,7 @@
   </div>
 </div>
 
+<script src="js/color-utils.js"></script>
 <script src="js/api.js"></script>
 <script src="js/badges.js"></script>
 <script src="js/nav-inject.js"></script>
@@ -447,9 +463,7 @@
       const charImg = headUrl
         ? `<img class="char-img-sm" src="${headUrl}" alt="${entry.character}" onerror="this.style.display='none'" />`
         : '';
-      const pctColor = entry.win_pct != null
-        ? (entry.win_pct >= 60 ? '#27ae60' : entry.win_pct >= 40 ? '#ffe066' : '#e74c3c')
-        : 'var(--text-muted)';
+      const pctColor = winPctColor(entry.win_pct);
       const pctFill = entry.win_pct != null ? Math.min(100, entry.win_pct) : 0;
       const pctStr = entry.win_pct != null ? `${entry.win_pct}%` : '—';
       const kdVal = entry.kd;
@@ -464,9 +478,9 @@
           <span style="font-weight:600;">${escHtml(entry.username)}</span>
         </div></td>
         <td><div style="display:flex;align-items:center;gap:8px;">${charImg}<span>${entry.character}</span></div></td>
-        <td style="font-weight:800;color:var(--accent-gold);">${entry.elo ?? 1000}</td>
-        <td style="font-weight:700;color:#e67e22;">${entry.kills ?? '—'}</td>
-        <td style="font-weight:700;color:#e74c3c;">${entry.deaths ?? '—'}</td>
+        <td style="font-family:var(--font-mono);font-weight:800;color:var(--accent-gold);">${entry.elo ?? 1000}</td>
+        <td style="font-family:var(--font-mono);font-weight:700;color:#e67e22;">${entry.kills ?? '—'}</td>
+        <td style="font-family:var(--font-mono);font-weight:700;color:#e74c3c;">${entry.deaths ?? '—'}</td>
         <td>${kdStr}</td>
         <td style="font-weight:700;color:#27ae60;">${entry.wins}</td>
         <td style="font-weight:700;color:#e74c3c;">${entry.losses}</td>
@@ -485,9 +499,7 @@
       const charImg = headUrl
         ? `<img class="char-img-sm" src="${headUrl}" alt="${entry.character}" onerror="this.style.display='none'" />`
         : '';
-      const pctColor = entry.win_pct != null
-        ? (entry.win_pct >= 60 ? '#27ae60' : entry.win_pct >= 40 ? '#ffe066' : '#e74c3c')
-        : 'var(--text-muted)';
+      const pctColor = winPctColor(entry.win_pct);
       const pctStr = entry.win_pct != null ? `${entry.win_pct}%` : '—';
       const kdVal = entry.kd;
       const kdStr = kdVal !== null && kdVal !== undefined ? kdVal.toFixed(2) : ((entry.kills ?? 0) > 0 ? '∞' : '—');
@@ -552,16 +564,18 @@
         const isMine     = u.username === myUsername;
         const rowClass   = isMine ? 'char-row-mine' : (i === 0 ? 'global-row-gold' : i === 1 ? 'global-row-silver' : i === 2 ? 'global-row-bronze' : '');
         const rankSymbol = i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
-        const pctColor   = u.win_rate != null ? (u.win_rate >= 60 ? '#27ae60' : u.win_rate >= 40 ? '#ffe066' : '#e74c3c') : 'var(--text-muted)';
+        const pctColor   = winPctColor(u.win_rate);
         const pctStr     = u.win_rate != null ? `${u.win_rate}%` : '—';
 
         // Featured badge pill — click profile for full badge list (#16)
         const badgeEntry = allBadgeMap[u.username];
         const badgeHtml  = badgeEntry && typeof badgePill === 'function' ? badgePill(badgeEntry) : '';
 
+        const flameHtml = (u.streak || 0) >= 3 ? `<span class="streak-flame" title="${u.streak}-game win streak">🔥</span>` : '';
+
         return `<tr class="${rowClass}">
           <td style="font-weight:700;">${rankSymbol}</td>
-          <td style="font-weight:600;">${escHtml(u.username)}</td>
+          <td style="font-weight:600;">${escHtml(u.username)}${flameHtml}</td>
           <td style="font-weight:800;color:var(--accent-gold);">${u.player_elo ?? 1000}</td>
           <td style="color:#27ae60;font-weight:700;">${u.wins || 0}</td>
           <td style="color:#e74c3c;font-weight:700;">${u.losses || 0}</td>
@@ -576,7 +590,7 @@
       cardList.innerHTML = data.map((u, i) => {
         const isMine   = u.username === myUsername;
         const rankLabel = i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
-        const pctColor  = u.win_rate != null ? (u.win_rate >= 60 ? '#27ae60' : u.win_rate >= 40 ? '#ffe066' : '#e74c3c') : 'var(--text-muted)';
+        const pctColor  = winPctColor(u.win_rate);
         const pctStr    = u.win_rate != null ? `${u.win_rate}%` : '—';
         const av = u.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u.username)}`;
         const badgeEntry = allBadgeMap[u.username];
@@ -586,7 +600,7 @@
           <div class="avg-card-header">
             <span class="avg-card-rank">${rankLabel}</span>
             <img class="user-av" src="${av}" alt="${escHtml(u.username)}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u.username)}'" style="width:28px;height:28px;border-radius:50%;" />
-            <span class="avg-card-name">${escHtml(u.username)}${isMine ? ' ⚡' : ''}</span>
+            <span class="avg-card-name">${escHtml(u.username)}${(u.streak || 0) >= 3 ? `<span class="streak-flame" title="${u.streak}-game win streak">🔥</span>` : ''}${isMine ? ' ⚡' : ''}</span>
             <span class="avg-card-elo">${u.player_elo ?? 1000}</span>
             <span class="avg-card-chevron">›</span>
           </div>
@@ -697,8 +711,7 @@
       return v >= 1.2 ? '#27ae60' : v >= 1.0 ? '#ffe066' : '#e74c3c';
     }
     function pctColor(v) {
-      if (v == null) return 'var(--text-muted)';
-      return v >= 60 ? '#27ae60' : v >= 40 ? '#ffe066' : '#e74c3c';
+      return winPctColor(v);
     }
     function winPctCell(v) {
       if (v == null) return '—';

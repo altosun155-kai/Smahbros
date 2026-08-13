@@ -8,14 +8,17 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png" />
   <meta name="theme-color" content="#0f0f17" />
+  <meta name="view-transition" content="same-origin" />
   <title>Smash Bracket — 1v1 Duel</title>
   <link rel="stylesheet" href="css/reset.css" />
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/auth.js"></script>
   <style>
     .duel-card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--glass-border);
       border-radius: var(--radius);
       padding: 24px;
       margin-bottom: 20px;
@@ -73,7 +76,7 @@
       font-size: 3.6rem;
       font-weight: 900;
       line-height: 1;
-      font-family: 'Courier New', 'Lucida Console', monospace;
+      font-family: var(--font-mono);
       font-variant-numeric: tabular-nums;
       letter-spacing: 0.04em;
       min-width: 1.4ch;
@@ -370,6 +373,8 @@
   </div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+<script src="js/color-utils.js"></script>
 <script src="js/api.js"></script>
 <script src="js/badges.js"></script>
 <script src="js/nav-inject.js"></script>
@@ -639,7 +644,7 @@
     el.innerHTML = rows.map(s => {
       const total = (s.wins || 0) + (s.losses || 0);
       const pct = total > 0 ? Math.round(s.wins / total * 100) : 0;
-      const pctColor = pct >= 60 ? '#4caf50' : pct >= 40 ? '#ffe066' : '#e74c3c';
+      const pctColor = winPctColor(pct);
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.82rem;">
         <span style="font-weight:600;">${s.character}</span>
         <span style="display:flex;gap:10px;align-items:center;">
@@ -802,6 +807,24 @@
     document.getElementById('seriesCard').style.display = 'block';
   }
 
+  function playWinnerFlash(imgId) {
+    const img = document.getElementById(imgId);
+    if (!img || img.style.display === 'none' || typeof gsap === 'undefined') return;
+
+    const rect = img.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    const ring = document.createElement('div');
+    ring.className = 'ring-flash';
+    ring.style.left = (rect.left + rect.width / 2 - size / 2) + 'px';
+    ring.style.top = (rect.top + rect.height / 2 - size / 2) + 'px';
+    ring.style.width = size + 'px';
+    ring.style.height = size + 'px';
+    document.body.appendChild(ring);
+    ring.addEventListener('animationend', () => ring.remove(), { once: true });
+
+    gsap.fromTo(img, { scale: 0.4, opacity: 0.3 }, { scale: 1, opacity: 1, duration: 0.5, ease: 'back.out(1.7)' });
+  }
+
   async function recordGame(winner, winnerStocks = 3, loserStocks = 0) {
     haptic([12, 30, 12]);
     if (seriesWinner) { showToast('Series is over', 'warn'); return; }
@@ -845,6 +868,7 @@
 
       renderScore();
       renderLog();
+      playWinnerFlash(winner === 1 ? 'seriesP1CharImg' : 'seriesP2CharImg');
       showToast(`Game recorded! Elo: ${winner === 1 ? p1 : p2} +${eloDelta}`, 'success');
     } catch (e) {
       showToast('Error recording game: ' + e.message, 'error');
@@ -868,22 +892,41 @@
     setCharImg('seriesP2CharImg', c2);
   }
 
+  let lastLoggedCount = 0;
+
   function renderLog() {
     const log = document.getElementById('gameLog');
     if (!games.length) {
       log.innerHTML = '<div style="color:var(--text-muted);font-size:0.84rem;">No games played yet.</div>';
       return;
     }
+    const isNewGame = games.length > lastLoggedCount;
     log.innerHTML = [...games].reverse().map((g, ri) => {
       const num = games.length - ri;
       const scoreStr = g.wk > 0 ? ` (${g.wk}-${g.lk})` : '';
-      const eloStr = g.eloDelta ? ` <span style="color:#4caf50;font-size:0.75rem;">+${g.eloDelta} elo</span>` : '';
+      const animateThis = ri === 0 && isNewGame;
+      const idAttr = animateThis ? ' id="eloDeltaLive"' : '';
+      const eloStr = g.eloDelta ? ` <span class="num"${idAttr} style="color:#4caf50;font-size:0.75rem;">+${animateThis ? 0 : g.eloDelta} elo</span>` : '';
       return `<div class="game-row ${g.winner === 1 ? 'p1-won' : 'p2-won'}">
         <span style="color:var(--text-muted);font-size:0.75rem;">G${num}</span>
         <span class="winner-tag">${g.winnerPlayer} (${g.winnerChar})${scoreStr}</span>
         <span style="color:var(--text-muted);font-size:0.78rem;">beat ${g.loserPlayer} (${g.loserChar})${eloStr}</span>
       </div>`;
     }).join('');
+
+    if (isNewGame) {
+      const latest = games[games.length - 1];
+      const span = document.getElementById('eloDeltaLive');
+      if (span && latest.eloDelta) {
+        if (typeof gsap !== 'undefined') {
+          const proxy = { v: 0 };
+          gsap.to(proxy, { v: latest.eloDelta, duration: 0.8, snap: 'v', onUpdate: () => { span.textContent = '+' + Math.round(proxy.v) + ' elo'; } });
+        } else {
+          span.textContent = '+' + latest.eloDelta + ' elo';
+        }
+      }
+    }
+    lastLoggedCount = games.length;
   }
 
   function resetSeries() {

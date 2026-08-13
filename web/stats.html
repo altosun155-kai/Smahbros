@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png" />
   <meta name="theme-color" content="#0f0f17" />
+  <meta name="view-transition" content="same-origin" />
   <title>Smash Bracket — Character Stats</title>
   <link rel="stylesheet" href="css/reset.css" />
   <link rel="stylesheet" href="css/style.css" />
@@ -133,6 +134,7 @@
   <div id="playerProfileLinks" style="display:flex;gap:12px;flex-wrap:wrap;"></div>
 </main>
 
+<script src="js/color-utils.js"></script>
 <script src="js/api.js"></script>
 <script src="js/nav-inject.js"></script>
 <script src="js/chars.js"></script>
@@ -304,7 +306,7 @@
         : `<span style="color:var(--text-muted);">—</span>`;
       const winPct = s.win_pct;
       const winPctStr = winPct !== null && winPct !== undefined
-        ? `<span style="font-weight:700;color:${winPct >= 60 ? '#27ae60' : winPct >= 40 ? 'var(--accent-gold)' : '#e74c3c'};">${winPct}%</span>`
+        ? `<span style="font-weight:700;color:${winPctColor(winPct)};">${winPct}%</span>`
         : `<span style="color:var(--text-muted);">—</span>`;
       return `
       <tr>

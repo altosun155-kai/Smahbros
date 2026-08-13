@@ -1,5 +1,6 @@
 import time
 import threading
+from datetime import datetime
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -27,15 +28,31 @@ def leaderboard(db: Session = Depends(get_db)):
         if _lb_cache["data"] is not None and now - _lb_cache["ts"] < _LB_TTL:
             return _lb_cache["data"]
 
-    # Aggregate wins/losses/kills per user from real match history
+    # Aggregate wins/losses/kills per user from real match history, in
+    # chronological order so we can also derive each player's current
+    # trailing win streak (consecutive wins ending at their most recent match).
+    all_matches = db.query(MatchResult).all()
+    sorted_matches = sorted(all_matches, key=lambda m: m.created_at or datetime(2000, 1, 1))
+
     stats: dict = {}
-    for m in db.query(MatchResult).all():
+    user_match_history: dict = {}   # uid -> [(is_win, match), ...] in chronological order
+    for m in sorted_matches:
         w = stats.setdefault(m.winner_id, {"wins": 0, "losses": 0, "kills": 0})
         w["wins"] += 1
         w["kills"] += m.winner_kills or 0
         l = stats.setdefault(m.loser_id, {"wins": 0, "losses": 0, "kills": 0})
         l["losses"] += 1
         l["kills"] += m.loser_kills or 0
+        user_match_history.setdefault(m.winner_id, []).append((True, m))
+        user_match_history.setdefault(m.loser_id, []).append((False, m))
+
+    def _current_streak(uid: int) -> int:
+        streak = 0
+        for is_win, _m in reversed(user_match_history.get(uid, [])):
+            if not is_win:
+                break
+            streak += 1
+        return streak
 
     result = []
     if stats:
@@ -52,6 +69,7 @@ def leaderboard(db: Session = Depends(get_db)):
                 "kills":      s["kills"],
                 "win_rate":   win_rate,
                 "player_elo": u.elo or 1000,
+                "streak":     _current_streak(u.id),
             })
 
         # Qualified players sorted by win rate; unqualified at bottom by raw wins (#1)

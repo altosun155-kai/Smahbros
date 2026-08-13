@@ -33,7 +33,11 @@ function _findStat(entry, statsMap) {
 function getSeedElo(entry, statsMap) {
   if (!entry || entry.player === 'SYSTEM') return -1;
   const s = _findStat(entry, statsMap);
-  return s ? (s.elo || 1000) : 1000;
+  if (!s) return 1000;
+  // Provisional (small-sample) Elo is noisy — seed those as neutral 1000
+  // rather than letting a handful of games swing bracket placement.
+  if (s.provisional) return 1000;
+  return s.elo || 1000;
 }
 
 function getSeedKills(entry, statsMap) {

@@ -12,6 +12,8 @@ _avg_cache: dict = {"data": None, "ts": 0.0}
 _avg_lock  = threading.Lock()
 _AVG_TTL   = 60.0
 
+PROVISIONAL_GAMES = 8  # fewer games than this on a character is a small, noisy sample
+
 router = APIRouter(tags=["characters"])
 
 
@@ -56,15 +58,17 @@ def _stat_row(r):
     deaths = r.deaths or 0
     kd = round(kills / deaths, 2) if deaths > 0 else None
     return {
-        "character": r.character,
-        "points":    r.points,
-        "elo":       r.elo if r.elo is not None else 1000,
-        "kills":     kills,
-        "deaths":    deaths,
-        "kd":        kd,
-        "wins":      w,
-        "losses":    l,
-        "win_pct":   win_pct,
+        "character":   r.character,
+        "points":      r.points,
+        "elo":         r.elo if r.elo is not None else 1000,
+        "kills":       kills,
+        "deaths":      deaths,
+        "kd":          kd,
+        "wins":        w,
+        "losses":      l,
+        "win_pct":     win_pct,
+        "games":       total,
+        "provisional": total < PROVISIONAL_GAMES,
     }
 
 
@@ -242,11 +246,12 @@ def kills_leaderboard(db: Session = Depends(get_db)):
 
 @router.get("/characters/stats/leaderboard/winpct")
 def winpct_leaderboard(db: Session = Depends(get_db)):
-    # Filter at SQL level (#5)
+    # Filter at SQL level (#5) — provisional (small-sample) characters don't
+    # qualify for "best win %" at all, not just dimmed.
     rows = (
         db.query(CharacterStats)
         .join(User, CharacterStats.user_id == User.id)
-        .filter((CharacterStats.wins + CharacterStats.losses) >= 3, User.is_test == False)
+        .filter((CharacterStats.wins + CharacterStats.losses) >= PROVISIONAL_GAMES, User.is_test == False)
         .all()
     )
     results = []
@@ -270,10 +275,12 @@ def winpct_leaderboard(db: Session = Depends(get_db)):
 
 @router.get("/characters/stats/leaderboard/elo")
 def elo_leaderboard(db: Session = Depends(get_db)):
+    # Provisional (small-sample) characters still appear here — the frontend
+    # dims them — but they're excluded from win%-based rankings and seeding.
     rows = (
         db.query(CharacterStats)
         .join(User, CharacterStats.user_id == User.id)
-        .filter((CharacterStats.wins + CharacterStats.losses) >= 3, User.is_test == False)
+        .filter((CharacterStats.wins + CharacterStats.losses) >= 1, User.is_test == False)
         .order_by(CharacterStats.elo.desc())
         .all()
     )
@@ -285,17 +292,19 @@ def elo_leaderboard(db: Session = Depends(get_db)):
         kills  = row.kills  or 0
         deaths = row.deaths or 0
         results.append({
-            "username":   row.owner.username,
-            "avatar_url": row.owner.avatar_url,
-            "character":  row.character,
-            "elo":        row.elo if row.elo is not None else 1000,
-            "wins":       w,
-            "losses":     l,
-            "kills":      kills,
-            "deaths":     deaths,
-            "kd":         round(kills / deaths, 2) if deaths > 0 else None,
-            "win_pct":    round(w / total * 100, 1) if total >= 3 else None,
-            "points":     row.points or 0,
+            "username":    row.owner.username,
+            "avatar_url":  row.owner.avatar_url,
+            "character":   row.character,
+            "elo":         row.elo if row.elo is not None else 1000,
+            "wins":        w,
+            "losses":      l,
+            "kills":       kills,
+            "deaths":      deaths,
+            "kd":          round(kills / deaths, 2) if deaths > 0 else None,
+            "win_pct":     round(w / total * 100, 1) if total >= 3 else None,
+            "points":      row.points or 0,
+            "games":       total,
+            "provisional": total < PROVISIONAL_GAMES,
         })
     return results
 

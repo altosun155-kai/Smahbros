@@ -90,6 +90,15 @@
       background: rgba(255,255,255,0.025);
     }
 
+    /* ── Provisional (small-sample) entries ── */
+    .provisional-row td { opacity: 0.55; }
+    .avg-card.provisional-row { opacity: 0.55; }
+    .provisional-badge {
+      font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+      color: var(--text-muted); background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border);
+      border-radius: 4px; padding: 1px 5px; flex-shrink: 0;
+    }
+
     /* ── Streak flame ── */
     .streak-flame { display: inline-block; margin-left: 4px; font-size: 0.85em; animation: flameFlicker 1.4s ease-in-out infinite; }
     @keyframes flameFlicker {
@@ -322,7 +331,7 @@
               <th>Player</th>
               <th title="Number of distinct characters played">Chars</th>
               <th title="Total matches recorded across all characters">Games</th>
-              <th title="Weighted: Σ(elo × win%) ÷ chars played. Pulls Elo up by how often you win with each character.">Avg Elo ⓘ</th>
+              <th title="Your overall player Elo — the same rating shown on the Global leaderboard, not an average across characters.">Avg Elo ⓘ</th>
               <th title="Weighted K/D: Σ(kd × elo) ÷ Σ(elo). Higher-Elo characters count more toward your K/D.">Avg K/D ⓘ</th>
               <th title="True win rate: total wins ÷ total games across all characters.">Avg Win% ⓘ</th>
               <th title="Average leaderboard rank across your characters (lower = better). Only counts characters with 3+ games.">Avg Rank ⓘ</th>
@@ -471,13 +480,17 @@
         ? `<span style="font-weight:700;color:${kdVal >= 1.2 ? '#27ae60' : kdVal >= 1.0 ? '#ffe066' : '#e74c3c'};">${kdVal.toFixed(2)}</span>`
         : ((entry.kills ?? 0) > 0 ? `<span style="color:#27ae60;font-weight:700;">∞</span>` : '—');
 
-      return `<tr class="${rowClass} char-row-clickable" data-u="${escHtml(entry.username)}" data-c="${escHtml(entry.character)}" onclick="openEloHist(this.dataset.u,this.dataset.c)">
+      const provisionalBadge = entry.provisional
+        ? ` <span class="provisional-badge" title="Fewer than 8 games played — still a small sample">Provisional</span>`
+        : '';
+
+      return `<tr class="${rowClass}${entry.provisional ? ' provisional-row' : ''} char-row-clickable" data-u="${escHtml(entry.username)}" data-c="${escHtml(entry.character)}" onclick="openEloHist(this.dataset.u,this.dataset.c)">
         <td style="font-weight:800;">${rankLabel}</td>
         <td><div style="display:flex;align-items:center;gap:8px;">
           <img class="user-av" src="${av}" alt="${escHtml(entry.username)}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}'" />
           <span style="font-weight:600;">${escHtml(entry.username)}</span>
         </div></td>
-        <td><div style="display:flex;align-items:center;gap:8px;">${charImg}<span>${entry.character}</span></div></td>
+        <td><div style="display:flex;align-items:center;gap:8px;">${charImg}<span>${entry.character}</span>${provisionalBadge}</div></td>
         <td style="font-family:var(--font-mono);font-weight:800;color:var(--accent-gold);">${entry.elo ?? 1000}</td>
         <td style="font-family:var(--font-mono);font-weight:700;color:#e67e22;">${entry.kills ?? '—'}</td>
         <td style="font-family:var(--font-mono);font-weight:700;color:#e74c3c;">${entry.deaths ?? '—'}</td>
@@ -504,11 +517,15 @@
       const kdVal = entry.kd;
       const kdStr = kdVal !== null && kdVal !== undefined ? kdVal.toFixed(2) : ((entry.kills ?? 0) > 0 ? '∞' : '—');
 
-      return `<div class="avg-card${isMine ? ' me-card' : ''}" onclick="this.classList.toggle('open')">
+      const provisionalBadge = entry.provisional
+        ? ` <span class="provisional-badge" title="Fewer than 8 games played — still a small sample">Provisional</span>`
+        : '';
+
+      return `<div class="avg-card${isMine ? ' me-card' : ''}${entry.provisional ? ' provisional-row' : ''}" onclick="this.classList.toggle('open')">
         <div class="avg-card-header">
           <span class="avg-card-rank">${rankLabel}</span>
           <img class="user-av" src="${av}" alt="${escHtml(entry.username)}" onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}'" style="width:28px;height:28px;border-radius:50%;" />
-          <span class="avg-card-name">${escHtml(entry.username)}${isMine ? ' ⚡' : ''} ${charImg}<span style="font-weight:400;color:var(--text-muted);">${entry.character}</span></span>
+          <span class="avg-card-name">${escHtml(entry.username)}${isMine ? ' ⚡' : ''} ${charImg}<span style="font-weight:400;color:var(--text-muted);">${entry.character}</span>${provisionalBadge}</span>
           <span class="avg-card-elo">${entry.elo ?? 1000}</span>
           <span class="avg-card-chevron">›</span>
         </div>

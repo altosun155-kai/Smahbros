@@ -76,6 +76,28 @@ body::after {
   background-repeat: repeat;
 }
 
+/* Two animated blurred blobs + a full-page noise texture + backdrop-filter
+   on every glass card is a lot of simultaneous compositing for a phone GPU.
+   Freeze the blobs, drop the noise layer, and shrink the per-card blur radius. */
+@media (max-width: 700px) {
+  body::before { animation: none; }
+  body::after  { display: none; }
+  :root { --glass-blur: 8px; }
+}
+
+/* Count-ups, scale-flashes, shimmer sweeps, blob drift, streak flames, and the
+   mastery tile flip are all opt-out for anyone who's asked the OS to reduce motion.
+   The infinite loops (shimmer, flames, drift) are the ones that actually cause
+   motion sickness — collapsing every animation/transition to near-zero duration
+   stops them from looping without needing to hunt down each one individually. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 a {
   color: var(--accent-blue);
   transition: color 0.15s;

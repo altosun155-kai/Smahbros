@@ -51,7 +51,6 @@ class BracketCreate(BaseModel):
     is_live: bool = False
     invite_usernames: list = []
     chars_per_player: int = 2
-    teams: dict = {}  # {username: teamLabel} — only populated in teams mode
 
 
 class WinnerUpdate(BaseModel):
@@ -112,7 +111,6 @@ def bracket_to_dict(b: Bracket, include_invites: bool = False):
         "host_avatar": b.owner.avatar_url,
         "chars_per_player": b.chars_per_player or 2,
         "confirmed_lineups": b.confirmed_lineups or {},
-        "teams": b.teams or {},
         "placements": b.placements or {},
         "created_at": b.created_at.isoformat(),
     }
@@ -135,30 +133,6 @@ def list_brackets(db: Session = Depends(get_db), current_user: User = Depends(ge
     return [{"id": b.id, "name": b.name, "mode": b.mode, "is_live": b.is_live, "winner": b.winner, "placements": b.placements, "created_at": b.created_at.isoformat()} for b in brackets]
 
 
-@router.get("/brackets/team-battles")
-def list_team_battles(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    """All team_battle brackets across all users, for standings computation."""
-    brackets = (
-        db.query(Bracket)
-        .filter(Bracket.mode == "team_battle")
-        .order_by(Bracket.created_at.desc())
-        .all()
-    )
-    return [
-        {
-            "id": b.id,
-            "name": b.name,
-            "is_live": b.is_live,
-            "winner": b.winner,
-            "teams": b.teams or {},
-            "round_winners": b.round_winners or {},
-            "created_at": b.created_at.isoformat(),
-        }
-        for b in brackets
-        if not b.owner.is_test
-    ]
-
-
 @router.post("/brackets")
 def create_bracket(req: BracketCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     bracket = Bracket(
@@ -172,7 +146,6 @@ def create_bracket(req: BracketCreate, db: Session = Depends(get_db), current_us
         bracket_style=req.bracket_style,
         is_live=req.is_live,
         chars_per_player=req.chars_per_player,
-        teams=req.teams or None,
         confirmed_lineups={},
     )
     db.add(bracket)

@@ -16,7 +16,34 @@
   <style>
     .profile-layout { display: grid; grid-template-columns: 220px 1fr; gap: 28px; align-items: start; }
     .profile-card { background: var(--glass-bg); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); border-radius: var(--radius); padding: 24px; text-align: center; position: sticky; top: 72px; }
-    .profile-avatar { width: 90px; height: 90px; border-radius: 50%; background: var(--card-bg2); margin: 0 auto 14px; object-fit: cover; display: block; }
+    .profile-avatar { width: 90px; height: 90px; border-radius: 50%; background: var(--card-bg2); margin: 0; object-fit: cover; display: block; }
+    .avatar-wrap { position: relative; width: 90px; margin: 0 auto 14px; }
+    .avatar-edit-btn {
+      position: absolute; bottom: -2px; right: -2px;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--accent-blue); border: 2px solid var(--card-bg);
+      color: #fff; font-size: 0.8rem; cursor: pointer;
+      align-items: center; justify-content: center;
+    }
+    .avatar-edit-btn:hover { background: #0088e0; }
+
+    /* Avatar editor bottom sheet */
+    .sheet-backdrop {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 490;
+    }
+    .sheet-backdrop.open { display: block; }
+    .bottom-sheet {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 500;
+      background: var(--card-bg2); border: 1px solid var(--glass-border);
+      border-radius: 16px 16px 0 0;
+      padding: 10px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+      max-height: 80vh; overflow-y: auto;
+      box-shadow: 0 -10px 30px rgba(0,0,0,0.45);
+      transform: translateY(100%);
+      transition: transform 0.25s ease-out;
+    }
+    .bottom-sheet.open { transform: translateY(0); }
+    .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); margin: 0 auto 14px; }
     .profile-username { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
     .profile-id { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 14px; }
 
@@ -28,12 +55,16 @@
       font-size: 0.72rem; font-weight: 700; color: var(--text);
       background: var(--card-bg2);
       border: 1px solid var(--border);
-      border-left-width: 3px;
       cursor: pointer; transition: transform 0.12s, box-shadow 0.12s;
     }
     .badge-pill:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,0.4); }
     .badge-pill .badge-icon { font-size: 0.9rem; line-height: 1; }
     .badge-pill .badge-char-img { width: 20px; height: 20px; object-fit: contain; border-radius: 3px; display: block; }
+    .badge-pin-dot {
+      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+      border: 1.5px solid currentColor; opacity: 0.35; transition: opacity 0.15s, background 0.15s;
+    }
+    .badge-pin-dot.pinned { background: currentColor; opacity: 1; }
 
     /* Badge detail modal */
     #badgeModal { display: none; position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; padding: 20px; }
@@ -87,6 +118,7 @@
     .feed-day-header:first-child { padding-top: 0; }
     .feed-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.84rem; }
     .feed-item:last-child { border-bottom: none; }
+    .feed-portrait { width: 28px; height: 28px; object-fit: contain; border-radius: 6px; background: var(--card-bg2); flex-shrink: 0; }
     .feed-desc { flex: 1; min-width: 0; overflow-wrap: break-word; }
     .feed-win  { color: #4caf50; font-weight: 700; font-size: 0.72rem; text-transform: uppercase; flex-shrink: 0; }
     .feed-loss { color: #e74c3c; font-weight: 700; font-size: 0.72rem; text-transform: uppercase; flex-shrink: 0; }
@@ -233,7 +265,10 @@
 
       <!-- Left: profile card -->
       <div class="profile-card">
-        <img class="profile-avatar" id="currentAvatar" src="" alt="avatar" />
+        <div class="avatar-wrap">
+          <img class="profile-avatar" id="currentAvatar" src="" alt="avatar" />
+          <button type="button" class="avatar-edit-btn" id="avatarEditBtn" onclick="openAvatarSheet()" title="Change avatar" style="display:none;">✏️</button>
+        </div>
         <div class="profile-username" id="profileUsername"></div>
 
         <div class="badges-row" id="badgesRow"></div>
@@ -253,7 +288,12 @@
             </div>
           </div>
         </div>
+      </div>
 
+      <!-- Avatar editor — bottom sheet, opened via the pencil icon on the avatar -->
+      <div id="avatarSheetBackdrop" class="sheet-backdrop" onclick="closeAvatarSheet()"></div>
+      <div id="avatarSheet" class="bottom-sheet">
+        <div class="sheet-handle"></div>
         <div class="tabs" id="profTabs" style="margin-bottom:14px;">
           <button type="button" class="tab-btn active" onclick="switchProfTab('generate')">Generate</button>
           <button type="button" class="tab-btn" onclick="switchProfTab('custom')">Custom URL</button>
@@ -512,9 +552,9 @@
     row.innerHTML = _badges.map((b, i) => {
       const isPinned = b.id === _featuredBadgeId;
       const pinBtn = isOwn
-        ? `<button type="button" onclick="event.stopPropagation();pinBadge('${b.id}')" title="${isPinned ? 'Featured' : 'Feature this badge'}" style="background:none;border:none;cursor:pointer;padding:0 0 0 4px;font-size:0.75rem;opacity:${isPinned ? '1' : '0.35'};transition:opacity 0.15s;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='${isPinned ? '1' : '0.35'}'">📌</button>`
+        ? `<button type="button" onclick="event.stopPropagation();pinBadge('${b.id}')" title="${isPinned ? 'Featured' : 'Feature this badge'}" style="background:none;border:none;cursor:pointer;padding:0 0 0 4px;display:inline-flex;align-items:center;color:${b.color};"><span class="badge-pin-dot${isPinned ? ' pinned' : ''}"></span></button>`
         : '';
-      return `<span class="badge-pill" style="border-left-color:${b.color};" title="${b.desc || ''}" onclick="openBadgeModal(${i})">
+      return `<span class="badge-pill" title="${b.desc || ''}" onclick="openBadgeModal(${i})">
         <span class="badge-icon" style="color:${b.color};">${badgeIconForId(b)}</span>${b.label}${pinBtn}
       </span>`;
     }).join('');
@@ -921,6 +961,11 @@
         const desc = won
           ? `<span style="color:var(--text);">${escHtml(r.winner_char)}</span> <span style="color:var(--text-muted);">beat</span> ${escHtml(r.loser)} <span style="color:var(--text-muted);">playing</span> ${escHtml(r.loser_char)}`
           : `<span style="color:var(--text);">${escHtml(r.loser_char)}</span> <span style="color:var(--text-muted);">lost to</span> ${escHtml(r.winner)} <span style="color:var(--text-muted);">playing</span> ${escHtml(r.winner_char)}`;
+        const myChar = won ? r.winner_char : r.loser_char;
+        const portraitUrl = typeof charImgUrl === 'function' ? charImgUrl(myChar) : '';
+        const portrait = portraitUrl
+          ? `<img class="feed-portrait" src="${portraitUrl}" alt="${escHtml(myChar)}" onerror="this.style.display='none'" />`
+          : '';
         let dayHeader = '';
         if (r.created_at) {
           const day = feedDayLabel(r.created_at);
@@ -934,7 +979,7 @@
           const col = gain > 0 ? '#4caf50' : '#e74c3c';
           eloBadge = `<span style="font-size:0.78rem;font-weight:700;color:${col};flex-shrink:0;">${gain > 0 ? '+' : ''}${gain}</span>`;
         }
-        return `${dayHeader}<div class="feed-item enter-view">${tag}<span class="feed-desc">${desc}</span>${eloBadge}<span class="feed-date" title="${dateTitle}">${dateLabel}</span></div>`;
+        return `${dayHeader}<div class="feed-item enter-view">${portrait}${tag}<span class="feed-desc">${desc}</span>${eloBadge}<span class="feed-date" title="${dateTitle}">${dateLabel}</span></div>`;
       }).join('');
     } catch (err) {
       document.getElementById('activityLoading').style.display = 'none';
@@ -1065,6 +1110,7 @@
       document.getElementById('currentAvatar').src = url;
       document.getElementById('navAvatar').src = url;
       showToast('Avatar saved!', 'success');
+      closeAvatarSheet();
     } catch (err) {
       showToast('Error saving avatar: ' + err.message, 'error');
     }
@@ -1075,6 +1121,16 @@
       b.classList.toggle('active', (i === 0 && tab === 'generate') || (i === 1 && tab === 'custom')));
     document.getElementById('tab-generate').classList.toggle('active', tab === 'generate');
     document.getElementById('tab-custom').classList.toggle('active', tab === 'custom');
+  }
+
+  function openAvatarSheet() {
+    document.getElementById('avatarSheet').classList.add('open');
+    document.getElementById('avatarSheetBackdrop').classList.add('open');
+  }
+
+  function closeAvatarSheet() {
+    document.getElementById('avatarSheet').classList.remove('open');
+    document.getElementById('avatarSheetBackdrop').classList.remove('open');
   }
 
   // ── Init ──────────────────────────────────────────
@@ -1101,14 +1157,12 @@
         document.getElementById('profileUsername').textContent = u.username;
         document.getElementById('currentAvatar').src = u.avatar_url || dicebearUrl('pixel-art', u.username);
         // Hide avatar editor, show back link
-        document.getElementById('profTabs').style.display = 'none';
-        document.getElementById('tab-generate').style.display = 'none';
-        document.getElementById('tab-custom').style.display = 'none';
+        document.getElementById('avatarSheet').style.display = 'none';
         const backLink = document.createElement('a');
         backLink.href = 'profile.html';
         backLink.textContent = '← Your Profile';
         backLink.style.cssText = 'font-size:0.82rem;color:var(--accent-blue);display:block;margin-top:10px;';
-        document.getElementById('currentAvatar').after(backLink);
+        document.querySelector('.avatar-wrap').after(backLink);
       } catch (_) {
         document.getElementById('loadingState').textContent = 'User not found.';
         return;
@@ -1117,6 +1171,7 @@
       // Own profile — reuse already-fetched me
       currentUsername = myUsername;
       document.getElementById('profileUsername').textContent = myUsername;
+      document.getElementById('avatarEditBtn').style.display = 'flex';
       if (me) {
         const avatarUrl = me.avatar_url || dicebearUrl('pixel-art', me.username);
         document.getElementById('currentAvatar').src = avatarUrl;

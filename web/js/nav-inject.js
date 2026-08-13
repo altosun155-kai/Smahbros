@@ -1,5 +1,4 @@
 // nav-inject.js — single source of truth for nav HTML (left sidebar + mobile bottom nav).
-// Must be included before nav.js.
 (function () {
   const nav = document.getElementById('main-nav');
   if (!nav) return;
@@ -8,8 +7,6 @@
     { href: 'index.html',       label: 'Home',         icon: '🏠' },
     { section: 'Compete' },
     { href: 'bracket.html',       label: 'Bracket',      icon: '🏆' },
-    { href: 'teams-bracket.html',  label: 'Team Battle',     icon: '👥' },
-    { href: 'team-standings.html', label: 'Team Standings', icon: '🤝' },
     { href: 'duel.html',         label: '1v1 Duel',     icon: '⚔️' },
     { href: 'my-brackets.html',  label: 'My Brackets',  icon: '📁' },
     { section: 'Track' },

@@ -69,39 +69,6 @@ function getSeedByMode(entry, statsMap, seedMode) {
 
 // ── Pair helpers ──────────────────────────────────────────────────────────────
 
-// Pair an ordered player list ensuring different teams face each other.
-function pairCrossTeam(ordered, getEntry, teamOf) {
-  const pairs = [];
-  const used = new Set();
-
-  for (let i = 0; i < ordered.length; i++) {
-    if (used.has(i)) continue;
-    used.add(i);
-    const pa = ordered[i];
-    const teamA = teamOf[pa] || '';
-
-    let found = -1;
-    for (let j = i + 1; j < ordered.length; j++) {
-      if (used.has(j)) continue;
-      const teamB = teamOf[ordered[j]] || '';
-      if (!teamA || !teamB || teamA !== teamB) { found = j; break; }
-    }
-    if (found === -1) {
-      for (let j = i + 1; j < ordered.length; j++) {
-        if (!used.has(j)) { found = j; break; }
-      }
-    }
-
-    if (found === -1) {
-      pairs.push([getEntry(pa), BYE_ENTRY]);
-    } else {
-      used.add(found);
-      pairs.push([getEntry(pa), getEntry(ordered[found])]);
-    }
-  }
-  return pairs;
-}
-
 // Swap mismatched same-player pairs with later pairs to avoid R1 self-matchups.
 function _fixSamePlayer(paired) {
   for (let i = 0; i < paired.length; i++) {
@@ -123,13 +90,11 @@ function _fixSamePlayer(paired) {
 //   style     — 'strongVsStrong' | 'strongVsWeak' | 'random'
 //   poolMode  — 'slot' | 'freePool'
 //   seedMode  — 'elo' | 'kills' | 'winpct' | 'points'
-//   teamMode  — boolean (use cross-team pairing)
-//   teamOf    — { [player]: teamName }
 //   statsMap  — { [player]: [statObj] }
 //
 // Returns [[entryA, entryB], ...] padded to nextPow2 with BYE_ENTRY pairs.
 
-function buildBracketPairs({ entries, style, poolMode, seedMode = 'elo', teamMode = false, teamOf = {}, statsMap = {} }) {
+function buildBracketPairs({ entries, style, poolMode, seedMode = 'elo', statsMap = {} }) {
   const BYE = BYE_ENTRY;
   const seed = e => getSeedByMode(e, statsMap, seedMode);
 
@@ -227,21 +192,16 @@ function buildBracketPairs({ entries, style, poolMode, seedMode = 'elo', teamMod
       });
     }
 
-    if (teamMode) {
-      const teamOfIdx = Object.fromEntries(flat.map((e, i) => [i, teamOf[e.player] || '']));
-      pairs.push(...pairCrossTeam(flat.map((_, i) => i), i => flat[i], teamOfIdx));
-    } else {
-      // Swap adjacent same-player entries
-      for (let i = 0; i < flat.length - 1; i++) {
-        if (flat[i].player !== 'SYSTEM' && flat[i].player === flat[i + 1].player) {
-          for (let j = i + 2; j < flat.length; j++) {
-            if (flat[j].player !== flat[i].player) { [flat[i + 1], flat[j]] = [flat[j], flat[i + 1]]; break; }
-          }
+    // Swap adjacent same-player entries
+    for (let i = 0; i < flat.length - 1; i++) {
+      if (flat[i].player !== 'SYSTEM' && flat[i].player === flat[i + 1].player) {
+        for (let j = i + 2; j < flat.length; j++) {
+          if (flat[j].player !== flat[i].player) { [flat[i + 1], flat[j]] = [flat[j], flat[i + 1]]; break; }
         }
       }
-      if (flat.length % 2 === 1) flat.push(BYE);
-      for (let i = 0; i + 1 < flat.length; i += 2) pairs.push([flat[i], flat[i + 1]]);
     }
+    if (flat.length % 2 === 1) flat.push(BYE);
+    for (let i = 0; i + 1 < flat.length; i += 2) pairs.push([flat[i], flat[i + 1]]);
 
   // ── Per-Slot, Seeded ───────────────────────────────────────────────────────
   } else {
@@ -252,9 +212,7 @@ function buildBracketPairs({ entries, style, poolMode, seedMode = 'elo', teamMod
       if (ordered.length === 0) continue;
       const getEntry = p => playerGroups[p][slot] || BYE;
 
-      if (teamMode) {
-        pairs.push(...pairCrossTeam(ordered, getEntry, teamOf));
-      } else if (style === 'strongVsStrong') {
+      if (style === 'strongVsStrong') {
         for (let i = 0; i + 1 < ordered.length; i += 2) pairs.push([getEntry(ordered[i]), getEntry(ordered[i + 1])]);
         if (ordered.length % 2 === 1) pairs.push([getEntry(ordered[ordered.length - 1]), BYE]);
       } else {
@@ -270,40 +228,5 @@ function buildBracketPairs({ entries, style, poolMode, seedMode = 'elo', teamMod
   const target = nextPow2(pairs.length);
   while (pairs.length < target) pairs.push([BYE, BYE]);
 
-  // Post-process: fix any remaining same-team matchups by swapping with a later pair
-  if (teamMode) _fixSameTeamPairs(pairs, teamOf);
-
   return pairs;
-}
-
-// Scan pairs and swap entries to break up same-team matchups.
-function _fixSameTeamPairs(pairs, teamOf) {
-  for (let i = 0; i < pairs.length; i++) {
-    const [a, b] = pairs[i];
-    if (a.player === 'SYSTEM' || b.player === 'SYSTEM') continue;
-    const teamA = teamOf[a.player] || '';
-    const teamB = teamOf[b.player] || '';
-    if (!teamA || !teamB || teamA !== teamB) continue;
-
-    // Same-team pair — find another pair's entry to swap with b
-    let fixed = false;
-    for (let j = i + 1; j < pairs.length && !fixed; j++) {
-      for (let slot = 0; slot < 2 && !fixed; slot++) {
-        const cand  = pairs[j][slot];
-        const other = pairs[j][1 - slot];
-        if (cand.player === 'SYSTEM') continue;
-        const candTeam  = teamOf[cand.player]  || '';
-        const otherTeam = teamOf[other.player] || '';
-        // After swap: pair[i]=[a,cand] must be cross-team,
-        //             pair[j][slot]=b must be cross-team with other
-        const pairIOk = candTeam  !== teamA;
-        const pairJOk = other.player === 'SYSTEM' || otherTeam !== teamB;
-        if (pairIOk && pairJOk) {
-          pairs[i][1]   = cand;
-          pairs[j][slot] = b;
-          fixed = true;
-        }
-      }
-    }
-  }
 }

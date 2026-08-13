@@ -309,7 +309,7 @@ a:hover {
   }
 }
 
-/* ── Sticky primary-action bar (bracket.html, teams-bracket.html, duel.html) ── */
+/* ── Sticky primary-action bar (bracket.html, duel.html) ── */
 .sticky-bar { position: sticky; bottom: 0; z-index: 30; background: var(--navbar-bg); border-top: 1px solid var(--border); padding: 12px 0; display: flex; gap: 10px; align-items: center; margin-top: 20px; }
 
 /* ── Mobile Bottom Nav ──────────────────────────────── */
@@ -323,7 +323,7 @@ a:hover {
     bottom: 0; left: 0; right: 0;
     height: calc(60px + env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
-    background: rgba(10,10,20,0.97);
+    background: rgba(10,10,20,0.6);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
     border-top: 1px solid rgba(255,255,255,0.1);

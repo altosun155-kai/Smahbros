@@ -163,7 +163,7 @@
     .qs-who-av { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,.15); background: rgba(255,255,255,.05); display: block; }
     .qs-who-name { font-size: 0.6rem; font-weight: 700; color: rgba(255,255,255,.45); letter-spacing: .3px; }
 
-    .qs-scroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .qs-scroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; scrollbar-width: none; scroll-snap-type: x mandatory; scroll-padding-inline: 24px; }
     .qs-scroll::-webkit-scrollbar { display: none; }
 
     .qs-card {
@@ -172,6 +172,7 @@
       cursor: pointer; text-align: left; position: relative; overflow: hidden;
       transition: transform .12s, box-shadow .12s;
       -webkit-tap-highlight-color: transparent;
+      scroll-snap-align: start;
     }
     .qs-card:hover  { transform: translateY(-3px); }
     .qs-card:active { transform: scale(0.96); }

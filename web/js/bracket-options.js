@@ -2,14 +2,13 @@
 // Included by bracket.html and tournament.html so both use identical settings.
 
 /**
- * Inject bracket style / pool mode / seeding radio UI into a container element.
- * Uses standard radio names: bracketStyle, poolMode, seedMode.
+ * Inject bracket style / seeding radio UI into a container element.
+ * Uses standard radio names: bracketStyle, seedMode.
  * @param {HTMLElement} container
- * @param {{ style?, poolMode?, seedMode? }} defaults
+ * @param {{ style?, seedMode? }} defaults
  */
 function renderBracketOptions(container, defaults = {}) {
   const s  = defaults.style    || 'strongVsStrong';
-  const pm = defaults.poolMode || 'slot';
   const sm = defaults.seedMode || 'elo';
   const ac = 'accent-color:var(--accent-blue)';
 
@@ -29,19 +28,6 @@ function renderBracketOptions(container, defaults = {}) {
           <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
             <input type="radio" name="bracketStyle" value="random" ${s==='random'?'checked':''} style="${ac}" />
             <span><strong>Random</strong> — fully shuffled</span>
-          </label>
-        </div>
-      </div>
-      <div style="flex:1;min-width:150px;">
-        <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Character Pool</div>
-        <div style="display:flex;flex-direction:column;gap:5px;padding:10px;background:var(--card-bg2);border:1px solid var(--border);border-radius:8px;">
-          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
-            <input type="radio" name="poolMode" value="slot" ${pm==='slot'?'checked':''} style="${ac}" />
-            <span><strong>Per Slot</strong> — each player's 1st char faces only other 1st chars, etc.</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.83rem;">
-            <input type="radio" name="poolMode" value="freePool" ${pm==='freePool'?'checked':''} style="${ac}" />
-            <span><strong>Free Pool</strong> — all characters ranked together globally</span>
           </label>
         </div>
       </div>
@@ -73,7 +59,7 @@ function renderBracketOptions(container, defaults = {}) {
 function readBracketOptions() {
   return {
     style:    document.querySelector('input[name="bracketStyle"]:checked')?.value  || 'strongVsStrong',
-    poolMode: document.querySelector('input[name="poolMode"]:checked')?.value      || 'slot',
+    poolMode: 'slot', // Character Pool setting removed — always per-slot now
     seedMode: document.querySelector('input[name="seedMode"]:checked')?.value      || 'elo',
   };
 }

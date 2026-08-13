@@ -179,6 +179,7 @@
       tile.classList.add('tap-selected');
       document.querySelectorAll('.tier-zone, .unranked-zone').forEach(z => z.classList.add('tap-target'));
       document.getElementById('tapModeBar').style.display = 'block';
+      showToast(char, 'info', 1500);
     });
 
     return tile;

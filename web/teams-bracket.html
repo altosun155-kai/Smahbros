@@ -711,7 +711,7 @@ function rebuildTeamForms() {
         const chars = lb.filter(r => r.username === p).sort((a,b) => (b.elo||0)-(a.elo||0));
         slot.querySelectorAll('.char-inp').forEach((inp,ci) => {
           inp.value = chars[ci]?.character || '';
-          updateCharPortrait(inp);
+          updateTBCharPortrait(inp);
         });
         updateAvgElo(t);
       };
@@ -721,8 +721,8 @@ function rebuildTeamForms() {
         refreshChipStates();
       });
       slot.querySelectorAll('.char-inp').forEach(el=>{
-        el.addEventListener('change', () => { updateAvgElo(t); updateCharPortrait(el); });
-        el.addEventListener('input',  () => { updateAvgElo(t); updateCharPortrait(el); });
+        el.addEventListener('change', () => { updateAvgElo(t); updateTBCharPortrait(el); });
+        el.addEventListener('input',  () => { updateAvgElo(t); updateTBCharPortrait(el); });
       });
       wrap.appendChild(slot);
     }
@@ -1286,7 +1286,7 @@ function rematch() {
       if (sel) { sel.value = m.player; sel.dispatchEvent(new Event('change')); }
       slot.querySelectorAll('.char-inp').forEach((inp, ci) => {
         inp.value = m.characters[ci] || '';
-        updateCharPortrait(inp);
+        updateTBCharPortrait(inp);
       });
     });
   });

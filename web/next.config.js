@@ -10,6 +10,11 @@ const nextConfig = {
       { source: '/', destination: '/index.html' },
     ];
   },
+  async redirects() {
+    return [
+      { source: '/login.html', destination: '/login', permanent: false },
+    ];
+  },
 };
 
 module.exports = nextConfig;

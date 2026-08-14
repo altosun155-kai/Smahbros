@@ -32,18 +32,11 @@ function isLoggedIn() {
 function requireAuth() {
   if (!isLoggedIn()) {
     localStorage.setItem('loginReturnUrl', window.location.href);
-    window.location.href = 'login.html';
-  }
-}
-
-// Redirect away from login if already authenticated
-function redirectIfLoggedIn() {
-  if (isLoggedIn()) {
-    window.location.href = 'index.html';
+    window.location.href = '/login';
   }
 }
 
 function logout() {
   clearToken();
-  window.location.href = 'login.html';
+  window.location.href = '/login';
 }

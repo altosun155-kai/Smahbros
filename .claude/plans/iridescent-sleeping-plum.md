@@ -1,97 +1,82 @@
-# Phase 5 (remainder) — Reveal, Flip transition, bracket handoff, undo, haptics
+# Phase 6 — GSAP shatter-transition login
 
 ## Context
 
-The draft's core loop (schema, room lifecycle, WebSocket, Lobby/CharacterSelect/Waiting screens, tier-list-aware rail fallback) is already built and shipped this session. What's left from the original roadmap: a Reveal screen, a GSAP "Flip transition" into a live tournament bracket, result reporting with a 30-second undo, and haptics.
+Last item on the user's original 6-phase roadmap. Phase 4 built the Next.js/React scaffold specifically so upcoming features could be real React instead of bolted onto vanilla pages; Phase 5 used it for the multi-device draft. Phase 6 does the same for the login page.
 
-**Architecture decision**: rather than rebuilding bracket rendering, match recording, and undo in React, **React only builds the Reveal screen, the Flip transition, and a compact "landed" bracket preview** — then hands off via a plain link (`tournament.html?id={bracketId}`) to the existing, mature, already-working vanilla `tournament.html` page for all ongoing match play. Research confirmed `tournament.html`'s renderer is deep, tested, working code (imperative HTML rebuild, SVG connector measurement, a full VS-modal recording flow, existing GSAP winner-flash/elo-count-up/connector-draw-in) — duplicating it in React would be expensive and risky for no benefit. This is the same "reuse over rebuild" call this session already made once (Phase 5's core loop reusing `ws_manager.py` over Supabase Realtime).
+**The spec (from the user, correcting this plan's first draft):** on successful auth, the *current champion's character render* breaks into image tiles that fly outward and fade — not a generic chrome/card shatter. The app's front door is whoever's currently winning, and they visibly become the interface. The champion is the **#1 player on `/leaderboard`** (by win rate). The harder part of the original spec — the tiles flying into the destination page's actual card positions — is explicitly deferred; this round is the outward-scatter version with a hard navigation underneath, done well (no dead air, no flash).
 
-**Bracket schema has no concept of "multiple independent brackets in one row"** — confirmed by reading `computeRounds()`/`_compute_round_participants()`, both treat `bracket_data` as one merged elimination tree. Since the draft's (already-corrected) `chars_per_player` means "picks per player" (1/4/8), each of a room's `chars_per_player` slots becomes its **own independent `Bracket` row** — exactly matching the roadmap's "8 characters → 8 separate 4-entry brackets." `DraftRoom` already shipped with a single nullable `bracket_id` FK (a hook point that can't reference N brackets) — per this codebase's "never drop/retype columns" convention, this round adds a new `bracket_ids` JSON column alongside it and leaves `bracket_id` unused.
+**Champion image, resolved from two already-public endpoints, no new backend work:**
+1. `GET /leaderboard` (already `auth=false`-callable) → `result[0].username` is the #1 player.
+2. `GET /characters/stats/{username}` (already public, no `get_current_user` dependency — confirmed in `routers/characters.py:410`) → returns `{username, stats: [{character, elo, wins, losses, games, ...}]}` for that player. Pick the row with the highest `games` (most-played), tie-broken by `elo` desc — "most-played character" isn't a concept that exists elsewhere in the codebase, so this is a one-off client-side pick, not a new server heuristic to maintain.
+3. `charImgUrl(character)` (`web/app/lib/chars.ts`, already used by the draft screens) resolves that character to its Supabase Storage portrait URL.
 
-**Bracket creation is folded directly into the already-tested `lock_draft_pick()` transition**, immediately after the existing `with_for_update()` race-guarded "is everyone locked" check (that guard logic is untouched). Status goes `picking` → `live` in one request — no client ever observes a separate lingering `revealed` broadcast, matching the roadmap's "all four phones buzz at the same instant." Round-1 pairing for the new brackets is **deliberately simple: join order, not elo-seeded** (`bracket-engine.js`'s seeding logic is client-side JS, not reusable from Python, and porting its full seed-mode complexity isn't warranted here) — a stated simplification, not a silent gap. With `num_players` fixed at 4 and `start` requiring ≥2, joined-player count is always 2–4, so round-1 is always 1 or 2 pairs — never an odd count to worry about.
+Fallback if there's no leaderboard entry yet (fresh deploy, zero recorded matches) or the top player has zero `CharacterStats` rows: skip the image-shard version and fall back to the plain chrome shards (`var(--card-bg)` + border, no image) — same shard geometry and tween, just no picture to show. This keeps the page working on day one of a fresh deployment without a special-cased empty state.
 
-**Auth scope**: "anyone reports a result" was confirmed scoped to draft-originated brackets only (regular host-created tournaments keep today's owner-only restriction). Implementing this correctly touches **three** call sites, not one — `tournament.html`'s recording flow calls `POST /matches/record` (Elo) *and* `PATCH /brackets/{id}/winner` (bracket advancement) together, and `DELETE /brackets/{id}/result/{match_key}` is the undo path — all three are owner-only today. Relaxing only the first would update Elo but leave the bracket UI stuck (403 on advancement) for any non-host draft participant — a worse outcome than not building this at all. All three get the identical extension: allowed if the requester owns the bracket, **or** the bracket is one of a `DraftRoom.bracket_ids` and the requester is one of that room's joined players. This is completing the already-approved draft-only boundary correctly, not widening it — non-draft brackets are completely unaffected.
+**Blast radius is small and well-contained.** Grepping the repo for `login.html` (excluding `.next/` build output) turns up exactly 4 redirect call sites across 3 files — `web/public/js/auth.js` (`requireAuth()`, `redirectIfLoggedIn()`, `logout()`), `web/public/js/api.js` (401 handler), `web/app/lib/api.ts` (401 handler). No other vanilla page links to `login.html` directly — every page reaches it exclusively through `requireAuth()`.
 
-**A real CSS gap found**: `.draft-avatar-empty`'s "slow breathing pulse" was never actually implemented (no `animation` property exists) — this round adds it for real.
+**Routing correction:** Next's actual order is `headers → redirects → beforeFiles rewrites → filesystem → afterFiles rewrites`. `redirects()` (unlike the `rewrites()` already used for `/` → `/index.html`) runs *before* the filesystem check, so a `redirects()` entry for `/login.html` → `/login` fires even while `web/public/login.html` still exists on disk — but the plan still deletes that file rather than leaving two logins around, and adds the `redirects()` entry so old bookmarks land on `/login` instead of a 404.
 
-## 1. Schema — `bracket_ids` column
+**No new runtime dependencies.** `gsap` is already in `web/package.json` (`^3.15.0`, added in Phase 5). The shatter doesn't need the `Flip` plugin Phase 5 used (that morphs one DOM state into another via shared element IDs) — it's a one-way outward scatter, so plain `gsap.to()` per shard is enough.
 
-`database.py` — add one column to the already-shipped `DraftRoom` model (leave `bracket_id` as-is):
-```python
-bracket_ids = Column(JSON, default=list)   # ordered [bracket_id, ...], len == chars_per_player, set atomically at picking -> live
-```
+## 1. `/login` route (React port of `login.html`)
 
-`migrations.py` — since `draft_rooms` has an explicit `CREATE TABLE IF NOT EXISTS` (not just `ADD COLUMN`), add `bracket_ids` to both branches' `CREATE TABLE` blocks *and* add a follow-up idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` (Postgres) / `PRAGMA table_info` guard (SQLite) immediately after, matching this file's existing belt-and-suspenders style for tables that already exist in prod.
+New `web/app/login/page.tsx` (`'use client'`) — behavioral port of `web/public/login.html`'s inline script, reusing existing `auth.css` classes (`.auth-page`, `.auth-card`, `.tile-btn`, `.new-player-form`, …) so the base look is unchanged. `css/auth.css` is only ever linked from `login.html` today (confirmed via grep) — imported directly in the new page file, same pattern already used for `reset.css`/`style.css` in `web/app/layout.tsx`.
 
-`routers/draft.py`'s `draft_room_to_dict()`: add `"bracket_ids": room.bracket_ids or []`. `web/app/lib/useDraftRoom.ts`'s `DraftRoomState`: add `bracket_ids: number[]`.
+- **On mount**: if `getToken()` is already set, redirect to `/` immediately (replaces `login.html`'s `redirectIfLoggedIn()` guard — that function is deleted along with the vanilla page, since nothing else calls it). Also on mount: fire off `import('gsap')`, the champion-image lookup (§2), and resolve the eventual destination via `safeReturnUrl()` (§ below) — all three need to be *ready before the tap*, not fetched/computed reactively at trigger time, since the sequence is tap → `/auth/enter` round-trip → shatter, and there's no reason to add a stall right at the moment that's supposed to feel instant. `loginReturnUrl` is written to `localStorage` by `requireAuth()` *before* the redirect to `/login` even happens, so it's already available at mount time — the destination doesn't need to wait for a successful login to be known.
+- Server-ready gate: port `waitForServer()`'s `/health` retry loop (up to ~90s, disables submit until ready) into `useEffect`/`useState`.
+- Player tiles: port `loadPlayerTiles()` (`apiGet('/auth/users', false)`), tap-to-arm/tap-again-to-confirm state (armed username + a 2.5s timeout ref), hidden-accounts reveal link.
+- New-player form: controlled input + submit handler, same validation as today (non-empty, trimmed).
+- **All unauthenticated calls on this page — `/auth/users`, `/leaderboard`, `/characters/stats/{username}`, `/auth/enter` — must pass `auth=false` explicitly** (`apiGet`/`apiPost`'s existing third param in `web/app/lib/api.ts`). This isn't optional cleanup: if any of these accidentally sent a stale/invalid token and got a 401 back, `api.ts`'s 401 handler redirects to `/login` — while already on `/login`, that's a self-redirect loop. Worth a one-line comment at each call site given the loop risk, not just inherited silently.
+- Shared `enter(username)` handler: `apiPost('/auth/enter', { username }, false)` → on success, `setToken`/`setUsername` (new exports needed in `web/app/lib/api.ts` — today it only has `getToken`/`getUsername`/`clearToken`, mirroring `auth.js`) → trigger the shatter (§2), which navigates from its tween's `onComplete` once the destination (prefetched on mount, see §2) is reached.
+- On error: same inline error-banner behavior as today, re-enables the tile/button.
+- **Destination validation**: `loginReturnUrl` is read from `localStorage` and was written elsewhere in the app as a full `window.location.href` (absolute URL, includes origin). Validate it's same-origin before using it:
+  ```ts
+  function safeReturnUrl(raw: string | null): string | null {
+    if (!raw) return null;
+    try {
+      const u = new URL(raw, window.location.origin);
+      return u.origin === window.location.origin ? u.href : null;
+    } catch {
+      return null;
+    }
+  }
+  ```
+  Destination becomes `safeReturnUrl(returnUrl) || '/'`. Low risk (this is the app's own localStorage key, not user input) but one line to close off regardless.
 
-## 2. Bracket creation, folded into `lock_draft_pick()`
+## 2. Shatter transition — champion image, prefetched, no dead-air nav
 
-`routers/draft.py` — import `Bracket`. New helpers:
-- `_pair_players_join_order(usernames)` — pairs `[0]v[1], [2]v[3], ...`, lone trailing player gets a bye (`None`).
-- `_build_slot_bracket(pairs, picks_by_username)` — returns `(bracket_data, entries)` for one slot: `bracket_data` is `[{a, b}]` with `"{player} — {character}"` labels (`"BYE"` for byes, matching `_parse_label()`'s existing pipe-format parsing in `brackets.py`), `entries` is `[{player, character}]` skipping byes.
-- `_create_draft_brackets_and_go_live(db, room, pick_rows)` — for each of `room.chars_per_player` slots, builds that slot's bracket via the helpers above, creates a `Bracket(user_id=room.host_id, name=f"Draft #{room.id}" + (" — Slot N" if >1 slot), mode="draft", is_live=True, chars_per_player=1, ...)`, `db.flush()`s to get its id, collects `bracket_ids`. Sets `room.bracket_ids` (+ `flag_modified`) and `room.status = "live"`.
+New `web/app/login/ShatterCard.tsx`. On mount of the `/login` page, resolve the champion image (§Context) and cache the URL in state — same "ready before the tap" reasoning as the `gsap` prefetch.
 
-Inside `lock_draft_pick()`, right where `everyone_locked` is already computed under the existing `with_for_update()` guard: call `_create_draft_brackets_and_go_live(db, room, all_rows)` instead of setting `status = "revealed"` directly, then `db.commit()`.
+- A 3×4 grid (12 shards) desktop / **2×6 at ≤700px** (this site's standard mobile breakpoint — confirmed via `web/public/css/style.css`, used repeatedly for other pages' layout switches) of absolutely-positioned `<div>`s, each sized to the *full card's bounding box* (not just its own slice) and stacked with `position: absolute; inset: 0`. The card is narrower and taller on mobile (`.auth-card` caps at `max-width: 420px` but shrinks with viewport, while height grows with tile count) — a fixed 3×4 percentage grid over that shape produces very elongated, sliver-thin cells rather than reasonable-looking shards, so the mobile variant switches to a taller/narrower 2-column arrangement instead. Both variants are still 12 shards total, same tween code, two `clip-path` polygon sets (`.shatter-shard-desktop` / `.shatter-shard-mobile`), picked at trigger time via `window.matchMedia('(max-width: 700px)').matches`. Each shard has a unique `clip-path: polygon(...)` (irregular quad, small jitter computed once per mount) so the 12 together tile the whole card with a cracked-glass seam pattern. Each shard's background is the *same* champion image at `background-size: cover` — the `clip-path` alone determines which wedge is visible, so GSAP can `rotate`/`translate`/`scale` each shard independently and the visible slice moves correctly with it (no manual `background-position` bookkeeping needed). If no champion image resolved (§Context fallback), shards use `background: var(--card-bg); border: 1px solid var(--border)` instead — same geometry, same tween, no image.
+- **Trigger sequence**: real card content (tiles/form) fades out fast (~150ms) while the shard layer fades in showing the assembled champion image; then `gsap.to()` each shard to a randomized outward `x`/`y`/`rotation` + `opacity: 0` (`gsap.utils.random` per shard, short stagger `0.02–0.03`), total tween ~650ms.
+- **No dead air on navigation, without making the tween's length load-speed-dependent**: rather than timing the nav off a fraction of the tween duration (fragile — a fast load truncates the shatter, a slow one still shows dead air), the destination is **prefetched on page mount**, before any tap happens: a `<link rel="prefetch" href={dest}>` injected into `document.head` via `useEffect` once `safeReturnUrl()` resolves (mount-time, per §1). By the time the shatter actually runs, the destination page is already warm in the browser's cache, so `window.location.href = dest` fired from the tween's real `onComplete` is near-instant — the tween always plays to its full, intended length, and the handoff is still tight because the nav itself costs ~nothing.
+- **No background flash**: verified `web/public/css/style.css` sets `background-color: var(--bg)` on `body` (`--bg: #0f0f17`), and that stylesheet is already the *same* file loaded by both `index.html` (via `<link>`) and every Next.js route (via `web/app/layout.tsx`'s `import '../public/css/style.css'`) — so `/login` and the destination page already share an identical background with zero extra work needed here.
+- `prefers-reduced-motion` guard, same convention as `web/app/draft/[roomId]/DraftReveal.tsx`: `window.matchMedia('(prefers-reduced-motion: reduce)').matches` skips the tween entirely and navigates immediately (still via `safeReturnUrl(...) || '/'`).
 
-`draft_room_to_dict()`'s unmask condition extends from `room.status == "revealed"` to `room.status in ("revealed", "live")`.
+CSS: new shard-specific rules (`.shatter-layer`, `.shatter-shard-desktop`, `.shatter-shard-mobile`, the two sets of 12 `clip-path` polygon variants, gated behind a `@media (max-width: 700px)` block matching the rest of the site) added to `web/public/css/auth.css` — scoped to the auth page like the rest of that file, not `style.css`.
 
-## 3. Auth relaxation (3 call sites) + `can_record` surfaced to the client
+## 3. Repoint the 4 existing redirect call sites + add the bookmark redirect
 
-`routers/matches.py` — new helper (plain Python scan, no JSONB-containment SQL — this app is small-scale):
-```python
-def _bracket_is_draft_accessible(db, bracket_id, user) -> bool:
-    if not bracket_id:
-        return False
-    rooms = db.query(DraftRoom).filter(DraftRoom.bracket_ids.isnot(None)).all()
-    return any(bracket_id in (r.bracket_ids or []) and user.id in (r.players or []) for r in rooms)
-```
-`record_match()`'s existing owner-only check becomes `is_owner or _bracket_is_draft_accessible(db, req.bracket_id, current_user)`.
+- `web/public/js/auth.js`: `requireAuth()` and `logout()` → `window.location.href = '/login'` (was `'login.html'`). `redirectIfLoggedIn()` deleted (only ever called from `login.html`, which is being deleted; its job moves into the new page's mount-time check in §1).
+- `web/public/js/api.js` (line 104) and `web/app/lib/api.ts` (line 108): 401 handlers → `/login` (was `login.html` / `/login.html`).
+- `web/next.config.js`: add a `redirects()` export alongside the existing `rewrites()`:
+  ```js
+  async redirects() {
+    return [
+      { source: '/login.html', destination: '/login', permanent: false },
+    ];
+  },
+  ```
 
-`routers/brackets.py` — `set_bracket_winner` and `undo_result_by_key` get the identical `is_owner or _bracket_is_draft_accessible(...)` swap (lazy-imported from `routers.matches`, matching this file's existing pattern for avoiding circular imports). `undo_last_result` (the non-keyed, "most recent globally" undo) is left owner-only — its UI call site is being replaced in §5 anyway.
+## 4. Delete `web/public/login.html`
 
-`bracket_to_dict()` gains optional `viewer`/`db` params; when passed, adds `d["can_record"] = viewer.is_admin or is_owner or _bracket_is_draft_accessible(db, b.id, viewer)`. `get_bracket()`'s call site passes `viewer=current_user, db=db`. The `/ws/tournament/{id}` handler's `bracket_to_dict(b)` call is left as-is (that socket is never actually opened by `tournament.html`, which polls via REST — confirmed by reading it — so `can_record` simply won't be present there, harmlessly unused).
-
-## 4. React: Reveal, Flip transition, landed bracket preview
-
-`web/package.json` — add `"gsap": "^3.13.0"` to `dependencies` (matches the 3.x line already CDN-loaded on the vanilla pages), `npm install` inside `web/`.
-
-`web/app/lib/haptics.ts` (new) — direct port of `duel.html`'s existing pattern:
-```typescript
-export function haptic(pattern: number | number[] = [10]): void {
-  try { navigator.vibrate?.(pattern); } catch {}
-}
-```
-
-`web/app/draft/[roomId]/page.tsx` — new branch: `room.status === 'live'` → `<DraftReveal room={room} />` (before the fallback `DraftWaiting`, which still harmlessly covers the transient/unreachable `'revealed'` state).
-
-`web/app/draft/[roomId]/DraftReveal.tsx` (new) — two-phase:
-- **Reveal phase**: `room.num_players` corner slots (mapping over the count, matching the existing `DraftLobby`/`DraftWaiting` convention — not hardcoded 4), each showing avatar+username and that player's locked picks clustered inboard (`draft-reveal-picks-1/4/8` grid variants based on `chars_per_player`, portraits via `charImgUrl()`). Empty player slots render the (now-fixed) `.draft-avatar-empty` pulse. `useEffect` fires `haptic()` once on mount.
-- After a ~1.5–2s pause (timer-driven, not tap-to-continue — keeps the moment synchronized across devices rather than desyncing on individual taps), triggers the Flip: `Flip.getState()` on `[data-flip-id]` portrait nodes, toggle a wrapper class that switches layout from corner-grid to bracket-preview positions **without unmounting the portrait DOM nodes** (Flip needs the same elements to animate from/to), then `Flip.from(state, { duration, ease: 'power2.inOut', stagger: { each: 0.04, grid: 'auto', from: 'start' }, ... })` honoring the roadmap's specified stagger — **200ms between player clusters, 40ms between characters within a cluster** (implemented as a per-cluster base delay plus GSAP's intra-cluster stagger). Guarded by `window.matchMedia('(prefers-reduced-motion: reduce)').matches` — falls back to an instant class-swap with no tween, since the existing CSS `prefers-reduced-motion` override can't reach JS-driven GSAP tweens (same gap noted during the earlier visual-overhaul round).
-- Renders `<DraftBracketPreview room={room} />` for the bracket phase.
-
-`web/app/draft/[roomId]/DraftBracketPreview.tsx` (new) — one panel per `room.bracket_ids` entry. `chars_per_player === 1` → single panel, no carousel. 4/8 → horizontal `scroll-snap-type: x mandatory` carousel reusing the same snap-strip pattern already established for `.draft-rail` (hidden scrollbar, `scroll-padding-inline`). Each panel shows round-1 pairs only (no click-to-score, no connectors — that's `tournament.html`'s job) plus `<a className="btn btn-primary" href={`/tournament.html?id=${bracketId}`}>Open Bracket {n}</a>`.
-
-CSS — new `draft-` prefixed classes in `web/public/css/style.css` (not a reuse of `tournament.html`'s inline `.round-col`/`.match-box`, which live in that page's own `<style>` block and aren't available to the Next bundle — duplicating them risks the tested vanilla page for no benefit; new classes echo the same tokens `--card-bg2`/`--border`/`--radius` instead): `.draft-reveal-grid`, `.draft-reveal-corner`, `.draft-reveal-picks-1/4/8`, `.draft-bracket-carousel`, `.draft-bracket-panel`, `.draft-bracket-match`, `.draft-bracket-entry`. Plus the actual pulse fix:
-```css
-@keyframes draftBreathe { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
-.draft-avatar-empty { animation: draftBreathe 2.4s ease-in-out infinite; }
-```
-(already covered by the existing shared `prefers-reduced-motion` CSS override, no extra work needed there).
-
-## 5. Vanilla: 30-second keyed undo in `tournament.html`
-
-Upgrades the existing generic "undo the most recent result" bar to a **per-match, time-boxed** one — also a correctness fix: with §3's relaxed auth, two different draft participants recording matches in quick succession would otherwise let one accidentally undo the other's unrelated result via the old "most recent globally" endpoint. Switching to the already-existing keyed `DELETE /brackets/{id}/result/{match_key}` endpoint fixes that regardless.
-
-- `#undoBar` markup gets a countdown span next to the label and its button.
-- New `showUndoBtn(label, matchKey)` (gated on the new `canRecord` client-side flag): starts a 1s `setInterval` countdown display plus a 30s `setTimeout` that hides the bar, keyed to the specific `matchKey` just recorded.
-- `undoLastScore()` rewritten to call the keyed endpoint with the stored `matchKey` instead of the old un-keyed "last result" endpoint.
-- `pickTournamentScore()`'s call site passes the specific match's label + key to `showUndoBtn`.
-- New `let canRecord = false;` set from `data.can_record` in `fetchAndRender()` (falls back to `false`/host-only if the API hasn't redeployed yet, since the field would just be `undefined`). Every UI gate that currently checks `isHost` **for the recording controls specifically** (score-pick buttons, VS-modal pointer-events/view-only state, mobile-card click handler, undo bar) swaps to `canRecord`. Every `isHost` gate for **host administration** (end tournament, share/invite bar, lineup/bracket generation) is left untouched — those stay host-exclusive.
+Removed outright — fully superseded by `/login`. `web/public/css/auth.css` stays (imported from the new React page instead of a `<link>`).
 
 ## Verification
 
-1. Backend: `python3 -m py_compile` on every touched file; live `uvicorn` exercise extending the existing draft test script — run a room through to full-lock, confirm `chars_per_player` `Bracket` rows are created with correct `entries`/`bracket_data` (including a 3-player room to confirm the bye pairs correctly), confirm `DraftRoom.bracket_ids` is populated and `status` reads `live` with no observable intermediate `revealed` push, confirm a non-host draft participant can successfully call `POST /matches/record`, `PATCH /brackets/{id}/winner`, and `DELETE /brackets/{id}/result/{key}` on a draft-originated bracket, and confirm those same calls still 403 for a non-host on a regular (non-draft) bracket — the scope boundary must hold.
-2. Frontend: `npm run build` in `web/` to confirm the new TSX compiles and `gsap`/`gsap/Flip` resolve; Playwright pass driving a room through to `live`, confirming the Reveal grid renders (including an empty-slot pulse for a 2-3 player room), the Flip transition completes without throwing, the bracket preview carousel shows one panel per `chars_per_player`, and each panel's link correctly opens `tournament.html?id=...`. Separately verify `tournament.html`'s new undo countdown against a draft-originated bracket (record → undo within 30s succeeds, confirm the countdown UI, confirm it targets the correct `match_key` when two different matches are recorded back to back) and confirm `prefers-reduced-motion` collapses the Flip to an instant swap.
-3. Confirm zero regressions on the existing, non-draft bracket/tournament flow — an owner-created regular tournament's recording/undo/host-admin behavior must be byte-identical to before.
-4. Nothing committed or pushed — stays with the user per standing convention.
+1. `npm run build` in `web/` — confirms the new route compiles and `gsap` resolves.
+2. Local exercise (same sed-`API_BASE`-and-revert pattern used in Phase 5 testing) via Playwright **at the default desktop viewport**: fresh visit to `/login` with no token → tiles load → tap-to-arm → tap-to-confirm → shard layer shows the current #1 leaderboard player's most-played character → shatter plays to full length → lands on `/` with a valid token in `localStorage`. Separately confirm: visiting `/login` while already holding a token redirects straight to `/`; a stale/expired token anywhere else in the app 401s through to `/login` (not the old `login.html`); none of `/login`'s own unauthenticated calls trigger a self-redirect loop; `prefers-reduced-motion` skips the tween and still completes the redirect; a fresh-deploy state with an empty `/leaderboard` falls back to the plain chrome shards without erroring; the new-player form path works end to end.
+3. **Repeat the same login → shatter → landing walkthrough at a mobile viewport** (e.g. Playwright's `iPhone 13` device profile, ~390px wide) — this is the whole reason the 2×6 mobile shard layout exists in §2, so it needs its own pass rather than trusting the desktop run: confirm the 2×6 `clip-path` set is the one actually applied (not the 3×4 desktop set), and that the assembled champion image still reads correctly (no obviously-broken seams or a shard set clearly built for the wrong aspect ratio) before scattering.
+4. Confirm `/login.html` redirects to `/login` (not a 404), and repeat the `grep -rln "login.html"` sweep once done to confirm no leftover references.
+5. Nothing committed or pushed — stays with the user per standing convention.

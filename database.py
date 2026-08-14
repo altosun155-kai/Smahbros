@@ -182,6 +182,37 @@ class TournamentPreset(Base):
     creator = relationship("User")
 
 
+class DraftRoom(Base):
+    __tablename__ = "draft_rooms"
+
+    id               = Column(Integer, primary_key=True, index=True)
+    host_id          = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    status           = Column(String, default="lobby", nullable=False)   # lobby / picking / revealed / live / closed
+    num_players      = Column(Integer, default=4, nullable=False)
+    chars_per_player = Column(Integer, default=1, nullable=False)        # 1, 4, or 8 -- picks per PLAYER, not room total
+    players          = Column(JSON, default=list)                       # ordered [user_id, ...] = join order
+    bracket_id       = Column(Integer, ForeignKey("brackets.id"), nullable=True, index=True)
+    created_at       = Column(DateTime, default=_now)
+
+    host    = relationship("User", foreign_keys=[host_id])
+    bracket = relationship("Bracket")
+
+
+class DraftPick(Base):
+    __tablename__ = "draft_picks"
+    __table_args__ = (UniqueConstraint('room_id', 'player_id', 'slot_index', name='uq_dp_room_player_slot'),)
+
+    id         = Column(Integer, primary_key=True, index=True)
+    room_id    = Column(Integer, ForeignKey("draft_rooms.id"), nullable=False, index=True)
+    player_id  = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    slot_index = Column(Integer, nullable=False)
+    character  = Column(String, nullable=True)
+    locked_at  = Column(DateTime, nullable=True)
+
+    room   = relationship("DraftRoom")
+    player = relationship("User")
+
+
 class ProfileComment(Base):
     __tablename__ = "profile_comments"
 

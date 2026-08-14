@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png" />
+  <meta name="theme-color" content="#0f0f17" />
+  <meta name="view-transition" content="same-origin" />
+  <title>Smash Bracket — Play</title>
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/auth.js"></script>
+  <style>
+    .play-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 640px; margin: 0 auto; }
+    @media (max-width: 700px) { .play-grid { grid-template-columns: 1fr; } }
+    .play-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 40px 24px;
+      text-decoration: none;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .play-card:hover { transform: translateY(-3px); border-color: var(--accent-blue); }
+    .play-card svg { width: 40px; height: 40px; color: var(--accent-blue); }
+    .play-card span { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; color: var(--text); }
+    .play-card p { text-align: center; margin: 0; }
+  </style>
+</head>
+<body>
+<script>requireAuth();</script>
+<div id="toast-container"></div>
+
+<nav class="navbar" id="main-nav"></nav>
+
+<main class="page-container">
+  <div class="page-header">
+    <h1>Play</h1>
+    <p>Choose how you want to play.</p>
+  </div>
+
+  <div class="play-grid">
+    <a class="card card-hover play-card" href="duel.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"></polyline>
+        <line x1="13" y1="19" x2="19" y2="13"></line>
+        <line x1="16" y1="16" x2="20" y2="20"></line>
+        <line x1="19" y1="21" x2="21" y2="19"></line>
+        <polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"></polyline>
+        <line x1="5" y1="14" x2="9" y2="18"></line>
+        <line x1="7" y1="17" x2="4" y2="20"></line>
+        <line x1="3" y1="19" x2="5" y2="21"></line>
+      </svg>
+      <span>1v1 Duel</span>
+      <p>Record a head-to-head match.</p>
+    </a>
+    <a class="card card-hover play-card" href="/draft">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="10" width="12" height="12" rx="2" ry="2"></rect>
+        <path d="m17.92 14 3.5-3.5a2.24 2.24 0 0 0 0-3l-5-4.92a2.24 2.24 0 0 0-3 0L10 5.08"></path>
+        <path d="M6 18h.01"></path>
+        <path d="M10 14h.01"></path>
+        <path d="M15 6h.01"></path>
+        <path d="M18 9h.01"></path>
+      </svg>
+      <span>Draft</span>
+      <p>Draft characters together in real time, then head into a bracket.</p>
+    </a>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script src="js/nav-inject.js"></script>
+<script>
+  (async function init() {
+    try {
+      const me = await apiGet('/users/me');
+      if (me) {
+        document.getElementById('navUsername').textContent = me.username;
+        const url = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
+        const av = document.getElementById('navAvatar');
+        av.src = url; av.style.display = 'block';
+      }
+    } catch (_) {}
+  })();
+</script>
+</body>
+</html>

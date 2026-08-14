@@ -1,4 +1,5 @@
 node_modules/
-package-lock.json
-package.json
-delete-skins.mjs
+/package-lock.json
+/package.json
+/delete-skins.mjs
+web/.next/

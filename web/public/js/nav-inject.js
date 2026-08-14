@@ -3,11 +3,14 @@
   const nav = document.getElementById('main-nav');
   if (!nav) return;
 
+  const DICES_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.15em;"><rect x="2" y="10" width="12" height="12" rx="2" ry="2"></rect><path d="m17.92 14 3.5-3.5a2.24 2.24 0 0 0 0-3l-5-4.92a2.24 2.24 0 0 0-3 0L10 5.08"></path><path d="M6 18h.01"></path><path d="M10 14h.01"></path><path d="M15 6h.01"></path><path d="M18 9h.01"></path></svg>';
+
   const NAV = [
     { href: 'index.html',       label: 'Home',         icon: '🏠' },
     { section: 'Compete' },
     { href: 'bracket.html',       label: 'Bracket',      icon: '🏆' },
     { href: 'duel.html',         label: '1v1 Duel',     icon: '⚔️' },
+    { href: '/draft',           label: 'Draft',        icon: DICES_ICON },
     { href: 'my-brackets.html',  label: 'My Brackets',  icon: '📁' },
     { section: 'Track' },
     { href: 'stats.html',       label: 'Stats',        icon: '📊' },
@@ -43,10 +46,10 @@
     bnav.id = 'bottomNav';
     bnav.setAttribute('role', 'navigation');
     bnav.setAttribute('aria-label', 'Main navigation');
-    const playPages = ['duel.html', 'tournament.html'];
+    const playPages = ['play.html', 'duel.html', 'tournament.html'];
     bnav.innerHTML =
       `<a href="index.html" class="bnav-item${currentPage === 'index.html' ? ' active' : ''}"><span class="bnav-icon">🏠</span>Home</a>` +
-      `<a href="duel.html" class="bnav-item${playPages.includes(currentPage) ? ' active' : ''}"><span class="bnav-icon">⚔️</span>Play</a>` +
+      `<a href="play.html" class="bnav-item${playPages.includes(currentPage) ? ' active' : ''}"><span class="bnav-icon">⚔️</span>Play</a>` +
       `<a href="leaderboard.html" class="bnav-item${currentPage === 'leaderboard.html' ? ' active' : ''}"><span class="bnav-icon">📈</span>Rankings</a>` +
       `<a href="stats.html" class="bnav-item${currentPage === 'stats.html' ? ' active' : ''}"><span class="bnav-icon">📊</span>Stats</a>` +
       `<a href="profile.html" class="bnav-item${currentPage === 'profile.html' ? ' active' : ''}"><span class="bnav-icon">👤</span>Profile</a>`;

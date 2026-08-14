@@ -10,7 +10,7 @@ import logging
 from database import engine, Base, SessionLocal, Bracket, TournamentInvite, DraftRoom
 from auth import decode_token
 from migrations import _run_migrations
-from routers import auth, users, badges, brackets, characters, matches, invites, leaderboard, presets, draft
+from routers import auth, users, badges, brackets, characters, matches, invites, leaderboard, presets, draft, home
 from routers.brackets import bracket_to_dict
 from routers.draft import draft_room_to_dict
 import ws_manager
@@ -57,6 +57,7 @@ app.include_router(invites.router)
 app.include_router(leaderboard.router)
 app.include_router(presets.router)
 app.include_router(draft.router)
+app.include_router(home.router)
 
 
 @app.websocket("/ws/tournament/{tournament_id}")

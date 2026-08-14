@@ -21,16 +21,6 @@ export function getUsername(): string | null {
   return localStorage.getItem('username');
 }
 
-export function setToken(token: string): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('authToken', token);
-}
-
-export function setUsername(username: string): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('username', username);
-}
-
 export function clearToken(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem('authToken');
@@ -115,7 +105,7 @@ async function apiFetch<T = any>(method: string, path: string, body: unknown = n
 
     if (res.status === 401) {
       clearToken();
-      if (typeof window !== 'undefined') window.location.href = '/login';
+      if (typeof window !== 'undefined') window.location.href = '/login.html';
       throw new Error('Session expired. Please log in again.');
     }
 

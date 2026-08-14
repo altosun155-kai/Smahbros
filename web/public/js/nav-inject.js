@@ -52,6 +52,9 @@
       `<a href="play.html" class="bnav-item${playPages.includes(currentPage) ? ' active' : ''}"><span class="bnav-icon">⚔️</span>Play</a>` +
       `<a href="leaderboard.html" class="bnav-item${currentPage === 'leaderboard.html' ? ' active' : ''}"><span class="bnav-icon">📈</span>Rankings</a>` +
       `<a href="stats.html" class="bnav-item${currentPage === 'stats.html' ? ' active' : ''}"><span class="bnav-icon">📊</span>Stats</a>` +
+      `<a href="mastery.html" class="bnav-item${currentPage === 'mastery.html' ? ' active' : ''}"><span class="bnav-icon">🎯</span>Mastery</a>` +
+      `<a href="tier-list.html" class="bnav-item${currentPage === 'tier-list.html' ? ' active' : ''}"><span class="bnav-icon">🎖️</span>Tiers</a>` +
+      `<a href="favorites.html" class="bnav-item${currentPage === 'favorites.html' ? ' active' : ''}"><span class="bnav-icon">⭐</span>Favs</a>` +
       `<a href="profile.html" class="bnav-item${currentPage === 'profile.html' ? ' active' : ''}"><span class="bnav-icon">👤</span>Profile</a>`;
     document.body.appendChild(bnav);
   }

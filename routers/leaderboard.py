@@ -5,10 +5,30 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from database import User, MatchResult
+from database import User, MatchResult, CharacterStats
 from auth import get_db
 
 router = APIRouter(tags=["leaderboard"])
+
+
+def get_champion(db: Session) -> dict | None:
+    """Top player by base rating (User.elo) -- distinct from this file's own
+    win-rate-sorted /leaderboard order. Shared so any surface needing "the
+    champion" (e.g. GET /home/summary) uses the same definition."""
+    top = (
+        db.query(User)
+        .filter(User.is_test == False)
+        .order_by(User.elo.desc())
+        .first()
+    )
+    if not top:
+        return None
+    stats = db.query(CharacterStats).filter(CharacterStats.user_id == top.id).all()
+    character = None
+    if stats:
+        best = max(stats, key=lambda s: ((s.wins or 0) + (s.losses or 0), s.elo or 1000))
+        character = best.character
+    return {"username": top.username, "character": character, "player_elo": top.elo or 1000}
 
 # ── 60-second TTL caches ─────────────────────────────────────────────────────
 _lb_cache: dict = {"data": None, "ts": 0.0}

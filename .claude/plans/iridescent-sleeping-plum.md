@@ -1,82 +1,84 @@
-# Phase 6 — GSAP shatter-transition login
+# Home page redesign — cinematic menu, champion background, one-call summary
 
 ## Context
 
-Last item on the user's original 6-phase roadmap. Phase 4 built the Next.js/React scaffold specifically so upcoming features could be real React instead of bolted onto vanilla pages; Phase 5 used it for the multi-device draft. Phase 6 does the same for the login page.
+The current home page (`web/public/index.html`, ~900 lines) has grown into six overlapping sections — Quick Start presets, three mode cards, two Play cards, and three secondary-link grids (Rankings / History & Stats / Customize) — nearly all of which duplicate navigation that already exists in the sidebar and mobile bottom nav (`web/public/js/nav-inject.js`). This round replaces it with a cinematic three-column menu (reference: an Assassin's Creed-style main menu) built around a champion's character render as background art, a hover-driven detail panel, and one aggregate backend call instead of the current page's half-dozen scattered fetches.
 
-**The spec (from the user, correcting this plan's first draft):** on successful auth, the *current champion's character render* breaks into image tiles that fly outward and fade — not a generic chrome/card shatter. The app's front door is whoever's currently winning, and they visibly become the interface. The champion is the **#1 player on `/leaderboard`** (by win rate). The harder part of the original spec — the tiles flying into the destination page's actual card positions — is explicitly deferred; this round is the outward-scatter version with a hard navigation underneath, done well (no dead air, no flash).
+**Resolved decisions** (asked directly, not assumed):
+- **Continue's empty state**: when there's no in-progress tournament/draft, *New tournament* is promoted into the highlighted top slot instead of Continue — and the detail panel, when that slot is highlighted (including on load, since it's the default), shows the most recently **completed** session's result as a fallback ("last session: Friday night s3 — leap won, 3 days ago"). This needs one extra cheap query in the summary endpoint, not a second system.
+- **Vanilla JS, not React.** Nothing in steps 4–7 requires React — crossfade, parallax, and keyboard nav are all plain-JS techniques already used elsewhere in this codebase. Porting `nav-inject.js` to a shared React layout component stays deferred; scoping it in here would roughly double this task's size and risk for no benefit to the actual redesign.
+- **Team Battle stays out of the menu.** It doesn't exist in the codebase — `web/teams-bracket.html` and `web/team-standings.html` were built, linked, and fully deleted (code + nav entries) in one same-day commit. Including it means rebuilding a deleted feature from scratch, which is out of scope here.
 
-**Champion image, resolved from two already-public endpoints, no new backend work:**
-1. `GET /leaderboard` (already `auth=false`-callable) → `result[0].username` is the #1 player.
-2. `GET /characters/stats/{username}` (already public, no `get_current_user` dependency — confirmed in `routers/characters.py:410`) → returns `{username, stats: [{character, elo, wins, losses, games, ...}]}` for that player. Pick the row with the highest `games` (most-played), tie-broken by `elo` desc — "most-played character" isn't a concept that exists elsewhere in the codebase, so this is a one-off client-side pick, not a new server heuristic to maintain.
-3. `charImgUrl(character)` (`web/app/lib/chars.ts`, already used by the draft screens) resolves that character to its Supabase Storage portrait URL.
+**Champion definition** (per your note, both current and any future surface should share one helper): the #1 player by **`User.elo`** (`database.py:41`, exposed today as `player_elo` in `/leaderboard`'s response) — not the win-rate-sorted order `/leaderboard` uses for its own ranking. New helper `_get_champion(db)` in `routers/leaderboard.py`: top `User.elo` among non-test users, then that player's most-played character via `CharacterStats` (highest `wins+losses`, tie-broken by `elo` — same derivation this session already used once for the login shatter, which is why it belongs in a shared, reusable place rather than inline in a new endpoint).
 
-Fallback if there's no leaderboard entry yet (fresh deploy, zero recorded matches) or the top player has zero `CharacterStats` rows: skip the image-shard version and fall back to the plain chrome shards (`var(--card-bg)` + border, no image) — same shard geometry and tween, just no picture to show. This keeps the page working on day one of a fresh deployment without a special-cased empty state.
+**A gap worth flagging**: step 6 says the secondary nav list can be dropped on mobile because "those are all tabs already." Checked — the mobile bottom nav (`nav-inject.js:49-55`) only has Home/Play/Rankings/Stats/Profile. Mastery, Tier List, and Favorites are *not* in it — today they're only reachable on mobile via the very Rankings/Customize cards this redesign removes. Dropping them with no replacement would make those three pages unreachable on mobile. Fix folded into Step 6: add Mastery, Tier List, and Favorites to `nav-inject.js`'s mobile bottom nav as a compact overflow (or extend the row) rather than silently dropping them.
 
-**Blast radius is small and well-contained.** Grepping the repo for `login.html` (excluding `.next/` build output) turns up exactly 4 redirect call sites across 3 files — `web/public/js/auth.js` (`requireAuth()`, `redirectIfLoggedIn()`, `logout()`), `web/public/js/api.js` (401 handler), `web/app/lib/api.ts` (401 handler). No other vanilla page links to `login.html` directly — every page reaches it exclusively through `requireAuth()`.
+## Step 1 — Delete (do this first, verify in isolation)
 
-**Routing correction:** Next's actual order is `headers → redirects → beforeFiles rewrites → filesystem → afterFiles rewrites`. `redirects()` (unlike the `rewrites()` already used for `/` → `/index.html`) runs *before* the filesystem check, so a `redirects()` entry for `/login.html` → `/login` fires even while `web/public/login.html` still exists on disk — but the plan still deletes that file rather than leaving two logins around, and adds the `redirects()` entry so old bookmarks land on `/login` instead of a 404.
+From `web/public/index.html`, remove:
+- **Quick Start section** (markup lines 448-453, `#homePresetsSection`) and its backing JS: `loadHomePresets()`, `_renderWhoRow()`, `_renderPresetCards()`, `homeClickPlayer`, `homelaunchPreset`, and the `_dimmedPlayers`/`_presetsData`/`_playerTopChars` state (lines ~798-898). CSS: `.qs-*` rules (lines 158-201).
+- **Play cards** (lines 455-474, `.primary-grid`/`.primary-card`) — CSS lines 85-97 (desktop) and 302-319 (mobile), including the dead unused `.rr` (round-robin) variant.
+- **Rankings / History & Stats / Customize** (lines 480-523, three `.secondary-grid` blocks) — CSS lines 100-106 (desktop) and 322-327 (mobile).
 
-**No new runtime dependencies.** `gsap` is already in `web/package.json` (`^3.15.0`, added in Phase 5). The shatter doesn't need the `Flip` plugin Phase 5 used (that morphs one DOM state into another via shared element IDs) — it's a one-way outward scatter, so plain `gsap.to()` per shard is enough.
+Leave completely untouched in this step (their restructuring happens in Step 4, as part of the new layout, not here): the hero card (`#heroCard`, lines 377-415) and Latest Intel (`#squadAlerts` + `loadSquadAlerts()`, lines 477-478 / 688-739) — except trim Latest Intel's render to its first 3 items (`.slice(0, 3)` on the `/matches/shame` response) since the new right column only holds 3 posters.
 
-## 1. `/login` route (React port of `login.html`)
+This is a self-contained, revertible cleanup pass with no new dependencies — verify the page still loads, hero card and a 3-poster Latest Intel still render, and no console errors from the removed functions' now-dangling `onclick` references, before moving to Step 2.
 
-New `web/app/login/page.tsx` (`'use client'`) — behavioral port of `web/public/login.html`'s inline script, reusing existing `auth.css` classes (`.auth-page`, `.auth-card`, `.tile-btn`, `.new-player-form`, …) so the base look is unchanged. `css/auth.css` is only ever linked from `login.html` today (confirmed via grep) — imported directly in the new page file, same pattern already used for `reset.css`/`style.css` in `web/app/layout.tsx`.
+## Step 2 — Palette (token edit, site-wide effect)
 
-- **On mount**: if `getToken()` is already set, redirect to `/` immediately (replaces `login.html`'s `redirectIfLoggedIn()` guard — that function is deleted along with the vanilla page, since nothing else calls it). Also on mount: fire off `import('gsap')`, the champion-image lookup (§2), and resolve the eventual destination via `safeReturnUrl()` (§ below) — all three need to be *ready before the tap*, not fetched/computed reactively at trigger time, since the sequence is tap → `/auth/enter` round-trip → shatter, and there's no reason to add a stall right at the moment that's supposed to feel instant. `loginReturnUrl` is written to `localStorage` by `requireAuth()` *before* the redirect to `/login` even happens, so it's already available at mount time — the destination doesn't need to wait for a successful login to be known.
-- Server-ready gate: port `waitForServer()`'s `/health` retry loop (up to ~90s, disables submit until ready) into `useEffect`/`useState`.
-- Player tiles: port `loadPlayerTiles()` (`apiGet('/auth/users', false)`), tap-to-arm/tap-again-to-confirm state (armed username + a 2.5s timeout ref), hidden-accounts reveal link.
-- New-player form: controlled input + submit handler, same validation as today (non-empty, trimmed).
-- **All unauthenticated calls on this page — `/auth/users`, `/leaderboard`, `/characters/stats/{username}`, `/auth/enter` — must pass `auth=false` explicitly** (`apiGet`/`apiPost`'s existing third param in `web/app/lib/api.ts`). This isn't optional cleanup: if any of these accidentally sent a stale/invalid token and got a 401 back, `api.ts`'s 401 handler redirects to `/login` — while already on `/login`, that's a self-redirect loop. Worth a one-line comment at each call site given the loop risk, not just inherited silently.
-- Shared `enter(username)` handler: `apiPost('/auth/enter', { username }, false)` → on success, `setToken`/`setUsername` (new exports needed in `web/app/lib/api.ts` — today it only has `getToken`/`getUsername`/`clearToken`, mirroring `auth.js`) → trigger the shatter (§2), which navigates from its tween's `onComplete` once the destination (prefetched on mount, see §2) is reached.
-- On error: same inline error-banner behavior as today, re-enables the tile/button.
-- **Destination validation**: `loginReturnUrl` is read from `localStorage` and was written elsewhere in the app as a full `window.location.href` (absolute URL, includes origin). Validate it's same-origin before using it:
-  ```ts
-  function safeReturnUrl(raw: string | null): string | null {
-    if (!raw) return null;
-    try {
-      const u = new URL(raw, window.location.origin);
-      return u.origin === window.location.origin ? u.href : null;
-    } catch {
-      return null;
-    }
-  }
-  ```
-  Destination becomes `safeReturnUrl(returnUrl) || '/'`. Low risk (this is the app's own localStorage key, not user input) but one line to close off regardless.
+`style.css`'s `:root` currently defines only two color accents: `--accent-blue: #0077c8` (17 usages — general UI chrome: links, nav active-state, buttons, focus rings, spinners) and `--accent-gold: #f5a623` (5 usages, already the warm/orange tone — used today for Elo displays). Win/loss green/red are **not tokenized** — they're ~13 scattered hardcoded hex literals (`#e74c3c`, `#27ae60`/`#4ade80`) across `style.css` and `index.html`'s inline styles.
 
-## 2. Shatter transition — champion image, prefetched, no dead-air nav
+- Keep `--accent-gold` as the single kept UI accent (it's already the wordmark's warm tone).
+- `--accent-blue`'s 17 UI-chrome call sites become neutral — reuse existing `--text-muted`/`--border`/`--card-bg2` tokens rather than inventing a new one, since this codebase already has a full neutral palette.
+- Add two new tokens, `--accent-pos: #27ae60` and `--accent-neg: #e74c3c`, and repoint every hardcoded win/loss/positive/negative hex literal at them.
 
-New `web/app/login/ShatterCard.tsx`. On mount of the `/login` page, resolve the champion image (§Context) and cache the URL in state — same "ready before the tap" reasoning as the `gsap` prefetch.
+**This is genuinely site-wide** (`style.css` is shared by every page), not scoped to the home page alone — flagging explicitly since it's a bigger visual footprint than the rest of this task. That's the intended reading of "the layout won't read as cinematic until yours is too."
 
-- A 3×4 grid (12 shards) desktop / **2×6 at ≤700px** (this site's standard mobile breakpoint — confirmed via `web/public/css/style.css`, used repeatedly for other pages' layout switches) of absolutely-positioned `<div>`s, each sized to the *full card's bounding box* (not just its own slice) and stacked with `position: absolute; inset: 0`. The card is narrower and taller on mobile (`.auth-card` caps at `max-width: 420px` but shrinks with viewport, while height grows with tile count) — a fixed 3×4 percentage grid over that shape produces very elongated, sliver-thin cells rather than reasonable-looking shards, so the mobile variant switches to a taller/narrower 2-column arrangement instead. Both variants are still 12 shards total, same tween code, two `clip-path` polygon sets (`.shatter-shard-desktop` / `.shatter-shard-mobile`), picked at trigger time via `window.matchMedia('(max-width: 700px)').matches`. Each shard has a unique `clip-path: polygon(...)` (irregular quad, small jitter computed once per mount) so the 12 together tile the whole card with a cracked-glass seam pattern. Each shard's background is the *same* champion image at `background-size: cover` — the `clip-path` alone determines which wedge is visible, so GSAP can `rotate`/`translate`/`scale` each shard independently and the visible slice moves correctly with it (no manual `background-position` bookkeeping needed). If no champion image resolved (§Context fallback), shards use `background: var(--card-bg); border: 1px solid var(--border)` instead — same geometry, same tween, no image.
-- **Trigger sequence**: real card content (tiles/form) fades out fast (~150ms) while the shard layer fades in showing the assembled champion image; then `gsap.to()` each shard to a randomized outward `x`/`y`/`rotation` + `opacity: 0` (`gsap.utils.random` per shard, short stagger `0.02–0.03`), total tween ~650ms.
-- **No dead air on navigation, without making the tween's length load-speed-dependent**: rather than timing the nav off a fraction of the tween duration (fragile — a fast load truncates the shatter, a slow one still shows dead air), the destination is **prefetched on page mount**, before any tap happens: a `<link rel="prefetch" href={dest}>` injected into `document.head` via `useEffect` once `safeReturnUrl()` resolves (mount-time, per §1). By the time the shatter actually runs, the destination page is already warm in the browser's cache, so `window.location.href = dest` fired from the tween's real `onComplete` is near-instant — the tween always plays to its full, intended length, and the handoff is still tight because the nav itself costs ~nothing.
-- **No background flash**: verified `web/public/css/style.css` sets `background-color: var(--bg)` on `body` (`--bg: #0f0f17`), and that stylesheet is already the *same* file loaded by both `index.html` (via `<link>`) and every Next.js route (via `web/app/layout.tsx`'s `import '../public/css/style.css'`) — so `/login` and the destination page already share an identical background with zero extra work needed here.
-- `prefers-reduced-motion` guard, same convention as `web/app/draft/[roomId]/DraftReveal.tsx`: `window.matchMedia('(prefers-reduced-motion: reduce)').matches` skips the tween entirely and navigates immediately (still via `safeReturnUrl(...) || '/'`).
+## Step 3 — `GET /home/summary` (new `routers/home.py`)
 
-CSS: new shard-specific rules (`.shatter-layer`, `.shatter-shard-desktop`, `.shatter-shard-mobile`, the two sets of 12 `clip-path` polygon variants, gated behind a `@media (max-width: 700px)` block matching the rest of the site) added to `web/public/css/auth.css` — scoped to the auth page like the rest of that file, not `style.css`.
+One aggregate call, auth via `get_current_user` per this repo's convention (`.claude/rules/backend.md`). Response:
+```json
+{
+  "in_progress": {"type": "bracket"|"draft", "id", "name", "round_or_progress", "leader", "started_at"} | null,
+  "last_session": {"name", "winner", "ended_at"} | null,
+  "last_duel": {"opponent", "result", "record", "played_at"} | null,
+  "champion": {"username", "character", "player_elo"},
+  "mastery_coverage": {"played", "total", "pct"},
+  "posters": [ ...3 items, same shape /matches/shame already returns... ]
+}
+```
+Reuse points (nothing here gets reinvented):
+- **`in_progress`**: union of owned live brackets (`Bracket.user_id==me, is_live=True`) + accepted-invite live brackets (exact query already in `routers/brackets.py:169-181`, `/brackets/live`) + draft rooms containing the user (`DraftRoom.players` JSON contains `current_user.id`, `status` in `lobby`/`picking`/`live`) — most recent by timestamp wins. For a bracket's "round", reuse `_compute_round_participants()` (`routers/brackets.py:19-39`) to find the highest round with an unresolved match; "leader" is the bracket host (`b.owner.username`) — a pragmatic stand-in, since "current front-runner mid-bracket" isn't an existing concept to invent one for. For a draft room, `round_or_progress` is lock progress (e.g. `"3/4 locked"`) and leader is the room host.
+- **`last_session`** (only computed when `in_progress` is null, per the resolved decision — one extra query, not a new system): most recently *ended* bracket among owned+accepted-invite brackets (`is_live=False`, order by end/created timestamp desc, limit 1), winner via the existing `_infer_winner()` (`routers/brackets.py:77-94`).
+- **`last_duel`**: one new query — most recent `MatchResult` where the user is winner or loser (`order_by(created_at.desc()).limit(1)`), then two small `count()` queries for the head-to-head record against that specific opponent. Do **not** reuse `/leaderboard/h2h-matrix` wholesale (`routers/leaderboard.py:88-116`) — that computes every pair and would be wasteful for a single lookup; its grouped-query pattern is the thing worth mirroring, not the endpoint itself.
+- **`champion`**: the new `_get_champion(db)` helper described in Context.
+- **`mastery_coverage`**: new per-user query — distinct characters in `current_user`'s `CharacterStats` with games > 0, divided by total roster size. During implementation, source the roster-size constant from wherever `routers/characters.py`'s existing `character_mastery` endpoint (`characters.py:146-167`) already gets it — don't hardcode a second copy of the roster count.
+- **`posters`**: same underlying query `GET /matches/shame` uses (`routers/matches.py:124-151`), called directly (not as an internal HTTP request to itself), limited to 3.
 
-## 3. Repoint the 4 existing redirect call sites + add the bookmark redirect
+## Step 4 — Desktop layout
 
-- `web/public/js/auth.js`: `requireAuth()` and `logout()` → `window.location.href = '/login'` (was `'login.html'`). `redirectIfLoggedIn()` deleted (only ever called from `login.html`, which is being deleted; its job moves into the new page's mount-time check in §1).
-- `web/public/js/api.js` (line 104) and `web/app/lib/api.ts` (line 108): 401 handlers → `/login` (was `login.html` / `/login.html`).
-- `web/next.config.js`: add a `redirects()` export alongside the existing `rewrites()`:
-  ```js
-  async redirects() {
-    return [
-      { source: '/login.html', destination: '/login', permanent: false },
-    ];
-  },
-  ```
+Rebuild `index.html`'s `<main>` into a three-column grid over a full-bleed background:
+- **Left**: primary group (Continue-or-New-tournament, 1v1 duel) — highlighted item bordered+filled; secondary group below as flat hairline rows (Leaderboard, Mastery, Tier List, Favorites, Profile, Sign out — same destinations already in `nav-inject.js`'s NAV array, presented as compact rows instead of cards).
+- **Middle**: the detail panel (Step 5), top-anchored, rest of the column left empty.
+- **Right**: 3 poster cards from `/home/summary`'s `posters`, reusing the existing `.bounty-poster`/`.tombstone-poster` CSS (`style.css:1336-1503`) already shared across pages — same visual style, just relocated and endpoint-driven instead of a direct `/matches/shame` fetch.
+- **Background**: `charImgUrl(champion.character)` (`web/public/js/chars.js`, already the sitewide portrait-URL helper) as a full-bleed image, `filter: brightness(0.3)`, right-anchored, with a gradient-mask overlay fading to near-black toward the left so the menu column sits over it cleanly.
 
-## 4. Delete `web/public/login.html`
+## Step 5 — Detail panel
 
-Removed outright — fully superseded by `/login`. `web/public/css/auth.css` stays (imported from the new React page instead of a `<link>`).
+Default content = Continue/New-tournament's summary on load (matching whichever is the highlighted top slot per Step Context). Hover **or** focus on any menu item — primary or secondary — swaps the panel: last duel for 1v1, champion for Leaderboard, coverage for Mastery, etc. Content crossfades via opacity at ~150ms; the panel itself has a fixed min-height so it never reflows as content length changes across items. Keyboard nav (arrow keys move the highlight across the unified primary+secondary list, Enter activates) reuses the same focus-driven state the hover behavior already needs, so it's a small addition once hover/focus swapping exists.
+
+## Step 6 — Mobile
+
+Drop the secondary hairline list; extend `nav-inject.js`'s mobile bottom nav with Mastery/Tier List/Favorites (see the gap noted in Context) so nothing becomes unreachable. Mobile home becomes four elements: darkened background (same champion art/filter, no parallax), a Continue/New-tournament card with context baked directly into the card body (no hover state on mobile, so the last-session fallback text needs to always render there when relevant), New tournament and 1v1 duel as full-width rows, and the poster strip with `scroll-snap-type: x` — reuse the exact snap-strip technique already built this session for `.draft-bracket-carousel` (`web/public/css/style.css`, added during the draft reveal work).
+
+## Step 7 — Motion
+
+Menu item hover fills background color only (no `transform: scale`). Menu items stagger in on page load via incremental `animation-delay` per item (40ms), same vocabulary as this session's other stagger work, just CSS instead of GSAP since there's no shared-element morph involved. Background parallax (2-3% translate following mouse position) is desktop-only, gated the same way this codebase already detects mobile elsewhere (`window.innerWidth <= 700`), throttled via `requestAnimationFrame`. Everything here respects `prefers-reduced-motion` — same established convention as the rest of this codebase (skip parallax and stagger entirely, land in final state immediately).
 
 ## Verification
 
-1. `npm run build` in `web/` — confirms the new route compiles and `gsap` resolves.
-2. Local exercise (same sed-`API_BASE`-and-revert pattern used in Phase 5 testing) via Playwright **at the default desktop viewport**: fresh visit to `/login` with no token → tiles load → tap-to-arm → tap-to-confirm → shard layer shows the current #1 leaderboard player's most-played character → shatter plays to full length → lands on `/` with a valid token in `localStorage`. Separately confirm: visiting `/login` while already holding a token redirects straight to `/`; a stale/expired token anywhere else in the app 401s through to `/login` (not the old `login.html`); none of `/login`'s own unauthenticated calls trigger a self-redirect loop; `prefers-reduced-motion` skips the tween and still completes the redirect; a fresh-deploy state with an empty `/leaderboard` falls back to the plain chrome shards without erroring; the new-player form path works end to end.
-3. **Repeat the same login → shatter → landing walkthrough at a mobile viewport** (e.g. Playwright's `iPhone 13` device profile, ~390px wide) — this is the whole reason the 2×6 mobile shard layout exists in §2, so it needs its own pass rather than trusting the desktop run: confirm the 2×6 `clip-path` set is the one actually applied (not the 3×4 desktop set), and that the assembled champion image still reads correctly (no obviously-broken seams or a shard set clearly built for the wrong aspect ratio) before scattering.
-4. Confirm `/login.html` redirects to `/login` (not a 404), and repeat the `grep -rln "login.html"` sweep once done to confirm no leftover references.
-5. Nothing committed or pushed — stays with the user per standing convention.
+1. Step 1 verified in isolation first (see above) before any of steps 2-7 begin — gives a real revert point independent of the new design work.
+2. Local exercise via the established sed-`API_BASE`-and-revert + Playwright pattern: at 390px and desktop width, confirm the menu never overlaps the background's focal point, the detail panel's bounding box doesn't change across different highlighted items, Continue's empty state (fresh seeded account, zero brackets/drafts/matches) correctly promotes New tournament and shows no phantom Continue, and the champion background falls back gracefully when `/leaderboard` is empty (same empty-DB test pattern already used for the login shatter's fallback check).
+3. Confirm the `/home/summary` fetch is gated behind the same `/health` cold-start poll as `login.html`'s `waitForServer()` (`web/public/login.html:76-89`) — adapted/copied into the home page's own script, since that function is page-local today, not a shared module.
+4. Confirm nothing on any other page broke from Step 2's site-wide token changes — spot-check a handful of other pages (nav, buttons, a win/loss badge) still render sensibly.
+5. Nothing committed or pushed — stays with you per standing convention.

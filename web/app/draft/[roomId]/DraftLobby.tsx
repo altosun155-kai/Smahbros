@@ -1,14 +1,30 @@
 'use client';
 
-import { useState } from 'react';
-import { apiPost } from '../../lib/api';
+import { useEffect, useState } from 'react';
+import { apiPost, showToast } from '../../lib/api';
 import type { DraftRoomState } from '../../lib/useDraftRoom';
 
 export default function DraftLobby({ room, myId, onChanged }: { room: DraftRoomState; myId: number | null; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shareUrl, setShareUrl] = useState('');
   const isHost = myId === room.host_id;
   const canStart = isHost && room.players.length >= 2;
+
+  // Computed client-side only (not during SSR) so hydration never has to
+  // reconcile a server-rendered empty string against the real location.
+  useEffect(() => {
+    setShareUrl(window.location.href);
+  }, []);
+
+  async function copyShareLink() {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      showToast('Link copied!', 'success');
+    } catch {
+      showToast('Could not copy link', 'error');
+    }
+  }
 
   async function start() {
     setBusy(true);
@@ -40,6 +56,16 @@ export default function DraftLobby({ room, myId, onChanged }: { room: DraftRoomS
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center', padding: '32px 0' }}>
+      {isHost && (
+        <div className="draft-share-bar">
+          <span>Share link with players:</span>
+          <input readOnly value={shareUrl} onFocus={(e) => e.target.select()} />
+          <button type="button" onClick={copyShareLink}>
+            Copy
+          </button>
+        </div>
+      )}
+
       <div className="draft-avatar-grid">
         {slots.map((_, i) => {
           const p = room.players[i];

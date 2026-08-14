@@ -31,19 +31,6 @@
   padding: 40px 40px 32px;
   width: 100%;
   max-width: 420px;
-  transition: opacity 150ms ease;
-}
-
-.auth-card-hidden {
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* Positions the shatter shard layer over the card without affecting its layout. */
-.auth-card-wrap {
-  position: relative;
-  width: 100%;
-  max-width: 420px;
 }
 
 /* Tabs for Sign In / Sign Up */
@@ -293,40 +280,5 @@
 @media (max-width: 480px) {
   .auth-card {
     padding: 28px 20px 24px;
-  }
-}
-
-/* ── Shatter transition (Phase 6) ──────────────────
-   12-shard cracked-glass layer over the auth card. Shards show the current
-   #1 leaderboard player's most-played character (falls back to plain
-   var(--card-bg) chrome if no champion image resolved). Rendered by
-   web/app/login/ShatterCard.tsx; clip-path polygons are computed in JS
-   (jittered vertex grid) and applied inline, this file only owns the box
-   model / fade / border shared by every shard. */
-.shatter-layer {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 150ms ease;
-  border-radius: 14px;
-  overflow: visible;
-}
-
-.shatter-layer-visible {
-  opacity: 1;
-}
-
-.shatter-shard {
-  position: absolute;
-  inset: 0;
-  border-radius: 14px;
-  will-change: transform, opacity;
-}
-
-@media (max-width: 700px) {
-  .shatter-layer,
-  .shatter-shard {
-    border-radius: 10px;
   }
 }

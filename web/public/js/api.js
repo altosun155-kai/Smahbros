@@ -101,7 +101,7 @@ async function apiFetch(method, path, body = null, auth = true) {
 
     if (res.status === 401) {
       clearToken();
-      window.location.href = '/login';
+      window.location.href = 'login.html';
       throw new Error('Session expired. Please log in again.');
     }
 

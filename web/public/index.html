@@ -21,59 +21,17 @@
     /* ═══════════════════════════════════════════════
        DESKTOP  (≥ 701px)
     ═══════════════════════════════════════════════ */
-    /* Hero card */
-    .hero-card {
-      border-radius: 20px;
-      padding: 28px;
-      margin-bottom: 24px;
-      position: relative;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      gap: 24px;
-      min-height: 180px;
-    }
-    .hero-card::before {
-      content: '';
-      position: absolute; inset: 0;
-      background: linear-gradient(135deg, rgba(0,80,180,0.22) 0%, rgba(60,0,120,0.14) 100%);
-      pointer-events: none;
-    }
-    .hero-left  { flex: 1; min-width: 0; position: relative; z-index: 1; }
-    .hero-avatar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
-    .hero-avatar { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.2); flex-shrink: 0; }
-    .hero-name  { font-size: 1.5rem; font-weight: 800; color: #fff; line-height: 1.1; }
-    .hero-badge-row { margin-top: 3px; }
-    .hero-stats-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-    .hero-stat {
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 10px; padding: 6px 14px;
-      display: flex; flex-direction: column; gap: 1px;
-    }
-    .hero-stat-label { font-size: 0.58rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: rgba(255,255,255,0.45); }
-    .hero-stat-val   { font-size: 1.05rem; font-weight: 800; color: #fff; }
-    .hero-stat-sub   { font-size: 0.65rem; color: rgba(255,255,255,0.45); }
-    .hero-right { flex-shrink: 0; position: relative; z-index: 1; width: 130px; display: flex; align-items: center; justify-content: center; }
-    .hero-char-art { width: 130px; height: 130px; object-fit: contain; filter: drop-shadow(0 0 20px rgba(100,160,255,0.5)); image-rendering: pixelated; }
-    .hero-char-name { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: rgba(255,255,255,0.4); white-space: nowrap; }
-
-    /* Live + invite banners */
-    .live-banner { border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; gap: 14px; margin-bottom: 18px; background: linear-gradient(135deg, rgba(231,76,60,0.18), rgba(192,57,43,0.1)); border: 1.5px solid rgba(231,76,60,0.45); }
-    .live-dot { width: 9px; height: 9px; background: #e74c3c; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 8px #e74c3c; animation: pulseDot 1.2s ease-in-out infinite; }
-    .live-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: rgba(231,76,60,0.9); }
-    .live-name  { font-size: 1rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .live-open  { flex-shrink: 0; background: #e74c3c; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; text-decoration: none; white-space: nowrap; }
+    /* Invite banners */
     .invite-card { border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
-    .invite-dot  { width: 10px; height: 10px; background: #e74c3c; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 8px #e74c3c; animation: pulseDot 1.6s ease-in-out infinite; }
+    .invite-dot  { width: 10px; height: 10px; background: var(--accent-neg); border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 8px var(--accent-neg); animation: pulseDot 1.6s ease-in-out infinite; }
     .invite-info { flex: 1; min-width: 0; }
-    .invite-from { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: rgba(120,180,255,0.8); margin-bottom: 2px; }
+    .invite-from { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px; }
     .invite-name { font-size: 0.95rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .invite-actions { display: flex; gap: 8px; flex-shrink: 0; }
-    .invite-view { background: #0077c8; color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 700; font-size: 0.82rem; cursor: pointer; text-decoration: none; }
-    .invite-view:hover { background: #0088e0; }
+    .invite-view { background: var(--accent-blue); color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 700; font-size: 0.82rem; cursor: pointer; text-decoration: none; }
+    .invite-view:hover { background: #c5cfdc; }
     .invite-dismiss { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.45); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px 12px; font-size: 0.82rem; cursor: pointer; }
-    .invite-dismiss:hover { color: #e74c3c; border-color: rgba(231,76,60,0.4); }
+    .invite-dismiss:hover { color: var(--accent-neg); border-color: rgba(231,76,60,0.4); }
     @keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(.8)} }
 
     .alert-time { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
@@ -81,123 +39,127 @@
     /* Section label */
     .section-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.3); margin: 24px 0 10px; }
 
-    /* Primary cards */
-    .primary-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; margin-bottom: 12px; }
-    .primary-card { text-decoration: none; border-radius: 16px; padding: 22px 20px; display: flex; flex-direction: column; gap: 10px; position: relative; overflow: hidden; transition: transform 0.15s, box-shadow 0.15s; backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); }
-    .primary-card:hover { transform: translateY(-3px); }
-    .primary-card.duel    { background: linear-gradient(135deg, rgba(0,100,220,.25), rgba(0,60,140,.15));  border: 1px solid rgba(0,120,255,.3); }
-    .primary-card.bracket { background: linear-gradient(135deg, rgba(245,166,35,.2),  rgba(180,100,0,.12)); border: 1px solid rgba(245,166,35,.3); }
-    .primary-card.rr      { background: linear-gradient(135deg, rgba(39,174,96,.2),   rgba(0,100,60,.12));  border: 1px solid rgba(39,174,96,.3); }
-    .primary-card.duel:hover    { box-shadow: 0 0 28px rgba(0,120,255,.25); border-color: rgba(0,140,255,.5); }
-    .primary-card.bracket:hover { box-shadow: 0 0 28px rgba(245,166,35,.2); border-color: rgba(245,166,35,.55); }
-    .primary-card.rr:hover      { box-shadow: 0 0 28px rgba(39,174,96,.2);  border-color: rgba(39,174,96,.55); }
-    .primary-icon  { font-size: 2rem; line-height: 1; }
-    .primary-title { font-size: 1rem; font-weight: 800; color: #fff; }
-    .primary-desc  { font-size: 0.75rem; color: rgba(255,255,255,.5); line-height: 1.4; }
-    .primary-arrow { position: absolute; top: 18px; right: 18px; font-size: 1rem; color: rgba(255,255,255,.25); }
-
-    /* Secondary cards */
-    .secondary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 10px; }
-    .secondary-card { text-decoration: none; border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; transition: transform .12s, box-shadow .12s, border-color .12s; background: var(--glass-bg); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); }
-    .secondary-card:hover { transform: translateY(-2px); background: var(--glass-bg-strong); border-color: rgba(255,255,255,.14); box-shadow: 0 4px 20px rgba(0,0,0,.3); }
-    .sec-icon { font-size: 1.35rem; flex-shrink: 0; }
-    .sec-text h3 { font-size: 0.88rem; font-weight: 700; color: rgba(255,255,255,.88); margin-bottom: 2px; }
-    .sec-text p  { font-size: 0.72rem; color: rgba(255,255,255,.38); line-height: 1.35; margin: 0; }
-    .sec-arrow   { color: rgba(255,255,255,.2); font-size: 1rem; margin-left: auto; flex-shrink: 0; padding-left: 6px; }
-
     /* Hide mobile-only elements on desktop */
     .mobile-only { display: none !important; }
     #bottomNav   { display: none !important; }
 
-    /* ── Hero char picker ── */
-    .hero-right { cursor: pointer; }
-    .hero-edit-hint {
-      position: absolute; bottom: 6px; right: 6px;
-      background: rgba(0,0,0,.65); border-radius: 50%;
-      width: 22px; height: 22px;
-      display: none; align-items: center; justify-content: center;
-      font-size: 0.7rem; pointer-events: none;
+    /* ── Home shell — champion background, 3-column cinematic menu ── */
+    .home-shell {
+      position: relative;
+      min-height: 78vh;
+      border-radius: 20px;
+      overflow: hidden;
+      margin-top: 4px;
     }
-    .hero-right:hover .hero-edit-hint { display: flex; }
-
-    #heroCharPicker {
-      display: none; position: fixed; inset: 0; z-index: 1000;
-      background: rgba(0,0,0,.72); align-items: center; justify-content: center;
+    .home-bg {
+      position: absolute; inset: 0;
+      background-size: cover;
+      background-position: right center;
+      filter: brightness(0.3);
+      z-index: 0;
+      /* Baseline overscan so the JS-driven parallax translate (desktop only,
+         see waitForServerThenLoadHome's mousemove listener) never reveals an
+         edge -- the scale margin absorbs the small pointer-tracked offset. */
+      transform: scale(1.06);
+      transition: transform 0.3s ease-out;
     }
-    #heroCharPicker.open { display: flex; }
-    .hcp-box {
-      background: #1a1a2e; border: 1px solid rgba(255,255,255,.1);
-      border-radius: 20px; padding: 20px;
-      width: min(480px, 94vw); max-height: 82vh;
-      display: flex; flex-direction: column; gap: 12px;
+    .home-bg::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, var(--bg) 0%, var(--bg) 30%, rgba(15,15,23,0.55) 55%, transparent 78%);
     }
-    .hcp-header { display: flex; align-items: center; justify-content: space-between; }
-    .hcp-title  { font-size: 1rem; font-weight: 800; color: #fff; }
-    .hcp-close  { background: none; border: none; color: rgba(255,255,255,.4); font-size: 1.3rem; cursor: pointer; line-height: 1; padding: 0; }
-    .hcp-search {
-      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
-      border-radius: 10px; color: #fff; padding: 9px 14px;
-      font-size: 0.88rem; width: 100%; outline: none; box-sizing: border-box;
+    .home-elo-badge {
+      position: relative; z-index: 2;
+      display: inline-flex; align-items: baseline; gap: 5px;
+      margin: 20px 0 0 28px;
+      font-family: var(--font-display);
+      font-size: 1.1rem; font-weight: 800; color: var(--accent-gold);
     }
-    .hcp-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-      gap: 6px; overflow-y: auto; max-height: 52vh; padding: 2px;
+    .home-elo-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+
+    .home-grid {
+      position: relative; z-index: 1;
+      display: grid;
+      grid-template-columns: 300px 1fr 260px;
+      gap: 36px;
+      padding: 28px 28px 40px;
+      min-height: 78vh;
+      box-sizing: border-box;
+      align-items: start;
     }
-    .hcp-tile {
-      display: flex; flex-direction: column; align-items: center; gap: 3px;
-      cursor: pointer; border-radius: 10px; padding: 6px 4px;
-      border: 1.5px solid transparent; background: none;
-      transition: background .1s, border-color .1s;
+
+    .home-menu { display: flex; flex-direction: column; gap: 6px; }
+    .home-menu-primary { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+    .home-menu-item {
+      display: block;
+      text-decoration: none;
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      border: 1px solid transparent;
+      background: transparent;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
     }
-    .hcp-tile:hover   { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.15); }
-    .hcp-tile.sel     { border-color: #0077c8; background: rgba(0,119,200,.15); }
-    .hcp-tile img     { width: 46px; height: 46px; object-fit: contain; }
-    .hcp-tile-name    { font-size: 0.5rem; color: rgba(255,255,255,.4); text-align: center; line-height: 1.2; }
-
-    /* ── Quick Start presets ── */
-    .qs-section { margin-bottom: 4px; }
-
-    .qs-who-row { display: flex; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; align-items: flex-start; }
-    .qs-who-bubble { display: flex; flex-direction: column; align-items: center; gap: 5px; background: none; border: none; cursor: pointer; padding: 0; transition: opacity .2s, filter .2s; }
-    .qs-who-bubble.dimmed { opacity: .28; filter: grayscale(1); }
-    .qs-who-av { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,.15); background: rgba(255,255,255,.05); display: block; }
-    .qs-who-name { font-size: 0.6rem; font-weight: 700; color: rgba(255,255,255,.45); letter-spacing: .3px; }
-
-    .qs-scroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; scrollbar-width: none; scroll-snap-type: x mandatory; scroll-padding-inline: 24px; }
-    .qs-scroll::-webkit-scrollbar { display: none; }
-
-    .qs-card {
-      flex-shrink: 0; width: 158px; border-radius: 16px; padding: 14px 14px 12px;
-      display: flex; flex-direction: column; gap: 9px;
-      cursor: pointer; text-align: left; position: relative; overflow: hidden;
-      transition: transform .12s, box-shadow .12s;
-      -webkit-tap-highlight-color: transparent;
-      scroll-snap-align: start;
+    .home-menu-item .hmi-sub { display: block; font-family: var(--font-system); font-size: 0.72rem; font-weight: 500; color: var(--text-muted); margin-top: 2px; }
+    .home-menu-item.highlighted {
+      color: var(--text);
+      background: rgba(245,166,35,0.12);
+      border-color: rgba(245,166,35,0.4);
     }
-    .qs-card:hover  { transform: translateY(-3px); }
-    .qs-card:active { transform: scale(0.96); }
-    .qs-card.launching { pointer-events: none; opacity: .6; }
+    .home-menu-item:hover, .home-menu-item:focus-visible { background: rgba(255,255,255,0.06); color: var(--text); outline: none; }
+    .home-menu-item.highlighted:hover, .home-menu-item.highlighted:focus-visible { background: rgba(245,166,35,0.2); }
 
-    .qs-card.svs { background: linear-gradient(135deg, rgba(231,76,60,.2), rgba(180,30,20,.1)); border: 1px solid rgba(231,76,60,.35); }
-    .qs-card.svs:hover { box-shadow: 0 0 22px rgba(231,76,60,.28); border-color: rgba(231,76,60,.65); }
-    .qs-card.svw { background: linear-gradient(135deg, rgba(39,174,96,.18), rgba(0,100,60,.1)); border: 1px solid rgba(39,174,96,.3); }
-    .qs-card.svw:hover { box-shadow: 0 0 22px rgba(39,174,96,.22); border-color: rgba(39,174,96,.6); }
-    .qs-card.rnd { background: linear-gradient(135deg, rgba(155,89,182,.2), rgba(80,30,140,.1)); border: 1px solid rgba(155,89,182,.35); }
-    .qs-card.rnd:hover { box-shadow: 0 0 22px rgba(155,89,182,.28); border-color: rgba(155,89,182,.65); }
+    .home-menu-secondary { display: flex; flex-direction: column; }
+    .home-menu-secondary-item {
+      display: block;
+      text-decoration: none;
+      background: none;
+      border: none;
+      border-top: 1px solid var(--border);
+      text-align: left;
+      padding: 11px 4px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+    }
+    .home-menu-secondary-item:last-child { border-bottom: 1px solid var(--border); }
+    .home-menu-secondary-item:hover, .home-menu-secondary-item:focus-visible { color: var(--text); background: rgba(255,255,255,0.04); outline: none; }
 
-    .qs-style-chip { font-size: 0.6rem; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; }
-    .qs-card.svs .qs-style-chip { color: rgba(231,76,60,.85); }
-    .qs-card.svw .qs-style-chip { color: rgba(39,174,96,.85); }
-    .qs-card.rnd .qs-style-chip { color: rgba(155,89,182,.9); }
+    .home-panel {
+      min-height: 240px;
+      padding-top: 6px;
+    }
+    .home-panel-content { transition: opacity 0.15s ease; }
+    .home-panel-content.fading { opacity: 0; }
+    .home-panel-loading { color: var(--text-muted); font-size: 0.85rem; }
+    .home-panel-eyebrow { font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--accent-gold); margin-bottom: 8px; }
+    .home-panel-title { font-family: var(--font-display); font-size: 1.4rem; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+    .home-panel-sub { font-size: 0.88rem; color: var(--text-muted); margin-bottom: 14px; }
+    .home-panel-cta { display: inline-block; margin-top: 6px; }
 
-    .qs-name { font-size: 0.9rem; font-weight: 800; color: #fff; line-height: 1.2; }
+    .home-posters { display: flex; flex-direction: column; gap: 14px; }
+    .home-posters .bounty-poster { width: 100%; }
 
-    .qs-heads { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
-    .qs-head { width: 27px; height: 27px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,.06); border: 1.5px solid rgba(255,255,255,.12); transition: opacity .2s, filter .2s; }
-    .qs-head.dimmed { opacity: .2; filter: grayscale(1); }
-
-    .qs-launching-overlay { display: none; position: absolute; inset: 0; background: rgba(13,13,26,.72); border-radius: 16px; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 800; color: rgba(255,255,255,.8); }
-    .qs-card.launching .qs-launching-overlay { display: flex; }
+    /* Stagger-in on page entry. Plain CSS (no shared-element morph involved,
+       unlike the GSAP stagger used for the draft reveal) -- the sitewide
+       prefers-reduced-motion rule in style.css already collapses this to
+       near-instant, no extra guard needed here. */
+    @keyframes homeItemIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .home-menu-item, .home-menu-secondary-item { opacity: 0; animation: homeItemIn 0.35s ease forwards; }
+    .home-menu-primary .home-menu-item:nth-child(1) { animation-delay: 0ms; }
+    .home-menu-primary .home-menu-item:nth-child(2) { animation-delay: 40ms; }
+    .home-menu-secondary .home-menu-secondary-item:nth-child(1) { animation-delay: 0ms; }
+    .home-menu-secondary .home-menu-secondary-item:nth-child(2) { animation-delay: 40ms; }
+    .home-menu-secondary .home-menu-secondary-item:nth-child(3) { animation-delay: 80ms; }
+    .home-menu-secondary .home-menu-secondary-item:nth-child(4) { animation-delay: 120ms; }
+    .home-menu-secondary .home-menu-secondary-item:nth-child(5) { animation-delay: 160ms; }
+    .home-menu-secondary .home-menu-secondary-item:nth-child(6) { animation-delay: 200ms; }
 
     /* ═══════════════════════════════════════════════
        MOBILE  (≤ 700px)
@@ -210,59 +172,53 @@
       /* Make room for fixed bottom nav */
       main.page-container { padding-bottom: 80px !important; padding-top: 0 !important; }
 
-      /* ── Mobile hero card ── */
-      .hero-card {
+      /* ── Mobile home shell ── */
+      .home-shell {
         border-radius: 0;
-        margin: 0 -16px 0;   /* bleed to edges */
-        padding: 18px 16px 22px;
+        margin: 0 -16px 0;
         min-height: unset;
-        gap: 0;
-        position: relative;
-        overflow: hidden;
-        background:
-          linear-gradient(105deg, rgba(0,50,140,.55) 0%, rgba(40,0,100,.45) 60%, transparent 100%),
-          var(--card-bg, #1a1a2e);
-        border: none;
-        border-bottom: 1px solid rgba(255,255,255,.08);
-        border-radius: 0 0 20px 20px;
       }
-      .hero-card::before { display: none; }
+      .home-bg { filter: brightness(0.22); }
+      .home-bg::after { background: linear-gradient(180deg, rgba(15,15,23,0.55) 0%, var(--bg) 60%); }
+      .home-elo-badge { margin: 16px 0 0 16px; }
 
-      /* Avatar row */
-      .hero-avatar-row { gap: 10px; margin-bottom: 6px; }
-      .hero-avatar { width: 44px; height: 44px; }
-      .hero-name   { font-size: 1.25rem; }
-
-      /* Stats in a row of 2 */
-      .hero-stats-row { gap: 6px; margin-top: 10px; }
-      .hero-stat { padding: 5px 12px; border-radius: 8px; }
-      .hero-stat-val { font-size: 0.95rem; }
-
-      /* Character art — peeks from top-right corner */
-      .hero-right {
-        position: absolute;
-        right: -12px;
-        top: -10px;
-        bottom: -10px;
-        width: 130px;
-        display: flex !important;
-        align-items: center;
-        justify-content: flex-end;
-        pointer-events: none;
-        overflow: visible;
+      .home-grid {
+        grid-template-columns: 1fr;
+        gap: 18px;
+        padding: 16px 16px 24px;
+        min-height: unset;
       }
-      .hero-char-art {
-        width: 130px;
-        height: 130px;
-        object-fit: contain;
-        opacity: 0.65;
-        mask-image: linear-gradient(to left, rgba(0,0,0,.95) 45%, transparent 100%);
-        -webkit-mask-image: linear-gradient(to left, rgba(0,0,0,.95) 45%, transparent 100%);
-        filter: drop-shadow(0 0 16px rgba(100,160,255,0.4));
+
+      .home-menu-secondary { display: none; }
+      .home-menu-primary { margin-bottom: 0; gap: 10px; }
+      .home-menu-item {
+        padding: 16px 18px;
+        border-radius: 14px;
       }
-      .hero-char-name { display: none; }
-      /* Push left content away from the art */
-      .hero-left { padding-right: 90px; }
+      .home-menu-item.highlighted .hmi-context {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid rgba(255,255,255,0.08);
+      }
+      .hmi-context { display: none; }
+
+      .home-panel { display: none; }
+
+      .home-posters {
+        flex-direction: row;
+        overflow-x: auto;
+        gap: 14px;
+        padding-bottom: 6px;
+        scroll-snap-type: x mandatory;
+        scroll-padding-inline: 4px;
+        scrollbar-width: none;
+      }
+      .home-posters::-webkit-scrollbar { display: none; }
+      .home-posters .bounty-poster { flex-shrink: 0; width: 200px; scroll-snap-align: start; }
 
       /* ── Mobile invite banner ── */
       #mobileInviteBanner {
@@ -275,56 +231,22 @@
         align-items: center;
         gap: 10px;
         padding: 14px 16px;
-        background: linear-gradient(90deg, rgba(0,100,210,.2), rgba(60,0,140,.12));
-        border: 1.5px solid rgba(0,120,255,.35);
+        background: linear-gradient(90deg, rgba(176,188,206,.15), rgba(176,188,206,.08));
+        border: 1.5px solid rgba(176,188,206,.35);
         border-radius: 14px;
         margin-bottom: 8px;
       }
       .mobile-invite-item .inv-dot {
-        width: 8px; height: 8px; border-radius: 50%; background: #e74c3c;
-        box-shadow: 0 0 6px #e74c3c;
+        width: 8px; height: 8px; border-radius: 50%; background: var(--accent-neg);
+        box-shadow: 0 0 6px var(--accent-neg);
         animation: pulseDot 1.4s ease-in-out infinite;
         flex-shrink: 0;
       }
       .mobile-invite-item .inv-text { flex: 1; min-width: 0; }
-      .mobile-invite-item .inv-by   { font-size: 0.6rem; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: rgba(120,180,255,.8); }
+      .mobile-invite-item .inv-by   { font-size: 0.6rem; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--text-muted); }
       .mobile-invite-item .inv-name { font-size: 0.9rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .mobile-invite-item .inv-btn  { flex-shrink: 0; background: #0077c8; color: #fff; border: none; border-radius: 8px; padding: 9px 16px; font-weight: 800; font-size: 0.82rem; cursor: pointer; text-decoration: none; }
+      .mobile-invite-item .inv-btn  { flex-shrink: 0; background: var(--accent-blue); color: #fff; border: none; border-radius: 8px; padding: 9px 16px; font-weight: 800; font-size: 0.82rem; cursor: pointer; text-decoration: none; }
       .mobile-invite-item .inv-x    { flex-shrink: 0; background: none; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; color: rgba(255,255,255,.4); padding: 9px 10px; font-size: 0.8rem; cursor: pointer; }
-
-      /* ── Live banner mobile ── */
-      .live-banner {
-        border-radius: 12px;
-        padding: 12px 14px;
-        margin-bottom: 12px;
-      }
-
-      /* ── Mobile action bars ── */
-      .primary-grid {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-      .primary-card {
-        border-radius: 14px;
-        flex-direction: row !important;
-        align-items: center;
-        padding: 0 20px;
-        height: 76px;
-        gap: 16px;
-      }
-      .primary-icon  { font-size: 1.8rem; flex-shrink: 0; order: -1; }
-      .primary-title { font-size: 1rem; font-weight: 800; }
-      .primary-desc  { display: none; }
-      .primary-arrow { position: static; order: 99; margin-left: auto; color: rgba(255,255,255,.35); font-size: 1.2rem; }
-
-      /* ── Mobile secondary ── */
-      .secondary-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
-      .secondary-card { padding: 12px 12px; border-radius: 12px; gap: 10px; }
-      .sec-icon { font-size: 1.2rem; }
-      .sec-text h3 { font-size: 0.8rem; }
-      .sec-text p  { display: none; }
-      .sec-arrow   { display: none; }
 
       .section-label { margin: 18px 0 8px; }
 
@@ -360,7 +282,7 @@
         background: none;
         padding: 0;
       }
-      .bnav-item.active, .bnav-item:active { color: var(--accent-blue, #0077c8); }
+      .bnav-item.active, .bnav-item:active { color: var(--accent-blue, #b0bcce); }
       .bnav-icon { font-size: 1.35rem; line-height: 1; }
     }
   </style>
@@ -373,59 +295,8 @@
 
 <main class="page-container" style="padding-top:20px;">
 
-  <!-- ══ HERO CARD (shared, but styled differently per breakpoint) ══ -->
-  <div class="hero-card glass" id="heroCard">
-    <div class="hero-left">
-      <div class="hero-avatar-row">
-        <img class="hero-avatar" id="heroAvatar" src="" alt="avatar" style="display:none;" />
-        <div>
-          <div class="hero-name" id="heroName">—</div>
-          <div class="hero-badge-row" id="heroBadgeRow"></div>
-        </div>
-      </div>
-      <div class="hero-stats-row">
-        <div class="hero-stat">
-          <span class="hero-stat-label">Top Elo</span>
-          <span class="hero-stat-val" id="heroElo">—</span>
-          <span class="hero-stat-sub" id="heroEloChar">—</span>
-        </div>
-        <div class="hero-stat">
-          <span class="hero-stat-label">Best Rank</span>
-          <span class="hero-stat-val" id="heroRank">—</span>
-          <span class="hero-stat-sub" id="heroRankChar">—</span>
-        </div>
-        <div class="hero-stat">
-          <span class="hero-stat-label">Total Wins</span>
-          <span class="hero-stat-val" id="heroWins">—</span>
-          <span class="hero-stat-sub">all characters</span>
-        </div>
-        <div class="hero-stat">
-          <span class="hero-stat-label">Best Win%</span>
-          <span class="hero-stat-val" id="heroWinPct">—</span>
-          <span class="hero-stat-sub" id="heroWinPctChar">—</span>
-        </div>
-      </div>
-    </div>
-    <!-- Character art: visible on desktop normally, on mobile as peek -->
-    <div class="hero-right" id="heroRight" style="display:none;" onclick="openHeroCharPicker()" title="Click to change">
-      <img class="hero-char-art" id="heroCharArt" src="" alt="" />
-      <div class="hero-char-name" id="heroCharName"></div>
-      <div class="hero-edit-hint">✏️</div>
-    </div>
-  </div>
-
-  <!-- ══ MOBILE INVITES (below hero, mobile only) ══ -->
+  <!-- ══ MOBILE INVITES (mobile only) ══ -->
   <div id="mobileInviteBanner" class="mobile-only" style="display:none !important;"></div>
-
-  <!-- ══ LIVE TOURNAMENT BANNER ══ -->
-  <div id="liveBanner" style="display:none;" class="live-banner">
-    <div class="live-dot"></div>
-    <div style="flex:1;min-width:0;">
-      <div class="live-label">Live Tournament</div>
-      <div class="live-name" id="liveName"></div>
-    </div>
-    <a id="liveLink" href="#" class="live-open">Open →</a>
-  </div>
 
   <!-- ══ DESKTOP INVITE SECTION ══ -->
   <div id="inviteSection" style="display:none;" class="desktop-only">
@@ -433,109 +304,33 @@
     <div id="inviteList"></div>
   </div>
 
-  <!-- ══ HERO CHAR PICKER ══ -->
-  <div id="heroCharPicker">
-    <div class="hcp-box">
-      <div class="hcp-header">
-        <div class="hcp-title">Choose Your Icon</div>
-        <button type="button" class="hcp-close" onclick="closeHeroCharPicker()">✕</button>
-      </div>
-      <input type="text" class="hcp-search" id="hcpSearch" placeholder="Search characters…" oninput="renderHcpGrid()" />
-      <div class="hcp-grid" id="hcpGrid"></div>
+  <!-- ══ HOME SHELL — champion background, 3-column cinematic menu ══ -->
+  <div class="home-shell" id="homeShell">
+    <div class="home-bg" id="homeBg"></div>
+
+    <div class="home-elo-badge" id="homeEloBadge" style="display:none;">
+      <span id="homeEloVal">—</span><span class="home-elo-label">Elo</span>
     </div>
-  </div>
 
-  <!-- ══ QUICK START PRESETS ══ -->
-  <div id="homePresetsSection" class="qs-section" style="display:none;">
-    <div class="section-label">Quick Start</div>
-    <div class="qs-who-row" id="homeWhoRow"></div>
-    <div class="qs-scroll" id="homePresetCards"></div>
-  </div>
+    <div class="home-grid">
+      <nav class="home-menu" id="homeMenu" aria-label="Home menu">
+        <div class="home-menu-primary" id="homeMenuPrimary"></div>
+        <div class="home-menu-secondary" id="homeMenuSecondary"></div>
+      </nav>
 
-  <!-- ══ PLAY ══ -->
-  <div class="section-label">Play</div>
-  <div class="primary-grid">
-    <a href="duel.html" class="primary-card duel">
-      <span class="primary-arrow">›</span>
-      <div class="primary-icon">⚔️</div>
-      <div>
-        <div class="primary-title">1v1 Duel</div>
-        <div class="primary-desc">Head-to-head with live elo and stock multipliers.</div>
+      <div class="home-panel" id="homePanel">
+        <div class="home-panel-content" id="homePanelContent">
+          <p class="home-panel-loading">Loading…</p>
+        </div>
       </div>
-    </a>
-    <a href="bracket.html" class="primary-card bracket">
-      <span class="primary-arrow">›</span>
-      <div class="primary-icon">🏆</div>
-      <div>
-        <div class="primary-title">Tournament</div>
-        <div class="primary-desc">Single-elimination with elo rewards.</div>
-      </div>
-    </a>
-  </div>
 
-  <!-- ══ SQUAD ALERTS ══ -->
-  <div class="section-label">⚠️ Latest Intel</div>
-  <div id="squadAlerts"></div>
-
-  <!-- ══ RANKINGS ══ -->
-  <div class="section-label">Rankings</div>
-  <div class="secondary-grid">
-    <a href="leaderboard.html" class="secondary-card">
-      <span class="sec-icon">📈</span>
-      <div class="sec-text"><h3>Leaderboard</h3><p>Elo, wins, kills & win rate</p></div>
-      <span class="sec-arrow">›</span>
-    </a>
-    <a href="mastery.html" class="secondary-card">
-      <span class="sec-icon">🎯</span>
-      <div class="sec-text"><h3>Mastery</h3><p>Who owns each character</p></div>
-      <span class="sec-arrow">›</span>
-    </a>
-  </div>
-
-  <!-- ══ HISTORY & STATS ══ -->
-  <div class="section-label">History &amp; Stats</div>
-  <div class="secondary-grid">
-    <a href="stats.html" class="secondary-card">
-      <span class="sec-icon">📊</span>
-      <div class="sec-text"><h3>Character Stats</h3><p>Elo, win%, K/D</p></div>
-      <span class="sec-arrow">›</span>
-    </a>
-    <a href="my-brackets.html" class="secondary-card">
-      <span class="sec-icon">📁</span>
-      <div class="sec-text"><h3>My Brackets</h3><p>All saved tournaments</p></div>
-      <span class="sec-arrow">›</span>
-    </a>
-  </div>
-
-  <!-- ══ CUSTOMIZE ══ -->
-  <div class="section-label">Customize</div>
-  <div class="secondary-grid">
-    <a href="tier-list.html" class="secondary-card">
-      <span class="sec-icon">🎖️</span>
-      <div class="sec-text"><h3>Tier List</h3><p>Rank all 89 fighters</p></div>
-      <span class="sec-arrow">›</span>
-    </a>
-    <a href="favorites.html" class="secondary-card">
-      <span class="sec-icon">⭐</span>
-      <div class="sec-text"><h3>Favorites</h3><p>Top 10 for auto-fill</p></div>
-      <span class="sec-arrow">›</span>
-    </a>
+      <div class="home-posters" id="homePosters"></div>
+    </div>
   </div>
 
 </main>
 
-<!-- ══ MOBILE BOTTOM NAV ══ -->
-<nav id="bottomNav" role="navigation" aria-label="Main navigation">
-  <a href="index.html"        class="bnav-item active"><span class="bnav-icon">🏠</span>Home</a>
-  <a href="duel.html"         class="bnav-item"><span class="bnav-icon">⚔️</span>Play</a>
-  <a href="leaderboard.html"  class="bnav-item"><span class="bnav-icon">📈</span>Rankings</a>
-  <a href="stats.html"        class="bnav-item"><span class="bnav-icon">📊</span>Stats</a>
-  <a href="profile.html"      class="bnav-item"><span class="bnav-icon">👤</span>Profile</a>
-</nav>
-
 <script src="js/api.js"></script>
-<script src="js/badge-data.js"></script>
-<script src="js/badges.js"></script>
 <script src="js/chars.js"></script>
 <script src="js/nav-inject.js"></script>
 <script>
@@ -546,104 +341,13 @@
   const isMobile = () => window.innerWidth <= 700;
 
   (async function init() {
-    let me = null;
     try {
-      me = await apiGet('/users/me');
+      const me = await apiGet('/users/me');
       if (me) {
-        _meUsername = me.username;
         document.getElementById('navUsername').textContent = me.username;
         const avatarUrl = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
         const navAv = document.getElementById('navAvatar');
         navAv.src = avatarUrl; navAv.style.display = 'block';
-        document.getElementById('heroName').textContent = me.username;
-        const heroAv = document.getElementById('heroAvatar');
-        heroAv.src = avatarUrl; heroAv.style.display = 'block';
-      }
-    } catch (_) {}
-
-    // Badge
-    if (me) {
-      try {
-        await loadAllBadges();
-        const b = _allBadges[me.username];
-        if (b) {
-          const icon = b.id === 'char_king'
-            ? (CHAR_EMOJIS[b.label.replace(/ King$/,'')] || '👾')
-            : (BADGE_ICONS[b.id] || '🏅');
-          document.getElementById('heroBadgeRow').innerHTML =
-            `<span style="display:inline-flex;align-items:center;gap:4px;background:${b.color}22;border:1px solid ${b.color}44;color:${b.color};border-radius:8px;padding:2px 9px;font-size:0.7rem;font-weight:700;">${icon} ${b.label}</span>`;
-        }
-      } catch (_) {}
-    }
-
-    // Stats + hero art
-    if (me) {
-      try {
-        const stats = await apiGet('/characters/stats');
-        if (Array.isArray(stats) && stats.length) {
-          const byElo = [...stats].sort((a,b) => (b.elo||1000)-(a.elo||1000));
-          const top = byElo[0];
-          document.getElementById('heroElo').textContent = top.elo || 1000;
-          document.getElementById('heroEloChar').textContent = top.character;
-
-          // Determine hero char: localStorage → first favorite → top elo
-          let heroChar = localStorage.getItem('heroChar_' + me.username);
-          if (!heroChar || !SMASH_ROSTER.includes(heroChar)) {
-            try {
-              const favs = await apiGet('/characters/favorites');
-              heroChar = (favs.characters || [])[0] || null;
-            } catch(_) {}
-          }
-          if (!heroChar) heroChar = top.character;
-          _heroCharChoice = heroChar;
-          setHeroChar(heroChar);
-
-          const totalWins = stats.reduce((acc,r) => acc+(r.wins||0), 0);
-          document.getElementById('heroWins').textContent = totalWins;
-
-          const qualified = stats.filter(s => (s.wins||0)+(s.losses||0) >= 3);
-          if (qualified.length) {
-            const best = qualified.sort((a,b)=> (b.wins/(b.wins+b.losses)) - (a.wins/(a.wins+a.losses)))[0];
-            const pct = Math.round(best.wins/(best.wins+best.losses)*100);
-            document.getElementById('heroWinPct').textContent = `${pct}%`;
-            document.getElementById('heroWinPctChar').textContent = best.character;
-          }
-
-          try {
-            const lb = await apiGet('/characters/stats/leaderboard/elo');
-            if (lb && lb.length) {
-              let bestRank = Infinity, bestRankChar = '';
-              for (const s of stats) {
-                let rank = 1;
-                for (const e of lb) {
-                  if (e.username === me.username && e.character === s.character) continue;
-                  if ((e.elo||1000) > (s.elo||1000)) rank++;
-                }
-                if (rank < bestRank) { bestRank = rank; bestRankChar = s.character; }
-              }
-              if (bestRank !== Infinity) {
-                document.getElementById('heroRank').textContent = `#${bestRank}`;
-                document.getElementById('heroRankChar').textContent = bestRankChar;
-              }
-            }
-          } catch (_) {}
-        }
-      } catch (_) {}
-    }
-
-    // Live tournaments — own brackets + invited ones
-    try {
-      const [ownBrackets, invitedLive] = await Promise.all([
-        apiGet('/brackets').catch(() => []),
-        apiGet('/brackets/live').catch(() => []),
-      ]);
-      const ownLive = (ownBrackets || []).filter(b => b.is_live);
-      const allLive = [...ownLive, ...(invitedLive || [])];
-      if (allLive.length > 0) {
-        const t = allLive[0];
-        document.getElementById('liveName').textContent = t.name;
-        document.getElementById('liveLink').href = `tournament.html?id=${t.id}`;
-        document.getElementById('liveBanner').style.display = 'flex';
       }
     } catch (_) {}
 
@@ -694,218 +398,6 @@
     } catch (_) {}
   })();
 
-  (async function loadSquadAlerts() {
-    const container = document.getElementById('squadAlerts');
-    try {
-      const data = await apiGet('/matches/shame');
-      if (!data || !data.length) {
-        container.innerHTML = '<div style="font-size:0.8rem;color:var(--text-muted);padding:4px 0;">No 3-stocks yet — stay strapped.</div>';
-        return;
-      }
-      const now = Date.now();
-      const timeAgo = iso => {
-        const s = Math.floor((now - new Date(iso)) / 1000);
-        if (s < 60) return 'just now';
-        if (s < 3600) return `${Math.floor(s/60)}m ago`;
-        if (s < 86400) return `${Math.floor(s/3600)}h ago`;
-        return `${Math.floor(s/86400)}d ago`;
-      };
-      const cards = data.flatMap(r => {
-        const wImg = typeof charImgUrl === 'function' ? charImgUrl(r.winner_char) : '';
-        const lImg = typeof charImgUrl === 'function' ? charImgUrl(r.loser_char)  : '';
-        const ago  = timeAgo(r.created_at);
-        return [
-          `<div class="bounty-poster" style="background-image:url('${wImg}')">
-            <div class="bp-top">
-              <div class="bp-header">WANTED</div>
-              <div class="bp-doa">☠ Dead or Alive ☠</div>
-            </div>
-            <div class="bp-bottom">
-              <div class="bp-name">${escHtml(r.winner)}</div>
-              <div class="bp-char">${escHtml(r.winner_char)}</div>
-              <div class="bp-crime">3-Stocked ${escHtml(r.loser)}</div>
-              <div class="bp-time">${ago}</div>
-            </div>
-          </div>`,
-          `<div class="bounty-poster tombstone-poster" style="background-image:url('${lImg}')">
-            <div class="bp-top">
-              <div class="bp-header">R.I.P.</div>
-            </div>
-            <div class="bp-bottom">
-              <div class="bp-sublabel">Here lies</div>
-              <div class="bp-name">${escHtml(r.loser)}</div>
-              <div class="bp-char">${escHtml(r.loser_char)}</div>
-              <div class="bp-crime">3-Stocked by ${escHtml(r.winner)}</div>
-              <div class="bp-time">${ago}</div>
-            </div>
-          </div>`
-        ];
-      });
-      container.innerHTML = `<div class="bounty-grid">${cards.join('')}</div>`;
-    } catch (_) {
-      container.innerHTML = '';
-    }
-  })();
-
-  let _meUsername = null;
-  let _heroCharChoice = null;
-
-  function slugifyChar(c) {
-    return c.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-  }
-
-  function setHeroChar(char) {
-    if (!char || typeof charImgUrl !== 'function') return;
-    const heroRight = document.getElementById('heroRight');
-    const heroArt   = document.getElementById('heroCharArt');
-    heroArt.src = charImgUrl(char);
-    heroArt.alt = char;
-    heroArt.style.viewTransitionName = 'char-portrait-' + slugifyChar(char);
-    document.getElementById('heroCharName').textContent = char;
-    heroRight.style.display = 'flex';
-    heroArt.onerror = () => { heroRight.style.display = 'none'; };
-    const statEl = document.getElementById('heroEloChar');
-    // keep top-elo label; glow is accent blue for chosen chars
-    heroArt.style.filter = 'drop-shadow(0 0 22px rgba(100,160,255,.5))';
-  }
-
-  function openHeroCharPicker() {
-    document.getElementById('heroCharPicker').classList.add('open');
-    document.getElementById('hcpSearch').value = '';
-    renderHcpGrid();
-    setTimeout(() => document.getElementById('hcpSearch').focus(), 50);
-  }
-  function closeHeroCharPicker() {
-    document.getElementById('heroCharPicker').classList.remove('open');
-  }
-  document.getElementById('heroCharPicker').addEventListener('click', e => {
-    if (e.target === document.getElementById('heroCharPicker')) closeHeroCharPicker();
-  });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeHeroCharPicker();
-  });
-
-  function renderHcpGrid() {
-    const q = document.getElementById('hcpSearch').value.toLowerCase();
-    const chars = (typeof SMASH_ROSTER !== 'undefined' ? SMASH_ROSTER : [])
-      .filter(c => !q || c.toLowerCase().includes(q));
-    document.getElementById('hcpGrid').innerHTML = chars.map(c =>
-      `<button type="button" class="hcp-tile${c === _heroCharChoice ? ' sel' : ''}" onclick="pickHeroChar(${JSON.stringify(c)})">
-        <img src="${charImgUrl(c)}" alt="${escHtml(c)}" onerror="this.style.opacity='0.2'" />
-        <div class="hcp-tile-name">${escHtml(c)}</div>
-      </button>`
-    ).join('');
-  }
-
-  function pickHeroChar(char) {
-    _heroCharChoice = char;
-    if (_meUsername) localStorage.setItem('heroChar_' + _meUsername, char);
-    closeHeroCharPicker();
-    setHeroChar(char);
-  }
-
-  let _dimmedPlayers = new Set();
-  let _presetsData   = [];
-  let _playerTopChars = {};
-
-  (async function loadHomePresets() {
-    try {
-      const presets = await apiGet('/presets');
-      if (!presets || !presets.length) return;
-      _presetsData = presets;
-      document.getElementById('homePresetsSection').style.display = 'block';
-
-      const allPlayers = [...new Set(presets.flatMap(p => p.players))];
-
-      await Promise.all(allPlayers.map(async u => {
-        try {
-          const d = await apiGet('/characters/favorites/' + encodeURIComponent(u));
-          _playerTopChars[u] = (d.characters || [])[0] || null;
-        } catch(_) {}
-        if (!_playerTopChars[u]) {
-          try {
-            const d = await apiGet('/characters/stats/' + encodeURIComponent(u));
-            const sorted = (d.stats || []).sort((a,b) => (b.elo||1000)-(a.elo||1000));
-            _playerTopChars[u] = sorted[0]?.character || null;
-          } catch(_) { _playerTopChars[u] = null; }
-        }
-      }));
-
-      _renderWhoRow(allPlayers);
-      _renderPresetCards();
-    } catch (_) {}
-  })();
-
-  function _renderWhoRow(players) {
-    document.getElementById('homeWhoRow').innerHTML = players.map(u => {
-      const char = _playerTopChars[u];
-      const src = char
-        ? charHeadUrl(char)
-        : `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}`;
-      return `<button type="button" class="qs-who-bubble" id="qsWho_${escHtml(u)}" onclick="homeClickPlayer(${escHtml(JSON.stringify(u))})">
-        <img class="qs-who-av" src="${escHtml(src)}" alt="${escHtml(u)}"
-             onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}'" />
-        <span class="qs-who-name">${escHtml(u)}</span>
-      </button>`;
-    }).join('');
-  }
-
-  function homeClickPlayer(u) {
-    // Clicking yourself toggles them in/out of preset cards; clicking anyone else opens duel
-    if (u === _meUsername) {
-      if (_dimmedPlayers.has(u)) _dimmedPlayers.delete(u);
-      else _dimmedPlayers.add(u);
-      const el = document.getElementById('qsWho_' + u);
-      if (el) el.classList.toggle('dimmed', _dimmedPlayers.has(u));
-      _renderPresetCards();
-    } else {
-      window.location.href = `duel.html?vs=${encodeURIComponent(u)}`;
-    }
-  }
-
-  function _renderPresetCards() {
-    const container = document.getElementById('homePresetCards');
-    const html = _presetsData.map(p => {
-      const activePlayers = p.players.filter(u => !_dimmedPlayers.has(u));
-      if (activePlayers.length < 2) return '';
-
-      const style = (p.bracket_style || 'strongVsStrong').split('|')[0];
-      const cls   = style === 'strongVsStrong' ? 'svs' : style === 'strongVsWeak' ? 'svw' : 'rnd';
-      const chip  = style === 'strongVsStrong' ? '⚡ Sweaty' : style === 'strongVsWeak' ? '📊 Balanced' : '🎲 Chaos';
-
-      const heads = p.players.map(u => {
-        const char = _playerTopChars[u];
-        const src  = char
-          ? charHeadUrl(char)
-          : `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}`;
-        const dm = _dimmedPlayers.has(u) ? ' dimmed' : '';
-        return `<img class="qs-head${dm}" src="${escHtml(src)}" alt="${escHtml(u)}" title="${escHtml(u)}"
-                     onerror="this.src='https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(u)}'" />`;
-      }).join('');
-
-      return `<div class="qs-card ${cls}" onclick="homelaunchPreset(${p.id},this)" role="button" tabindex="0">
-        <div class="qs-style-chip">${chip}</div>
-        <div class="qs-name">${escHtml(p.name)}</div>
-        <div class="qs-heads">${heads}</div>
-        <div class="qs-launching-overlay">⏳ Launching…</div>
-      </div>`;
-    }).filter(Boolean).join('');
-
-    container.innerHTML = html || '<div style="font-size:0.8rem;color:var(--text-muted);padding:4px 0;">Need at least 2 active players.</div>';
-  }
-
-  async function homelaunchPreset(id, cardEl) {
-    if (cardEl.classList.contains('launching')) return;
-    cardEl.classList.add('launching');
-    try {
-      const res = await apiPost('/presets/' + id + '/launch', { exclude_players: [..._dimmedPlayers] });
-      window.location.href = 'tournament.html?id=' + res.id;
-    } catch(e) {
-      cardEl.classList.remove('launching');
-      alert(e?.detail || e?.message || 'Launch failed');
-    }
-  }
-
   function dismissInvite(id, ...elIds) {
     elIds.forEach(elId => document.getElementById(elId)?.remove());
     apiPatch(`/invites/${id}`, { status: 'declined' }).catch(() => {});
@@ -914,6 +406,255 @@
     if (list && !list.children.length) document.getElementById('inviteSection').style.display = 'none';
     const mob = document.getElementById('mobileInviteBanner');
     if (mob && !mob.children.length) mob.style.cssText = 'display:none !important;';
+  }
+
+  // ── Home shell: one /home/summary call drives the champion background,
+  // the menu, the detail panel, and the poster column. ──
+
+  function timeAgoFrom(iso) {
+    if (!iso) return '';
+    const s = Math.floor((Date.now() - new Date(iso)) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+    return `${Math.floor(s / 86400)}d ago`;
+  }
+
+  function posterHtml(r) {
+    const wImg = typeof charImgUrl === 'function' ? charImgUrl(r.winner_char) : '';
+    const lImg = typeof charImgUrl === 'function' ? charImgUrl(r.loser_char) : '';
+    const ago = timeAgoFrom(r.created_at);
+    return [
+      `<div class="bounty-poster" style="background-image:url('${wImg}')">
+        <div class="bp-top">
+          <div class="bp-header">WANTED</div>
+          <div class="bp-doa">☠ Dead or Alive ☠</div>
+        </div>
+        <div class="bp-bottom">
+          <div class="bp-name">${escHtml(r.winner)}</div>
+          <div class="bp-char">${escHtml(r.winner_char)}</div>
+          <div class="bp-crime">3-Stocked ${escHtml(r.loser)}</div>
+          <div class="bp-time">${ago}</div>
+        </div>
+      </div>`,
+      `<div class="bounty-poster tombstone-poster" style="background-image:url('${lImg}')">
+        <div class="bp-top"><div class="bp-header">R.I.P.</div></div>
+        <div class="bp-bottom">
+          <div class="bp-sublabel">Here lies</div>
+          <div class="bp-name">${escHtml(r.loser)}</div>
+          <div class="bp-char">${escHtml(r.loser_char)}</div>
+          <div class="bp-crime">3-Stocked by ${escHtml(r.winner)}</div>
+          <div class="bp-time">${ago}</div>
+        </div>
+      </div>`,
+    ];
+  }
+
+  let _homeSummary = null;
+
+  function panelContentFor(key) {
+    const s = _homeSummary;
+    if (!s) return '<p class="home-panel-loading">Loading…</p>';
+
+    if (key === 'primary') {
+      if (s.in_progress) {
+        const ip = s.in_progress;
+        const href = ip.type === 'draft' ? `/draft/${ip.id}` : `tournament.html?id=${ip.id}`;
+        return `<div class="home-panel-eyebrow">In Progress</div>
+          <div class="home-panel-title">${escHtml(ip.name)}</div>
+          <div class="home-panel-sub">${escHtml(ip.round_or_progress || '')} · Host ${escHtml(ip.leader)}</div>
+          <a href="${href}" class="btn btn-primary home-panel-cta">Continue →</a>`;
+      }
+      if (s.last_session) {
+        const ls = s.last_session;
+        return `<div class="home-panel-eyebrow">Last Session</div>
+          <div class="home-panel-title">${escHtml(ls.name)}</div>
+          <div class="home-panel-sub">${ls.winner ? escHtml(ls.winner) + ' won' : 'No winner recorded'} · ${timeAgoFrom(ls.ended_at)}</div>
+          <a href="bracket.html" class="btn btn-primary home-panel-cta">New Tournament →</a>`;
+      }
+      return `<div class="home-panel-eyebrow">Get Started</div>
+        <div class="home-panel-title">Start your first tournament</div>
+        <div class="home-panel-sub">Single-elimination with elo rewards.</div>
+        <a href="bracket.html" class="btn btn-primary home-panel-cta">New Tournament →</a>`;
+    }
+
+    if (key === 'duel') {
+      if (s.last_duel) {
+        const d = s.last_duel;
+        return `<div class="home-panel-eyebrow">1v1 Duel</div>
+          <div class="home-panel-title">${d.result === 'W' ? 'Beat' : 'Lost to'} ${escHtml(d.opponent)}</div>
+          <div class="home-panel-sub">Head-to-head record ${escHtml(d.record)} · ${timeAgoFrom(d.played_at)}</div>
+          <a href="duel.html" class="btn btn-primary home-panel-cta">Play a Duel →</a>`;
+      }
+      return `<div class="home-panel-eyebrow">1v1 Duel</div>
+        <div class="home-panel-title">Head-to-head</div>
+        <div class="home-panel-sub">Live elo and stock multipliers.</div>
+        <a href="duel.html" class="btn btn-primary home-panel-cta">Play a Duel →</a>`;
+    }
+
+    if (key === 'leaderboard') {
+      const c = s.champion;
+      return `<div class="home-panel-eyebrow">Leaderboard</div>
+        <div class="home-panel-title">${c ? escHtml(c.username) : 'No champion yet'}</div>
+        <div class="home-panel-sub">${c ? `${c.player_elo} elo · ${escHtml(c.character || '—')}` : 'Play a match to get on the board.'}</div>
+        <a href="leaderboard.html" class="btn btn-primary home-panel-cta">View Leaderboard →</a>`;
+    }
+
+    if (key === 'mastery') {
+      const played = s.mastery_coverage ? s.mastery_coverage.played : 0;
+      const total = (typeof SMASH_ROSTER !== 'undefined' && SMASH_ROSTER.length) || 0;
+      const pct = total ? Math.round((played / total) * 100) : 0;
+      return `<div class="home-panel-eyebrow">Mastery</div>
+        <div class="home-panel-title">${played}${total ? `/${total}` : ''} characters played</div>
+        <div class="home-panel-sub">${total ? `${pct}% roster coverage` : 'Who owns each character.'}</div>
+        <a href="mastery.html" class="btn btn-primary home-panel-cta">View Mastery →</a>`;
+    }
+
+    if (key === 'tier-list') {
+      return `<div class="home-panel-eyebrow">Tier List</div>
+        <div class="home-panel-title">Rank the roster</div>
+        <div class="home-panel-sub">Rank all fighters your way.</div>
+        <a href="tier-list.html" class="btn btn-primary home-panel-cta">Open Tier List →</a>`;
+    }
+
+    if (key === 'favorites') {
+      return `<div class="home-panel-eyebrow">Favorites</div>
+        <div class="home-panel-title">Your top picks</div>
+        <div class="home-panel-sub">Top 10 for auto-fill.</div>
+        <a href="favorites.html" class="btn btn-primary home-panel-cta">Open Favorites →</a>`;
+    }
+
+    if (key === 'profile') {
+      return `<div class="home-panel-eyebrow">Profile</div>
+        <div class="home-panel-title">Your profile</div>
+        <div class="home-panel-sub">Match history and badges.</div>
+        <a href="profile.html" class="btn btn-primary home-panel-cta">Open Profile →</a>`;
+    }
+
+    if (key === 'signout') {
+      return `<div class="home-panel-eyebrow">Sign Out</div>
+        <div class="home-panel-title">See you next time</div>
+        <div class="home-panel-sub">Sign out of this session.</div>`;
+    }
+
+    return '';
+  }
+
+  // Crossfades the panel at ~150ms -- the panel's own min-height (CSS) is
+  // what actually stops it reflowing as content length changes between items.
+  function setPanelContent(key) {
+    const el = document.getElementById('homePanelContent');
+    el.classList.add('fading');
+    setTimeout(() => {
+      el.innerHTML = panelContentFor(key);
+      el.classList.remove('fading');
+    }, 150);
+  }
+
+  function wireMenuItem(el, key) {
+    if (!el) return;
+    el.addEventListener('mouseenter', () => setPanelContent(key));
+    el.addEventListener('focus', () => setPanelContent(key));
+  }
+
+  // Arrow keys move the highlight across the unified primary+secondary list;
+  // Enter is native <a> behavior already, nothing extra needed for it.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const active = document.activeElement;
+    if (!active || !active.closest || !active.closest('#homeMenu')) return;
+    const items = Array.from(document.querySelectorAll('#homeMenu .home-menu-item, #homeMenu .home-menu-secondary-item'));
+    const idx = items.indexOf(active);
+    if (idx === -1) return;
+    e.preventDefault();
+    const next = e.key === 'ArrowDown' ? items[idx + 1] || items[0] : items[idx - 1] || items[items.length - 1];
+    next.focus();
+  });
+
+  async function loadHomeSummary() {
+    try {
+      const s = await apiGet('/home/summary');
+      _homeSummary = s;
+
+      if (s.champion && s.champion.character && typeof charImgUrl === 'function') {
+        document.getElementById('homeBg').style.backgroundImage = `url('${charImgUrl(s.champion.character)}')`;
+      }
+      if (s.champion) {
+        document.getElementById('homeEloVal').textContent = s.champion.player_elo;
+        document.getElementById('homeEloBadge').style.display = 'inline-flex';
+      }
+
+      const primaryTop = s.in_progress
+        ? { label: 'Continue', sub: s.in_progress.name, href: s.in_progress.type === 'draft' ? `/draft/${s.in_progress.id}` : `tournament.html?id=${s.in_progress.id}`,
+            context: `${s.in_progress.round_or_progress || ''} · Host ${s.in_progress.leader}` }
+        : { label: 'New Tournament', sub: 'Single-elimination with elo rewards.', href: 'bracket.html',
+            context: s.last_session ? `Last: ${s.last_session.name} — ${s.last_session.winner ? s.last_session.winner + ' won' : 'no winner recorded'} · ${timeAgoFrom(s.last_session.ended_at)}` : '' };
+
+      // .hmi-context is desktop-hidden (the detail panel already shows this) and
+      // mobile-visible (mobile has no hover, so context has to live in the card).
+      document.getElementById('homeMenuPrimary').innerHTML = `
+        <a href="${primaryTop.href}" class="home-menu-item highlighted" id="homeItemPrimary">${escHtml(primaryTop.label)}<span class="hmi-sub">${escHtml(primaryTop.sub)}</span>${primaryTop.context ? `<span class="hmi-context">${escHtml(primaryTop.context)}</span>` : ''}</a>
+        <a href="duel.html" class="home-menu-item" id="homeItemDuel">1v1 Duel<span class="hmi-sub">Head-to-head with live elo.</span></a>`;
+      wireMenuItem(document.getElementById('homeItemPrimary'), 'primary');
+      wireMenuItem(document.getElementById('homeItemDuel'), 'duel');
+
+      const SECONDARY = [
+        { key: 'leaderboard', label: 'Leaderboard', href: 'leaderboard.html' },
+        { key: 'mastery', label: 'Mastery', href: 'mastery.html' },
+        { key: 'tier-list', label: 'Tier List', href: 'tier-list.html' },
+        { key: 'favorites', label: 'Favorites', href: 'favorites.html' },
+        { key: 'profile', label: 'Profile', href: 'profile.html' },
+        { key: 'signout', label: 'Sign Out', href: '#' },
+      ];
+      document.getElementById('homeMenuSecondary').innerHTML = SECONDARY.map((item) =>
+        `<a href="${item.href}" class="home-menu-secondary-item" id="homeItem_${item.key}"${item.key === 'signout' ? ' onclick="logout();return false;"' : ''}>${escHtml(item.label)}</a>`
+      ).join('');
+      SECONDARY.forEach((item) => wireMenuItem(document.getElementById(`homeItem_${item.key}`), item.key));
+
+      setPanelContent('primary');
+
+      const postersEl = document.getElementById('homePosters');
+      postersEl.innerHTML = s.posters && s.posters.length
+        ? s.posters.flatMap(posterHtml).join('')
+        : '<div style="font-size:0.8rem;color:var(--text-muted);">No 3-stocks yet — stay strapped.</div>';
+    } catch (err) {
+      document.getElementById('homePanelContent').innerHTML = '<p class="home-panel-loading">Could not load home data.</p>';
+    }
+  }
+
+  // Same cold-start gate as login.html's waitForServer() -- /home/summary
+  // shouldn't be the thing that eats a ~30s Render wake-up with no feedback.
+  async function waitForServerThenLoadHome() {
+    for (let i = 0; i < 10; i++) {
+      try {
+        const r = await fetch(API_BASE + '/health', { cache: 'no-store' });
+        if (r.ok) { loadHomeSummary(); return; }
+      } catch (_) {}
+      await new Promise((res) => setTimeout(res, i === 0 ? 2000 : 10000));
+    }
+    loadHomeSummary();
+  }
+  waitForServerThenLoadHome();
+
+  // Subtle mouse-driven parallax on the champion background -- desktop only,
+  // skipped entirely under prefers-reduced-motion (a JS-driven transform isn't
+  // reached by style.css's blanket animation/transition collapse, same gap
+  // handled for the draft reveal's Flip tween and the login shatter earlier
+  // this session).
+  if (window.innerWidth > 700 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    let rafPending = false;
+    document.addEventListener('mousemove', (e) => {
+      if (rafPending) return;
+      rafPending = true;
+      requestAnimationFrame(() => {
+        rafPending = false;
+        const bg = document.getElementById('homeBg');
+        if (!bg) return;
+        const xPct = (e.clientX / window.innerWidth - 0.5) * 2;
+        const yPct = (e.clientY / window.innerHeight - 0.5) * 2;
+        bg.style.transform = `scale(1.06) translate(${xPct * -1.5}%, ${yPct * -1.5}%)`;
+      });
+    });
   }
 </script>
 

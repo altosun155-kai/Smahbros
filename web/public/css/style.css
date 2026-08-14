@@ -9,8 +9,14 @@
   --card-bg:      #1a1a2e;
   --card-bg2:     #16213e;
   --navbar-bg:    #0a0a14;
-  --accent-blue:  #0077c8;
+  /* Neutral now, not blue -- kept the name since var(--accent-blue) is referenced
+     directly from ~10 other pages' own inline <style> blocks; renaming would mean
+     touching every one of those files for zero visual difference. --accent-gold is
+     the site's one surviving color accent (see Home page redesign, palette pass). */
+  --accent-blue:  #b0bcce;
   --accent-gold:  #f5a623;
+  --accent-pos:   #27ae60;
+  --accent-neg:   #e74c3c;
   --text:         #e8edf3;
   --text-muted:   #b0bcce;
   --border:       rgba(255,255,255,0.08);
@@ -104,7 +110,7 @@ a {
 }
 
 a:hover {
-  color: #5bc4f5;
+  color: var(--text);
 }
 
 /* ── Navbar ───────────────────────────────────────── */
@@ -349,8 +355,8 @@ a:hover {
     background: none;
     padding-bottom: 0;
   }
-  .bnav-item.active { color: var(--accent-blue, #0077c8); }
-  .bnav-item:active { color: var(--accent-blue, #0077c8); opacity: 0.75; }
+  .bnav-item.active { color: var(--accent-blue, #b0bcce); }
+  .bnav-item:active { color: var(--accent-blue, #b0bcce); opacity: 0.75; }
   .bnav-icon { font-size: 1.3rem; line-height: 1; }
   main.page-container { padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important; }
 
@@ -561,7 +567,7 @@ a:hover {
 .form-group textarea:focus {
   outline: none;
   border-color: var(--accent-blue);
-  box-shadow: 0 0 0 3px rgba(0,119,200,0.18);
+  box-shadow: 0 0 0 3px rgba(176,188,206,0.18);
 }
 
 .form-group input::placeholder,
@@ -710,11 +716,11 @@ a:hover {
 }
 
 .toast.toast-success {
-  border-left: 3px solid #27ae60;
+  border-left: 3px solid var(--accent-pos);
 }
 
 .toast.toast-error {
-  border-left: 3px solid #e74c3c;
+  border-left: 3px solid var(--accent-neg);
 }
 
 .toast.toast-warn {
@@ -748,7 +754,7 @@ a:hover {
   border-radius: 8px;
   padding: 12px 16px;
   font-size: 0.88rem;
-  color: #e74c3c;
+  color: var(--accent-neg);
   margin-bottom: 20px;
   display: none;
 }
@@ -768,7 +774,7 @@ a:hover {
 }
 
 .badge-pending  { background: rgba(245,166,35,0.16); color: #ffc85c; border-color: rgba(245,166,35,0.4); }
-.badge-accepted { background: rgba(39,174,96,0.16);  color: #4ade80; border-color: rgba(39,174,96,0.4); }
+.badge-accepted { background: rgba(39,174,96,0.16);  color: var(--accent-pos); border-color: rgba(39,174,96,0.4); }
 .badge-declined { background: rgba(231,76,60,0.16);  color: #ff7a6b; border-color: rgba(231,76,60,0.4); }
 
 /* ── Section divider ──────────────────────────────── */
@@ -813,9 +819,9 @@ a:hover {
   width: 15px;
   height: 15px;
   border-radius: 50%;
-  background: rgba(0,119,200,0.25);
-  border: 1px solid rgba(0,119,200,0.6);
-  color: #5bc4f5;
+  background: rgba(176,188,206,0.2);
+  border: 1px solid rgba(176,188,206,0.5);
+  color: var(--text-muted);
   font-size: 0.65rem;
   font-weight: 700;
   cursor: default;
@@ -876,7 +882,7 @@ a:hover {
 }
 
 /* ── Swap mode (shared: bracket.html + tournament.html) ─────────────────── */
-.match-entry.swap-selected { background: rgba(0,119,200,0.25); border-radius: 4px; outline: 2px solid var(--accent-blue); cursor: pointer; }
+.match-entry.swap-selected { background: rgba(176,188,206,0.2); border-radius: 4px; outline: 2px solid var(--accent-blue); cursor: pointer; }
 .match-entry.swap-hover { cursor: pointer; }
 .match-entry.swap-hover:hover { background: rgba(255,255,255,0.08); border-radius: 4px; }
 
@@ -1503,6 +1509,48 @@ a:hover {
 }
 
 /* ── Draft (multi-device draft, web/app/draft/) ─────────────────────────── */
+.draft-share-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 440px;
+  background: rgba(39,174,96,0.08);
+  border: 1px solid rgba(39,174,96,0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.draft-share-bar span {
+  font-size: 0.82rem;
+  color: var(--accent-pos);
+  font-weight: 600;
+}
+.draft-share-bar input {
+  flex: 1;
+  min-width: 160px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(39,174,96,0.35);
+  color: #ccc;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 0.8rem;
+}
+.draft-share-bar button {
+  background: rgba(39,174,96,0.2);
+  border: 1px solid rgba(39,174,96,0.4);
+  color: var(--accent-pos);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.draft-share-bar button:hover {
+  background: rgba(39,174,96,0.3);
+}
+
 .draft-avatar-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1598,7 +1646,7 @@ a:hover {
   font-size: 0.85rem;
 }
 .draft-rail-item img { width: 32px; height: 32px; object-fit: contain; }
-.draft-rail-item.selected { border-color: var(--accent-blue); background: rgba(0,119,200,0.15); }
+.draft-rail-item.selected { border-color: var(--accent-blue); background: rgba(176,188,206,0.15); }
 .draft-rail-item:disabled { opacity: 0.5; cursor: not-allowed; }
 .draft-portrait {
   display: flex;

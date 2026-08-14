@@ -1533,6 +1533,10 @@ a:hover {
   font-weight: 700;
   color: var(--text-muted);
 }
+@keyframes draftBreathe {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1; }
+}
 .draft-avatar-empty {
   display: flex;
   align-items: center;
@@ -1541,6 +1545,7 @@ a:hover {
   border: 1.5px dashed var(--border);
   color: var(--text-muted);
   font-size: 0.7rem;
+  animation: draftBreathe 2.4s ease-in-out infinite;
 }
 .draft-lock-badge {
   position: absolute;
@@ -1646,4 +1651,58 @@ a:hover {
     scroll-snap-align: start;
   }
   .draft-stats-grid { order: 3; }
+}
+
+/* ── Draft reveal + Flip transition + bracket preview ────────────────────── */
+.draft-reveal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 24px;
+  padding: 32px 16px;
+  max-width: 640px;
+  margin: 0 auto;
+}
+.draft-reveal-corner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.draft-reveal-picks-1 { display: grid; grid-template-columns: 1fr; width: 100px; }
+.draft-reveal-picks-4 { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6px; width: 140px; }
+.draft-reveal-picks-8 { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6px; width: 220px; }
+
+.draft-bracket-carousel {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 16px;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 24px;
+  scrollbar-width: none;
+}
+.draft-bracket-carousel::-webkit-scrollbar { display: none; }
+.draft-bracket-panel {
+  flex-shrink: 0;
+  width: 280px;
+  scroll-snap-align: start;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.draft-bracket-match {
+  background: var(--card-bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+.draft-bracket-entry {
+  padding: 5px 4px;
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }

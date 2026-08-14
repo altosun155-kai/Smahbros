@@ -84,9 +84,11 @@ def _run_migrations():
                     chars_per_player INTEGER NOT NULL DEFAULT 1,
                     players JSONB DEFAULT '[]',
                     bracket_id INTEGER REFERENCES brackets(id),
+                    bracket_ids JSONB DEFAULT '[]',
                     created_at TIMESTAMP DEFAULT NOW()
                 )
             """))
+            conn.execute(text("ALTER TABLE draft_rooms ADD COLUMN IF NOT EXISTS bracket_ids JSONB DEFAULT '[]'"))
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS draft_picks (
                     id SERIAL PRIMARY KEY,
@@ -202,9 +204,13 @@ def _run_migrations():
                         chars_per_player INTEGER NOT NULL DEFAULT 1,
                         players TEXT DEFAULT '[]',
                         bracket_id INTEGER REFERENCES brackets(id),
+                        bracket_ids TEXT DEFAULT '[]',
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """))
+            dr_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(draft_rooms)"))}
+            if "bracket_ids" not in dr_cols:
+                conn.execute(text("ALTER TABLE draft_rooms ADD COLUMN bracket_ids TEXT DEFAULT '[]'"))
             if "draft_picks" not in existing:
                 conn.execute(text("""
                     CREATE TABLE draft_picks (

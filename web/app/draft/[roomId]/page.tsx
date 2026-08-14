@@ -7,6 +7,7 @@ import { useDraftRoom } from '../../lib/useDraftRoom';
 import DraftLobby from './DraftLobby';
 import DraftCharacterSelect from './DraftCharacterSelect';
 import DraftWaiting from './DraftWaiting';
+import DraftReveal from './DraftReveal';
 
 function isFullyLocked(picks: { locked: boolean }[] | undefined, charsPerPlayer: number): boolean {
   if (!picks) return false;
@@ -76,6 +77,8 @@ export default function DraftRoomPage() {
     body = <DraftLobby room={room} myId={myId} onChanged={refetch} />;
   } else if (room.status === 'picking' && !fullyLocked && myId != null) {
     body = <DraftCharacterSelect room={room} myId={myId} onChanged={refetch} />;
+  } else if (room.status === 'live') {
+    body = <DraftReveal room={room} />;
   } else {
     body = <DraftWaiting room={room} />;
   }

@@ -164,10 +164,10 @@
       <div id="winnerBannerName" style="font-size:1.6rem;font-weight:900;color:#ffd700;text-transform:uppercase;letter-spacing:1px;"></div>
     </div>
 
-    <!-- Undo last score (host only) -->
-    <div id="undoBar" style="display:none;margin-top:14px;display:none;align-items:center;gap:12px;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:10px 16px;">
+    <!-- Undo last score (anyone who can record on this bracket) -->
+    <div id="undoBar" style="display:none;margin-top:14px;align-items:center;gap:12px;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:10px 16px;">
       <span style="font-size:0.82rem;color:var(--text-muted);flex:1;">Last score: <span id="undoLabel" style="color:var(--text);font-weight:600;"></span></span>
-      <button type="button" onclick="undoLastScore()" style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:6px;padding:5px 14px;font-size:0.82rem;font-weight:700;cursor:pointer;">Undo</button>
+      <button type="button" onclick="undoLastScore()" style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:6px;padding:5px 14px;font-size:0.82rem;font-weight:700;cursor:pointer;">Undo (<span id="undoCountdown">30</span>s)</button>
     </div>
 
     <div id="refreshNote" style="margin-top:12px;display:inline-flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--text-muted);">
@@ -408,6 +408,7 @@ function _tRankAfter(lb, username, character, newElo) {
 let lastRoundWinners = null;
 let myUsername = '';
 let isHost = false;
+let canRecord = false;
 let currentBracketData = null; // latest bracket snapshot
 const allUserAvatars = {};
 let liveControlsSet = false; // only pre-select radios on first lineup load
@@ -751,7 +752,7 @@ function selectMobileWinner(side) {
       `<div class="m-score-name">${labels[i]}</div>` +
       (rankW || rankL ? `<div class="m-rank-row"><span style="color:#4caf50;">${rankW}</span><span style="color:#e74c3c;">${rankL}</span></div>` : '') +
       (elo ? `<div class="m-elo-val">${elo}</div>` : '');
-    if (isHost) {
+    if (canRecord) {
       card.onclick = () => pickTournamentScore(picks[i][0], picks[i][1]);
       card.style.opacity = '';
       card.style.cursor = '';
@@ -785,11 +786,11 @@ function openScoreModal(a, b, key) {
   document.getElementById('vcpLabel2').textContent = `${scoreModalB.player} Wins`;
   // Host vs spectator for center panel
   document.querySelectorAll('.vcp-btn').forEach(b => {
-    b.style.pointerEvents = isHost ? '' : 'none';
-    b.style.opacity = isHost ? '' : '0.7';
-    b.style.cursor = isHost ? '' : 'default';
+    b.style.pointerEvents = canRecord ? '' : 'none';
+    b.style.opacity = canRecord ? '' : '0.7';
+    b.style.cursor = canRecord ? '' : 'default';
   });
-  document.getElementById('vcpViewOnly').style.display = isHost ? 'none' : 'block';
+  document.getElementById('vcpViewOnly').style.display = canRecord ? 'none' : 'block';
   // Clear elo displays
   document.getElementById('vcpP1EloDisplay').textContent = '';
   document.getElementById('vcpP2EloDisplay').textContent = '';
@@ -830,11 +831,11 @@ function openScoreModal(a, b, key) {
    'tCurrentRankP1','tCurrentRankP2',
   ].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
 
-  // Show score buttons for host only; spectators see elo previews but can't pick
+  // Show score buttons only to those who can record; others see elo previews but can't pick
   const scoreButtons = document.querySelectorAll('.score-preset-btn');
-  scoreButtons.forEach(btn => btn.style.display = isHost ? '' : 'none');
-  document.getElementById('scorePickLabel').style.display = isHost ? '' : 'none';
-  document.getElementById('viewOnlyNote').style.display = isHost ? 'none' : '';
+  scoreButtons.forEach(btn => btn.style.display = canRecord ? '' : 'none');
+  document.getElementById('scorePickLabel').style.display = canRecord ? '' : 'none';
+  document.getElementById('viewOnlyNote').style.display = canRecord ? 'none' : '';
 
   document.getElementById('scoreModal').classList.add('open');
 
@@ -955,7 +956,7 @@ async function pickTournamentScore(p1Stocks, p2Stocks) {
         .forEach(k => delete _eloCache[k]);
       _tLbCache = null; // invalidate rank cache after each match
     }
-    showUndoBtn(`${winnerEntry.player} (${winnerEntry.character})`);
+    showUndoBtn(`${winnerEntry.player} (${winnerEntry.character})`, key);
     await fetchAndRender();
     if (!wasDecided) advanceScoreModal(finishedKey);
   } catch (err) {
@@ -1261,6 +1262,7 @@ async function fetchAndRender() {
     document.getElementById('tournamentName').textContent = data.name;
     document.getElementById('tournamentHost').textContent = `Hosted by ${data.host}`;
     isHost = (myUsername === data.host);
+    canRecord = !!data.can_record; // falls back to false (host-only) if the API hasn't redeployed yet
 
     // Show End Tournament button for host while tournament is live
     const endBtn = document.getElementById('endTournamentBtn');
@@ -1381,18 +1383,38 @@ async function fetchAndRender() {
   pollInterval = setInterval(fetchAndRender, 5000);
 })();
 
-function showUndoBtn(label) {
-  if (!isHost) return;
+let undoTimer = null, undoInterval = null, undoMatchKey = null;
+
+function showUndoBtn(label, matchKey) {
+  if (!canRecord) return;
+  undoMatchKey = matchKey;
+  clearTimeout(undoTimer);
+  clearInterval(undoInterval);
   const bar = document.getElementById('undoBar');
   document.getElementById('undoLabel').textContent = label;
+  let remaining = 30;
+  document.getElementById('undoCountdown').textContent = remaining;
   bar.style.display = 'flex';
+  undoInterval = setInterval(() => {
+    remaining -= 1;
+    document.getElementById('undoCountdown').textContent = remaining;
+    if (remaining <= 0) clearInterval(undoInterval);
+  }, 1000);
+  undoTimer = setTimeout(() => {
+    bar.style.display = 'none';
+    undoMatchKey = null;
+  }, 30000);
 }
 
 async function undoLastScore() {
+  if (!undoMatchKey) return;
+  clearTimeout(undoTimer);
+  clearInterval(undoInterval);
   try {
-    const res = await apiDelete(`/brackets/${tournamentId}/last-result`);
-    showToast(`Undid: ${res.undone}`, 'success');
+    const res = await apiDelete(`/brackets/${tournamentId}/result/${undoMatchKey}`);
+    showToast(`Undid: ${res.undone || 'result'}`, 'success');
     document.getElementById('undoBar').style.display = 'none';
+    undoMatchKey = null;
     await fetchAndRender();
   } catch (err) {
     showToast('Nothing to undo or error: ' + err.message, 'error');

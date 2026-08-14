@@ -24,6 +24,7 @@ export interface DraftRoomState {
   players: DraftPlayer[];
   picks: Record<string, DraftPick[]>;
   bracket_id: number | null;
+  bracket_ids: number[];
   created_at: string;
 }
 

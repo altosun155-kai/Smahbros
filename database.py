@@ -191,7 +191,8 @@ class DraftRoom(Base):
     num_players      = Column(Integer, default=4, nullable=False)
     chars_per_player = Column(Integer, default=1, nullable=False)        # 1, 4, or 8 -- picks per PLAYER, not room total
     players          = Column(JSON, default=list)                       # ordered [user_id, ...] = join order
-    bracket_id       = Column(Integer, ForeignKey("brackets.id"), nullable=True, index=True)
+    bracket_id       = Column(Integer, ForeignKey("brackets.id"), nullable=True, index=True)  # legacy, unused going forward
+    bracket_ids      = Column(JSON, default=list)                       # ordered [bracket_id, ...], len == chars_per_player
     created_at       = Column(DateTime, default=_now)
 
     host    = relationship("User", foreign_keys=[host_id])

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from pydantic import BaseModel
 
-from database import User, DraftRoom, DraftPick, _now
+from database import User, DraftRoom, DraftPick, Bracket, _now
 from auth import get_db, get_current_user
 import ws_manager
 
@@ -31,6 +31,87 @@ def _push(db: Session, room: DraftRoom):
     ws_manager.push(f"draft:{room.id}", draft_room_to_dict(db, room, viewer_id=None))
 
 
+def _pair_players_join_order(usernames: list) -> list:
+    """Pair players in join order: [0]v[1], [2]v[3], ... A lone trailing player gets
+    a bye (None). Deliberate scope simplification: no elo-based seeding for
+    draft-originated brackets -- bracket-engine.js's buildBracketPairs() seeding
+    logic is client-side JS and isn't reusable from this Python backend."""
+    pairs = []
+    for i in range(0, len(usernames), 2):
+        a = usernames[i]
+        b = usernames[i + 1] if i + 1 < len(usernames) else None
+        pairs.append((a, b))
+    return pairs
+
+
+def _build_slot_bracket(pairs: list, picks_by_username: dict):
+    """Return (bracket_data, entries, round_winners) for one draft slot's Bracket
+    row. Matches tournament.html's own BYE convention exactly (bare 'BYE' label,
+    not the 'SYSTEM — BYE' form bracket-engine.js uses for its own client-only
+    entries list) since tournament.html is the page these brackets are viewed
+    through. A bye pair's winner is pre-resolved into round_winners at creation
+    time -- tournament.html has no auto-bye-advance of its own (confirmed by
+    reading it: PATCH /brackets/{id}/winner is only ever called from a human
+    recording a real match), so leaving it unresolved would strand the bracket."""
+    bracket_data, entries, round_winners = [], [], {}
+    for mi, (a_user, b_user) in enumerate(pairs):
+        a_label = "BYE" if a_user is None else f"{a_user} — {picks_by_username[a_user]}"
+        b_label = "BYE" if b_user is None else f"{b_user} — {picks_by_username[b_user]}"
+        bracket_data.append({"a": a_label, "b": b_label})
+        if a_user is not None:
+            entries.append({"player": a_user, "character": picks_by_username[a_user]})
+        if b_user is not None:
+            entries.append({"player": b_user, "character": picks_by_username[b_user]})
+        if a_user is None and b_user is not None:
+            round_winners[f"r0_m{mi}"] = b_label
+        elif b_user is None and a_user is not None:
+            round_winners[f"r0_m{mi}"] = a_label
+    return bracket_data, entries, round_winners
+
+
+def _create_draft_brackets_and_go_live(db: Session, room: DraftRoom, pick_rows: list):
+    """Creates room.chars_per_player independent live Bracket rows (round-1 paired
+    in join order) and flips room.status straight to 'live' with bracket_ids
+    populated -- all before the caller's single commit, so no client ever observes
+    a separately-broadcast 'revealed' state."""
+    players = room.players or []
+    users_by_id = {u.id: u for u in db.query(User).filter(User.id.in_(players)).all()}
+    usernames = [users_by_id[pid].username for pid in players if pid in users_by_id]
+    pairs = _pair_players_join_order(usernames)
+
+    picks_by_slot: dict = {}
+    for p in pick_rows:
+        picks_by_slot.setdefault(p.slot_index, {})[p.player_id] = p.character
+
+    bracket_ids = []
+    for slot in range(room.chars_per_player):
+        picks_by_username = {
+            users_by_id[pid].username: char
+            for pid, char in picks_by_slot.get(slot, {}).items()
+            if pid in users_by_id
+        }
+        bracket_data, entries, round_winners = _build_slot_bracket(pairs, picks_by_username)
+        name = f"Draft #{room.id}" + (f" — Slot {slot + 1}" if room.chars_per_player > 1 else "")
+        bracket = Bracket(
+            user_id=room.host_id,
+            name=name,
+            mode="draft",
+            players=usernames,
+            entries=entries,
+            bracket_data=bracket_data,
+            round_winners=round_winners,
+            is_live=True,
+            chars_per_player=1,
+        )
+        db.add(bracket)
+        db.flush()
+        bracket_ids.append(bracket.id)
+
+    room.bracket_ids = bracket_ids
+    flag_modified(room, "bracket_ids")
+    room.status = "live"
+
+
 def draft_room_to_dict(db: Session, room: DraftRoom, viewer_id: int | None = None) -> dict:
     player_ids = room.players or []
     users_by_id = {u.id: u for u in db.query(User).filter(User.id.in_(player_ids)).all()}
@@ -48,7 +129,7 @@ def draft_room_to_dict(db: Session, room: DraftRoom, viewer_id: int | None = Non
         key = str(p.player_id)
         if key not in picks_by_player or p.slot_index >= room.chars_per_player:
             continue
-        reveal = (p.player_id == viewer_id) or room.status == "revealed"
+        reveal = (p.player_id == viewer_id) or room.status in ("revealed", "live")
         picks_by_player[key][p.slot_index] = {
             "slot_index": p.slot_index,
             "locked": p.locked_at is not None,
@@ -64,6 +145,7 @@ def draft_room_to_dict(db: Session, room: DraftRoom, viewer_id: int | None = Non
         "players": players_out,
         "picks": picks_by_player,
         "bracket_id": room.bracket_id,
+        "bracket_ids": room.bracket_ids or [],
         "created_at": room.created_at.isoformat(),
     }
 
@@ -260,7 +342,7 @@ def lock_draft_pick(room_id: int, req: SlotRequest, db: Session = Depends(get_db
             len(locked_by_player.get(pid, set())) >= room.chars_per_player for pid in players
         )
         if everyone_locked and players:
-            room.status = "revealed"
+            _create_draft_brackets_and_go_live(db, room, all_rows)
             db.commit()
 
     db.refresh(room)

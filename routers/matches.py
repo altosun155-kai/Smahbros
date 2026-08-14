@@ -4,12 +4,22 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
 
-from database import User, CharacterStats, MatchResult, Bracket, CharacterMatchup
+from database import User, CharacterStats, MatchResult, Bracket, CharacterMatchup, DraftRoom
 from auth import get_db, get_current_user
 
 router = APIRouter(tags=["matches"])
 
 ELO_DEFAULT = 1000
+
+
+def _bracket_is_draft_accessible(db: Session, bracket_id: int | None, user: User) -> bool:
+    """True if bracket_id is one of a DraftRoom's chars_per_player slot-brackets and
+    `user` is one of that room's joined players. Small-scale app -- plain Python
+    scan, no JSONB-containment SQL query needed."""
+    if not bracket_id:
+        return False
+    rooms = db.query(DraftRoom).filter(DraftRoom.bracket_ids.isnot(None)).all()
+    return any(bracket_id in (r.bracket_ids or []) and user.id in (r.players or []) for r in rooms)
 
 
 class MatchRecord(BaseModel):
@@ -148,7 +158,8 @@ def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: 
         if not req.bracket_id:
             raise HTTPException(status_code=403, detail="Only admins can record non-bracket match results")
         bracket = db.query(Bracket).filter(Bracket.id == req.bracket_id).first()
-        if not bracket or bracket.user_id != current_user.id:
+        is_owner = bracket and bracket.user_id == current_user.id
+        if not bracket or not (is_owner or _bracket_is_draft_accessible(db, req.bracket_id, current_user)):
             raise HTTPException(status_code=403, detail="Only the bracket host can record match results")
     winner = db.query(User).filter(User.username == req.winner_username).first()
     loser  = db.query(User).filter(User.username == req.loser_username).first()

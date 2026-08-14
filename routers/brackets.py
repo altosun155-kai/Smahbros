@@ -94,7 +94,7 @@ def _infer_winner(b: Bracket) -> str | None:
     return None
 
 
-def bracket_to_dict(b: Bracket, include_invites: bool = False):
+def bracket_to_dict(b: Bracket, include_invites: bool = False, viewer: User | None = None, db: Session | None = None):
     d = {
         "id": b.id,
         "name": b.name,
@@ -119,6 +119,10 @@ def bracket_to_dict(b: Bracket, include_invites: bool = False):
             {"id": i.id, "invitee": i.invitee.username, "status": i.status}
             for i in b.invites
         ]
+    if viewer is not None and db is not None:
+        from routers.matches import _bracket_is_draft_accessible
+        is_owner = b.user_id == viewer.id
+        d["can_record"] = bool(viewer.is_admin or is_owner or _bracket_is_draft_accessible(db, b.id, viewer))
     return d
 
 
@@ -197,13 +201,15 @@ def get_bracket(bracket_id: int, db: Session = Depends(get_db), current_user: Us
     elif invite and invite.status == "pending":
         invite.status = "accepted"
         db.commit()
-    return bracket_to_dict(b, include_invites=is_owner)
+    return bracket_to_dict(b, include_invites=is_owner, viewer=current_user, db=db)
 
 
 @router.patch("/brackets/{bracket_id}/winner")
 def set_bracket_winner(bracket_id: int, req: WinnerUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    b = db.query(Bracket).filter(Bracket.id == bracket_id, Bracket.user_id == current_user.id).first()
-    if not b:
+    b = db.query(Bracket).filter(Bracket.id == bracket_id).first()
+    from routers.matches import _bracket_is_draft_accessible
+    is_owner = b and b.user_id == current_user.id
+    if not b or not (is_owner or _bracket_is_draft_accessible(db, bracket_id, current_user)):
         raise HTTPException(status_code=403, detail="Only the host can record results")
     rw = dict(b.round_winners or {})
     rw[req.key] = req.winner
@@ -396,8 +402,10 @@ def delete_bracket(bracket_id: int, db: Session = Depends(get_db), current_user:
 
 @router.delete("/brackets/{bracket_id}/result/{match_key:path}")
 def undo_result_by_key(bracket_id: int, match_key: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    b = db.query(Bracket).filter(Bracket.id == bracket_id, Bracket.user_id == current_user.id).first()
-    if not b:
+    b = db.query(Bracket).filter(Bracket.id == bracket_id).first()
+    from routers.matches import _bracket_is_draft_accessible
+    is_owner = b and b.user_id == current_user.id
+    if not b or not (is_owner or _bracket_is_draft_accessible(db, bracket_id, current_user)):
         raise HTTPException(status_code=403, detail="Only the host can undo")
     mr = db.query(MatchResult).filter(
         MatchResult.bracket_id == bracket_id,
@@ -435,9 +443,10 @@ def undo_result_by_key(bracket_id: int, match_key: str, db: Session = Depends(ge
     b.round_scores = rs
     flag_modified(b, "round_scores")
 
+    undone_label = f"{mr.winner.username} ({mr.winner_char})"
     db.delete(mr)
     db.commit()
-    return {"ok": True, "undone": f"{mr.winner.username} ({mr.winner_char})"}
+    return {"ok": True, "undone": undone_label}
 
 
 @router.delete("/brackets/{bracket_id}/last-result")

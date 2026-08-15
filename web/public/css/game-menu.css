@@ -164,6 +164,9 @@ main.page-container:has(#homeMenuMount) {
 .home-menu-secondary .home-menu-secondary-item:nth-child(4) { animation-delay: 120ms; }
 .home-menu-secondary .home-menu-secondary-item:nth-child(5) { animation-delay: 160ms; }
 .home-menu-secondary .home-menu-secondary-item:nth-child(6) { animation-delay: 200ms; }
+.home-menu-secondary .home-menu-secondary-item:nth-child(7) { animation-delay: 240ms; }
+.home-menu-secondary .home-menu-secondary-item:nth-child(8) { animation-delay: 280ms; }
+.home-menu-secondary .home-menu-secondary-item:nth-child(9) { animation-delay: 320ms; }
 
 @media (max-width: 700px) {
   .home-shell {

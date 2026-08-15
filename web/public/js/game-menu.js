@@ -71,16 +71,18 @@ window.GameMenu = (function () {
           <a href="${href}" class="btn btn-primary home-panel-cta">Continue →</a>`;
       }
       if (s.last_session) {
+        // Backend only returns last_session with a recorded winner (see
+        // routers/home.py::_last_session) -- no "no winner recorded" case here.
         const ls = s.last_session;
         return `<div class="home-panel-eyebrow">Last Session</div>
           <div class="home-panel-title">${escHtml(ls.name)}</div>
-          <div class="home-panel-sub">${ls.winner ? escHtml(ls.winner) + ' won' : 'No winner recorded'} · ${timeAgoFrom(ls.ended_at)}</div>
-          <a href="bracket.html" class="btn btn-primary home-panel-cta">New Tournament →</a>`;
+          <div class="home-panel-sub">${escHtml(ls.winner)} won · ${timeAgoFrom(ls.ended_at)}</div>
+          <a href="/draft" class="btn btn-primary home-panel-cta">New Tournament →</a>`;
       }
       return `<div class="home-panel-eyebrow">Get Started</div>
         <div class="home-panel-title">Start your first tournament</div>
         <div class="home-panel-sub">Single-elimination with elo rewards.</div>
-        <a href="bracket.html" class="btn btn-primary home-panel-cta">New Tournament →</a>`;
+        <a href="/draft" class="btn btn-primary home-panel-cta">New Tournament →</a>`;
     }
 
     if (key === 'duel') {
@@ -88,13 +90,36 @@ window.GameMenu = (function () {
         const d = s.last_duel;
         return `<div class="home-panel-eyebrow">1v1 Duel</div>
           <div class="home-panel-title">${d.result === 'W' ? 'Beat' : 'Lost to'} ${escHtml(d.opponent)}</div>
-          <div class="home-panel-sub">Head-to-head record ${escHtml(d.record)} · ${timeAgoFrom(d.played_at)}</div>
+          <div class="home-panel-sub">${escHtml(d.record)} · ${timeAgoFrom(d.played_at)}</div>
           <a href="duel.html" class="btn btn-primary home-panel-cta">Play a Duel →</a>`;
       }
       return `<div class="home-panel-eyebrow">1v1 Duel</div>
         <div class="home-panel-title">Head-to-head</div>
         <div class="home-panel-sub">Live elo and stock multipliers.</div>
         <a href="duel.html" class="btn btn-primary home-panel-cta">Play a Duel →</a>`;
+    }
+
+    if (key === 'my-brackets') {
+      const mb = s.my_brackets;
+      const count = mb ? mb.count : 0;
+      return `<div class="home-panel-eyebrow">My Brackets</div>
+        <div class="home-panel-title">${count} tournament${count === 1 ? '' : 's'}</div>
+        <div class="home-panel-sub">${mb && mb.most_recent ? `Most recent: ${escHtml(mb.most_recent.name)}` : 'None yet — start one from New Tournament.'}</div>
+        <a href="my-brackets.html" class="btn btn-primary home-panel-cta">View My Brackets →</a>`;
+    }
+
+    if (key === 'manual-bracket') {
+      return `<div class="home-panel-eyebrow">Manual Bracket</div>
+        <div class="home-panel-title">Build it by hand</div>
+        <div class="home-panel-sub">Seed players and set matchups yourself — no draft, works great off one screen.</div>
+        <a href="bracket.html" class="btn btn-primary home-panel-cta">Open Manual Bracket →</a>`;
+    }
+
+    if (key === 'stats') {
+      return `<div class="home-panel-eyebrow">Stats</div>
+        <div class="home-panel-title">Your performance</div>
+        <div class="home-panel-sub">Win rate, kills, and match history.</div>
+        <a href="stats.html" class="btn btn-primary home-panel-cta">View Stats →</a>`;
     }
 
     if (key === 'leaderboard') {
@@ -180,8 +205,13 @@ window.GameMenu = (function () {
     });
   }
 
-  // Secondary items never depend on /home/summary -- static from the start.
+  // Secondary items' labels/hrefs never depend on /home/summary -- static
+  // from the start (their panel content can still be data-driven, same as
+  // the primary item).
   const SECONDARY = [
+    { key: 'my-brackets', label: 'My Brackets', href: 'my-brackets.html' },
+    { key: 'manual-bracket', label: 'Manual Bracket', href: 'bracket.html' },
+    { key: 'stats', label: 'Stats', href: 'stats.html' },
     { key: 'leaderboard', label: 'Leaderboard', href: 'leaderboard.html' },
     { key: 'mastery', label: 'Mastery', href: 'mastery.html' },
     { key: 'tier-list', label: 'Tier List', href: 'tier-list.html' },
@@ -194,8 +224,9 @@ window.GameMenu = (function () {
   // clickable "New Tournament" link (never a phantom Continue with nothing to
   // continue to). renderSummary() upgrades this to Continue if in_progress
   // exists once data arrives; on a cold/slow backend this is what the user
-  // sees and can act on immediately.
-  const DEFAULT_PRIMARY = { label: 'New Tournament', sub: 'Single-elimination with elo rewards.', href: 'bracket.html', context: '' };
+  // sees and can act on immediately. Points at the draft flow -- manual
+  // bracket creation is still reachable via the "Manual Bracket" secondary item.
+  const DEFAULT_PRIMARY = { label: 'New Tournament', sub: 'Single-elimination with elo rewards.', href: '/draft', context: '' };
 
   // Renders the full menu (primary + secondary + panel skeleton) with real,
   // wired, immediately-navigable items -- menu items never wait on the
@@ -269,8 +300,11 @@ window.GameMenu = (function () {
     const primaryTop = s.in_progress
       ? { label: 'Continue', sub: s.in_progress.name, href: s.in_progress.type === 'draft' ? `/draft/${s.in_progress.id}` : `tournament.html?id=${s.in_progress.id}`,
           context: `${s.in_progress.round_or_progress || ''} · Host ${s.in_progress.leader}` }
-      : { label: 'New Tournament', sub: 'Single-elimination with elo rewards.', href: 'bracket.html',
-          context: s.last_session ? `Last: ${s.last_session.name} — ${s.last_session.winner ? s.last_session.winner + ' won' : 'no winner recorded'} · ${timeAgoFrom(s.last_session.ended_at)}` : '' };
+      // Backend only ever returns last_session when it has a recorded winner
+      // (team-mode/no-winner rows are filtered server-side) -- no "no winner
+      // recorded" fallback needed here, that case can't reach the frontend.
+      : { label: 'New Tournament', sub: 'Single-elimination with elo rewards.', href: '/draft',
+          context: s.last_session ? `Last: ${s.last_session.name} — ${s.last_session.winner} won · ${timeAgoFrom(s.last_session.ended_at)}` : '' };
 
     // .hmi-context is desktop-hidden (the detail panel already shows this) and
     // mobile-visible (mobile has no hover, so context has to live in the card).

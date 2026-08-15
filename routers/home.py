@@ -97,13 +97,26 @@ def _in_progress(db: Session, user: User) -> dict | None:
 
 
 def _last_session(db: Session, user: User) -> dict | None:
+    """Most recent ended bracket worth spotlighting -- excludes team-mode
+    (deleted feature, stale rows may still exist) and anything without a
+    recorded winner, so the home panel never shows a dead-feature ghost or
+    an empty-ish 'no winner recorded' line. Returns None if nothing qualifies;
+    the frontend falls back to its own "Get Started" copy in that case."""
     ended = _ended_brackets_for_user(db, user)
-    if not ended:
+    qualifying = []
+    for b in ended:
+        if b.mode not in ("draft", "regular"):
+            continue
+        winner = _infer_winner(b)
+        if winner is None:
+            continue
+        qualifying.append((b, winner))
+    if not qualifying:
         return None
-    latest = max(ended, key=lambda b: b.created_at or datetime.min)
+    latest, winner = max(qualifying, key=lambda pair: pair[0].created_at or datetime.min)
     return {
         "name": latest.name,
-        "winner": _infer_winner(latest),
+        "winner": winner,
         "ended_at": latest.created_at.isoformat() if latest.created_at else None,
     }
 
@@ -119,13 +132,36 @@ def _last_duel(db: Session, user: User) -> dict | None:
         return None
     opponent_id = m.loser_id if m.winner_id == user.id else m.winner_id
     opponent = db.query(User).filter(User.id == opponent_id).first()
+    opponent_name = opponent.username if opponent else "Unknown"
     my_wins = db.query(MatchResult).filter(MatchResult.winner_id == user.id, MatchResult.loser_id == opponent_id).count()
     their_wins = db.query(MatchResult).filter(MatchResult.winner_id == opponent_id, MatchResult.loser_id == user.id).count()
+    # Orient and label here, not in the frontend -- a bare "32-26" is one flip
+    # away from crediting the wrong side, silently, with nobody noticing.
+    if my_wins > their_wins:
+        record = f"You lead {my_wins}-{their_wins}"
+    elif their_wins > my_wins:
+        record = f"{opponent_name} leads {their_wins}-{my_wins}"
+    else:
+        record = f"Tied {my_wins}-{their_wins}"
     return {
-        "opponent": opponent.username if opponent else "Unknown",
+        "opponent": opponent_name,
         "result": "W" if m.winner_id == user.id else "L",
-        "record": f"{my_wins}-{their_wins}",
+        "record": record,
         "played_at": m.created_at.isoformat() if m.created_at else None,
+    }
+
+
+def _my_brackets_summary(db: Session, user: User) -> dict:
+    """Owned brackets only -- matches GET /brackets, the same set my-brackets.html lists."""
+    owned = (
+        db.query(Bracket)
+        .filter(Bracket.user_id == user.id)
+        .order_by(Bracket.created_at.desc())
+        .all()
+    )
+    return {
+        "count": len(owned),
+        "most_recent": {"id": owned[0].id, "name": owned[0].name} if owned else None,
     }
 
 
@@ -166,6 +202,7 @@ def home_summary(db: Session = Depends(get_db), current_user: User = Depends(get
         "in_progress": in_progress,
         "last_session": last_session,
         "last_duel": _last_duel(db, current_user),
+        "my_brackets": _my_brackets_summary(db, current_user),
         "champion": get_champion(db),
         "mastery_coverage": {"played": _mastery_played(db, current_user)},
         "posters": _posters(db),

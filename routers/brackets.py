@@ -38,6 +38,86 @@ def _compute_round_participants(bracket_data: list, round_winners: dict) -> dict
         ri += 1
     return result
 
+def _swap_positions(bracket_data: list, round_winners: dict, pos_a: int, pos_b: int):
+    """Exchange two round-1 seed positions and return (new_bracket_data,
+    new_round_winners, same_player_warning). Pure and side-effect-free -- never
+    mutates its inputs, always returns fresh copies -- so a caller that raises
+    partway through has left nothing half-changed, and this is unit-testable
+    without a DB or request context (matches draft.py's _deal_bracket/
+    _build_free_pool_bracket split).
+
+    Position N is bracket_data[N // 2]['a' if N % 2 == 0 else 'b'] -- seed
+    positions, not labels, since two entries can now share a label (same
+    player, different character) once the same person can appear twice in a
+    draft-mode free pool.
+
+    A match counts as having "a recorded winner" (and is therefore frozen)
+    only if round_winners has an entry for it AND neither side is a bye --
+    bye walkovers are auto-resolved at creation time (see
+    draft.py::_build_free_pool_bracket) and never touch Elo, so they're the
+    one kind of "already decided" match that's still safe to rearrange.
+    """
+    n_positions = len(bracket_data) * 2
+    if not (0 <= pos_a < n_positions) or not (0 <= pos_b < n_positions):
+        raise ValueError("Position out of range for round 1")
+    if pos_a == pos_b:
+        raise ValueError("Positions must differ")
+
+    def slot_of(pos):
+        return pos // 2, ("a" if pos % 2 == 0 else "b")
+
+    mi_a, slot_a = slot_of(pos_a)
+    mi_b, slot_b = slot_of(pos_b)
+
+    def has_recorded_result(mi):
+        pair = bracket_data[mi]
+        winner = round_winners.get(f"r0_m{mi}")
+        is_bye_match = pair.get("a") == "BYE" or pair.get("b") == "BYE"
+        return bool(winner) and not is_bye_match
+
+    if has_recorded_result(mi_a) or has_recorded_result(mi_b):
+        raise ValueError("Cannot swap a match that already has a recorded result")
+
+    new_bracket_data = [dict(p) for p in bracket_data]
+    new_bracket_data[mi_a][slot_a], new_bracket_data[mi_b][slot_b] = (
+        new_bracket_data[mi_b][slot_b],
+        new_bracket_data[mi_a][slot_a],
+    )
+
+    # Bye recomputation -- if either affected match now has exactly one BYE
+    # side, auto-resolve it (mirrors _build_free_pool_bracket exactly); if it
+    # no longer has a bye side, un-resolve it so it becomes a real match to
+    # be played. Forgetting this leaves a match that silently never resolves,
+    # or a walkover result that isn't actually a walkover.
+    new_round_winners = dict(round_winners)
+    for mi in {mi_a, mi_b}:
+        pair = new_bracket_data[mi]
+        key = f"r0_m{mi}"
+        a_is_bye = pair.get("a") == "BYE"
+        b_is_bye = pair.get("b") == "BYE"
+        if a_is_bye and b_is_bye:
+            new_round_winners.pop(key, None)  # unreachable today, stay inert if it ever happens
+        elif a_is_bye:
+            new_round_winners[key] = pair.get("b")
+        elif b_is_bye:
+            new_round_winners[key] = pair.get("a")
+        else:
+            new_round_winners.pop(key, None)
+
+    # Same-player warning -- surfaced, not blocked. The host is fixing
+    # something on purpose; this is the one invariant the seeding algorithm
+    # exists to protect, so it's worth a flag, not a rejection.
+    same_player_warning = False
+    for mi in {mi_a, mi_b}:
+        pair = new_bracket_data[mi]
+        pa, _ = _parse_label(pair.get("a"))
+        pb, _ = _parse_label(pair.get("b"))
+        if pa and pb and pa == pb:
+            same_player_warning = True
+
+    return new_bracket_data, new_round_winners, same_player_warning
+
+
 router = APIRouter(tags=["brackets"])
 
 
@@ -63,6 +143,11 @@ class WinnerUpdate(BaseModel):
 class EntryCharUpdate(BaseModel):
     old_char: str
     new_char: str
+
+
+class SwapRequest(BaseModel):
+    pos_a: int
+    pos_b: int
 
 
 class LineupConfirm(BaseModel):
@@ -231,6 +316,8 @@ def update_my_character(bracket_id: int, req: EntryCharUpdate, db: Session = Dep
     b = db.query(Bracket).filter(Bracket.id == bracket_id, Bracket.is_live == True).first()
     if not b:
         raise HTTPException(status_code=404, detail="Live bracket not found")
+    if b.mode == "draft":
+        raise HTTPException(status_code=400, detail="Draft characters are won through picks, not editable after the fact")
 
     old_label = f"{current_user.username} — {req.old_char}"
     new_label = f"{current_user.username} — {req.new_char}"
@@ -253,6 +340,44 @@ def update_my_character(bracket_id: int, req: EntryCharUpdate, db: Session = Dep
 
     db.commit()
     return {"ok": True, "new_label": new_label}
+
+
+@router.post("/brackets/{bracket_id}/swap")
+def swap_matchup(bracket_id: int, req: SwapRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Host-only: exchange two round-1 seed positions in a live bracket. Only
+    ever touches unplayed matches (see _swap_positions) -- Elo is
+    path-dependent (match 2's delta was computed against ratings that already
+    included match 1's delta), so there is no way to "undo" a played match's
+    contribution without ratings deriving from the match log on load rather
+    than being mutated in place. Byes are the one exception: they're
+    auto-resolved walkovers that never touch Elo, so swapping in or out of a
+    bye slot is always safe and handled by the bye-recomputation below.
+    """
+    b = db.query(Bracket).filter(Bracket.id == bracket_id).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="Bracket not found")
+    if b.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the host can swap matchups")
+    if not b.is_live:
+        raise HTTPException(status_code=400, detail="Bracket is not live")
+
+    try:
+        new_bracket_data, new_round_winners, same_player_warning = _swap_positions(
+            list(b.bracket_data or []), dict(b.round_winners or {}), req.pos_a, req.pos_b
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    b.bracket_data = new_bracket_data
+    flag_modified(b, "bracket_data")
+    b.round_winners = new_round_winners
+    flag_modified(b, "round_winners")
+    db.commit()
+
+    import ws_manager
+    ws_manager.push(bracket_id, bracket_to_dict(b, viewer=current_user, db=db))
+
+    return {"ok": True, "same_player_warning": same_player_warning}
 
 
 @router.patch("/brackets/{bracket_id}/confirm-lineup")

@@ -15,7 +15,8 @@
   <link rel="stylesheet" href="css/game-menu.css" />
   <script src="js/auth.js"></script>
   <style>
-    .play-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 640px; margin: 0 auto; }
+    .play-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; max-width: 900px; margin: 0 auto; }
+    @media (max-width: 900px) { .play-grid { grid-template-columns: 1fr 1fr; max-width: 640px; } }
     @media (max-width: 700px) { .play-grid { grid-template-columns: 1fr; } }
     .play-card {
       display: flex;
@@ -70,6 +71,18 @@
       </svg>
       <span>Draft</span>
       <p>Draft characters together in real time, then head into a bracket.</p>
+    </a>
+    <a class="card card-hover play-card" href="bracket.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+        <path d="M4 22h16"></path>
+        <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
+        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
+        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
+      </svg>
+      <span>Manual Bracket</span>
+      <p>Seed players and set matchups yourself — no draft required.</p>
     </a>
   </div>
 </main>

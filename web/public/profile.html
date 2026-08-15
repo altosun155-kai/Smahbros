@@ -99,6 +99,24 @@
     .prof-section { background: var(--glass-bg); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); border-radius: var(--radius); padding: 20px; margin-bottom: 18px; }
     .prof-section-title { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; }
 
+    .profile-signout-row {
+      display: block;
+      width: 100%;
+      margin-top: 8px;
+      padding: 16px;
+      background: none;
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      color: var(--accent-neg);
+      opacity: 0.82;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      transition: opacity 0.15s, background 0.15s;
+    }
+    .profile-signout-row:hover { opacity: 1; background: rgba(231,76,60,0.08); }
+
     /* H2H */
     .h2h-bar {
       display: flex; height: 12px; border-radius: 6px; overflow: hidden; margin: 10px 0;
@@ -409,6 +427,15 @@
           <div id="h2hEmpty" style="display:none;font-size:0.84rem;color:var(--text-muted);margin-top:10px;">No matches recorded yet between these players.</div>
         </div>
 
+        <!-- My Brackets -- own profile only. Mobile has no menu trigger (tab
+             bar is the whole nav there), so this is the only mobile path
+             back to a live tournament once you've navigated away from it. -->
+        <div class="prof-section" id="myBracketsSection" style="display:none;">
+          <div class="prof-section-title">My Brackets</div>
+          <div id="myBracketsSummary" style="font-size:0.84rem;color:var(--text-muted);">Loading…</div>
+          <a href="my-brackets.html" class="btn btn-outline btn-sm" style="margin-top:10px;display:inline-block;">View My Brackets →</a>
+        </div>
+
         <!-- Activity feed -->
         <div class="prof-section">
           <div class="prof-section-title">Recent Activity</div>
@@ -432,6 +459,11 @@
 
       </div>
     </div>
+
+    <!-- Sign Out -- own profile only. No mobile menu trigger exists (the
+         game menu is desktop-only; mobile navigates entirely via the tab
+         bar), so this row is the only way to sign out on a phone. -->
+    <button type="button" id="profileSignOut" class="profile-signout-row" onclick="logout()" style="display:none;">Sign Out</button>
   </div>
 </main>
 
@@ -1181,6 +1213,20 @@
         document.getElementById('generatePreview').src = dicebearUrl(selectedStyle, me.username);
       }
       buildStyleGrid();
+
+      document.getElementById('profileSignOut').style.display = 'block';
+
+      document.getElementById('myBracketsSection').style.display = 'block';
+      apiGet('/brackets').then(brackets => {
+        const summaryEl = document.getElementById('myBracketsSummary');
+        if (brackets && brackets.length) {
+          summaryEl.textContent = `${brackets.length} tournament${brackets.length === 1 ? '' : 's'} — most recent: ${brackets[0].name}`;
+        } else {
+          summaryEl.textContent = 'No tournaments yet.';
+        }
+      }).catch(() => {
+        document.getElementById('myBracketsSummary').textContent = 'Could not load.';
+      });
     }
 
     document.getElementById('loadingState').style.display = 'none';

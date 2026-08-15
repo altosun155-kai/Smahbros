@@ -5,6 +5,14 @@
 // killed by ad blockers / Brave Shields, which looks exactly like a server outage.
 const API_BASE = '/api';
 
+// WebSocket connections go straight to the real origin -- Next.js rewrites
+// don't reliably proxy WS upgrades, so this deliberately doesn't go through
+// API_BASE (matches web/app/lib/api.ts's wsUrl()).
+const WS_ORIGIN = 'https://smash-bracket-api.onrender.com';
+function wsUrl(path) {
+  return WS_ORIGIN.replace(/^http/, 'ws') + path;
+}
+
 // ── Token management ──────────────────────────────
 function getToken() {
   return localStorage.getItem('authToken');

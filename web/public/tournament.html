@@ -154,6 +154,10 @@
       <div id="playersSection" style="margin-bottom:24px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
         <span style="font-size:0.85rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Players:</span>
         <div id="playerChips"></div>
+        <button type="button" id="btnLiveSwap" class="btn btn-outline btn-sm" onclick="toggleLiveSwap()" style="display:none;margin-left:auto;">🔀 Swap Matchup</button>
+      </div>
+      <div id="swapBannerLive" style="display:none;background:rgba(0,119,200,0.12);border:1px solid rgba(0,119,200,0.35);border-radius:8px;padding:10px 14px;font-size:0.85rem;color:var(--accent-blue);margin-bottom:12px;">
+        Swap mode ON — tap one Round 1 entry, then another, to swap them. Resolved matches are dimmed and can't be swapped.
       </div>
       <div class="bracket-rounds" id="bracketRounds"></div>
     </div>
@@ -415,6 +419,13 @@ let currentBracketData = null; // latest bracket snapshot
 const allUserAvatars = {};
 let liveControlsSet = false; // only pre-select radios on first lineup load
 
+// ── Live matchup swap (host only) — distinct from previewSwapMode/
+// handlePreviewSwap further down, which operates on pendingPairs before the
+// bracket exists in live form at all. This operates on the already-live
+// bracket's real bracket_data via POST /brackets/{id}/swap.
+let liveSwapMode = false;
+let liveSwapSel = null; // seed position (int), or null
+
 function getPlayerAvatar(username) {
   return allUserAvatars[username] || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(username)}`;
 }
@@ -505,12 +516,25 @@ function parseLabel(label) {
   return { player: label.slice(0, idx), character: label.slice(idx + 3) };
 }
 
-function entryHtml(label, roundWinners, roundScores, is_live, roundIdx, matchKey) {
+function entryHtml(label, roundWinners, roundScores, is_live, roundIdx, matchKey, mode, mi, slotIdx, isByeMatch) {
+  const winnerLabel = roundWinners[matchKey];
+  const pos = mi * 2 + slotIdx;
+  // Matches B2's server-side guard: swappable if round 1, host, live-swap
+  // mode is on, and this match has no *real* recorded result -- a bye's
+  // auto-resolved round_winners entry doesn't count (see
+  // routers/brackets.py::_swap_positions), so bye matches stay swappable.
+  const canLiveSwap = liveSwapMode && isHost && is_live && roundIdx === 0 && (!winnerLabel || isByeMatch);
+  const isSel = liveSwapSel === pos;
+
   if (!label || label === 'TBD') return `<div class="match-entry bye">— TBD —</div>`;
   const isBye = label.toUpperCase() === 'BYE';
-  if (isBye) return `<div class="match-entry bye">BYE</div>`;
-
-  const winnerLabel = roundWinners[matchKey];
+  if (isBye) {
+    if (canLiveSwap) {
+      return `<div class="match-entry bye${isSel ? ' swap-selected' : ' swap-hover'}" onclick="handleLiveSwapClick(${pos})">BYE</div>`;
+    }
+    const disabledCls = liveSwapMode ? ' swap-disabled' : '';
+    return `<div class="match-entry bye${disabledCls}">BYE</div>`;
+  }
   const isWinner = winnerLabel === label;
   const isLoser  = winnerLabel && winnerLabel !== label;
   const isMe = myUsername && label.startsWith(myUsername + ' — ');
@@ -529,19 +553,25 @@ function entryHtml(label, roundWinners, roundScores, is_live, roundIdx, matchKey
   // Dim the loser
   const loserStyle = isLoser ? 'opacity:0.45;' : '';
 
-  // Only show edit button in Round 1 while tournament is live and match not yet decided
-  const canEdit = isMe && is_live && roundIdx === 0 && !winnerLabel;
+  // Only show edit button in Round 1 while tournament is live and match not yet
+  // decided -- draft-mode brackets exclude this: your character was won through
+  // contested picks, not typed in, so letting you swap it after the fact would
+  // undermine the one thing draft mode exists to protect. Also suppressed in
+  // live-swap mode so the two controls' click targets never overlap.
+  const canEdit = isMe && is_live && roundIdx === 0 && !winnerLabel && mode !== 'draft' && !liveSwapMode;
   const editBtn = canEdit
     ? `<button type="button" class="edit-char-btn" onclick="openCharPicker('${myChar.replace(/'/g, "\\'")}')">✏️</button>`
     : '';
 
   const badgeHtml = parsed ? badgeIcon(parsed.player) : '';
-  const cls = `match-entry${isWinner ? ' winner' : ''}${isMe ? ' mine' : ''}`;
-  return `<div class="${cls}" style="${loserStyle}">${icon}${badgeHtml}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span>${scoreBadge}${editBtn}</div>`;
+  const swapCls = canLiveSwap ? (isSel ? ' swap-selected' : ' swap-hover') : (liveSwapMode ? ' swap-disabled' : '');
+  const swapOnclick = canLiveSwap ? ` onclick="handleLiveSwapClick(${pos})"` : '';
+  const cls = `match-entry${isWinner ? ' winner' : ''}${isMe ? ' mine' : ''}${swapCls}`;
+  return `<div class="${cls}" style="${loserStyle}"${swapOnclick}>${icon}${badgeHtml}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span>${scoreBadge}${editBtn}</div>`;
 }
 
 function renderBracket(data) {
-  const { bracket_data, round_winners, round_scores, is_live } = data;
+  const { bracket_data, round_winners, round_scores, is_live, mode } = data;
   const roundWinners = round_winners || {};
   const roundScores  = round_scores  || {};
   currentBracketData = data;
@@ -577,8 +607,9 @@ function renderBracket(data) {
       const box = document.createElement('div');
       box.className = 'match-box';
       const key = `r${ri}_m${mi}`;
-      box.innerHTML = entryHtml(a, roundWinners, roundScores, is_live, ri, key)
-                    + entryHtml(b, roundWinners, roundScores, is_live, ri, key);
+      const isByeMatch = (a && a.toUpperCase() === 'BYE') || (b && b.toUpperCase() === 'BYE');
+      box.innerHTML = entryHtml(a, roundWinners, roundScores, is_live, ri, key, mode, mi, 0, isByeMatch)
+                    + entryHtml(b, roundWinners, roundScores, is_live, ri, key, mode, mi, 1, isByeMatch);
 
       // Anyone can click valid matches to see elo previews; host can also record
       const validMatch = a && b && a !== 'TBD' && b !== 'TBD'
@@ -587,6 +618,7 @@ function renderBracket(data) {
         box.classList.add('clickable');
         box.addEventListener('click', e => {
           if (e.target.closest('.edit-char-btn')) return;
+          if (liveSwapMode) return; // entries handle their own clicks (see handleLiveSwapClick)
           openScoreModal(a, b, key);
         });
       }
@@ -615,6 +647,66 @@ function renderBracket(data) {
     wb.style.display = 'block';
   } else {
     wb.style.display = 'none';
+  }
+}
+
+// ── Live matchup swap (host only) ─────────────────
+function toggleLiveSwap() {
+  liveSwapMode = !liveSwapMode;
+  liveSwapSel = null;
+  const btn = document.getElementById('btnLiveSwap');
+  btn.textContent = liveSwapMode ? '✅ Done Swapping' : '🔀 Swap Matchup';
+  btn.classList.toggle('active', liveSwapMode);
+  document.getElementById('swapBannerLive').style.display = liveSwapMode ? 'block' : 'none';
+  if (currentBracketData) renderBracket(currentBracketData);
+}
+
+// Mirrors _swap_positions' same-player check (routers/brackets.py) so the
+// host sees the warning before committing, not just after -- the backend
+// still re-checks and returns same_player_warning regardless, this is only
+// a UX pre-check.
+function _wouldCreateSamePlayer(posA, posB) {
+  const bracketData = (currentBracketData && currentBracketData.bracket_data) || [];
+  const slotOf = pos => [Math.floor(pos / 2), pos % 2 === 0 ? 'a' : 'b'];
+  const [miA, slotA] = slotOf(posA);
+  const [miB, slotB] = slotOf(posB);
+  if (!bracketData[miA] || !bracketData[miB]) return false;
+  const pairA = { ...bracketData[miA] };
+  const pairB = miB === miA ? pairA : { ...bracketData[miB] };
+  const valA = pairA[slotA], valB = pairB[slotB];
+  pairA[slotA] = valB;
+  pairB[slotB] = valA;
+  const playerOf = label => (label && label.includes(' — ')) ? label.split(' — ')[0] : null;
+  const pairs = miA === miB ? [pairA] : [pairA, pairB];
+  return pairs.some(p => {
+    const pa = playerOf(p.a), pb = playerOf(p.b);
+    return pa && pb && pa === pb;
+  });
+}
+
+async function handleLiveSwapClick(pos) {
+  if (liveSwapSel === null) {
+    liveSwapSel = pos;
+    renderBracket(currentBracketData);
+    return;
+  }
+  if (liveSwapSel === pos) { liveSwapSel = null; renderBracket(currentBracketData); return; }
+
+  const posA = liveSwapSel, posB = pos;
+  liveSwapSel = null;
+
+  if (_wouldCreateSamePlayer(posA, posB)) {
+    const ok = confirm('This swap will put someone up against themselves (same player, both sides). Continue anyway?');
+    if (!ok) { renderBracket(currentBracketData); return; }
+  }
+
+  try {
+    const res = await apiPost(`/brackets/${tournamentId}/swap`, { pos_a: posA, pos_b: posB });
+    showToast(res.same_player_warning ? 'Swapped — heads up, that created a same-player matchup.' : 'Matchup swapped.', res.same_player_warning ? 'warn' : 'success');
+    await fetchAndRender();
+  } catch (err) {
+    showToast('Could not swap: ' + err.message, 'error');
+    renderBracket(currentBracketData);
   }
 }
 
@@ -1270,6 +1362,14 @@ async function fetchAndRender() {
     const endBtn = document.getElementById('endTournamentBtn');
     if (endBtn) endBtn.style.display = (isHost && data.is_live) ? 'block' : 'none';
 
+    const swapBtn = document.getElementById('btnLiveSwap');
+    if (swapBtn) swapBtn.style.display = (isHost && data.is_live) ? 'inline-block' : 'none';
+    if (!(isHost && data.is_live) && liveSwapMode) {
+      liveSwapMode = false;
+      liveSwapSel = null;
+      document.getElementById('swapBannerLive').style.display = 'none';
+    }
+
     const hasBracket = data.bracket_data && data.bracket_data.length > 0;
 
     if (data.is_live && !hasBracket) {
@@ -1381,9 +1481,27 @@ async function fetchAndRender() {
   await loadAllBadges();
   applyNavBadge(myUsername);
   await fetchAndRender();
-  // Poll every 5s for live updates
+  // Poll every 5s for live updates -- kept running alongside the WS listener
+  // below as a fallback; the WS connection has no reconnect logic, so if it
+  // drops, the poll is what keeps this screen from going stale.
   pollInterval = setInterval(fetchAndRender, 5000);
+  connectTournamentWs();
 })();
+
+// Fast-path live updates: pushed on matchup swap (see POST /brackets/{id}/swap)
+// so all open screens react immediately instead of waiting up to 5s for the
+// next poll. Just triggers a refetch on any message rather than parsing the
+// pushed payload directly -- one well-tested render path instead of two.
+function connectTournamentWs() {
+  let ws;
+  try {
+    ws = new WebSocket(wsUrl(`/ws/tournament/${tournamentId}`));
+  } catch (_) {
+    return;
+  }
+  ws.onopen = () => ws.send(getToken());
+  ws.onmessage = () => fetchAndRender();
+}
 
 let undoTimer = null, undoInterval = null, undoMatchKey = null;
 

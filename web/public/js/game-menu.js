@@ -286,9 +286,14 @@ window.GameMenu = (function () {
     const s = summary;
     if (!s) return;
 
-    if (s.champion && s.champion.character && typeof charImgUrl === 'function') {
+    // Background fade: the user's own choice (set on the profile page) if
+    // they made one, else the site champion's character -- see
+    // routers/home.py::home_summary. Deliberately not s.champion.character,
+    // which stays the *actual* champion for the Elo badge/leaderboard panel
+    // below regardless of what this player picked for their own background.
+    if (s.background_character && typeof charImgUrl === 'function') {
       const bg = root.querySelector('#homeBg');
-      if (bg) bg.style.backgroundImage = `url('${charImgUrl(s.champion.character)}')`;
+      if (bg) bg.style.backgroundImage = `url('${charImgUrl(s.background_character)}')`;
     }
     if (s.champion) {
       const val = root.querySelector('#homeEloVal');
@@ -339,8 +344,8 @@ window.GameMenu = (function () {
         }
         try {
           summary = await apiGet('/home/summary');
-          if (summary && summary.champion && summary.champion.character && typeof charImgUrl === 'function') {
-            new Image().src = charImgUrl(summary.champion.character); // warm the cache before it's ever shown
+          if (summary && summary.background_character && typeof charImgUrl === 'function') {
+            new Image().src = charImgUrl(summary.background_character); // warm the cache before it's ever shown
           }
         } catch (_) {
           summary = null;

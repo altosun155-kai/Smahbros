@@ -23,6 +23,10 @@ class FeaturedBadgeUpdate(BaseModel):
     badge_id: str  # e.g. "char_Joker" or "" to clear
 
 
+class BackgroundCharacterUpdate(BaseModel):
+    character: str | None  # None (or "") reverts to the site champion's character
+
+
 class SetTestFlag(BaseModel):
     is_test: bool
 
@@ -32,7 +36,7 @@ def get_me(db: Session = Depends(get_db), current_user: User = Depends(get_curre
     current_user.last_seen = datetime.utcnow()
     db.commit()
     return {"id": current_user.id, "username": current_user.username, "avatar_url": current_user.avatar_url,
-            "featured_badge": current_user.featured_badge}
+            "featured_badge": current_user.featured_badge, "background_character": current_user.background_character}
 
 
 @router.put("/users/me/avatar")
@@ -48,6 +52,13 @@ def update_avatar(req: AvatarUpdate, db: Session = Depends(get_db), current_user
 @router.patch("/users/me/featured-badge")
 def set_featured_badge(req: FeaturedBadgeUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     current_user.featured_badge = req.badge_id.strip() or None
+    db.commit()
+    return {"ok": True}
+
+
+@router.patch("/users/me/background-character")
+def set_background_character(req: BackgroundCharacterUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    current_user.background_character = (req.character or "").strip() or None
     db.commit()
     return {"ok": True}
 

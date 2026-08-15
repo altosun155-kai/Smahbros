@@ -198,12 +198,20 @@ def _posters(db: Session) -> list[dict]:
 def home_summary(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     in_progress = _in_progress(db, current_user)
     last_session = _last_session(db, current_user) if in_progress is None else None
+    champion = get_champion(db)
+    # The home-page background fade defaults to the site champion's character
+    # (unchanged behavior) but each player can override it for themselves via
+    # PATCH /users/me/background-character -- deliberately a separate field
+    # from `champion`, which still reports the *actual* site champion for the
+    # leaderboard panel/Elo badge regardless of this override.
+    background_character = current_user.background_character or (champion["character"] if champion else None)
     return {
         "in_progress": in_progress,
         "last_session": last_session,
         "last_duel": _last_duel(db, current_user),
         "my_brackets": _my_brackets_summary(db, current_user),
-        "champion": get_champion(db),
+        "champion": champion,
+        "background_character": background_character,
         "mastery_coverage": {"played": _mastery_played(db, current_user)},
         "posters": _posters(db),
     }

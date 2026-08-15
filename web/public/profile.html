@@ -436,6 +436,17 @@
           <a href="my-brackets.html" class="btn btn-outline btn-sm" style="margin-top:10px;display:inline-block;">View My Brackets →</a>
         </div>
 
+        <!-- Home Background -- own profile only. Which character fades in
+             behind the home menu; defaults to the site champion if unset. -->
+        <div class="prof-section" id="bgCharSection" style="display:none;">
+          <div class="prof-section-title">Home Background</div>
+          <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px;">Choose which character fades in behind your home menu.</p>
+          <select id="bgCharSelect" style="width:100%;max-width:280px;background:var(--card-bg2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px 10px;font-size:0.88rem;">
+            <option value="">Auto (site champion)</option>
+          </select>
+          <span id="bgCharSaved" style="display:none;margin-left:10px;font-size:0.8rem;color:#27ae60;">Saved ✓</span>
+        </div>
+
         <!-- Activity feed -->
         <div class="prof-section">
           <div class="prof-section-title">Recent Activity</div>
@@ -1227,6 +1238,28 @@
       }).catch(() => {
         document.getElementById('myBracketsSummary').textContent = 'Could not load.';
       });
+
+      if (typeof SMASH_ROSTER !== 'undefined') {
+        const bgSelect = document.getElementById('bgCharSelect');
+        SMASH_ROSTER.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c; opt.textContent = c;
+          bgSelect.appendChild(opt);
+        });
+        bgSelect.value = (me && me.background_character) || '';
+        bgSelect.addEventListener('change', async () => {
+          const savedEl = document.getElementById('bgCharSaved');
+          savedEl.style.display = 'none';
+          try {
+            await apiPatch('/users/me/background-character', { character: bgSelect.value || null });
+            savedEl.style.display = 'inline';
+            setTimeout(() => { savedEl.style.display = 'none'; }, 2000);
+          } catch (err) {
+            showToast('Could not save: ' + err.message, 'error');
+          }
+        });
+        document.getElementById('bgCharSection').style.display = 'block';
+      }
     }
 
     document.getElementById('loadingState').style.display = 'none';

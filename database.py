@@ -36,6 +36,7 @@ class User(Base):
     avatar_url      = Column(String, nullable=True)
     last_seen       = Column(DateTime, nullable=True)
     featured_badge  = Column(String, nullable=True)
+    background_character = Column(String, nullable=True)  # home-page bg fade override; null = site champion
     is_admin        = Column(Boolean, default=False, nullable=False)
     is_test         = Column(Boolean, default=False, nullable=False)
     elo             = Column(Integer, default=1000, nullable=False)

@@ -37,6 +37,7 @@ def _run_migrations():
             conn.execute(text("UPDATE users SET is_admin = TRUE WHERE username = 'kai'"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_test BOOLEAN DEFAULT FALSE NOT NULL"))
             conn.execute(text("UPDATE users SET is_test = TRUE WHERE username ILIKE 'testuser%'"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS background_character VARCHAR"))
             # Indexes for hot query paths
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_winner_id  ON match_results(winner_id)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_loser_id   ON match_results(loser_id)"))
@@ -183,6 +184,8 @@ def _run_migrations():
                 conn.execute(text("ALTER TABLE users ADD COLUMN elo INTEGER DEFAULT 1000"))
             if "is_test" not in u_cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN is_test BOOLEAN DEFAULT 0"))
+            if "background_character" not in u_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN background_character VARCHAR"))
             conn.execute(text("UPDATE users SET is_admin = 1 WHERE username = 'kai'"))
             conn.execute(text("UPDATE users SET is_test = 1 WHERE username LIKE 'testuser%'"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_winner_id  ON match_results(winner_id)"))

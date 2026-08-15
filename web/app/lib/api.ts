@@ -2,10 +2,16 @@
 // Kept behaviorally identical (same retry/backoff, same toast classes) so the
 // React side matches the vanilla pages exactly.
 
-export const API_BASE = 'https://smash-bracket-api.onrender.com';
+// Fetches go through our own origin (proxied to Render via next.config.js's
+// rewrites) so they're invisible to ad blockers / Brave Shields, which kill
+// cross-site requests to the Render domain outright. WebSocket connections
+// still need the real origin -- Next.js rewrites don't reliably proxy WS
+// upgrades -- so wsUrl() deliberately does not go through API_BASE.
+export const API_BASE = '/api';
+const WS_ORIGIN = 'https://smash-bracket-api.onrender.com';
 
 export function wsUrl(path: string): string {
-  return API_BASE.replace(/^http/, 'ws') + path;
+  return WS_ORIGIN.replace(/^http/, 'ws') + path;
 }
 
 const RETRY_ATTEMPTS = 3;

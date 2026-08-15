@@ -4,7 +4,34 @@
    dialog panel -- the overlay-specific wrapper rules live at the bottom of
    this file, everything above is shared by both modes unchanged. */
 
-/* ── Home shell — champion background, 3-column cinematic menu ── */
+/* ── Home shell — champion background, 3-column cinematic menu ──
+   index.html's <main class="page-container"> normally caps at 1100px and
+   pads its content like every other page, but the home shell (page mode
+   only) is a full-bleed cinematic background -- it needs to reach the real
+   viewport edges, not sit centered in a boxed, padded, rounded card.
+   :has() scopes the container-width fix to the home page only; the
+   min-width:701px block below breaks .home-shell itself out of <main>'s
+   padding (mirroring its own values: inline padding-top:20px, class
+   padding right/left:24px, bottom:60px -- see style.css's .page-container).
+   Kept desktop-only so it never fights the existing mobile breakout further
+   down this file, which handles .home-shell full-bleed for both modes. */
+main.page-container:has(#homeMenuMount) {
+  max-width: none;
+}
+@media (min-width: 701px) {
+  #homeMenuMount > .home-shell {
+    border-radius: 0;
+    margin: -20px -24px -60px;
+    min-height: 100vh;
+  }
+  /* Menu column gets its own viewport-relative offset instead of inheriting
+     .home-grid's generic card padding -- keeps it proportional at any width
+     now that the shell spans the true viewport instead of a boxed column. */
+  #homeMenuMount .home-grid { padding: 48px 6vw 60px; }
+  #homeMenuMount .home-elo-badge { margin-left: 6vw; }
+  #homeMenuMount .home-identity { right: 6vw; }
+}
+
 .home-shell {
   position: relative;
   min-height: 78vh;
@@ -37,6 +64,22 @@
   font-size: 1.1rem; font-weight: 800; color: var(--accent-gold);
 }
 .home-elo-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+
+/* ── Identity corner (page mode only — see renderSkeleton) ── */
+.home-identity {
+  position: absolute; z-index: 2;
+  top: 20px; right: 28px;
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 0.85rem; font-weight: 600; color: var(--text);
+}
+.home-identity-avatar {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--card-bg2);
+  object-fit: cover;
+  flex-shrink: 0;
+  display: none;
+}
 
 .home-grid {
   position: relative; z-index: 1;

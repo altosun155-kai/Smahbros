@@ -1,6 +1,9 @@
 // auth.js — shared auth utilities for Smash Bracket
 
-const API_BASE = 'https://smash-bracket-api.onrender.com';
+// Proxied through our own origin (see web/next.config.js rewrites) so fetches
+// are same-origin -- cross-site requests to the Render domain get silently
+// killed by ad blockers / Brave Shields, which looks exactly like a server outage.
+const API_BASE = '/api';
 
 // ── Token management ──────────────────────────────
 function getToken() {

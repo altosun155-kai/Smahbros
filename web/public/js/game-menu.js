@@ -204,12 +204,23 @@ window.GameMenu = (function () {
   // on a cold backend: there's nothing left to build once data arrives,
   // only existing elements to update (see renderSummary).
   function renderSkeleton(root) {
+    // Identity (avatar/username) only appears here in page mode -- overlay
+    // mode's dialog sits under the normal top bar, which already shows it;
+    // rendering it in both places would just recreate the redundant-header
+    // problem this corner placement exists to avoid.
+    const identityHtml = mode === 'page'
+      ? `<div class="home-identity" id="homeIdentity" style="display:none;">
+           <img class="home-identity-avatar" id="homeIdentityAvatar" alt="" onerror="this.style.display='none'" />
+           <span id="homeIdentityName"></span>
+         </div>`
+      : '';
     root.innerHTML = `
       <div class="home-shell" id="homeShell">
         <div class="home-bg" id="homeBg"></div>
         <div class="home-elo-badge" id="homeEloBadge" style="display:none;">
           <span id="homeEloVal">—</span><span class="home-elo-label">Elo</span>
         </div>
+        ${identityHtml}
         <div class="home-grid">
           <nav class="home-menu" id="homeMenu" aria-label="Home menu">
             <div class="home-menu-primary" id="homeMenuPrimary">

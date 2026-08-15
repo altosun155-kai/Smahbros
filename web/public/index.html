@@ -159,10 +159,11 @@
     try {
       const me = await apiGet('/users/me');
       if (me) {
-        document.getElementById('navUsername').textContent = me.username;
+        document.getElementById('homeIdentityName').textContent = me.username;
         const avatarUrl = me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`;
-        const navAv = document.getElementById('navAvatar');
-        navAv.src = avatarUrl; navAv.style.display = 'block';
+        const idAvatar = document.getElementById('homeIdentityAvatar');
+        idAvatar.src = avatarUrl; idAvatar.style.display = 'block';
+        document.getElementById('homeIdentity').style.display = 'inline-flex';
       }
     } catch (_) {}
 

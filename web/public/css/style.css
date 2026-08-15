@@ -148,7 +148,7 @@ a:hover {
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
-  margin-left: 16px;
+  margin-left: auto;
 }
 
 .nav-user {
@@ -167,24 +167,6 @@ a:hover {
   background: var(--card-bg2);
   object-fit: cover;
   flex-shrink: 0;
-}
-
-.btn-signout {
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.15);
-  color: var(--text-muted);
-  padding: 6px 13px;
-  border-radius: 6px;
-  font-size: 0.83rem;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s, color 0.15s;
-}
-
-.btn-signout:hover {
-  background: rgba(255,255,255,0.15);
-  color: var(--text);
 }
 
 /* ── Menu trigger (game-menu.js overlay) ── */

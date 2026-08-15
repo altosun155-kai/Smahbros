@@ -1,26 +1,33 @@
 // nav-inject.js — single source of truth for nav HTML (top bar + mobile bottom nav).
 (function () {
   const nav = document.getElementById('main-nav');
-  if (!nav) return;
+  // index.html renders GameMenu in mode:'page' -- the menu IS the page there,
+  // so the top bar (with its own "Menu" trigger into an overlay) would be a
+  // redundant, confusing second nav. Skip it entirely on that page; identity
+  // (avatar/username) is shown in the home menu's own layout instead.
+  const isHomeMenuPage = !!document.getElementById('homeMenuMount');
 
-  const MENU_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.15em;"><line x1="4" x2="20" y1="12" y2="12"></line><line x1="4" x2="20" y1="6" y2="6"></line><line x1="4" x2="20" y1="18" y2="18"></line></svg>';
+  if (nav && isHomeMenuPage) {
+    nav.remove();
+  } else if (nav) {
+    const MENU_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.15em;"><line x1="4" x2="20" y1="12" y2="12"></line><line x1="4" x2="20" y1="6" y2="6"></line><line x1="4" x2="20" y1="18" y2="18"></line></svg>';
+
+    nav.innerHTML =
+      `<a class="logo" href="index.html">Smash<span>Bros</span></a>` +
+      `<button type="button" class="menu-trigger" id="menuTrigger" onclick="GameMenu.open()">${MENU_ICON} Menu</button>` +
+      `<div class="nav-right">` +
+        `<div class="nav-user">` +
+          `<img class="nav-avatar" id="navAvatar" src="" alt="" onerror="this.style.display='none'" />` +
+          `<span id="navUsername"></span>` +
+        `</div>` +
+      `</div>`;
+
+    if (typeof GameMenu !== 'undefined' && !document.getElementById('gameMenuBackdrop')) {
+      GameMenu.init({ mode: 'overlay', triggerEl: document.getElementById('menuTrigger') });
+    }
+  }
 
   const currentPage = window.location.pathname.split('/').pop() || 'index.html';
-
-  nav.innerHTML =
-    `<a class="logo" href="index.html">Smash<span>Bros</span></a>` +
-    `<button type="button" class="menu-trigger" id="menuTrigger" onclick="GameMenu.open()">${MENU_ICON} Menu</button>` +
-    `<div class="nav-right">` +
-      `<div class="nav-user">` +
-        `<img class="nav-avatar" id="navAvatar" src="" alt="" onerror="this.style.display='none'" />` +
-        `<span id="navUsername"></span>` +
-      `</div>` +
-      `<button class="btn-signout" onclick="logout()">Sign Out</button>` +
-    `</div>`;
-
-  if (typeof GameMenu !== 'undefined' && !document.getElementById('gameMenuBackdrop')) {
-    GameMenu.init({ mode: 'overlay', triggerEl: document.getElementById('menuTrigger') });
-  }
 
   // Inject mobile bottom nav into body (CSS hides it on desktop)
   if (!document.getElementById('bottomNav')) {

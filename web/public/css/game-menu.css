@@ -1,0 +1,213 @@
+/* game-menu.css — shared cinematic menu (web/public/js/game-menu.js).
+   mode:'page' (index.html) renders this inline with no wrapper; mode:'overlay'
+   (every other page) wraps the exact same .home-shell markup in a backdrop +
+   dialog panel -- the overlay-specific wrapper rules live at the bottom of
+   this file, everything above is shared by both modes unchanged. */
+
+/* ── Home shell — champion background, 3-column cinematic menu ── */
+.home-shell {
+  position: relative;
+  min-height: 78vh;
+  border-radius: 20px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.home-bg {
+  position: absolute; inset: 0;
+  background-size: cover;
+  background-position: right center;
+  filter: brightness(0.3);
+  z-index: 0;
+  /* Baseline overscan so the JS-driven parallax translate (desktop only,
+     see game-menu.js's mousemove listener) never reveals an edge -- the
+     scale margin absorbs the small pointer-tracked offset. */
+  transform: scale(1.06);
+  transition: transform 0.3s ease-out;
+}
+.home-bg::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, var(--bg) 0%, var(--bg) 30%, rgba(15,15,23,0.55) 55%, transparent 78%);
+}
+.home-elo-badge {
+  position: relative; z-index: 2;
+  display: inline-flex; align-items: baseline; gap: 5px;
+  margin: 20px 0 0 28px;
+  font-family: var(--font-display);
+  font-size: 1.1rem; font-weight: 800; color: var(--accent-gold);
+}
+.home-elo-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+
+.home-grid {
+  position: relative; z-index: 1;
+  display: grid;
+  grid-template-columns: 300px 1fr 260px;
+  gap: 36px;
+  padding: 28px 28px 40px;
+  min-height: 78vh;
+  box-sizing: border-box;
+  align-items: start;
+}
+
+.home-menu { display: flex; flex-direction: column; gap: 6px; }
+.home-menu-primary { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.home-menu-item {
+  display: block;
+  text-decoration: none;
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.home-menu-item .hmi-sub { display: block; font-family: var(--font-system); font-size: 0.72rem; font-weight: 500; color: var(--text-muted); margin-top: 2px; }
+.home-menu-item.highlighted {
+  color: var(--text);
+  background: rgba(245,166,35,0.12);
+  border-color: rgba(245,166,35,0.4);
+}
+.home-menu-item:hover, .home-menu-item:focus-visible { background: rgba(255,255,255,0.06); color: var(--text); outline: none; }
+.home-menu-item.highlighted:hover, .home-menu-item.highlighted:focus-visible { background: rgba(245,166,35,0.2); }
+
+.home-menu-secondary { display: flex; flex-direction: column; }
+.home-menu-secondary-item {
+  display: block;
+  text-decoration: none;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  padding: 11px 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.home-menu-secondary-item:last-child { border-bottom: 1px solid var(--border); }
+.home-menu-secondary-item:hover, .home-menu-secondary-item:focus-visible { color: var(--text); background: rgba(255,255,255,0.04); outline: none; }
+
+.home-panel {
+  min-height: 240px;
+  padding-top: 6px;
+}
+.home-panel-content { transition: opacity 0.15s ease; }
+.home-panel-content.fading { opacity: 0; }
+.home-panel-loading { color: var(--text-muted); font-size: 0.85rem; }
+.home-panel-eyebrow { font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--accent-gold); margin-bottom: 8px; }
+.home-panel-title { font-family: var(--font-display); font-size: 1.4rem; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+.home-panel-sub { font-size: 0.88rem; color: var(--text-muted); margin-bottom: 14px; }
+.home-panel-cta { display: inline-block; margin-top: 6px; }
+
+.home-posters { display: flex; flex-direction: column; gap: 14px; }
+.home-posters .bounty-poster { width: 100%; }
+
+/* Stagger-in on page entry. Plain CSS (no shared-element morph involved,
+   unlike the GSAP stagger used for the draft reveal) -- the sitewide
+   prefers-reduced-motion rule in style.css already collapses this to
+   near-instant, no extra guard needed here. */
+@keyframes homeItemIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.home-menu-item, .home-menu-secondary-item { opacity: 0; animation: homeItemIn 0.35s ease forwards; }
+.home-menu-primary .home-menu-item:nth-child(1) { animation-delay: 0ms; }
+.home-menu-primary .home-menu-item:nth-child(2) { animation-delay: 40ms; }
+.home-menu-secondary .home-menu-secondary-item:nth-child(1) { animation-delay: 0ms; }
+.home-menu-secondary .home-menu-secondary-item:nth-child(2) { animation-delay: 40ms; }
+.home-menu-secondary .home-menu-secondary-item:nth-child(3) { animation-delay: 80ms; }
+.home-menu-secondary .home-menu-secondary-item:nth-child(4) { animation-delay: 120ms; }
+.home-menu-secondary .home-menu-secondary-item:nth-child(5) { animation-delay: 160ms; }
+.home-menu-secondary .home-menu-secondary-item:nth-child(6) { animation-delay: 200ms; }
+
+@media (max-width: 700px) {
+  .home-shell {
+    border-radius: 0;
+    margin: 0 -16px 0;
+    min-height: unset;
+  }
+  .home-bg { filter: brightness(0.22); }
+  .home-bg::after { background: linear-gradient(180deg, rgba(15,15,23,0.55) 0%, var(--bg) 60%); }
+  .home-elo-badge { margin: 16px 0 0 16px; }
+
+  .home-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 16px 16px 24px;
+    min-height: unset;
+  }
+
+  .home-menu-secondary { display: none; }
+  .home-menu-primary { margin-bottom: 0; gap: 10px; }
+  .home-menu-item {
+    padding: 16px 18px;
+    border-radius: 14px;
+  }
+  .home-menu-item.highlighted .hmi-context {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .hmi-context { display: none; }
+
+  .home-panel { display: none; }
+
+  .home-posters {
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 14px;
+    padding-bottom: 6px;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 4px;
+    scrollbar-width: none;
+  }
+  .home-posters::-webkit-scrollbar { display: none; }
+  .home-posters .bounty-poster { flex-shrink: 0; width: 200px; scroll-snap-align: start; }
+}
+
+/* ── Overlay mode wrapper (mode: 'overlay' only) ── */
+#gameMenuBackdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0,0,0,0);
+  transition: background 0.15s ease;
+  box-sizing: border-box;
+}
+#gameMenuBackdrop.open { background: rgba(0,0,0,0.72); }
+
+#gameMenuPanel {
+  width: min(1100px, 100%);
+  height: min(720px, 85vh);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+#gameMenuBackdrop.open #gameMenuPanel {
+  opacity: 1;
+  transform: translateY(0);
+}
+#gameMenuPanel .home-shell {
+  height: 100%;
+  min-height: unset;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+}
+#gameMenuPanel .home-grid { min-height: unset; height: 100%; overflow-y: auto; }
+
+@media (max-width: 700px) {
+  #gameMenuPanel { height: min(600px, 88vh); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #gameMenuBackdrop, #gameMenuPanel { transition: none; }
+}

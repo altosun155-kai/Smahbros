@@ -1,6 +1,10 @@
+import logging
+
 from sqlalchemy import text
 
 from database import engine
+
+logger = logging.getLogger(__name__)
 
 
 def _run_migrations():
@@ -101,6 +105,28 @@ def _run_migrations():
                 )
             """))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_dp_room_id ON draft_picks(room_id)"))
+            # Duplicate character picks were explicitly allowed before free-pool
+            # draft brackets required them to be unique -- pre-existing duplicate
+            # rows make this CREATE UNIQUE INDEX fail, so log rather than swallow
+            # (the app-level check in pick_draft_character is the real guard;
+            # this is a backstop, and a silently-missing backstop should be visible).
+            # Wrapped in a savepoint (begin_nested), not just try/except: on
+            # Postgres, a failed statement poisons the whole connection's
+            # transaction until rolled back, and the bare conn.commit() at the
+            # end of this function would then silently discard every other
+            # migration statement that already succeeded this run -- not just
+            # this one. The savepoint scopes the failure to just this statement.
+            try:
+                with conn.begin_nested():
+                    conn.execute(text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS uq_dp_room_player_char "
+                        "ON draft_picks(room_id, player_id, character)"
+                    ))
+            except Exception as e:
+                logger.warning(
+                    "Could not create uq_dp_room_player_char (likely pre-existing "
+                    "duplicate picks from before duplicates were blocked): %s", e
+                )
         else:
             cols = {row[1] for row in conn.execute(text("PRAGMA table_info(brackets)"))}
             if "round_winners" not in cols:
@@ -224,4 +250,26 @@ def _run_migrations():
                     )
                 """))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_dp_room_id ON draft_picks(room_id)"))
+            # Duplicate character picks were explicitly allowed before free-pool
+            # draft brackets required them to be unique -- pre-existing duplicate
+            # rows make this CREATE UNIQUE INDEX fail, so log rather than swallow
+            # (the app-level check in pick_draft_character is the real guard;
+            # this is a backstop, and a silently-missing backstop should be visible).
+            # Wrapped in a savepoint (begin_nested), not just try/except: on
+            # Postgres, a failed statement poisons the whole connection's
+            # transaction until rolled back, and the bare conn.commit() at the
+            # end of this function would then silently discard every other
+            # migration statement that already succeeded this run -- not just
+            # this one. The savepoint scopes the failure to just this statement.
+            try:
+                with conn.begin_nested():
+                    conn.execute(text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS uq_dp_room_player_char "
+                        "ON draft_picks(room_id, player_id, character)"
+                    ))
+            except Exception as e:
+                logger.warning(
+                    "Could not create uq_dp_room_player_char (likely pre-existing "
+                    "duplicate picks from before duplicates were blocked): %s", e
+                )
         conn.commit()

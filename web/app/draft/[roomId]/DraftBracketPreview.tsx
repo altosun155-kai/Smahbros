@@ -76,9 +76,7 @@ export default function DraftBracketPreview({
     >
       {brackets.map((b, slot) => (
         <div key={b.id} className="draft-bracket-panel">
-          <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 10, fontSize: '0.95rem' }}>
-            {room.chars_per_player > 1 ? `Bracket ${slot + 1}` : 'Bracket'}
-          </h3>
+          <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 10, fontSize: '0.95rem' }}>Bracket</h3>
           {b.bracket_data.map((pair, mi) => {
             const aPlayer = parseLabel(pair.a).player;
             const bPlayer = parseLabel(pair.b).player;

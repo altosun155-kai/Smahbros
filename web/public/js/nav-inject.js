@@ -1,37 +1,15 @@
-// nav-inject.js — single source of truth for nav HTML (left sidebar + mobile bottom nav).
+// nav-inject.js — single source of truth for nav HTML (top bar + mobile bottom nav).
 (function () {
   const nav = document.getElementById('main-nav');
   if (!nav) return;
 
-  const DICES_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.15em;"><rect x="2" y="10" width="12" height="12" rx="2" ry="2"></rect><path d="m17.92 14 3.5-3.5a2.24 2.24 0 0 0 0-3l-5-4.92a2.24 2.24 0 0 0-3 0L10 5.08"></path><path d="M6 18h.01"></path><path d="M10 14h.01"></path><path d="M15 6h.01"></path><path d="M18 9h.01"></path></svg>';
-
-  const NAV = [
-    { href: 'index.html',       label: 'Home',         icon: '🏠' },
-    { section: 'Compete' },
-    { href: 'bracket.html',       label: 'Bracket',      icon: '🏆' },
-    { href: 'duel.html',         label: '1v1 Duel',     icon: '⚔️' },
-    { href: '/draft',           label: 'Draft',        icon: DICES_ICON },
-    { href: 'my-brackets.html',  label: 'My Brackets',  icon: '📁' },
-    { section: 'Track' },
-    { href: 'stats.html',       label: 'Stats',        icon: '📊' },
-    { href: 'leaderboard.html', label: 'Leaderboard',  icon: '📈' },
-    { href: 'mastery.html',     label: 'Mastery',      icon: '🎯' },
-    { section: 'My Stuff' },
-    { href: 'tier-list.html',    label: 'Tier List',    icon: '🎖️' },
-    { href: 'favorites.html',   label: 'Favorites',    icon: '⭐' },
-    { href: 'profile.html',     label: 'Profile',      icon: '👤' },
-  ];
+  const MENU_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.15em;"><line x1="4" x2="20" y1="12" y2="12"></line><line x1="4" x2="20" y1="6" y2="6"></line><line x1="4" x2="20" y1="18" y2="18"></line></svg>';
 
   const currentPage = window.location.pathname.split('/').pop() || 'index.html';
 
-  const items = NAV.map(l => {
-    if (l.section) return `<li class="nav-section-header">${l.section}</li>`;
-    return `<li><a href="${l.href}"${currentPage === l.href ? ' class="active"' : ''}>${l.icon} ${l.label}</a></li>`;
-  }).join('');
-
   nav.innerHTML =
     `<a class="logo" href="index.html">Smash<span>Bros</span></a>` +
-    `<ul class="nav-links">${items}</ul>` +
+    `<button type="button" class="menu-trigger" id="menuTrigger" onclick="GameMenu.open()">${MENU_ICON} Menu</button>` +
     `<div class="nav-right">` +
       `<div class="nav-user">` +
         `<img class="nav-avatar" id="navAvatar" src="" alt="" onerror="this.style.display='none'" />` +
@@ -39,6 +17,10 @@
       `</div>` +
       `<button class="btn-signout" onclick="logout()">Sign Out</button>` +
     `</div>`;
+
+  if (typeof GameMenu !== 'undefined' && !document.getElementById('gameMenuBackdrop')) {
+    GameMenu.init({ mode: 'overlay', triggerEl: document.getElementById('menuTrigger') });
+  }
 
   // Inject mobile bottom nav into body (CSS hides it on desktop)
   if (!document.getElementById('bottomNav')) {

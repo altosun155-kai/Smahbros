@@ -1,3 +1,4 @@
+import random
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -12,6 +13,17 @@ import ws_manager
 router = APIRouter(tags=["draft"])
 
 VALID_CHARS_PER_PLAYER = (1, 4, 8)
+
+
+def _next_power_of_two(n: int) -> int:
+    p = 1
+    while p < n:
+        p *= 2
+    return p
+
+
+def _is_power_of_two(n: int) -> bool:
+    return n > 0 and (n & (n - 1)) == 0
 
 
 class DraftRoomCreate(BaseModel):
@@ -31,83 +43,115 @@ def _push(db: Session, room: DraftRoom):
     ws_manager.push(f"draft:{room.id}", draft_room_to_dict(db, room, viewer_id=None))
 
 
-def _pair_players_join_order(usernames: list) -> list:
-    """Pair players in join order: [0]v[1], [2]v[3], ... A lone trailing player gets
-    a bye (None). Deliberate scope simplification: no elo-based seeding for
-    draft-originated brackets -- bracket-engine.js's buildBracketPairs() seeding
-    logic is client-side JS and isn't reusable from this Python backend."""
-    pairs = []
-    for i in range(0, len(usernames), 2):
-        a = usernames[i]
-        b = usernames[i + 1] if i + 1 < len(usernames) else None
-        pairs.append((a, b))
-    return pairs
+def _deal_bracket(entries_by_player: dict, chars_per_player: int) -> list:
+    """Seeds bracket positions so every consecutive run of `group_size` positions
+    holds at most one entry per player -- the invariant that guarantees no
+    self-match before groups start merging across each other. Each value in
+    entries_by_player is that player's picks; each entry is {"player_id", "character"}.
+
+    chars_per_player is passed in explicitly (from room.chars_per_player) rather
+    than inferred from one player's list length -- trusting an arbitrary player's
+    count and then indexing pools[p][g] for every other player means one short
+    list (a NULL-character row, a mid-draft leave, a partial write) raises
+    IndexError at the exact moment the room goes live. Validated up front instead.
+
+    Deliberate scope simplification: seeding is random-but-constrained, not
+    elo-based -- bracket-engine.js's buildBracketPairs() seeding logic is
+    client-side JS and isn't reusable from this Python backend."""
+    if not _is_power_of_two(chars_per_player):
+        raise ValueError(f"chars_per_player must be a power of two, got {chars_per_player}")
+
+    players = list(entries_by_player.keys())
+    n = len(players)
+    for p in players:
+        if len(entries_by_player[p]) != chars_per_player:
+            raise ValueError(f"player {p} has {len(entries_by_player[p])} picks, expected {chars_per_player}")
+    group_size = _next_power_of_two(n)
+
+    pools = {p: random.sample(entries_by_player[p], len(entries_by_player[p])) for p in players}
+
+    seeds: list = []
+    for g in range(chars_per_player):
+        order = random.sample(players, len(players))
+        for p in order:
+            seeds.append(pools[p][g])
+        for _ in range(n, group_size):
+            seeds.append(None)
+    return seeds
 
 
-def _build_slot_bracket(pairs: list, picks_by_username: dict):
-    """Return (bracket_data, entries, round_winners) for one draft slot's Bracket
-    row. Matches tournament.html's own BYE convention exactly (bare 'BYE' label,
-    not the 'SYSTEM — BYE' form bracket-engine.js uses for its own client-only
-    entries list) since tournament.html is the page these brackets are viewed
-    through. A bye pair's winner is pre-resolved into round_winners at creation
-    time -- tournament.html has no auto-bye-advance of its own (confirmed by
-    reading it: PATCH /brackets/{id}/winner is only ever called from a human
-    recording a real match), so leaving it unresolved would strand the bracket."""
+def _build_free_pool_bracket(seeds: list, users_by_id: dict):
+    """Return (bracket_data, entries, round_winners) for the draft's single Bracket
+    row from dealt seed positions. Matches tournament.html's own BYE convention
+    exactly (bare 'BYE' label, not the 'SYSTEM — BYE' form bracket-engine.js uses
+    for its own client-only entries list) since tournament.html is the page these
+    brackets are viewed through. A bye pair's winner is pre-resolved into
+    round_winners at creation time -- tournament.html has no auto-bye-advance of
+    its own (confirmed by reading it: PATCH /brackets/{id}/winner is only ever
+    called from a human recording a real match), so leaving it unresolved would
+    strand the bracket. With chars_per_player > 1 and n == 3, a bye lands in
+    every group, not just a single trailing one -- each pair is resolved
+    independently rather than assuming at most one bye overall."""
     bracket_data, entries, round_winners = [], [], {}
-    for mi, (a_user, b_user) in enumerate(pairs):
-        a_label = "BYE" if a_user is None else f"{a_user} — {picks_by_username[a_user]}"
-        b_label = "BYE" if b_user is None else f"{b_user} — {picks_by_username[b_user]}"
+    for mi in range(0, len(seeds), 2):
+        a, b = seeds[mi], seeds[mi + 1]
+        if a is None and b is None:
+            # Unreachable today (n in {2,3,4} means at most one bye per group of
+            # up to 4), but num_players exists specifically so a larger N can
+            # come later -- at n=5, group_size=8 gives three Nones per group,
+            # and an unguarded bye-vs-bye pair has no round_winners entry and
+            # can never resolve. Fail loudly here instead of shipping a stuck bracket.
+            raise ValueError(f"bye vs bye at match {mi // 2} -- group_size exceeds num_players by more than one bye slot")
+        a_label = "BYE" if a is None else f"{users_by_id[a['player_id']].username} — {a['character']}"
+        b_label = "BYE" if b is None else f"{users_by_id[b['player_id']].username} — {b['character']}"
+        m = mi // 2
         bracket_data.append({"a": a_label, "b": b_label})
-        if a_user is not None:
-            entries.append({"player": a_user, "character": picks_by_username[a_user]})
-        if b_user is not None:
-            entries.append({"player": b_user, "character": picks_by_username[b_user]})
-        if a_user is None and b_user is not None:
-            round_winners[f"r0_m{mi}"] = b_label
-        elif b_user is None and a_user is not None:
-            round_winners[f"r0_m{mi}"] = a_label
+        if a is not None:
+            entries.append({"player": users_by_id[a['player_id']].username, "character": a['character']})
+        if b is not None:
+            entries.append({"player": users_by_id[b['player_id']].username, "character": b['character']})
+        if a is None and b is not None:
+            round_winners[f"r0_m{m}"] = b_label
+        elif b is None and a is not None:
+            round_winners[f"r0_m{m}"] = a_label
     return bracket_data, entries, round_winners
 
 
 def _create_draft_brackets_and_go_live(db: Session, room: DraftRoom, pick_rows: list):
-    """Creates room.chars_per_player independent live Bracket rows (round-1 paired
-    in join order) and flips room.status straight to 'live' with bracket_ids
-    populated -- all before the caller's single commit, so no client ever observes
-    a separately-broadcast 'revealed' state."""
+    """Creates one live free-pool Bracket row containing every player's every pick,
+    seeded via _deal_bracket so no two entries from the same player can meet
+    before the structurally-guaranteed-safe round, and flips room.status straight
+    to 'live' with bracket_ids populated -- all before the caller's single commit,
+    so no client ever observes a separately-broadcast 'revealed' state."""
     players = room.players or []
     users_by_id = {u.id: u for u in db.query(User).filter(User.id.in_(players)).all()}
     usernames = [users_by_id[pid].username for pid in players if pid in users_by_id]
-    pairs = _pair_players_join_order(usernames)
 
-    picks_by_slot: dict = {}
-    for p in pick_rows:
-        picks_by_slot.setdefault(p.slot_index, {})[p.player_id] = p.character
+    entries_by_player: dict = {}
+    for pid in players:
+        if pid not in users_by_id:
+            continue
+        player_picks = sorted((p for p in pick_rows if p.player_id == pid), key=lambda p: p.slot_index)
+        entries_by_player[pid] = [{"player_id": pid, "character": p.character} for p in player_picks]
 
-    bracket_ids = []
-    for slot in range(room.chars_per_player):
-        picks_by_username = {
-            users_by_id[pid].username: char
-            for pid, char in picks_by_slot.get(slot, {}).items()
-            if pid in users_by_id
-        }
-        bracket_data, entries, round_winners = _build_slot_bracket(pairs, picks_by_username)
-        name = f"Draft #{room.id}" + (f" — Slot {slot + 1}" if room.chars_per_player > 1 else "")
-        bracket = Bracket(
-            user_id=room.host_id,
-            name=name,
-            mode="draft",
-            players=usernames,
-            entries=entries,
-            bracket_data=bracket_data,
-            round_winners=round_winners,
-            is_live=True,
-            chars_per_player=1,
-        )
-        db.add(bracket)
-        db.flush()
-        bracket_ids.append(bracket.id)
+    seeds = _deal_bracket(entries_by_player, room.chars_per_player)
+    bracket_data, entries, round_winners = _build_free_pool_bracket(seeds, users_by_id)
 
-    room.bracket_ids = bracket_ids
+    bracket = Bracket(
+        user_id=room.host_id,
+        name=f"Draft #{room.id}",
+        mode="draft",
+        players=usernames,
+        entries=entries,
+        bracket_data=bracket_data,
+        round_winners=round_winners,
+        is_live=True,
+        chars_per_player=room.chars_per_player,
+    )
+    db.add(bracket)
+    db.flush()
+
+    room.bracket_ids = [bracket.id]
     flag_modified(room, "bracket_ids")
     room.status = "live"
 
@@ -152,7 +196,7 @@ def draft_room_to_dict(db: Session, room: DraftRoom, viewer_id: int | None = Non
 
 @router.post("/draft/rooms")
 def create_draft_room(req: DraftRoomCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if req.chars_per_player not in VALID_CHARS_PER_PLAYER:
+    if req.chars_per_player not in VALID_CHARS_PER_PLAYER or not _is_power_of_two(req.chars_per_player):
         raise HTTPException(status_code=400, detail="chars_per_player must be 1, 4, or 8")
     room = DraftRoom(
         host_id=current_user.id,
@@ -268,6 +312,15 @@ def pick_draft_character(room_id: int, req: PickUpdate, db: Session = Depends(ge
         raise HTTPException(status_code=403, detail="Not a member of this draft room")
     if not (0 <= req.slot_index < room.chars_per_player):
         raise HTTPException(status_code=400, detail="Invalid slot_index")
+    if req.character:
+        dup = db.query(DraftPick).filter(
+            DraftPick.room_id == room_id,
+            DraftPick.player_id == current_user.id,
+            DraftPick.character == req.character,
+            DraftPick.slot_index != req.slot_index,
+        ).first()
+        if dup:
+            raise HTTPException(status_code=400, detail="You've already picked that character for another slot")
 
     pick = db.query(DraftPick).filter(
         DraftPick.room_id == room_id,

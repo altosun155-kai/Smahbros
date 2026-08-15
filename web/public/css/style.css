@@ -143,57 +143,6 @@ a:hover {
   color: var(--accent-gold);
 }
 
-.nav-links {
-  display: flex;
-  align-items: center;
-  list-style: none;
-  flex: 1;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  overflow-y: hidden;
-  gap: 2px;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
-  min-width: 0;
-}
-.nav-links::-webkit-scrollbar { display: none; }
-
-.nav-links a {
-  display: block;
-  color: #8892a4;
-  padding: 6px 11px;
-  border-radius: 6px;
-  font-size: 0.82rem;
-  font-weight: 500;
-  transition: background 0.15s, color 0.15s;
-  white-space: nowrap;
-}
-
-.nav-links a:hover {
-  background: rgba(255,255,255,0.07);
-  color: var(--text);
-}
-
-.nav-links a.active {
-  background: var(--accent-blue);
-  color: #fff;
-}
-
-.nav-section-header {
-  display: none; /* hidden on mobile/top-bar; shown only in sidebar */
-  font-size: 0.63rem;
-  font-weight: 700;
-  letter-spacing: 0.9px;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.28);
-  padding: 14px 12px 4px;
-  pointer-events: none;
-  user-select: none;
-}
-@media (min-width: 901px) {
-  .nav-section-header { display: block; }
-}
-
 .nav-right {
   display: flex;
   align-items: center;
@@ -238,81 +187,30 @@ a:hover {
   color: var(--text);
 }
 
+/* ── Menu trigger (game-menu.js overlay) ── */
+.menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.menu-trigger:hover { background: rgba(255,255,255,0.12); }
+.menu-trigger svg { width: 18px; height: 18px; }
+
 /* ── Page container ───────────────────────────────── */
 .page-container {
   max-width: 1100px;
   margin: 0 auto;
   padding: 40px 24px 60px;
-}
-
-/* ── Left Sidebar Layout (desktop ≥ 901px) ─────────── */
-@media (min-width: 901px) {
-  .navbar {
-    position: fixed;
-    top: 0; left: 0; bottom: 0; right: auto;
-    width: 220px;
-    height: 100vh;
-    flex-direction: column;
-    align-items: stretch;
-    padding: 0;
-    border-bottom: none;
-    border-right: 1px solid var(--border);
-    box-shadow: 2px 0 24px rgba(0,0,0,0.35);
-    overflow-y: auto;
-    overflow-x: hidden;
-    scrollbar-width: none;
-    gap: 0;
-    z-index: 100;
-  }
-  .navbar::-webkit-scrollbar { display: none; }
-  .navbar .logo {
-    padding: 20px 16px 16px;
-    margin-right: 0;
-    font-size: 1.1rem;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    display: block;
-  }
-  .nav-links {
-    flex-direction: column;
-    flex: 1;
-    overflow-x: hidden;
-    overflow-y: visible;
-    padding: 8px 8px 0;
-    gap: 2px;
-    flex-wrap: nowrap;
-    align-items: stretch;
-    min-width: 0;
-    width: 100%;
-  }
-  .nav-links li { width: 100%; }
-  .nav-links a {
-    padding: 9px 12px;
-    border-radius: 8px;
-    font-size: 0.84rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: flex;
-    align-items: center;
-  }
-  .nav-right {
-    margin-left: 0;
-    padding: 12px 8px 16px;
-    border-top: 1px solid var(--border);
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    flex-shrink: 0;
-    width: 100%;
-  }
-  .nav-user { width: 100%; font-size: 0.82rem; }
-  .btn-signout { width: 100%; text-align: center; font-size: 0.78rem; }
-  .page-container {
-    margin: 0 0 0 220px;
-    max-width: calc(100vw - 220px);
-    padding: 32px 32px 60px;
-  }
 }
 
 /* ── Sticky primary-action bar (bracket.html, duel.html) ── */
@@ -866,8 +764,8 @@ a:hover {
     position: relative;
   }
 
-  .nav-links {
-    display: none;
+  .menu-trigger {
+    display: none !important;
   }
 
   .nav-right {

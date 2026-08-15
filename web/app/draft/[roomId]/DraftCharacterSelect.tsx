@@ -88,12 +88,23 @@ export default function DraftCharacterSelect({
   const activeCharacter = activePick?.character ?? null;
   const activeStat = stats.find((s) => s.character === activeCharacter);
 
+  // A character already assigned to one of this player's other slots can't be
+  // picked again -- locked or not, it's used up.
+  const pickedElsewhere = new Set(
+    myPicks.filter((p, i) => i !== activeSlot && p.character).map((p) => p.character as string)
+  );
+  const allSlotsFilled = myPicks.length === room.chars_per_player && myPicks.every((p) => !!p.character);
+  const allSlotsLocked = myPicks.length === room.chars_per_player && myPicks.every((p) => p.locked);
+
   async function pick(character: string) {
     setBusy(true);
     setError(null);
     try {
       await apiPut(`/draft/rooms/${room.id}/pick`, { slot_index: activeSlot, character });
       onChanged();
+      // Auto-advance to the next slot so picking N characters is one pass
+      // through the rail instead of a manual tab-then-pick per slot.
+      setActiveSlot((prev) => Math.min(prev + 1, room.chars_per_player - 1));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -101,14 +112,16 @@ export default function DraftCharacterSelect({
     }
   }
 
-  async function toggleLock() {
+  // Locks every slot at once -- only reachable once all slots have a pick, so
+  // there's no partial/per-slot lock state to manage or unlock from the UI.
+  async function lockAll() {
     setBusy(true);
     setError(null);
     try {
-      if (activePick?.locked) {
-        await apiPost(`/draft/rooms/${room.id}/unlock`, { slot_index: activeSlot });
-      } else {
-        await apiPost(`/draft/rooms/${room.id}/lock`, { slot_index: activeSlot });
+      for (const p of myPicks) {
+        if (!p.locked) {
+          await apiPost(`/draft/rooms/${room.id}/lock`, { slot_index: p.slot_index });
+        }
       }
       onChanged();
     } catch (e) {
@@ -157,18 +170,22 @@ export default function DraftCharacterSelect({
 
       <div className="draft-select-panels">
         <div className="draft-rail">
-          {rail.map((c) => (
-            <button
-              key={c}
-              type="button"
-              className={`draft-rail-item${c === activeCharacter ? ' selected' : ''}`}
-              disabled={busy || !!activePick?.locked}
-              onClick={() => pick(c)}
-            >
-              <img src={charImgUrl(c)} alt={c} onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')} />
-              <span>{c}</span>
-            </button>
-          ))}
+          {rail.map((c) => {
+            const taken = pickedElsewhere.has(c);
+            return (
+              <button
+                key={c}
+                type="button"
+                className={`draft-rail-item${c === activeCharacter ? ' selected' : ''}${taken ? ' taken' : ''}`}
+                disabled={busy || !!activePick?.locked || taken}
+                title={taken ? `Already picked for another slot` : undefined}
+                onClick={() => pick(c)}
+              >
+                <img src={charImgUrl(c)} alt={c} onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')} />
+                <span>{c}</span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="draft-portrait">
@@ -202,9 +219,14 @@ export default function DraftCharacterSelect({
       </div>
 
       <div className="sticky-bar">
-        <button type="button" className="btn btn-primary" disabled={!activeCharacter || busy} onClick={toggleLock}>
-          {activePick?.locked ? 'Unlock' : 'Lock in'}
+        <button type="button" className="btn btn-primary" disabled={!allSlotsFilled || allSlotsLocked || busy} onClick={lockAll}>
+          {allSlotsLocked ? 'Locked in ✓' : 'Lock in'}
         </button>
+        {!allSlotsFilled && room.chars_per_player > 1 && (
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+            {myPicks.filter((p) => p.character).length}/{room.chars_per_player} picked
+          </span>
+        )}
         {error && <span style={{ color: '#e74c3c', fontSize: '0.85rem' }}>{error}</span>}
       </div>
     </div>

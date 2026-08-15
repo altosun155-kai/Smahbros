@@ -1,84 +1,114 @@
-# Home page redesign — cinematic menu, champion background, one-call summary
+# Shared game menu — extract, add overlay mode, delete the sidebar
 
 ## Context
 
-The current home page (`web/public/index.html`, ~900 lines) has grown into six overlapping sections — Quick Start presets, three mode cards, two Play cards, and three secondary-link grids (Rankings / History & Stats / Customize) — nearly all of which duplicate navigation that already exists in the sidebar and mobile bottom nav (`web/public/js/nav-inject.js`). This round replaces it with a cinematic three-column menu (reference: an Assassin's Creed-style main menu) built around a champion's character render as background art, a hover-driven detail panel, and one aggregate backend call instead of the current page's half-dozen scattered fetches.
+The cinematic home menu built earlier this session (`web/public/index.html` — champion background, 3-column menu, detail panel, poster column, all driven by one `/home/summary` call) becomes the app's *only* navigation, everywhere. `web/public/js/game-menu.js` (new) owns the markup and all behavior behind a `mode` flag: `'page'` renders it inline exactly as index.html has it today; `'overlay'` renders the identical content into a dismissible modal layer, opened from a small trigger button that replaces the sidebar on every other page. `nav-inject.js`'s left sidebar (`.nav-links`) is deleted once the overlay is proven out; the mobile bottom tab bar is untouched throughout.
 
-**Resolved decisions** (asked directly, not assumed):
-- **Continue's empty state**: when there's no in-progress tournament/draft, *New tournament* is promoted into the highlighted top slot instead of Continue — and the detail panel, when that slot is highlighted (including on load, since it's the default), shows the most recently **completed** session's result as a fallback ("last session: Friday night s3 — leap won, 3 days ago"). This needs one extra cheap query in the summary endpoint, not a second system.
-- **Vanilla JS, not React.** Nothing in steps 4–7 requires React — crossfade, parallax, and keyboard nav are all plain-JS techniques already used elsewhere in this codebase. Porting `nav-inject.js` to a shared React layout component stays deferred; scoping it in here would roughly double this task's size and risk for no benefit to the actual redesign.
-- **Team Battle stays out of the menu.** It doesn't exist in the codebase — `web/teams-bracket.html` and `web/team-standings.html` were built, linked, and fully deleted (code + nav entries) in one same-day commit. Including it means rebuilding a deleted feature from scratch, which is out of scope here.
+**Staged exactly as specified, each stage independently working and verified before the next starts**: (1) extract the current inline index.html implementation into `game-menu.js` as `mode: 'page'`, byte-for-byte equivalent — index.html must look and behave identically after this step; (2) add `mode: 'overlay'`, the trigger button, and roll it out to every other page *alongside* the still-intact sidebar; (3) delete the sidebar as its own final, cleanly-revertible step. This mirrors the user's own sequencing note almost exactly — never without working navigation.
 
-**Champion definition** (per your note, both current and any future surface should share one helper): the #1 player by **`User.elo`** (`database.py:41`, exposed today as `player_elo` in `/leaderboard`'s response) — not the win-rate-sorted order `/leaderboard` uses for its own ranking. New helper `_get_champion(db)` in `routers/leaderboard.py`: top `User.elo` among non-test users, then that player's most-played character via `CharacterStats` (highest `wins+losses`, tie-broken by `elo` — same derivation this session already used once for the login shatter, which is why it belongs in a shared, reusable place rather than inline in a new endpoint).
+**Grounded in what's actually in the codebase today:**
+- `.navbar`/`#main-nav` is a genuine 220px fixed-left sidebar at `≥901px` (`style.css:248-316`, confirmed by reading it), a plain 58px sticky top bar below that, collapsing to logo+avatar-only (no links) at `≤700px` where the bottom tab bar takes over. Once `nav-inject.js` stops injecting `.nav-links`, the entire 901px sidebar media-query block and `.page-container`'s `margin-left: 220px` compensation become dead and get removed too — not just the JS.
+- **No `document.startViewTransition` anywhere in the codebase** (confirmed via audit) — every page's cross-document transition is purely the browser-native one driven by `<meta name="view-transition" content="same-origin">`, already on all 14 pages. "Dismiss before navigating" therefore just means synchronously removing the overlay from the DOM in the link's own click handler, before the browser's native unload/capture happens — no JS transition API to coordinate with, no `preventDefault()`/delayed-navigation dance needed.
+- **Escape-guard heuristic, grounded in the actual existing modals** (confirmed via audit — `profile.html:590` badge modal, `bracket.html:1408` VS/preset modals, `duel.html`/`bracket.html` character-picker dropdowns): every one of them uses the same `.classList.contains('open')` / `.classList.add('open')` convention, and all are idempotent no-ops when already closed. The overlay's Escape handler checks `document.querySelector('.open:not(#gameMenuBackdrop):not(#gameMenuOverlay), [role="dialog"]:not(#gameMenuOverlay)')` before acting — if that finds something, this keystroke is left alone (the other modal's own already-registered Escape listener closes it independently; both are plain `document.addEventListener('keydown', ...)` bubble-phase listeners with no `stopPropagation`, so this is really "don't act if something else appears to be open," not a true event-interception queue). This is a heuristic grounded in the one real convention this codebase already has, not a universal modal-stack manager — noted as such, not oversold.
+- The "Lucide menu icon" is hand-copied inline SVG, matching the codebase's existing convention — `nav-inject.js`'s own `DICES_ICON` is already a hand-copied Lucide-style SVG (24×24 viewBox, round linecaps, stroke-based), not a library import. No new dependency.
+- 13 pages load `nav-inject.js` today (`bracket.html`, `duel.html`, `favorites.html`, `index.html`, `invites.html`, `leaderboard.html`, `mastery.html`, `my-brackets.html`, `play.html`, `profile.html`, `stats.html`, `tier-list.html`, `tournament.html`) — the pattern (add one `<script src="js/game-menu.js"></script>` tag, positioned *before* the existing `nav-inject.js` tag) repeats identically across all of them; described once here, not enumerated per-file in execution.
 
-**A gap worth flagging**: step 6 says the secondary nav list can be dropped on mobile because "those are all tabs already." Checked — the mobile bottom nav (`nav-inject.js:49-55`) only has Home/Play/Rankings/Stats/Profile. Mastery, Tier List, and Favorites are *not* in it — today they're only reachable on mobile via the very Rankings/Customize cards this redesign removes. Dropping them with no replacement would make those three pages unreachable on mobile. Fix folded into Step 6: add Mastery, Tier List, and Favorites to `nav-inject.js`'s mobile bottom nav as a compact overflow (or extend the row) rather than silently dropping them.
+## Stage 1 — Extract into `game-menu.js`, `mode: 'page'` only
 
-## Step 1 — Delete (do this first, verify in isolation)
+New `web/public/js/game-menu.js`. Move, verbatim, everything currently inline in `index.html`: the `.home-shell`/`.home-bg`/`.home-elo-badge`/`.home-grid`/`.home-menu`/`.home-panel`/`.home-posters` CSS block, and the JS (`timeAgoFrom`, `posterHtml`, `panelContentFor`, `setPanelContent`, `wireMenuItem`, the arrow-key handler, `loadHomeSummary`, `waitForServerThenLoadHome`, the parallax listener). Wrapped in an IIFE exposing `window.GameMenu = { init(opts) }`, matching `nav-inject.js`'s own module shape.
 
-From `web/public/index.html`, remove:
-- **Quick Start section** (markup lines 448-453, `#homePresetsSection`) and its backing JS: `loadHomePresets()`, `_renderWhoRow()`, `_renderPresetCards()`, `homeClickPlayer`, `homelaunchPreset`, and the `_dimmedPlayers`/`_presetsData`/`_playerTopChars` state (lines ~798-898). CSS: `.qs-*` rules (lines 158-201).
-- **Play cards** (lines 455-474, `.primary-grid`/`.primary-card`) — CSS lines 85-97 (desktop) and 302-319 (mobile), including the dead unused `.rr` (round-robin) variant.
-- **Rankings / History & Stats / Customize** (lines 480-523, three `.secondary-grid` blocks) — CSS lines 100-106 (desktop) and 322-327 (mobile).
+```js
+window.GameMenu = (function () {
+  let mode = null;
+  let summary = null;
+  let summaryPromise = null;
 
-Leave completely untouched in this step (their restructuring happens in Step 4, as part of the new layout, not here): the hero card (`#heroCard`, lines 377-415) and Latest Intel (`#squadAlerts` + `loadSquadAlerts()`, lines 477-478 / 688-739) — except trim Latest Intel's render to its first 3 items (`.slice(0, 3)` on the `/matches/shame` response) since the new right column only holds 3 posters.
+  function init(opts) {
+    mode = opts.mode; // 'page' | 'overlay'
+    if (mode === 'page') {
+      renderInto(opts.container);   // index.html's #homeMenuMount
+      ensureSummaryLoaded();
+    }
+    // 'overlay' handled in Stage 2
+  }
 
-This is a self-contained, revertible cleanup pass with no new dependencies — verify the page still loads, hero card and a 3-poster Latest Intel still render, and no console errors from the removed functions' now-dangling `onclick` references, before moving to Step 2.
+  return { init };
+})();
+```
 
-## Step 2 — Palette (token edit, site-wide effect)
+`index.html` shrinks to: the `<head>` CSS block removed (moved into `game-menu.js`'s own injected `<style>`, or a new `web/public/css/game-menu.css` — a dedicated stylesheet is cleaner than JS-injected `<style>` text given this codebase's existing convention of separate CSS files, so: **new `web/public/css/game-menu.css`**, linked from every page that needs it), a single `<div id="homeMenuMount"></div>` where `.home-shell` used to sit, and `<script src="js/game-menu.js"></script>` + one line calling `GameMenu.init({ mode: 'page', container: document.getElementById('homeMenuMount') })`. Everything else on the page (invites section, `init()`'s `/users/me` + invites fetch, `dismissInvite`) stays exactly where it is — those aren't part of the menu.
 
-`style.css`'s `:root` currently defines only two color accents: `--accent-blue: #0077c8` (17 usages — general UI chrome: links, nav active-state, buttons, focus rings, spinners) and `--accent-gold: #f5a623` (5 usages, already the warm/orange tone — used today for Elo displays). Win/loss green/red are **not tokenized** — they're ~13 scattered hardcoded hex literals (`#e74c3c`, `#27ae60`/`#4ade80`) across `style.css` and `index.html`'s inline styles.
+**Verification before Stage 2**: index.html visually and behaviorally identical to right now — champion background, stagger-in, hover/focus panel crossfade, keyboard nav, parallax, mobile layout, empty-state fallback. Same Playwright checks already used for the original build (desktop 1440px + mobile 390px passes).
 
-- Keep `--accent-gold` as the single kept UI accent (it's already the wordmark's warm tone).
-- `--accent-blue`'s 17 UI-chrome call sites become neutral — reuse existing `--text-muted`/`--border`/`--card-bg2` tokens rather than inventing a new one, since this codebase already has a full neutral palette.
-- Add two new tokens, `--accent-pos: #27ae60` and `--accent-neg: #e74c3c`, and repoint every hardcoded win/loss/positive/negative hex literal at them.
+## Stage 2 — `mode: 'overlay'` + trigger, rolled out alongside the still-live sidebar
 
-**This is genuinely site-wide** (`style.css` is shared by every page), not scoped to the home page alone — flagging explicitly since it's a bigger visual footprint than the rest of this task. That's the intended reading of "the layout won't read as cinematic until yours is too."
+Extend `game-menu.js`:
 
-## Step 3 — `GET /home/summary` (new `routers/home.py`)
+```js
+function open() {
+  if (isOpen) return;
+  ensureOverlayDom();          // builds it once, reused on every subsequent open
+  ensureSummaryLoaded();       // never gates opening -- see below
+  lastFocused = document.activeElement;
+  document.body.style.overflow = 'hidden';
+  document.body.style.paddingRight = scrollbarWidth() + 'px'; // no layout jump when the scrollbar disappears
+  backdropEl.style.display = 'flex';
+  requestAnimationFrame(() => backdropEl.classList.add('open')); // triggers the open motion (CSS, see below)
+  trapFocus();
+  isOpen = true;
+}
 
-One aggregate call, auth via `get_current_user` per this repo's convention (`.claude/rules/backend.md`). Response:
-```json
-{
-  "in_progress": {"type": "bracket"|"draft", "id", "name", "round_or_progress", "leader", "started_at"} | null,
-  "last_session": {"name", "winner", "ended_at"} | null,
-  "last_duel": {"opponent", "result", "record", "played_at"} | null,
-  "champion": {"username", "character", "player_elo"},
-  "mastery_coverage": {"played", "total", "pct"},
-  "posters": [ ...3 items, same shape /matches/shame already returns... ]
+function close(opts) {
+  if (!isOpen) return;
+  const immediate = opts && opts.immediate; // true when a menu link is navigating away (Step 7)
+  releaseFocusTrap();
+  const finish = () => {
+    backdropEl.style.display = 'none';
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+    if (lastFocused) lastFocused.focus();
+    isOpen = false;
+  };
+  backdropEl.classList.remove('open');
+  if (immediate || reducedMotion()) finish();
+  else setTimeout(finish, 200); // matches the 200ms close animation
 }
 ```
-Reuse points (nothing here gets reinvented):
-- **`in_progress`**: union of owned live brackets (`Bracket.user_id==me, is_live=True`) + accepted-invite live brackets (exact query already in `routers/brackets.py:169-181`, `/brackets/live`) + draft rooms containing the user (`DraftRoom.players` JSON contains `current_user.id`, `status` in `lobby`/`picking`/`live`) — most recent by timestamp wins. For a bracket's "round", reuse `_compute_round_participants()` (`routers/brackets.py:19-39`) to find the highest round with an unresolved match; "leader" is the bracket host (`b.owner.username`) — a pragmatic stand-in, since "current front-runner mid-bracket" isn't an existing concept to invent one for. For a draft room, `round_or_progress` is lock progress (e.g. `"3/4 locked"`) and leader is the room host.
-- **`last_session`** (only computed when `in_progress` is null, per the resolved decision — one extra query, not a new system): most recently *ended* bracket among owned+accepted-invite brackets (`is_live=False`, order by end/created timestamp desc, limit 1), winner via the existing `_infer_winner()` (`routers/brackets.py:77-94`).
-- **`last_duel`**: one new query — most recent `MatchResult` where the user is winner or loser (`order_by(created_at.desc()).limit(1)`), then two small `count()` queries for the head-to-head record against that specific opponent. Do **not** reuse `/leaderboard/h2h-matrix` wholesale (`routers/leaderboard.py:88-116`) — that computes every pair and would be wasteful for a single lookup; its grouped-query pattern is the thing worth mirroring, not the endpoint itself.
-- **`champion`**: the new `_get_champion(db)` helper described in Context.
-- **`mastery_coverage`**: new per-user query — distinct characters in `current_user`'s `CharacterStats` with games > 0, divided by total roster size. During implementation, source the roster-size constant from wherever `routers/characters.py`'s existing `character_mastery` endpoint (`characters.py:146-167`) already gets it — don't hardcode a second copy of the roster count.
-- **`posters`**: same underlying query `GET /matches/shame` uses (`routers/matches.py:124-151`), called directly (not as an internal HTTP request to itself), limited to 3.
 
-## Step 4 — Desktop layout
+**Data (Step 4 exactly)**: `ensureSummaryLoaded()` is the same function `mode: 'page'` already uses — `open()` calls it but never `await`s it before showing the overlay; menu items render from static config (labels/hrefs never depend on the fetch) and navigate immediately, while `home-panel-content` shows the existing `.home-panel-loading` skeleton until `summary` resolves, exactly like today's cold-start behavior. Cached at module scope (`summary`/`summaryPromise`), refetched only on `visibilitychange` → `visible` (not on every `open()`). Champion image preload: once `summary.champion.character` is known, `new Image().src = charImgUrl(...)` warms the browser cache immediately — since the overlay DOM is built once and reused (hidden via class toggle, never destroyed and rebuilt), this combined with keeping the DOM alive means no flash on any open after the first, including the very first.
 
-Rebuild `index.html`'s `<main>` into a three-column grid over a full-bleed background:
-- **Left**: primary group (Continue-or-New-tournament, 1v1 duel) — highlighted item bordered+filled; secondary group below as flat hairline rows (Leaderboard, Mastery, Tier List, Favorites, Profile, Sign out — same destinations already in `nav-inject.js`'s NAV array, presented as compact rows instead of cards).
-- **Middle**: the detail panel (Step 5), top-anchored, rest of the column left empty.
-- **Right**: 3 poster cards from `/home/summary`'s `posters`, reusing the existing `.bounty-poster`/`.tombstone-poster` CSS (`style.css:1336-1503`) already shared across pages — same visual style, just relocated and endpoint-driven instead of a direct `/matches/shame` fetch.
-- **Background**: `charImgUrl(champion.character)` (`web/public/js/chars.js`, already the sitewide portrait-URL helper) as a full-bleed image, `filter: brightness(0.3)`, right-anchored, with a gradient-mask overlay fading to near-black toward the left so the menu column sits over it cleanly.
+**Focus trap (Step 6)**: on `open()`, query `backdropEl.querySelectorAll('a[href], button:not([disabled])')`, focus the first; a `keydown` listener on `backdropEl` (not `document`, so it doesn't fight the Escape-guard logic above) handles `Tab`/`Shift+Tab` wrapping at the first/last element. `role="dialog" aria-modal="true" aria-label="Main menu"` on the overlay's panel element. Backdrop click (not panel click — check `e.target === backdropEl`) calls `close()`.
 
-## Step 5 — Detail panel
+**Navigation (Step 7)**: every `<a>` inside the overlay gets one delegated `click` listener on `backdropEl` that calls `close({ immediate: true })` synchronously before the browser's own navigation proceeds — no `preventDefault()`, no delay, just a synchronous DOM mutation ahead of the native unload (confirmed safe given no JS-driven view transition to race, per Context). No `history.pushState` anywhere — Escape and backdrop-click are the only close paths, exactly as specified.
 
-Default content = Continue/New-tournament's summary on load (matching whichever is the highlighted top slot per Step Context). Hover **or** focus on any menu item — primary or secondary — swaps the panel: last duel for 1v1, champion for Leaderboard, coverage for Mastery, etc. Content crossfades via opacity at ~150ms; the panel itself has a fixed min-height so it never reflows as content length changes across items. Keyboard nav (arrow keys move the highlight across the unified primary+secondary list, Enter activates) reuses the same focus-driven state the hover behavior already needs, so it's a small addition once hover/focus swapping exists.
+**The trigger + `nav-inject.js`**: add a `menuTrigger` button into the existing `.nav-right`-adjacent spot in the markup `nav-inject.js` already injects into `#main-nav` (logo stays; where `.nav-links` used to render, render the trigger instead — sidebar deletion is Stage 3, so for this stage both coexist: trigger added, `.nav-links` still there too, gated by two different CSS rules so they don't visually collide — trigger is `display:none` until Stage 3's CSS lands). Inline `onclick="GameMenu.open()"` (a string, lazily resolved at click time — load order between `game-menu.js` and `nav-inject.js` doesn't matter for the button itself). At the end of `nav-inject.js`'s IIFE, add:
+```js
+if (typeof GameMenu !== 'undefined' && !document.getElementById('gameMenuBackdrop')) {
+  GameMenu.init({ mode: 'overlay', triggerEl: document.getElementById('menuTrigger') });
+}
+```
+This means every page needs exactly one new line — `<script src="js/game-menu.js"></script>` placed *before* its existing `<script src="js/nav-inject.js"></script>` tag — nothing else per-page. Also add `<link rel="stylesheet" href="css/game-menu.css">` alongside it (same pages, same reason).
 
-## Step 6 — Mobile
+**Open/close motion (Step 5)**: backdrop fade 150ms, menu items reuse the exact same `homeItemIn` stagger keyframes from Stage 1 (40ms increments, already built), background fades 0→full opacity behind them, ~400ms total open / 200ms close — implemented as CSS transitions/animations on the backdrop + existing stagger rules, gated by the same sitewide `prefers-reduced-motion` collapse already in `style.css` (straight fade, no stagger, per Step 5's explicit requirement — the global rule already collapses animation durations to near-zero, so this is inherited for free, not new code).
 
-Drop the secondary hairline list; extend `nav-inject.js`'s mobile bottom nav with Mastery/Tier List/Favorites (see the gap noted in Context) so nothing becomes unreachable. Mobile home becomes four elements: darkened background (same champion art/filter, no parallax), a Continue/New-tournament card with context baked directly into the card body (no hover state on mobile, so the last-session fallback text needs to always render there when relevant), New tournament and 1v1 duel as full-width rows, and the poster strip with `scroll-snap-type: x` — reuse the exact snap-strip technique already built this session for `.draft-bracket-carousel` (`web/public/css/style.css`, added during the draft reveal work).
+**Verification before Stage 3**: overlay opens/closes correctly on every one of the 13 pages, focus trap holds, Escape correctly yields to `profile.html`'s badge modal and `bracket.html`'s VS/preset modals when those are open (manual check against the exact 3 conventions found in the audit), cold-start skeleton behavior confirmed (throttle/delay the local backend, confirm the overlay still opens instantly), scroll-position restore confirmed (scroll a tall page down, open, close, confirm unchanged), no menu-ghosting on navigation (visually confirm a same-viewport link click doesn't show the menu in the outgoing snapshot). Sidebar still present and working throughout — this stage adds, nothing removed yet.
 
-## Step 7 — Motion
+## Stage 3 — Delete the sidebar (own commit, last)
 
-Menu item hover fills background color only (no `transform: scale`). Menu items stagger in on page load via incremental `animation-delay` per item (40ms), same vocabulary as this session's other stagger work, just CSS instead of GSAP since there's no shared-element morph involved. Background parallax (2-3% translate following mouse position) is desktop-only, gated the same way this codebase already detects mobile elsewhere (`window.innerWidth <= 700`), throttled via `requestAnimationFrame`. Everything here respects `prefers-reduced-motion` — same established convention as the rest of this codebase (skip parallax and stagger entirely, land in final state immediately).
+`nav-inject.js`: remove the `NAV` array's non-Home entries' `<li>`/section-header rendering and the `.nav-links` markup entirely — keep only logo + trigger button + `.nav-right` (avatar/signout). Remove the now-dead `display:none` gate on the trigger.
 
-## Verification
+`style.css`: delete the entire `/* ── Left Sidebar Layout (desktop ≥ 901px) ─────────── */` block (`:248-316`) and the `.nav-links`/`.nav-section-header` rule bodies (kept only if the trigger button reuses none of their selectors — it won't, it's new markup). Revert `.page-container` to its pre-sidebar rule (`max-width: 1100px; margin: 0 auto;`, no left offset). `.navbar` keeps only its base (58px sticky top bar) rule — no more 901px override needed since there's no sidebar content to house.
 
-1. Step 1 verified in isolation first (see above) before any of steps 2-7 begin — gives a real revert point independent of the new design work.
-2. Local exercise via the established sed-`API_BASE`-and-revert + Playwright pattern: at 390px and desktop width, confirm the menu never overlaps the background's focal point, the detail panel's bounding box doesn't change across different highlighted items, Continue's empty state (fresh seeded account, zero brackets/drafts/matches) correctly promotes New tournament and shows no phantom Continue, and the champion background falls back gracefully when `/leaderboard` is empty (same empty-DB test pattern already used for the login shatter's fallback check).
-3. Confirm the `/home/summary` fetch is gated behind the same `/health` cold-start poll as `login.html`'s `waitForServer()` (`web/public/login.html:76-89`) — adapted/copied into the home page's own script, since that function is page-local today, not a shared module.
-4. Confirm nothing on any other page broke from Step 2's site-wide token changes — spot-check a handful of other pages (nav, buttons, a win/loss badge) still render sensibly.
-5. Nothing committed or pushed — stays with you per standing convention.
+**Verification**: `grep -rn "nav-links\|nav-section-header" web/public` returns nothing outside this diff's removal. Every page still loads with a working top bar (logo + trigger + avatar/signout), the overlay still opens/closes/navigates correctly, `.page-container` centers correctly with no left gutter, mobile bottom tab bar completely unaffected (it was never touched).
+
+## Verification (full checklist, matches the spec's own list)
+
+1. Overlay opens on every page, including ones with their own modals — Escape closes the innermost thing first (per the `.open`-heuristic above).
+2. Focus trapped inside the overlay while open; returns to the trigger button on close.
+3. Opens instantly on a simulated cold/slow backend — skeleton shows in the panel, menu items are clickable and navigate immediately.
+4. `grep -rn "nav-links\|nav-section-header"` clean after Stage 3.
+5. Body scroll position identical before-open vs after-close on a scrolled-down page.
+6. `prefers-reduced-motion` context: straight fade, no stagger, confirmed via Playwright's `reduced_motion="reduce"` context option (same pattern used earlier this session).
+7. Mobile (390px): bottom tab bar unchanged, trigger button not present/visible anywhere in the DOM's visible layout.
+8. No menu-ghosting: click a same-tab link from the overlay, confirm the overlay is gone from the DOM/hidden before navigation completes.
+9. Local sed-`API_BASE`-and-revert + Playwright pattern throughout, same as every prior round this session. Nothing committed or pushed.

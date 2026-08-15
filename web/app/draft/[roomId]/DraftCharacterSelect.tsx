@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiGet, apiPost, apiPut } from '../../lib/api';
 import { charImgUrl, SMASH_ROSTER } from '../../lib/chars';
 import type { DraftRoomState } from '../../lib/useDraftRoom';
@@ -25,9 +25,16 @@ export default function DraftCharacterSelect({
   myId: number;
   onChanged: () => void;
 }) {
-  const [rail, setRail] = useState<string[]>([]);
+  // "Pinned" is favorites in rank order, or (if there are no favorites) the
+  // player's tier list flattened S->F -- same fallback the rail has always
+  // had. What's new: it's no longer the *whole* rail. Every remaining
+  // roster character renders below it, alphabetically, so there's always
+  // something pickable and nothing needs a full-screen "you haven't ranked
+  // anything" block anymore.
+  const [pinned, setPinned] = useState<string[]>([]);
+  const [pinnedLabel, setPinnedLabel] = useState('Your Favorites');
   const [stats, setStats] = useState<StatRow[]>([]);
-  const [noRankings, setNoRankings] = useState(false);
+  const [query, setQuery] = useState('');
   const [activeSlot, setActiveSlot] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,8 +48,8 @@ export default function DraftCharacterSelect({
       setStats(statRows);
 
       if (fav.characters && fav.characters.length > 0) {
-        setRail(fav.characters);
-        setNoRankings(false);
+        setPinned(fav.characters);
+        setPinnedLabel('Your Favorites');
         return;
       }
 
@@ -52,13 +59,14 @@ export default function DraftCharacterSelect({
       const ranking = tierRes.ranking;
       const fromTierList = ranking ? TIER_ORDER.flatMap((t) => ranking[t] || []) : [];
       if (fromTierList.length > 0) {
-        setRail(fromTierList);
-        setNoRankings(false);
+        setPinned(fromTierList);
+        setPinnedLabel('Your Tier List');
         return;
       }
 
-      // Neither exists -- don't silently dump the full roster. Ask.
-      setNoRankings(true);
+      // Neither exists -- nothing pinned. The full roster below still gives
+      // every player something to pick from; no blocking screen needed.
+      setPinned([]);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -72,16 +80,24 @@ export default function DraftCharacterSelect({
   // player comes back, so finishing it there is reflected here without a manual reload.
   useEffect(() => {
     const onVisible = () => {
-      if (document.visibilityState === 'visible' && noRankings) loadRail();
+      if (document.visibilityState === 'visible' && pinned.length === 0) loadRail();
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [noRankings, loadRail]);
+  }, [pinned.length, loadRail]);
 
-  function pickManually() {
-    setRail(SMASH_ROSTER);
-    setNoRankings(false);
-  }
+  // Deduped, alphabetical remainder -- everything in the roster that isn't
+  // already pinned above. Computed from `pinned`, not filtered by search yet,
+  // so the search box only ever narrows what's already deduped.
+  const pinnedSet = useMemo(() => new Set(pinned), [pinned]);
+  const rest = useMemo(
+    () => SMASH_ROSTER.filter((c) => !pinnedSet.has(c)).sort((a, b) => a.localeCompare(b)),
+    [pinnedSet]
+  );
+
+  const q = query.trim().toLowerCase();
+  const pinnedFiltered = q ? pinned.filter((c) => c.toLowerCase().includes(q)) : pinned;
+  const restFiltered = q ? rest.filter((c) => c.toLowerCase().includes(q)) : rest;
 
   const myPicks = room.picks[String(myId)] || [];
   const activePick = myPicks[activeSlot];
@@ -131,22 +147,25 @@ export default function DraftCharacterSelect({
     }
   }
 
-  if (noRankings) {
+  // Shared by both rail sections so "already picked for another slot"
+  // greys a character out identically wherever it appears -- pinned or
+  // roster, there's only ever one row per character now (see `rest`'s dedup),
+  // so this never has to reconcile two different rendered copies of the same
+  // character.
+  function railItem(c: string) {
+    const taken = pickedElsewhere.has(c);
     return (
-      <div className="draft-select" style={{ alignItems: 'center', textAlign: 'center', gap: 16, padding: '48px 24px' }}>
-        <p style={{ maxWidth: 380 }}>
-          You haven&apos;t ranked any characters yet — favorites and tier list are both empty. Rank a few first, or just pick
-          from the full roster.
-        </p>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <a className="btn btn-primary" href="/tier-list.html" target="_blank" rel="noopener noreferrer">
-            Build a tier list
-          </a>
-          <button type="button" className="btn btn-outline" onClick={pickManually}>
-            Pick manually
-          </button>
-        </div>
-      </div>
+      <button
+        key={c}
+        type="button"
+        className={`draft-rail-item${c === activeCharacter ? ' selected' : ''}${taken ? ' taken' : ''}`}
+        disabled={busy || !!activePick?.locked || taken}
+        title={taken ? `Already picked for another slot` : undefined}
+        onClick={() => pick(c)}
+      >
+        <img src={charImgUrl(c)} alt={c} onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')} />
+        <span>{c}</span>
+      </button>
     );
   }
 
@@ -168,24 +187,40 @@ export default function DraftCharacterSelect({
         </div>
       )}
 
+      <input
+        type="text"
+        className="draft-rail-search"
+        placeholder="Search characters…"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+
       <div className="draft-select-panels">
         <div className="draft-rail">
-          {rail.map((c) => {
-            const taken = pickedElsewhere.has(c);
-            return (
-              <button
-                key={c}
-                type="button"
-                className={`draft-rail-item${c === activeCharacter ? ' selected' : ''}${taken ? ' taken' : ''}`}
-                disabled={busy || !!activePick?.locked || taken}
-                title={taken ? `Already picked for another slot` : undefined}
-                onClick={() => pick(c)}
-              >
-                <img src={charImgUrl(c)} alt={c} onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')} />
-                <span>{c}</span>
-              </button>
-            );
-          })}
+          {pinnedFiltered.length > 0 && (
+            <>
+              <div className="draft-rail-divider">{pinnedLabel}</div>
+              {pinnedFiltered.map(railItem)}
+            </>
+          )}
+          {pinned.length === 0 && !q && (
+            <div className="draft-rail-hint">
+              No favorites yet —{' '}
+              <a href="/tier-list.html" target="_blank" rel="noopener noreferrer">
+                build a tier list
+              </a>{' '}
+              to get a pinned section here.
+            </div>
+          )}
+          {restFiltered.length > 0 && (
+            <>
+              <div className="draft-rail-divider">All Fighters</div>
+              {restFiltered.map(railItem)}
+            </>
+          )}
+          {q && pinnedFiltered.length === 0 && restFiltered.length === 0 && (
+            <div className="draft-rail-hint">No characters match &quot;{query}&quot;.</div>
+          )}
         </div>
 
         <div className="draft-portrait">
@@ -199,7 +234,9 @@ export default function DraftCharacterSelect({
         <div className="draft-stats-grid">
           <div className="draft-stat">
             <span>Elo</span>
-            <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-gold)' }}>{activeStat?.elo ?? 1000}</strong>
+            <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-gold)' }}>
+              {activeStat ? activeStat.elo : 'Unplayed'}
+            </strong>
           </div>
           <div className="draft-stat">
             <span>Record</span>

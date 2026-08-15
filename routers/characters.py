@@ -53,7 +53,7 @@ def _stat_row(r):
     w = r.wins or 0
     l = r.losses or 0
     total = w + l
-    win_pct = round(w / total * 100, 1) if total > 0 else None
+    win_pct = round(w / total * 100, 1) if total >= PROVISIONAL_GAMES else None
     kills  = r.kills  or 0
     deaths = r.deaths or 0
     kd = round(kills / deaths, 2) if deaths > 0 else None
@@ -203,7 +203,7 @@ def character_leaderboard(db: Session = Depends(get_db)):
         total = w + l
         if row.points == 0 and (row.kills or 0) == 0 and total == 0:
             continue
-        win_pct = round(w / total * 100, 1) if total >= 3 else None
+        win_pct = round(w / total * 100, 1) if total >= PROVISIONAL_GAMES else None
         kills  = row.kills  or 0
         deaths = row.deaths or 0
         kd     = round(kills / deaths, 2) if deaths > 0 else None
@@ -301,7 +301,7 @@ def elo_leaderboard(db: Session = Depends(get_db)):
             "kills":       kills,
             "deaths":      deaths,
             "kd":          round(kills / deaths, 2) if deaths > 0 else None,
-            "win_pct":     round(w / total * 100, 1) if total >= 3 else None,
+            "win_pct":     round(w / total * 100, 1) if total >= PROVISIONAL_GAMES else None,
             "points":      row.points or 0,
             "games":       total,
             "provisional": total < PROVISIONAL_GAMES,
@@ -321,9 +321,9 @@ def user_averages_leaderboard(db: Session = Depends(get_db)):
         (CharacterStats.wins + CharacterStats.losses) >= 1
     ).all()
 
-    # Global elo rank (1 = best) for chars with >= 3 games
+    # Global elo rank (1 = best) for chars with enough games to not be provisional
     ranked_chars = sorted(
-        [s for s in all_stats if (s.wins or 0) + (s.losses or 0) >= 3],
+        [s for s in all_stats if (s.wins or 0) + (s.losses or 0) >= PROVISIONAL_GAMES],
         key=lambda s: -(s.elo or 1000),
     )
     elo_rank_map = {s.id: i + 1 for i, s in enumerate(ranked_chars)}

@@ -432,7 +432,8 @@ async function buildEntryGrid() {
         topChars = (allUserKills[p] || []).map(s => s.character);
       } else if (fillMode === 'winpct') {
         topChars = (allUserStats[p] || [])
-          .filter(s => (s.wins || 0) + (s.losses || 0) >= 3)
+          // 8 games -- same provisional threshold as everywhere else on the site.
+          .filter(s => (s.wins || 0) + (s.losses || 0) >= 8)
           .sort((a, b) => {
             const pctA = a.wins / (a.wins + a.losses);
             const pctB = b.wins / (b.wins + b.losses);

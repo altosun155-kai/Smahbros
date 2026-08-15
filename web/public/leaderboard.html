@@ -231,7 +231,7 @@
 <main class="page-container">
   <div class="page-header">
     <h1>🏆 Leaderboard</h1>
-    <p>Click any column header to sort. Win % requires 3+ games.</p>
+    <p>Click any column header to sort. Win % requires 8+ games.</p>
   </div>
 
   <!-- Character stats leaderboard -->
@@ -249,6 +249,10 @@
         style="background:var(--card-bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 12px;font-size:0.85rem;width:180px;" />
       <input id="filterChar" type="text" placeholder="Filter by character…" oninput="onFilterChange()"
         style="background:var(--card-bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 12px;font-size:0.85rem;width:200px;" />
+      <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;color:var(--text-muted);cursor:pointer;width:fit-content;">
+        <input type="checkbox" id="hideProvisionalCharCheckbox" onchange="onCharFilterChange()" />
+        Hide provisional ranks
+      </label>
       <span id="filterCount" style="font-size:0.8rem;color:var(--text-muted);"></span>
     </div>
     <div style="overflow-x:auto;" id="charTableScroll">
@@ -295,7 +299,7 @@
       </div>
       <div style="margin-bottom:10px;">
         <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;color:var(--text-muted);cursor:pointer;width:fit-content;">
-          <input type="checkbox" id="hideProvisionalCheckbox" onchange="renderGlobalRows()" />
+          <input type="checkbox" id="hideProvisionalCheckbox" onchange="onGlobalProvisionalChange()" />
           Hide provisional ranks
         </label>
       </div>
@@ -308,7 +312,7 @@
               <th title="Player Elo — rated across all matches regardless of character">Elo</th>
               <th>Wins</th>
               <th>Losses</th>
-              <th title="Win rate (requires 5+ games to qualify for ranking)">Win %</th>
+              <th title="Win rate (requires 8+ games to qualify for ranking)">Win %</th>
               <th>Kills</th>
               <th title="Hover to see all earned badges">Badges</th>
             </tr>
@@ -319,7 +323,7 @@
       <!-- Cards (mobile) -->
       <div id="globalCardList"></div>
       <p style="font-size:0.78rem;color:var(--text-muted);margin-top:10px;">
-        <strong>Provisional</strong> ranks belong to players with fewer than 5 recorded games — their win rate isn't reliable yet, so they're listed below everyone else until they qualify.
+        <strong>Provisional</strong> ranks belong to players with fewer than 8 recorded games — their win rate isn't reliable yet, so they're listed below everyone else until they qualify.
       </p>
     </div>
 
@@ -344,7 +348,7 @@
               <th title="Your overall player Elo — the same rating shown on the Global leaderboard, not an average across characters.">Avg Elo ⓘ</th>
               <th title="Weighted K/D: Σ(kd × elo) ÷ Σ(elo). Higher-Elo characters count more toward your K/D.">Avg K/D ⓘ</th>
               <th title="True win rate: total wins ÷ total games across all characters.">Avg Win% ⓘ</th>
-              <th title="Average leaderboard rank across your characters (lower = better). Only counts characters with 3+ games.">Avg Rank ⓘ</th>
+              <th title="Average leaderboard rank across your characters (lower = better). Only counts characters with 8+ games.">Avg Rank ⓘ</th>
             </tr>
           </thead>
           <tbody id="avgBody"></tbody>
@@ -390,13 +394,29 @@
 <script>
   const PAGE_SIZE = 25;
   let allCharData = [];
-  let rankedData  = [];
   let globalData  = [];
   let globalBadgeMap = {};
   let currentPage = 1;
   let sortCol = 'elo';
   let sortDir = 'desc';
   let myUsername  = '';
+
+  // Read the persisted preference before the first render so the table
+  // never flashes unfiltered then jumps -- the checkbox already exists in
+  // the DOM by the time this inline script runs (it's above this <script>
+  // tag), and renderCharTable() always re-reads .checked live, so setting
+  // it here is enough; no need to thread the value through separately.
+  document.getElementById('hideProvisionalCharCheckbox').checked = localStorage.getItem('lb_hideProvisionalChar') === '1';
+  // Global's own checkbox -- independent state, independent key. Deliberately
+  // not the same localStorage key as the character table's: one checkbox
+  // driving two tables' worth of confusion is exactly what this whole
+  // change exists to undo.
+  document.getElementById('hideProvisionalCheckbox').checked = localStorage.getItem('lb_hideProvisionalGlobal') === '1';
+
+  function onGlobalProvisionalChange() {
+    localStorage.setItem('lb_hideProvisionalGlobal', document.getElementById('hideProvisionalCheckbox').checked ? '1' : '0');
+    renderGlobalRows();
+  }
 
   function sortBy(col) {
     if (sortCol === col) {
@@ -406,7 +426,6 @@
       sortDir = col === 'losses' ? 'asc' : 'desc';
     }
     currentPage = 1;
-    rebuildRankedData();
     renderCharTable();
     updateSortHeaders();
   }
@@ -418,49 +437,62 @@
     });
   }
 
-  function rebuildRankedData() {
-    // Sort full dataset and assign permanent global ranks
-    const sorted = [...allCharData].sort((a, b) => {
-      const av = a[sortCol] ?? (sortDir === 'desc' ? -Infinity : Infinity);
-      const bv = b[sortCol] ?? (sortDir === 'desc' ? -Infinity : Infinity);
-      return sortDir === 'desc' ? bv - av : av - bv;
-    });
-    rankedData = sorted.map((entry, i) => ({ ...entry, globalRank: i + 1 }));
-  }
-
   function onFilterChange() {
     currentPage = 1;
     renderCharTable();
   }
 
+  function onCharFilterChange() {
+    localStorage.setItem('lb_hideProvisionalChar', document.getElementById('hideProvisionalCharCheckbox').checked ? '1' : '0');
+    currentPage = 1; // row count just changed -- don't strand the user on a page that may no longer exist
+    renderCharTable();
+  }
+
   function changePage(delta) {
-    const filtered = getFiltered();
-    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(computeVisibleCharRows().length / PAGE_SIZE));
     currentPage = Math.min(totalPages, Math.max(1, currentPage + delta));
     renderCharTable();
   }
 
-  function getFiltered() {
+  // The full pipeline, in order -- rank has to be step 5: assigning it any
+  // earlier leaves gaps once provisional/filtered rows are excluded (ranks
+  // computed against the full set, then some just vanish from view); any
+  // later and the numbers would shift under a re-sort after already being
+  // shown. Called fresh on every sort/filter/checkbox change rather than
+  // cached, so there's never a stale ranking to reconcile.
+  function computeVisibleCharRows() {
+    const hideProvisional = document.getElementById('hideProvisionalCharCheckbox').checked;
     const pf = (document.getElementById('filterPlayer')?.value || '').toLowerCase().trim();
     const cf = (document.getElementById('filterChar')?.value || '').toLowerCase().trim();
-    return rankedData.filter(e =>
-      (!pf || e.username.toLowerCase().includes(pf)) &&
-      (!cf || e.character.toLowerCase().includes(cf))
-    );
+
+    let rows = hideProvisional ? allCharData.filter(e => !e.provisional) : allCharData;
+    if (pf) rows = rows.filter(e => e.username.toLowerCase().includes(pf));
+    if (cf) rows = rows.filter(e => e.character.toLowerCase().includes(cf));
+
+    const sorted = [...rows].sort((a, b) => {
+      const av = a[sortCol] ?? (sortDir === 'desc' ? -Infinity : Infinity);
+      const bv = b[sortCol] ?? (sortDir === 'desc' ? -Infinity : Infinity);
+      return sortDir === 'desc' ? bv - av : av - bv;
+    });
+    return sorted.map((entry, i) => ({ ...entry, rank: i + 1 }));
   }
 
   function renderCharTable() {
-    const filtered = getFiltered();
-    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const visible = computeVisibleCharRows();
+    const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
     currentPage = Math.min(currentPage, totalPages);
-    const page = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+    const page = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-    // Update filter count
+    // Update filter count -- "12 of 29" whenever any filter (checkbox
+    // included) is narrowing the set, plain "29 entries" when nothing is.
     const countEl = document.getElementById('filterCount');
     if (countEl) {
+      const hideProvisional = document.getElementById('hideProvisionalCharCheckbox').checked;
       const pf = document.getElementById('filterPlayer')?.value.trim();
       const cf = document.getElementById('filterChar')?.value.trim();
-      countEl.textContent = (pf || cf) ? `${filtered.length} of ${rankedData.length} entries` : `${rankedData.length} entries`;
+      countEl.textContent = (hideProvisional || pf || cf)
+        ? `${visible.length} of ${allCharData.length} entries`
+        : `${allCharData.length} entries`;
     }
 
     // Pagination controls
@@ -475,8 +507,11 @@
 
     const body = document.getElementById('charBody');
     body.innerHTML = page.map(entry => {
-      const i = entry.globalRank - 1;
-      const rankLabel = i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${entry.globalRank}`;
+      // Medals attach to positions 1-3 of the filtered set (entry.rank was
+      // assigned post-filter), so if the top row is hidden by a filter, the
+      // next row inherits the crown automatically -- no separate logic needed.
+      const i = entry.rank - 1;
+      const rankLabel = i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${entry.rank}`;
       const isMine = entry.username === myUsername;
       const rowClass = isMine
         ? 'char-row-mine'
@@ -518,8 +553,8 @@
     // Mobile cards — same `page` data, tap to expand
     const cardList = document.getElementById('charCardList');
     cardList.innerHTML = page.map(entry => {
-      const i = entry.globalRank - 1;
-      const rankLabel = i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${entry.globalRank}`;
+      const i = entry.rank - 1;
+      const rankLabel = i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${entry.rank}`;
       const isMine = entry.username === myUsername;
       const av = entry.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(entry.username)}`;
       const headUrl = typeof charHeadUrl === 'function' ? charHeadUrl(entry.character) : charImgUrl(entry.character);
@@ -564,7 +599,6 @@
       }
 
       allCharData = data;
-      rebuildRankedData();
       document.getElementById('charTableWrap').style.display = 'block';
       renderCharTable();
       updateSortHeaders();
@@ -617,7 +651,7 @@
       const pctColor   = winPctColor(u.win_rate);
       const pctStr     = u.win_rate != null ? `${u.win_rate}%` : '—';
       const provisionalBadge = isProvisional
-        ? ` <span class="provisional-badge" title="Fewer than 5 games played — still a small sample">Provisional</span>`
+        ? ` <span class="provisional-badge" title="Fewer than 8 games played — still a small sample">Provisional</span>`
         : '';
 
       // Featured badge pill — click profile for full badge list (#16)
@@ -650,7 +684,7 @@
       const badgeEntry = allBadgeMap[u.username];
       const badgeHtml  = badgeEntry && typeof badgePill === 'function' ? badgePill(badgeEntry) : '';
       const provisionalBadge = isProvisional
-        ? ` <span class="provisional-badge" title="Fewer than 5 games played — still a small sample">Provisional</span>`
+        ? ` <span class="provisional-badge" title="Fewer than 8 games played — still a small sample">Provisional</span>`
         : '';
 
       return `<div class="avg-card${isMine ? ' me-card' : ''}${isProvisional ? ' provisional-row' : ''}" onclick="this.classList.toggle('open')">

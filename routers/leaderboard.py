@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from database import User, MatchResult, CharacterStats
 from auth import get_db
+from routers.characters import PROVISIONAL_GAMES
 
 router = APIRouter(tags=["leaderboard"])
 
@@ -38,7 +39,9 @@ _LB_TTL   = 60.0
 _matrix_cache: dict = {"data": None, "ts": 0.0}
 _matrix_lock  = threading.Lock()
 
-MIN_RANKED_GAMES = 5   # need this many games to be ranked by win rate
+# Same threshold as characters.py's PROVISIONAL_GAMES -- one canonical
+# "provisional" cutoff sitewide, not a second number that drifts from it.
+MIN_RANKED_GAMES = PROVISIONAL_GAMES
 
 
 @router.get("/leaderboard")

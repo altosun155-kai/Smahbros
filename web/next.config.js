@@ -12,7 +12,10 @@ const nextConfig = {
   },
   async rewrites() {
     return [
-      { source: '/', destination: '/index.html' },
+      // '/' used to rewrite to /index.html -- removed now that app/page.tsx
+      // is a real Next.js route; the app router's own filesystem routing
+      // takes precedence over rewrites (afterFiles phase), so this entry
+      // would never fire anymore anyway. Kept out to avoid dead config.
       // Proxy API calls through our own origin so they're same-origin from the
       // browser's perspective -- cross-site fetches to the Render domain get
       // silently killed by ad blockers / Brave Shields (ERR_BLOCKED_BY_CLIENT),

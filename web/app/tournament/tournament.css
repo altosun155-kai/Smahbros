@@ -1,0 +1,53 @@
+/* tournament.css — page-specific styles from web/public/tournament.html's
+   inline <style> block, ported verbatim. The VS modal's own classes
+   (.vs-bg, .vs-content, .vs-player, .vcp-* , .m-win-btn, etc.) are already
+   global in style.css -- not duplicated here. */
+.match-box { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; min-width: 190px; }
+.match-box.clickable { cursor: pointer; transition: border-color 0.15s; }
+.match-box.clickable:hover { border-color: var(--accent-blue); }
+.match-entry { padding: 5px 4px; font-size: 0.82rem; color: var(--text); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
+.match-entry:last-child { border-bottom: none; }
+.match-entry.bye { color: var(--text-muted); font-style: italic; opacity: 0.6; }
+.match-entry.winner { color: #ffe066; font-weight: 700; }
+.match-entry.mine { color: var(--accent-blue); }
+.match-char-icon { width: 22px; height: 22px; object-fit: contain; border-radius: 3px; flex-shrink: 0; background: var(--card-bg); }
+.edit-char-btn { margin-left: auto; flex-shrink: 0; background: none; border: 1px solid var(--accent-blue); border-radius: 4px; color: var(--accent-blue); font-size: 0.7rem; padding: 1px 6px; cursor: pointer; opacity: 0.8; }
+.edit-char-btn:hover { opacity: 1; background: rgba(0,119,200,0.15); }
+#scoreModal { position:fixed; inset:0; z-index:150; overflow:hidden; display: flex; align-items: center; justify-content: center; }
+#scoreModal .vs-winner-row { flex-direction: column; }
+.round-col { min-width: 200px; flex-shrink: 0; }
+.round-title { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+.bracket-rounds { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 12px; -webkit-overflow-scrolling: touch; }
+@media (max-width: 600px) {
+  .bracket-rounds { flex-direction: column; gap: 14px; overflow-x: visible; }
+  .round-col { min-width: unset; width: 100%; }
+  .match-box { min-width: unset; }
+  .vs-name { font-size: 1.4rem; }
+  .vs-char-img { width: clamp(100px, 28vw, 200px); height: clamp(100px, 28vw, 200px); }
+}
+.live-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(39,174,96,0.15); border: 1px solid rgba(39,174,96,0.4); border-radius: 20px; padding: 4px 12px; font-size: 0.8rem; color: #27ae60; font-weight: 700; }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: #27ae60; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+.ended-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 0.8rem; color: var(--text-muted); font-weight: 700; }
+#vsClashLayer { position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:5; }
+.vsc-flash  { position:absolute;left:50%;top:50%;border-radius:50%;animation:vscFlash 0.55s ease-out forwards; }
+.vsc-ring   { position:absolute;left:50%;top:50%;border-radius:50%;border:3px solid;animation:vscRing 0.85s ease-out forwards; }
+.vsc-slash  { position:absolute;left:50%;top:50%;height:6px;transform-origin:center;animation:vscSlash 0.72s ease-out forwards; }
+.vsc-bolt   { position:absolute;left:50%;top:50%;width:4px;height:150px;margin-left:-2px;margin-top:-75px;transform-origin:center;animation:vscBolt 0.65s ease-out forwards; }
+.vsc-streak { position:absolute;left:0;right:0;height:3px;animation:vscStreak 0.55s ease-in-out forwards; }
+.vsc-wave   { position:absolute;left:50%;top:50%;border-radius:50%;border:16px solid;animation:vscWave 1s ease-out forwards; }
+@keyframes vscFlash  { 0%{transform:scale(0.1);opacity:0.9} 25%{transform:scale(1);opacity:0.65} 100%{transform:scale(2.2);opacity:0} }
+@keyframes vscRing   { 0%{transform:scale(0);opacity:1} 100%{transform:scale(5.5);opacity:0} }
+@keyframes vscSlash  { 0%{transform:rotate(-38deg) scaleX(0);opacity:1} 45%{transform:rotate(-38deg) scaleX(1);opacity:1} 100%{transform:rotate(-38deg) scaleX(1.15);opacity:0} }
+@keyframes vscBolt   { 0%{transform:rotate(var(--r,0deg)) scaleY(0);opacity:1} 50%{transform:rotate(var(--r,0deg)) scaleY(1);opacity:1} 100%{transform:rotate(var(--r,0deg)) scaleY(1.5);opacity:0} }
+@keyframes vscStreak { 0%{transform:translateX(-120%);opacity:0} 20%{opacity:1} 80%{opacity:1} 100%{transform:translateX(120%);opacity:0} }
+@keyframes vscWave   { 0%{transform:scale(0);opacity:0.9} 100%{transform:scale(7);opacity:0} }
+#charPickerModal { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; }
+.char-picker-box { background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:20px; width:320px; max-width:95vw; }
+.char-picker-box h3 { font-size:0.95rem; font-weight:700; margin-bottom:12px; }
+.char-picker-box input { width:100%; padding:8px 10px; background:var(--card-bg2); border:1px solid var(--border); border-radius:7px; color:var(--text); font-size:0.88rem; margin-bottom:8px; box-sizing:border-box; }
+.char-picker-box input:focus { outline:none; border-color:var(--accent-blue); }
+.char-list { max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:2px; }
+.char-list-item { padding:7px 10px; border-radius:6px; cursor:pointer; font-size:0.85rem; }
+.char-list-item:hover { background:rgba(0,119,200,0.2); color:var(--accent-blue); }
+.char-picker-actions { display:flex; gap:8px; margin-top:12px; }

@@ -96,7 +96,7 @@ export default function InvitesPage() {
     try {
       await apiPatch(`/invites/${id}`, { status });
       if (status === 'accepted' && bracketId) {
-        window.location.href = `/tournament.html?id=${bracketId}`;
+        window.location.href = `/tournament?id=${bracketId}`;
       } else {
         showToast('Invite declined.', 'info');
         loadReceived();
@@ -197,7 +197,7 @@ export default function InvitesPage() {
                     <div className="invite-actions">
                       <Badge status="accepted" />
                       {inv.bracket_id != null && (
-                        <Link href={`/tournament.html?id=${inv.bracket_id}`} className="btn btn-primary btn-sm">
+                        <Link href={`/tournament?id=${inv.bracket_id}`} className="btn btn-primary btn-sm">
                           Open →
                         </Link>
                       )}

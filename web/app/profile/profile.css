@@ -1,0 +1,225 @@
+/* profile.css — page-specific styles from web/public/profile.html's inline
+   <style> block, ported verbatim (including the badge-themed body
+   backgrounds, applied via className on <body> the same way the legacy page
+   applies them via document.body.classList). */
+.profile-layout { display: grid; grid-template-columns: 220px 1fr; gap: 28px; align-items: start; }
+.profile-card { background: var(--glass-bg); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); border-radius: var(--radius); padding: 24px; text-align: center; position: sticky; top: 72px; }
+.profile-avatar { width: 90px; height: 90px; border-radius: 50%; background: var(--card-bg2); margin: 0; object-fit: cover; display: block; }
+.avatar-wrap { position: relative; width: 90px; margin: 0 auto 14px; }
+.avatar-edit-btn {
+  position: absolute; bottom: -2px; right: -2px;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent-blue); border: 2px solid var(--card-bg);
+  color: #fff; font-size: 0.8rem; cursor: pointer;
+  align-items: center; justify-content: center;
+}
+.avatar-edit-btn:hover { background: #0088e0; }
+
+.sheet-backdrop {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 490;
+}
+.sheet-backdrop.open { display: block; }
+.bottom-sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 500;
+  background: var(--card-bg2); border: 1px solid var(--glass-border);
+  border-radius: 16px 16px 0 0;
+  padding: 10px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+  max-height: 80vh; overflow-y: auto;
+  box-shadow: 0 -10px 30px rgba(0,0,0,0.45);
+  transform: translateY(100%);
+  transition: transform 0.25s ease-out;
+}
+.bottom-sheet.open { transform: translateY(0); }
+.sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); margin: 0 auto 14px; }
+.profile-username { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.profile-id { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 14px; }
+
+.badges-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 14px; }
+.badge-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  border-radius: 8px; padding: 5px 11px;
+  font-size: 0.72rem; font-weight: 700; color: var(--text);
+  background: var(--card-bg2);
+  border: 1px solid var(--border);
+  cursor: pointer; transition: transform 0.12s, box-shadow 0.12s;
+}
+.badge-pill:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,0.4); }
+.badge-pill .badge-icon { font-size: 0.9rem; line-height: 1; }
+.badge-pill .badge-char-img { width: 20px; height: 20px; object-fit: contain; border-radius: 3px; display: block; }
+.badge-pin-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  border: 1.5px solid currentColor; opacity: 0.35; transition: opacity 0.15s, background 0.15s;
+}
+.badge-pin-dot.pinned { background: currentColor; opacity: 1; }
+
+#badgeModal { position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.badge-modal-box {
+  background: var(--card-bg);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  padding: 28px 24px 22px;
+  max-width: 340px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.7);
+  position: relative;
+}
+.badge-modal-icon { font-size: 2.6rem; line-height: 1; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; }
+.badge-modal-icon img { width: 56px; height: 56px; object-fit: contain; border-radius: 8px; }
+.badge-modal-name { font-size: 1.1rem; font-weight: 800; margin-bottom: 6px; }
+.badge-modal-stat { font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 14px; }
+.badge-modal-how { font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; background: var(--card-bg2); border-radius: 8px; padding: 10px 14px; }
+.badge-modal-close { position: absolute; top: 12px; right: 14px; background: none; border: none; color: var(--text-muted); font-size: 1.1rem; cursor: pointer; padding: 4px 6px; }
+
+.avatar-preview { width: 80px; height: 80px; border-radius: 50%; background: var(--card-bg2); margin: 12px 0; object-fit: cover; border: 2px solid var(--border); display: block; }
+.style-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.style-btn { padding: 5px 12px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--card-bg2); color: var(--text-muted); font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+.style-btn:hover { border-color: var(--accent-blue); color: var(--text); }
+.style-btn.active { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+
+.prof-section { background: var(--glass-bg); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); border-radius: var(--radius); padding: 20px; margin-bottom: 18px; }
+.prof-section-title { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; }
+
+.profile-signout-row {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 16px;
+  background: none;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  color: var(--accent-neg);
+  opacity: 0.82;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s;
+}
+.profile-signout-row:hover { opacity: 1; background: rgba(231,76,60,0.08); }
+
+.h2h-bar {
+  display: flex; height: 12px; border-radius: 6px; overflow: hidden; margin: 10px 0;
+  position: relative;
+  background: var(--glass-bg); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+}
+.h2h-bar::after {
+  content: ''; position: absolute; top: -2px; bottom: -2px; left: 50%; width: 2px;
+  background: rgba(255,255,255,0.35); transform: translateX(-1px); z-index: 2; pointer-events: none;
+}
+.h2h-bar-left  { background: var(--accent-blue); transition: width 0.5s cubic-bezier(.34,1.56,.64,1); }
+.h2h-bar-right { background: var(--accent-gold); transition: width 0.5s cubic-bezier(.34,1.56,.64,1); }
+.h2h-labels { display: flex; justify-content: space-between; font-size: 0.82rem; }
+
+.feed-day-header { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--text-muted); padding: 12px 0 4px; }
+.feed-day-header:first-child { padding-top: 0; }
+.feed-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.84rem; }
+.feed-item:last-child { border-bottom: none; }
+.feed-portrait { width: 28px; height: 28px; object-fit: contain; border-radius: 6px; background: var(--card-bg2); flex-shrink: 0; }
+.feed-desc { flex: 1; min-width: 0; overflow-wrap: break-word; }
+.feed-win  { color: #4caf50; font-weight: 700; font-size: 0.72rem; text-transform: uppercase; flex-shrink: 0; }
+.feed-loss { color: #e74c3c; font-weight: 700; font-size: 0.72rem; text-transform: uppercase; flex-shrink: 0; }
+.feed-date { font-size: 0.75rem; color: var(--text-muted); margin-left: auto; flex-shrink: 0; white-space: nowrap; }
+@media (max-width: 700px) {
+  .feed-item { flex-wrap: wrap; }
+  .feed-date { margin-left: 0; flex-basis: 100%; order: 3; }
+}
+
+.comment-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.comment-item:last-child { border-bottom: none; }
+.comment-av { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--card-bg2); }
+.comment-body { flex: 1; }
+.comment-author { font-size: 0.82rem; font-weight: 700; color: var(--text); }
+.comment-text { font-size: 0.85rem; color: var(--text); margin-top: 2px; word-break: break-word; }
+.comment-meta { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; }
+.comment-delete { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; padding: 0 4px; }
+.comment-delete:hover { color: #e74c3c; }
+.comment-input-row { display: flex; gap: 8px; margin-top: 14px; }
+.comment-input-row input { flex: 1; }
+
+.elo-chart-wrap { position: relative; }
+#eloTooltip {
+  display: none; position: absolute; pointer-events: none; z-index: 20;
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 7px 12px; font-size: 0.78rem; white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5); transform: translate(-50%, calc(-100% - 10px));
+}
+#eloTooltip .tt-elo { font-size: 1rem; font-weight: 800; }
+#eloTooltip .tt-match { color: var(--text-muted); margin-top: 2px; }
+#eloTooltip .tt-delta { font-weight: 700; }
+
+@media (max-width: 700px) { .profile-layout { grid-template-columns: 1fr; } .profile-card { position: static; } }
+
+.showcase-strip { display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch; }
+.showcase-strip::-webkit-scrollbar { height:3px; }
+.showcase-strip::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+.showcase-card { flex:1; min-width:88px; max-width:130px; background:var(--card-bg2); border:1.5px solid var(--border); border-radius:10px; overflow:hidden; cursor:pointer; transition:border-color 0.15s,transform 0.1s; text-align:center; user-select:none; }
+.showcase-card:hover { border-color:var(--accent-blue); transform:translateY(-2px); }
+.showcase-card.active { border-color:var(--accent-blue); background:rgba(0,119,200,0.1); }
+.showcase-art { width:100%; aspect-ratio:1; background-size:80%; background-position:center; background-repeat:no-repeat; background-color:var(--card-bg); }
+.showcase-name { font-size:0.68rem; font-weight:600; padding:4px 5px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.showcase-elo { font-size:1.05rem; font-weight:800; padding:1px 0; }
+.showcase-record { font-size:0.63rem; color:var(--text-muted); padding-bottom:7px; }
+
+/* ── Badge-themed backgrounds — applied to <body> after badges load.
+   Highest-prestige badge wins. ── */
+body.badge-tourney_king {
+  background: radial-gradient(ellipse 80% 40% at 50% -5%, rgba(255,224,102,0.18) 0%, transparent 70%), var(--bg);
+}
+body.badge-tourney_king .profile-card {
+  border-color: rgba(255,224,102,0.45);
+  box-shadow: 0 0 40px rgba(255,224,102,0.12), inset 0 0 20px rgba(255,224,102,0.04);
+}
+body.badge-tourney_king .profile-username { color: #ffe066; }
+
+body.badge-finisher {
+  background: radial-gradient(ellipse 80% 40% at 50% -5%, rgba(0,188,212,0.16) 0%, transparent 70%), var(--bg);
+}
+body.badge-finisher .profile-card {
+  border-color: rgba(0,188,212,0.45);
+  box-shadow: 0 0 40px rgba(0,188,212,0.12), inset 0 0 20px rgba(0,188,212,0.04);
+}
+body.badge-finisher .profile-username { color: #00bcd4; }
+
+body.badge-punching_bag {
+  background: radial-gradient(ellipse 80% 40% at 50% -5%, rgba(231,76,60,0.16) 0%, transparent 70%), var(--bg);
+}
+body.badge-punching_bag .profile-card {
+  border-color: rgba(231,76,60,0.45);
+  box-shadow: 0 0 40px rgba(231,76,60,0.12), inset 0 0 20px rgba(231,76,60,0.04);
+}
+body.badge-punching_bag .profile-username { color: #e74c3c; }
+
+body.badge-serial_champ {
+  background: radial-gradient(ellipse 80% 40% at 50% -5%, rgba(245,166,35,0.15) 0%, transparent 70%), var(--bg);
+}
+body.badge-serial_champ .profile-card {
+  border-color: rgba(245,166,35,0.4);
+  box-shadow: 0 0 36px rgba(245,166,35,0.1), inset 0 0 16px rgba(245,166,35,0.04);
+}
+body.badge-serial_champ .profile-username { color: #f5a623; }
+
+body.badge-champion {
+  background: radial-gradient(ellipse 80% 40% at 50% -5%, rgba(231,76,60,0.10) 0%, transparent 70%), var(--bg);
+}
+body.badge-champion .profile-card {
+  border-color: rgba(231,76,60,0.3);
+  box-shadow: 0 0 28px rgba(231,76,60,0.08);
+}
+
+body.badge-top3 {
+  background: radial-gradient(ellipse 80% 40% at 50% -5%, rgba(155,89,182,0.14) 0%, transparent 70%), var(--bg);
+}
+body.badge-top3 .profile-card {
+  border-color: rgba(155,89,182,0.4);
+  box-shadow: 0 0 32px rgba(155,89,182,0.10);
+}
+
+body.badge-veteran {
+  background: radial-gradient(ellipse 80% 40% at 50% -5%, rgba(26,188,156,0.13) 0%, transparent 70%), var(--bg);
+}
+body.badge-veteran .profile-card {
+  border-color: rgba(26,188,156,0.35);
+  box-shadow: 0 0 28px rgba(26,188,156,0.09);
+}

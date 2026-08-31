@@ -1,0 +1,176 @@
+/* leaderboard.css — page-specific styles from web/public/leaderboard.html's
+   inline <style> block, ported verbatim. .data-table/.loading-center/
+   .empty-state/.provisional-badge(base)/.section-divider are already global.
+   .avg-toggle-btns is NOT ported -- see CLAUDE.md's Known Gaps: the
+   weighted/simple toggle it styled was never wired to any button. */
+.char-img-sm { width: 28px; height: 28px; object-fit: contain; border-radius: 50%; background: var(--card-bg2); }
+.user-av { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+.global-row-gold td   { color: #ffd700; }
+.global-row-silver td { color: #c0c0c0; }
+.global-row-bronze td { color: #cd7f32; }
+
+.sort-th {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.sort-th:hover { color: var(--accent-blue); }
+.sort-th .sort-arrow {
+  display: inline-block;
+  margin-left: 5px;
+  font-size: 0.7rem;
+  opacity: 0.4;
+  transition: opacity 0.1s;
+}
+.sort-th.asc  .sort-arrow,
+.sort-th.desc .sort-arrow { opacity: 1; color: var(--accent-blue); }
+.sort-th.asc  .sort-arrow::after { content: '▲'; }
+.sort-th.desc .sort-arrow::after { content: '▼'; }
+.sort-th:not(.asc):not(.desc) .sort-arrow::after { content: '⇅'; }
+
+.section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 32px 0 10px;
+}
+.section-label:first-child { margin-top: 0; }
+
+/* Elo history modal */
+#eloHistModal { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; }
+.elohist-box { background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:20px; width:360px; max-width:95vw; }
+.elohist-box h3 { font-size:0.95rem; font-weight:700; margin-bottom:14px; }
+.elohist-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:0.83rem; }
+.elohist-row:last-child { border-bottom:none; }
+.elohist-delta { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size:1rem; font-weight:800; min-width:52px; }
+.elohist-vs { flex:1; color:var(--text-muted); }
+.elohist-score { font-size:0.75rem; color:var(--text-muted); }
+.elohist-date { font-size:0.72rem; color:var(--text-muted); white-space:nowrap; }
+.char-row-clickable { cursor:pointer; }
+.char-row-clickable:hover td { background:rgba(255,255,255,0.04); }
+.char-row-mine td { background: rgba(0,119,200,0.08) !important; }
+.char-row-mine:hover td { background: rgba(0,119,200,0.14) !important; }
+.char-row-mine td:first-child { border-left: 3px solid var(--accent-blue); }
+
+/* ── Rivalry matrix ── */
+#matrixTable th, #matrixTable td { text-align: center; padding: 8px 14px; white-space: nowrap; }
+#matrixTable th:first-child, #matrixTable td:first-child { text-align: left; padding-left: 10px; }
+.matrix-me th, .matrix-me td { background: rgba(0,119,200,0.08) !important; }
+.matrix-me td:first-child { border-left: 3px solid var(--accent-blue); }
+.matrix-self { background: rgba(255,255,255,0.03) !important; color: var(--text-muted); }
+.matrix-win  { color: #4caf50; font-weight: 800; }
+.matrix-loss { color: #e74c3c; font-weight: 800; }
+.matrix-even { color: var(--text-muted); font-weight: 700; }
+
+/* ── Sticky table headers ── */
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--card-bg, #1a1a2e);
+}
+
+/* ── Zebra striping ── */
+.data-table tbody tr:nth-child(even) td {
+  background: rgba(255,255,255,0.025);
+}
+
+.provisional-row td { opacity: 0.55; }
+.avg-card.provisional-row { opacity: 0.55; }
+
+/* ── Streak flame ── */
+.streak-flame { display: inline-block; margin-left: 4px; font-size: 0.85em; animation: flameFlicker 1.4s ease-in-out infinite; }
+@keyframes flameFlicker {
+  0%, 100% { transform: scale(1) rotate(-2deg); opacity: 0.92; }
+  50%      { transform: scale(1.12) rotate(2deg); opacity: 1; }
+}
+
+/* ── Win% progress bar ── */
+.winpct-bar {
+  height: 3px;
+  border-radius: 2px;
+  margin-top: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+.winpct-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+
+/* ── Desktop split-pane: Global + Avg side by side ── */
+#bottomSplit {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+  margin-top: 40px;
+}
+#globalSection { flex: 3; min-width: 0; }
+#avgSection    { flex: 2; min-width: 0; }
+#globalSection .section-label,
+#avgSection    .section-label { margin-top: 0; }
+
+/* ── Expandable stat cards (mobile only) ── */
+#avgCardList, #charCardList, #globalCardList { display: none; }
+.avg-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.avg-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.avg-card-header:active { background: rgba(255,255,255,0.04); }
+.avg-card-rank  { font-size: 1.05rem; font-weight: 800; min-width: 28px; text-align: center; }
+.avg-card-name  { flex: 1; font-weight: 600; font-size: 0.92rem; }
+.avg-card-elo   { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 800; color: var(--accent-gold); font-size: 0.95rem; }
+.avg-card-chevron { color: var(--text-muted); font-size: 1rem; transition: transform 0.2s; margin-left: 4px; }
+.avg-card.open .avg-card-chevron { transform: rotate(90deg); }
+.avg-card-detail {
+  display: none;
+  border-top: 1px solid var(--border);
+  padding: 12px 14px;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
+.avg-card.open .avg-card-detail { display: grid; }
+.avg-detail-item { font-size: 0.8rem; }
+.avg-detail-label { color: var(--text-muted); font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
+.avg-card.me-card .avg-card-header { background: rgba(0,119,200,0.08); border-bottom: none; }
+.avg-card.me-card { border-color: rgba(0,119,200,0.3); }
+
+@media (max-width: 700px) {
+  #bottomSplit { flex-direction: column; gap: 0; margin-top: 24px; }
+  #globalSection { order: 1; }
+  #avgSection    { order: 2; }
+
+  #avgTableWrap { display: none !important; }
+  #avgCardList  { display: block; }
+  #charTableScroll { display: none !important; }
+  #charCardList     { display: block; }
+  #globalTableWrap { display: none !important; }
+  #globalCardList   { display: block; }
+
+  #charTable thead th:nth-child(1),
+  #charTable thead th:nth-child(2),
+  #charTable tbody td:nth-child(1),
+  #charTable tbody td:nth-child(2) {
+    position: sticky;
+    background: var(--card-bg, #1a1a2e);
+    z-index: 2;
+  }
+  #charTable thead th:nth-child(1), #charTable tbody td:nth-child(1) { left: 0; min-width: 38px; }
+  #charTable thead th:nth-child(2), #charTable tbody td:nth-child(2) { left: 38px; box-shadow: 2px 0 6px rgba(0,0,0,0.4); }
+  .char-row-mine td:nth-child(1), .char-row-mine td:nth-child(2) { background: rgba(0,119,200,0.12) !important; }
+
+  #filterPlayer, #filterChar { width: 100% !important; }
+  .data-table { font-size: 0.78rem; }
+  .char-img-sm { width: 24px; height: 24px; }
+  .user-av { width: 22px; height: 22px; }
+}

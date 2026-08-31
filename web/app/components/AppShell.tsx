@@ -20,8 +20,8 @@ const MENU_ICON = (
 );
 
 const BOTTOM_NAV_ITEMS = [
-  { href: '/index.html', icon: '🏠', label: 'Home', matches: ['/index.html', '/'] },
-  { href: '/play.html', icon: '⚔️', label: 'Play', matches: ['/play.html', '/duel.html', '/tournament.html'] },
+  { href: '/', icon: '🏠', label: 'Home', matches: ['/index.html', '/'] },
+  { href: '/play.html', icon: '⚔️', label: 'Play', matches: ['/play.html', '/duel.html', '/tournament.html', '/tournament'] },
   { href: '/leaderboard.html', icon: '📈', label: 'Rankings', matches: ['/leaderboard.html'] },
   { href: '/stats.html', icon: '📊', label: 'Stats', matches: ['/stats.html'] },
   { href: '/mastery.html', icon: '🎯', label: 'Mastery', matches: ['/mastery.html'] },
@@ -49,6 +49,11 @@ function openGameMenu() {
 export default function AppShell() {
   const pathname = usePathname();
   const [me, setMe] = useState<Me | null>(null);
+  // The home page IS the menu (its own cinematic 3-column layout) -- a second
+  // top bar with a redundant Menu trigger would be confusing there, same as
+  // nav-inject.js's isHomeMenuPage skip (it checked for #homeMenuMount;
+  // pathname is the equivalent signal now that '/' is a real route).
+  const isHomePage = pathname === '/';
 
   useEffect(() => {
     let cancelled = false;
@@ -70,29 +75,31 @@ export default function AppShell() {
 
   return (
     <>
-      <nav id="main-nav" className="navbar">
-        <Link className="logo" href="/index.html">
-          Smash<span>Bros</span>
-        </Link>
-        <button type="button" className="menu-trigger" onClick={openGameMenu}>
-          {MENU_ICON} Menu
-        </button>
-        <div className="nav-right">
-          <div className="nav-user">
-            {avatarUrl && (
-              <img
-                className="nav-avatar"
-                src={avatarUrl}
-                alt=""
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            )}
-            <span>{me?.username ?? ''}</span>
+      {!isHomePage && (
+        <nav id="main-nav" className="navbar">
+          <Link className="logo" href="/">
+            Smash<span>Bros</span>
+          </Link>
+          <button type="button" className="menu-trigger" onClick={openGameMenu}>
+            {MENU_ICON} Menu
+          </button>
+          <div className="nav-right">
+            <div className="nav-user">
+              {avatarUrl && (
+                <img
+                  className="nav-avatar"
+                  src={avatarUrl}
+                  alt=""
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              )}
+              <span>{me?.username ?? ''}</span>
+            </div>
           </div>
-        </div>
-      </nav>
+        </nav>
+      )}
 
       <nav id="bottomNav" role="navigation" aria-label="Main navigation">
         {BOTTOM_NAV_ITEMS.map((item) => (

@@ -1,0 +1,56 @@
+/* index.css — page-specific styles from web/public/index.html's inline
+   <style> block (invite banners, mobile bottom-nav on this page), ported
+   verbatim. The actual home-menu visuals (home-shell, home-menu-item,
+   bounty-poster, etc.) come from game-menu.css, imported directly by
+   page.tsx -- not duplicated here. */
+.invite-card { border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+.invite-dot  { width: 10px; height: 10px; background: var(--accent-neg); border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 8px var(--accent-neg); animation: pulseDot 1.6s ease-in-out infinite; }
+.invite-info { flex: 1; min-width: 0; }
+.invite-from { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px; }
+.invite-name { font-size: 0.95rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.invite-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.invite-view { background: var(--accent-blue); color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 700; font-size: 0.82rem; cursor: pointer; text-decoration: none; }
+.invite-view:hover { background: #c5cfdc; }
+.invite-dismiss { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.45); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px 12px; font-size: 0.82rem; cursor: pointer; }
+.invite-dismiss:hover { color: var(--accent-neg); border-color: rgba(231,76,60,0.4); }
+@keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(.8)} }
+
+.section-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.3); margin: 24px 0 10px; }
+
+.mobile-only { display: none !important; }
+
+@media (max-width: 700px) {
+  .desktop-only { display: none !important; }
+  .mobile-only  { display: block !important; }
+
+  main.page-container { padding-bottom: 80px !important; padding-top: 0 !important; }
+
+  #mobileInviteBanner {
+    margin: 12px 0 0;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .mobile-invite-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    background: linear-gradient(90deg, rgba(176,188,206,.15), rgba(176,188,206,.08));
+    border: 1.5px solid rgba(176,188,206,.35);
+    border-radius: 14px;
+    margin-bottom: 8px;
+  }
+  .mobile-invite-item .inv-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent-neg);
+    box-shadow: 0 0 6px var(--accent-neg);
+    animation: pulseDot 1.4s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  .mobile-invite-item .inv-text { flex: 1; min-width: 0; }
+  .mobile-invite-item .inv-by   { font-size: 0.6rem; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--text-muted); }
+  .mobile-invite-item .inv-name { font-size: 0.9rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mobile-invite-item .inv-btn  { flex-shrink: 0; background: var(--accent-blue); color: #fff; border: none; border-radius: 8px; padding: 9px 16px; font-weight: 800; font-size: 0.82rem; cursor: pointer; text-decoration: none; }
+  .mobile-invite-item .inv-x    { flex-shrink: 0; background: none; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; color: rgba(255,255,255,.4); padding: 9px 10px; font-size: 0.8rem; cursor: pointer; }
+
+  .section-label { margin: 18px 0 8px; }
+}

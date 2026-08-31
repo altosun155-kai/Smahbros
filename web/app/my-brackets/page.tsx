@@ -119,7 +119,7 @@ export default function MyBracketsPage() {
                   <div className="bracket-actions">
                     {statusBadge(b)}
                     <Link
-                      href={`/tournament.html?id=${b.id}`}
+                      href={`/tournament?id=${b.id}`}
                       className="btn btn-outline btn-sm"
                       style={{ fontSize: '0.75rem' }}
                       onClick={(e) => e.stopPropagation()}
@@ -141,7 +141,7 @@ export default function MyBracketsPage() {
                   </div>
                 </div>
                 <div className={`bracket-body${isOpen ? ' open' : ''}`}>
-                  <Link href={`/tournament.html?id=${b.id}`} className="btn btn-outline btn-sm" style={{ marginTop: 8, display: 'inline-block' }}>
+                  <Link href={`/tournament?id=${b.id}`} className="btn btn-outline btn-sm" style={{ marginTop: 8, display: 'inline-block' }}>
                     Open Full Bracket View →
                   </Link>
                 </div>

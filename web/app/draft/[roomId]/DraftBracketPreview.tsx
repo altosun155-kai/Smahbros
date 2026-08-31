@@ -89,7 +89,7 @@ export default function DraftBracketPreview({
               </div>
             );
           })}
-          <a className="btn btn-primary" href={`/tournament.html?id=${b.id}`} style={{ display: 'block', textAlign: 'center', marginTop: 10 }}>
+          <a className="btn btn-primary" href={`/tournament?id=${b.id}`} style={{ display: 'block', textAlign: 'center', marginTop: 10 }}>
             Open Bracket
           </a>
         </div>

@@ -47,6 +47,38 @@ export const CHAR_EMOJIS: Record<string, string> = {
   Byleth: '🏫', 'Min Min': '🍜', Steve: '⛏️', Sephiroth: '🖤', 'Pyra/Mythra': '🔥', Kazuya: '👿', Sora: '🔑',
 };
 
+// "How to earn" copy, used by the profile page's badge detail modal.
+// Doesn't exist in the legacy badge-data.js/badges.js -- profile.html is the
+// only page that needs it, so it's new content here, not a port of a
+// duplicate the legacy site already had.
+export const BADGE_HOW: Record<string, string> = {
+  specialist: 'Score 30+ points with a single character.',
+  allrounder: 'Score points with 10 or more different characters.',
+  consistent: 'Maintain 20+ points on 5 or more characters simultaneously.',
+  champion: 'Win a tournament.',
+  serial_champ: 'Win 6 or more tournaments.',
+  tourney_king: 'Have the most tournament wins globally.',
+  top3: 'Hold the #1 spot on the character Elo leaderboard (1100+ Elo).',
+  veteran: 'Play 60 or more recorded matches.',
+  finisher: 'Land more 3-stocks (perfect wins) than anyone else globally (minimum 10).',
+  punching_bag: 'Get 3-stocked more than anyone else globally (minimum 10 times).',
+  the_wall: 'Win 80% or more of your last 20 matches.',
+  demon_slayer: 'Defeat the player currently ranked #1 on the leaderboard at least 3 times.',
+  clutch_factor: 'Win 8 consecutive matches, all decided on the last stock.',
+  unstoppable: 'Reach a power-weighted Elo average of 1150+ across all characters (20+ games played).',
+  char_legend: 'Reach 1350+ Elo on a single character.',
+  roster_master: 'Hold the most points with 20 or more different characters globally.',
+  old_reliable: 'Play 200 total matches with your single most-used character.',
+  jack_of_all: 'Win at least 10 matches with 20 different characters.',
+  bronze_bomber: 'Finish in 3rd place in 6 separate tournaments.',
+  silver_lining: 'Finish in 2nd place in 6 separate tournaments.',
+  flawless_run: 'Win a tournament without losing a single recorded match.',
+  executioner: 'Directly eliminate the defending champion in the very next tournament.',
+  tax_collector: 'Accumulate 300 or more total kills across all matches.',
+  pacifist: 'Have the lowest average kills per match globally while still having 15+ wins.',
+  sacrificer: 'Make the most sacrifices globally in teams tournaments (minimum 5).',
+};
+
 export interface BadgeInfo {
   id: string;
   label: string;

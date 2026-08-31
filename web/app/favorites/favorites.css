@@ -1,0 +1,52 @@
+/* favorites.css — page-specific styles from web/public/favorites.html's
+   inline <style> block. Colocated with the page, not shared. */
+.chips-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+.char-chip {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1.5px solid rgba(255,255,255,0.22);
+  background: var(--card-bg2);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.char-chip:hover { border-color: var(--accent-blue); color: var(--text); }
+.char-chip.selected {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: #fff;
+}
+.char-chip.disabled { opacity: 0.25; cursor: not-allowed; pointer-events: none; }
+.counter { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 16px; }
+.counter span { color: var(--accent-gold); }
+.power-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.power-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--card-bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 16px;
+  transition: border-color 0.15s;
+}
+.power-item:hover { border-color: rgba(255,255,255,0.15); }
+.power-rank {
+  font-size: 1.4rem;
+  font-weight: 900;
+  min-width: 36px;
+  text-align: center;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.power-rank-1 { color: #ffd700; }
+.power-rank-2 { color: #c0c0c0; }
+.power-rank-3 { color: #cd7f32; }
+.power-rank-n { color: rgba(255,255,255,0.2); }
+.power-char-img { width: 40px; height: 40px; object-fit: contain; border-radius: 6px; background: var(--card-bg); flex-shrink: 0; }
+.power-char-name { font-size: 0.95rem; font-weight: 700; color: var(--text); flex: 1; }
+.power-remove { background: none; border: none; color: rgba(255,255,255,0.25); font-size: 0.8rem; cursor: pointer; padding: 4px 6px; border-radius: 4px; transition: color 0.12s; }
+.power-remove:hover { color: #e74c3c; }

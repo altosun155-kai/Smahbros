@@ -1,0 +1,12 @@
+/* invites.css — page-specific styles from web/public/invites.html's inline
+   <style> block. .tabs/.tab-btn/.tab-panel/.badge* are already global (see
+   style.css) -- only the invite-row layout is page-specific.
+   .search-results/.search-result-item/.selected-invitee were part of the
+   "send a new invite" form that was never wired to any HTML on the legacy
+   page (see CLAUDE.md's Known Gaps) -- not carried over since nothing used
+   them. */
+.invite-row { background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.invite-info { flex: 1; min-width: 200px; }
+.invite-bracket { font-size: 0.95rem; font-weight: 600; color: var(--text); }
+.invite-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 3px; }
+.invite-actions { display: flex; gap: 8px; flex-shrink: 0; }

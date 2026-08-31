@@ -5,3 +5,13 @@ node_modules/
 web/.next/
 repomix-output.xml
 .playwright-mcp/
+# New/untracked skill dirs only (already-tracked ones like github, render-deploy,
+# sentry-python-sdk, supabase-postgres-best-practices, vercel-deploy are unaffected --
+# gitignore doesn't untrack files already in git). Keeps third-party marketplace
+# skills (design/, ui-ux-pro-max/, etc.) from being committed by accident.
+.claude/skills/*
+!.claude/skills/github/
+!.claude/skills/render-deploy/
+!.claude/skills/sentry-python-sdk/
+!.claude/skills/supabase-postgres-best-practices/
+!.claude/skills/vercel-deploy/

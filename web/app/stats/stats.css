@@ -1,0 +1,14 @@
+/* stats.css — page-specific styles from web/public/stats.html's inline
+   <style> block. .data-table/.section-divider/.loading-center/.empty-state
+   are already global (style.css). */
+.record-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 28px; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+.record-bar select { flex: 1; min-width: 180px; max-width: 300px; }
+.points-cell { font-weight: 700; color: var(--accent-gold); }
+.rank-cell { color: var(--text-muted); font-weight: 700; }
+.char-img { width: 36px; height: 36px; object-fit: contain; border-radius: 4px; vertical-align: middle; }
+.provisional-row td { opacity: 0.55; }
+.provisional-badge {
+  font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+  color: var(--text-muted); background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border, rgba(255,255,255,0.09));
+  border-radius: 4px; padding: 1px 5px; flex-shrink: 0;
+}

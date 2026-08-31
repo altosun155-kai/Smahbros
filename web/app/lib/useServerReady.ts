@@ -16,8 +16,16 @@ import { API_BASE, showToast } from './api';
 const WAKEUP_TOAST_DELAY_MS = 4000;
 const MAX_ATTEMPTS = 10;
 
-export function useServerReady() {
+export function useServerReady(opts: { skip?: boolean } = {}) {
+  const { skip = false } = opts;
+
   useEffect(() => {
+    // Public routes that run their own server-ready gate (currently just
+    // /login -- see AuthGate.tsx) skip this poll entirely, rather than
+    // running two concurrent /health loops with two slightly different
+    // "server starting" notices stacked on top of each other.
+    if (skip) return;
+
     let cancelled = false;
     let ready = false;
 
@@ -46,5 +54,5 @@ export function useServerReady() {
       cancelled = true;
       clearTimeout(toastTimer);
     };
-  }, []);
+  }, [skip]);
 }

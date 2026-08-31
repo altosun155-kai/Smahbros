@@ -1,0 +1,19 @@
+/* play.css — page-specific styles from web/public/play.html's inline <style>
+   block. Kept as its own file (imported only by play/page.tsx) rather than
+   folded into tokens.css since it's not shared by any other page. */
+.play-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; max-width: 900px; margin: 0 auto; }
+@media (max-width: 900px) { .play-grid { grid-template-columns: 1fr 1fr; max-width: 640px; } }
+@media (max-width: 700px) { .play-grid { grid-template-columns: 1fr; } }
+.play-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 40px 24px;
+  text-decoration: none;
+  transition: transform 0.15s, border-color 0.15s;
+}
+.play-card:hover { transform: translateY(-3px); border-color: var(--accent-blue); }
+.play-card svg { width: 40px; height: 40px; color: var(--accent-blue); }
+.play-card span { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; color: var(--text); }
+.play-card p { text-align: center; margin: 0; }

@@ -43,7 +43,7 @@ export default function PlayPage() {
           <span>Draft</span>
           <p>Draft characters together in real time, then head into a bracket.</p>
         </Link>
-        <Link className="card card-hover play-card" href="/bracket.html">
+        <Link className="card card-hover play-card" href="/bracket">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
             <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
             <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>

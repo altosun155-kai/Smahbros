@@ -265,7 +265,7 @@ export default function InvitesPage() {
       </div>
 
       <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 8 }}>
-        Invites are sent automatically when you start a live tournament from the <Link href="/bracket.html">Bracket</Link> page.
+        Invites are sent automatically when you start a live tournament from the <Link href="/bracket">Bracket</Link> page.
       </p>
     </PageContainer>
   );

@@ -237,7 +237,7 @@ export default function StatsPage() {
             <div className="empty-state">
               <p style={{ marginBottom: 10 }}>No stats yet.</p>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Use the record bar above or run a match in the <Link href="/bracket.html">Bracket Generator</Link> to start tracking Elo.
+                Use the record bar above or run a match in the <Link href="/bracket">Bracket Generator</Link> to start tracking Elo.
               </p>
             </div>
           )}

@@ -157,7 +157,7 @@ export default function MyBracketsPage() {
             <path d="M3 3h18v4H3zM3 10h18v4H3zM3 17h18v4H3z" />
           </svg>
           <p>
-            No saved brackets yet. <Link href="/bracket.html">Create one</Link> in the Bracket Generator.
+            No saved brackets yet. <Link href="/bracket">Create one</Link> in the Bracket Generator.
           </p>
         </div>
       )}

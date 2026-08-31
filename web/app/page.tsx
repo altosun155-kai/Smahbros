@@ -78,7 +78,7 @@ type PanelKey = 'primary' | 'duel' | 'my-brackets' | 'manual-bracket' | 'stats' 
 
 const SECONDARY: { key: PanelKey; label: string; href: string }[] = [
   { key: 'my-brackets', label: 'My Brackets', href: '/my-brackets' },
-  { key: 'manual-bracket', label: 'Manual Bracket', href: '/bracket.html' },
+  { key: 'manual-bracket', label: 'Manual Bracket', href: '/bracket' },
   { key: 'stats', label: 'Stats', href: '/stats' },
   { key: 'leaderboard', label: 'Leaderboard', href: '/leaderboard' },
   { key: 'mastery', label: 'Mastery', href: '/mastery' },
@@ -201,7 +201,7 @@ function PanelContent({ panelKey, summary }: { panelKey: PanelKey; summary: Home
         <div className="home-panel-eyebrow">Manual Bracket</div>
         <div className="home-panel-title">Build it by hand</div>
         <div className="home-panel-sub">Seed players and set matchups yourself — no draft, works great off one screen.</div>
-        <Link href="/bracket.html" className="btn btn-primary home-panel-cta">
+        <Link href="/bracket" className="btn btn-primary home-panel-cta">
           Open Manual Bracket →
         </Link>
       </>

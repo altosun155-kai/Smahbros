@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiGet, apiPost, apiPut } from '../../lib/api';
 import { charImgUrl, SMASH_ROSTER } from '../../lib/chars';
 import type { DraftRoomState } from '../../lib/useDraftRoom';
+import Button from '../../components/Button';
 
 interface StatRow {
   character: string;
@@ -174,15 +175,10 @@ export default function DraftCharacterSelect({
       {room.chars_per_player > 1 && (
         <div className="draft-slot-tabs">
           {myPicks.map((p, i) => (
-            <button
-              key={i}
-              type="button"
-              className={i === activeSlot ? 'btn btn-primary' : 'btn btn-outline'}
-              onClick={() => setActiveSlot(i)}
-            >
+            <Button key={i} variant={i === activeSlot ? 'primary' : 'outline'} onClick={() => setActiveSlot(i)}>
               {p.locked ? '🔒 ' : ''}
               Slot {i + 1}
-            </button>
+            </Button>
           ))}
         </div>
       )}
@@ -256,9 +252,9 @@ export default function DraftCharacterSelect({
       </div>
 
       <div className="sticky-bar">
-        <button type="button" className="btn btn-primary" disabled={!allSlotsFilled || allSlotsLocked || busy} onClick={lockAll}>
+        <Button disabled={!allSlotsFilled || allSlotsLocked || busy} onClick={lockAll}>
           {allSlotsLocked ? 'Locked in ✓' : 'Lock in'}
-        </button>
+        </Button>
         {!allSlotsFilled && room.chars_per_player > 1 && (
           <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
             {myPicks.filter((p) => p.character).length}/{room.chars_per_player} picked

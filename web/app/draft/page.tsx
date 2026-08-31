@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiGet, apiPost } from '../lib/api';
+import Button from '../components/Button';
+import Card from '../components/Card';
+import PageContainer, { PageHeader } from '../components/PageContainer';
 
 interface ActiveRoom {
   id: number;
@@ -64,53 +67,43 @@ export default function DraftEntryPage() {
   }
 
   return (
-    <main className="page-container" style={{ maxWidth: 560, margin: '0 auto', padding: '48px 24px' }}>
-      <div className="page-header">
+    <PageContainer style={{ maxWidth: 560, margin: '0 auto', padding: '48px 24px' }}>
+      <PageHeader>
         <h1>Draft</h1>
         <p>Pick your characters together, then head into a bracket.</p>
-      </div>
+      </PageHeader>
 
       {activeRooms.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
           {activeRooms.map((r) => (
-            <div key={r.id} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Card key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span>
                 <strong>{r.host_username}</strong> started a draft — {r.player_count}/{r.num_players} joined
               </span>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={joiningId === r.id}
-                onClick={() => joinRoom(r.id)}
-              >
+              <Button disabled={joiningId === r.id} onClick={() => joinRoom(r.id)}>
                 {joiningId === r.id ? 'Joining…' : 'Join'}
-              </button>
-            </div>
+              </Button>
+            </Card>
           ))}
         </div>
       )}
 
-      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <Card style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
           <div style={{ fontWeight: 600, marginBottom: 8 }}>Characters per player</div>
           <div style={{ display: 'flex', gap: 8 }}>
             {CHARS_PER_PLAYER_OPTIONS.map((n) => (
-              <button
-                key={n}
-                type="button"
-                className={n === charsPerPlayer ? 'btn btn-primary' : 'btn btn-outline'}
-                onClick={() => setCharsPerPlayer(n)}
-              >
+              <Button key={n} variant={n === charsPerPlayer ? 'primary' : 'outline'} onClick={() => setCharsPerPlayer(n)}>
                 {n}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
-        <button type="button" className="btn btn-primary" disabled={creating} onClick={startDraft}>
+        <Button disabled={creating} onClick={startDraft}>
           {creating ? 'Starting…' : 'Start a draft'}
-        </button>
+        </Button>
         {error && <div style={{ color: '#e74c3c', fontSize: '0.85rem' }}>{error}</div>}
-      </div>
-    </main>
+      </Card>
+    </PageContainer>
   );
 }

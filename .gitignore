@@ -3,3 +3,5 @@ node_modules/
 /package.json
 /delete-skins.mjs
 web/.next/
+repomix-output.xml
+.playwright-mcp/

@@ -7,8 +7,13 @@
 // cross-site requests to the Render domain outright. WebSocket connections
 // still need the real origin -- Next.js rewrites don't reliably proxy WS
 // upgrades -- so wsUrl() deliberately does not go through API_BASE.
-export const API_BASE = '/api';
-const WS_ORIGIN = 'https://smash-bracket-api.onrender.com';
+//
+// Both overridable via env for local dev (scripts/dev.sh); default to the
+// values that are always correct in prod, matching next.config.js's
+// API_PROXY_TARGET default so an unset env var can never point somewhere
+// unintended.
+export const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '/api';
+const WS_ORIGIN = process.env.NEXT_PUBLIC_WS_ORIGIN || 'https://smash-bracket-api.onrender.com';
 
 export function wsUrl(path: string): string {
   return WS_ORIGIN.replace(/^http/, 'ws') + path;

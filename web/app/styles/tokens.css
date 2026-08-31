@@ -1,0 +1,99 @@
+/* tokens.css — design tokens for the Next.js app (web/app/*).
+   Promotes the ~27 :root vars already in web/public/css/style.css into a
+   grouped, documented token file, plus fills the gaps that CSS never had
+   (spacing scale, type scale, motion, elevation). Additive only — nothing
+   here is renamed or removed from style.css, and both files stay imported
+   side by side in app/layout.tsx until a page migrates fully off style.css.
+   Legacy inline <style> blocks across ~10 web/public/* pages reference these
+   var names directly (e.g. var(--accent-blue)), so nothing here can rename
+   an existing token without a matching cross-file update everywhere it's used. */
+
+:root {
+  /* ── Color — copied 1:1 from style.css, source of truth stays there
+     until Phase 2.9 deletes style.css and this file takes over. ── */
+  --bg:           #0f0f17;
+  --card-bg:      #1a1a2e;
+  --card-bg2:     #16213e;
+  --navbar-bg:    #0a0a14;
+  /* Neutral gray (#b0bcce), not blue — legacy name, do not rename. Referenced
+     directly from ~10 web/public/* pages' own inline <style> blocks; renaming
+     means touching every one of those files for zero visual difference.
+     --accent-gold is the site's one surviving color accent. */
+  --accent-blue:  #b0bcce;
+  --accent-gold:  #f5a623;
+  --accent-pos:   #27ae60;
+  --accent-neg:   #e74c3c;
+  --text:         #e8edf3;
+  --text-muted:   #b0bcce;
+  --border:       rgba(255,255,255,0.08);
+  --tier-s:       #ff7f7f;
+  --tier-a:       #ffbf7f;
+  --tier-b:       #ffff7f;
+  --tier-c:       #7fff7f;
+  --tier-d:       #7fbfff;
+  --tier-f:       #bf7fff;
+
+  --glass-bg:        rgba(255,255,255,0.045);
+  --glass-bg-strong: rgba(255,255,255,0.07);
+  --glass-border:    rgba(255,255,255,0.09);
+  --glass-blur:      20px;
+
+  --blob-a: rgba(0,90,200,0.30);
+  --blob-b: rgba(120,20,180,0.22);
+
+  /* ── Semantic aliases — additive, nothing renamed above.
+     Prefer these in new (web/app) components; legacy CSS keeps using the
+     underlying --accent- and --card-bg names directly. ── */
+  --surface-1:  var(--card-bg);
+  --surface-2:  var(--card-bg2);
+  --text-strong: var(--text);
+  --danger:     var(--accent-neg);
+  --success:    var(--accent-pos);
+
+  /* ── Radius — --radius already existed; -sm/-lg fill the 8px/12px
+     variants style.css hardcodes ad hoc in several places. ── */
+  --radius-sm: 8px;
+  --radius:    10px;
+  --radius-lg: 12px;
+
+  /* ── Typography — --font-display/--font-mono already existed
+     (var(--font-system) resolves via reset.css, imported before this file).
+     The type scale is new: nothing like it exists today, every legacy page
+     hand-picks rem values per element. 1.25 ratio off a 1rem base. ── */
+  --font-display: 'Space Grotesk', var(--font-system);
+  --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --text-xs:   0.64rem;
+  --text-sm:   0.8rem;
+  --text-base: 1rem;
+  --text-lg:   1.25rem;
+  --text-xl:   1.563rem;
+  --text-2xl:  1.953rem;
+
+  /* ── Spacing — 4px base scale. New; today's CSS uses ad hoc pixel
+     values throughout. ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+
+  /* ── Motion — durations extracted from the hardcoded 0.15s/0.2s/0.3s
+     values already scattered through style.css. The sitewide
+     prefers-reduced-motion collapse stays in style.css for now (every
+     legacy page depends on it); Phase 4's polish pass re-homes an
+     equivalent here once style.css goes away. ── */
+  --duration-fast: 0.15s;
+  --duration-base: 0.2s;
+  --duration-slow: 0.3s;
+  --ease-standard: ease;
+
+  /* ── Elevation — matching what legacy .card/.glass/modal CSS already
+     uses inline for shadows. ── */
+  --shadow-card:   0 2px 12px rgba(0,0,0,0.4);
+  --shadow-modal:  0 24px 64px rgba(0,0,0,0.5);
+  --shadow-dropdown: 0 4px 16px rgba(0,0,0,0.3);
+}

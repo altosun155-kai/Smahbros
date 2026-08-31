@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiPost, showToast } from '../../lib/api';
 import type { DraftRoomState } from '../../lib/useDraftRoom';
+import Button from '../../components/Button';
 
 export default function DraftLobby({ room, myId, onChanged }: { room: DraftRoomState; myId: number | null; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
@@ -93,12 +94,12 @@ export default function DraftLobby({ room, myId, onChanged }: { room: DraftRoomS
 
       {isHost ? (
         <div style={{ display: 'flex', gap: 10 }}>
-          <button type="button" className="btn btn-primary" disabled={!canStart || busy} onClick={start}>
+          <Button disabled={!canStart || busy} onClick={start}>
             {busy ? 'Starting…' : 'Start'}
-          </button>
-          <button type="button" className="btn btn-outline" disabled={busy} onClick={close}>
+          </Button>
+          <Button variant="outline" disabled={busy} onClick={close}>
             Close
-          </button>
+          </Button>
         </div>
       ) : (
         <p style={{ color: 'var(--text-muted)' }}>Waiting for the host to start…</p>

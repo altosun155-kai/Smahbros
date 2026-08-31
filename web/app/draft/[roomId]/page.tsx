@@ -4,6 +4,8 @@ import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { apiPost } from '../../lib/api';
 import { useDraftRoom } from '../../lib/useDraftRoom';
+import Button from '../../components/Button';
+import PageContainer from '../../components/PageContainer';
 import DraftLobby from './DraftLobby';
 import DraftCharacterSelect from './DraftCharacterSelect';
 import DraftWaiting from './DraftWaiting';
@@ -36,37 +38,37 @@ export default function DraftRoomPage() {
 
   if (notJoined) {
     return (
-      <main className="page-container" style={{ maxWidth: 480, margin: '0 auto', padding: '48px 24px', textAlign: 'center' }}>
+      <PageContainer style={{ maxWidth: 480, margin: '0 auto', padding: '48px 24px', textAlign: 'center' }}>
         <p style={{ marginBottom: 16 }}>You haven&apos;t joined this draft yet.</p>
-        <button type="button" className="btn btn-primary" disabled={joining} onClick={join}>
+        <Button disabled={joining} onClick={join}>
           {joining ? 'Joining…' : 'Join this draft'}
-        </button>
+        </Button>
         {joinError && <div style={{ color: '#e74c3c', fontSize: '0.85rem', marginTop: 12 }}>{joinError}</div>}
-      </main>
+      </PageContainer>
     );
   }
 
   if (error) {
     return (
-      <main className="page-container" style={{ maxWidth: 480, margin: '0 auto', padding: '48px 24px', textAlign: 'center' }}>
+      <PageContainer style={{ maxWidth: 480, margin: '0 auto', padding: '48px 24px', textAlign: 'center' }}>
         <p style={{ color: '#e74c3c' }}>{error}</p>
-      </main>
+      </PageContainer>
     );
   }
 
   if (!room) {
     return (
-      <main className="page-container" style={{ maxWidth: 480, margin: '0 auto', padding: '48px 24px', textAlign: 'center' }}>
+      <PageContainer style={{ maxWidth: 480, margin: '0 auto', padding: '48px 24px', textAlign: 'center' }}>
         <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
-      </main>
+      </PageContainer>
     );
   }
 
   if (room.status === 'closed') {
     return (
-      <main className="page-container" style={{ maxWidth: 480, margin: '0 auto', padding: '48px 24px', textAlign: 'center' }}>
+      <PageContainer style={{ maxWidth: 480, margin: '0 auto', padding: '48px 24px', textAlign: 'center' }}>
         <p>This draft was closed by the host.</p>
-      </main>
+      </PageContainer>
     );
   }
 
@@ -83,5 +85,5 @@ export default function DraftRoomPage() {
     body = <DraftWaiting room={room} />;
   }
 
-  return <main className="page-container">{body}</main>;
+  return <PageContainer>{body}</PageContainer>;
 }

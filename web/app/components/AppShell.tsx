@@ -20,14 +20,14 @@ const MENU_ICON = (
 );
 
 const BOTTOM_NAV_ITEMS = [
-  { href: '/', icon: '🏠', label: 'Home', matches: ['/index.html', '/'] },
-  { href: '/play.html', icon: '⚔️', label: 'Play', matches: ['/play.html', '/duel.html', '/tournament.html', '/tournament'] },
-  { href: '/leaderboard.html', icon: '📈', label: 'Rankings', matches: ['/leaderboard.html'] },
-  { href: '/stats.html', icon: '📊', label: 'Stats', matches: ['/stats.html'] },
-  { href: '/mastery.html', icon: '🎯', label: 'Mastery', matches: ['/mastery.html'] },
-  { href: '/tier-list.html', icon: '🎖️', label: 'Tiers', matches: ['/tier-list.html'] },
-  { href: '/favorites.html', icon: '⭐', label: 'Favs', matches: ['/favorites.html'] },
-  { href: '/profile.html', icon: '👤', label: 'Profile', matches: ['/profile.html'] },
+  { href: '/', icon: '🏠', label: 'Home', matches: ['/'] },
+  { href: '/play', icon: '⚔️', label: 'Play', matches: ['/play', '/duel', '/tournament'] },
+  { href: '/leaderboard', icon: '📈', label: 'Rankings', matches: ['/leaderboard'] },
+  { href: '/stats', icon: '📊', label: 'Stats', matches: ['/stats'] },
+  { href: '/mastery', icon: '🎯', label: 'Mastery', matches: ['/mastery'] },
+  { href: '/tier-list', icon: '🎖️', label: 'Tiers', matches: ['/tier-list'] },
+  { href: '/favorites', icon: '⭐', label: 'Favs', matches: ['/favorites'] },
+  { href: '/profile', icon: '👤', label: 'Profile', matches: ['/profile'] },
 ] as const;
 
 interface Me {

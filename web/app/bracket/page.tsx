@@ -33,6 +33,7 @@ import {
   type SeedMode,
   type StatsMap,
 } from '../lib/bracketEngine';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 import './bracket.css';
 
 type BadgeMap = Record<string, BadgeInfo>;
@@ -159,6 +160,7 @@ const SCENARIOS = [
 ] as const;
 
 export default function BracketPage() {
+  useDocumentTitle('Smash Bracket — Bracket Generator');
   const router = useRouter();
 
   const [myUsername, setMyUsername] = useState('');

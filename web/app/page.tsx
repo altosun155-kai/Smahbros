@@ -11,6 +11,7 @@ import Link from 'next/link';
 import PageContainer from './components/PageContainer';
 import { apiGet, apiPatch, clearToken, showToast } from './lib/api';
 import { charImgUrl, SMASH_ROSTER } from './lib/chars';
+import { useDocumentTitle } from './lib/useDocumentTitle';
 import '../public/css/game-menu.css';
 import './index.css';
 
@@ -342,6 +343,7 @@ function fallbackAvatar(username: string) {
 }
 
 export default function HomePage() {
+  useDocumentTitle('Smash Bracket');
   const [me, setMe] = useState<{ username: string; avatar_url: string | null } | null>(null);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [summary, setSummary] = useState<HomeSummary | null>(null);

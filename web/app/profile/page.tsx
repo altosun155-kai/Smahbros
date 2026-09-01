@@ -14,6 +14,7 @@ import { apiDelete, apiGet, apiPatch, apiPost, apiPut, clearToken, showToast } f
 import { charHeadUrl, charImgUrl, SMASH_ROSTER } from '../lib/chars';
 import { winPctColor } from '../lib/colorUtils';
 import { BADGE_HOW, BADGE_ICONS, CHAR_EMOJIS } from '../lib/badges';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 import './profile.css';
 
 const DICEBEAR_STYLES = ['pixel-art', 'adventurer', 'bottts', 'fun-emoji', 'shapes', 'identicon'];
@@ -108,6 +109,7 @@ function badgeIconForId(b: ProfileBadge, forModal = false): { text?: string; img
 }
 
 export default function ProfilePage() {
+  useDocumentTitle('Smash Bracket — Profile');
   const searchParams = useSearchParams();
   const viewParam = searchParams.get('user');
   const viewingOther = !!viewParam;

@@ -11,11 +11,13 @@ import { useEffect, useMemo, useState } from 'react';
 import PageContainer, { PageHeader } from '../components/PageContainer';
 import { apiGet, apiPut, showToast } from '../lib/api';
 import { charImgUrl, SMASH_ROSTER } from '../lib/chars';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 import './favorites.css';
 
 const MAX_FAVORITES = 10;
 
 export default function FavoritesPage() {
+  useDocumentTitle('Smash Bracket — Top 10 Favorites');
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string[]>([]); // insertion order = rank order
   const [search, setSearch] = useState('');

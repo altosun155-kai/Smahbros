@@ -4,9 +4,19 @@
 // layout.tsx) so this page only needs its own content -- the legacy page's
 // nav-inject.js script tag and inline /users/me fetch have no equivalent
 // here, they're already covered.
+//
+// The only server component among the 14 ported pages (no client state, no
+// effects) -- so unlike the other 13, its <title> is set the normal Next.js
+// way via a real `metadata` export instead of the useDocumentTitle client
+// hook, since a server component can do this natively.
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import PageContainer, { PageHeader } from '../components/PageContainer';
 import './play.css';
+
+export const metadata: Metadata = {
+  title: 'Smash Bracket — Play',
+};
 
 export default function PlayPage() {
   return (
@@ -17,7 +27,7 @@ export default function PlayPage() {
       </PageHeader>
 
       <div className="play-grid">
-        <Link className="card card-hover play-card" href="/duel.html">
+        <Link className="card card-hover play-card" href="/duel">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
             <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"></polyline>
             <line x1="13" y1="19" x2="19" y2="13"></line>

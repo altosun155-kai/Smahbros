@@ -10,6 +10,7 @@ import PageContainer, { PageHeader } from '../components/PageContainer';
 import { apiGet, apiPost, showToast } from '../lib/api';
 import { charImgUrl, SMASH_ROSTER } from '../lib/chars';
 import { winPctColor } from '../lib/colorUtils';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 import './stats.css';
 
 interface CharStat {
@@ -60,6 +61,7 @@ function CpCharRow({ char, detail, star }: { char: string; detail: string; star:
 }
 
 export default function StatsPage() {
+  useDocumentTitle('Smash Bracket — Character Stats');
   const [loading, setLoading] = useState(true);
   const [myStats, setMyStats] = useState<CharStat[] | null>(null);
   const [globalCharBest, setGlobalCharBest] = useState<Record<string, number>>({});
@@ -387,7 +389,7 @@ export default function StatsPage() {
         {users.map((u) => (
           <Link
             key={u.username}
-            href={`/profile.html?user=${encodeURIComponent(u.username)}`}
+            href={`/profile?user=${encodeURIComponent(u.username)}`}
             style={{
               display: 'flex',
               flexDirection: 'column',

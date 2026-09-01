@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import PageContainer, { PageHeader } from '../components/PageContainer';
 import { apiGet, showToast } from '../lib/api';
 import { charImgUrl, SMASH_ROSTER } from '../lib/chars';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 import './mastery.css';
 
 const PLAYER_COLORS = ['#0077c8', '#f5a623', '#27ae60', '#e74c3c', '#9b59b6', '#1abc9c', '#e67e22', '#e91e8c', '#00bcd4', '#ff5722', '#8bc34a', '#ff9800'];
@@ -88,6 +89,7 @@ function MasteryTile({ char, data, color, justClaimed }: { char: string; data: M
 }
 
 export default function MasteryPage() {
+  useDocumentTitle('Smash Bracket — Character Mastery');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [rows, setRows] = useState<MasteryRow[]>([]);

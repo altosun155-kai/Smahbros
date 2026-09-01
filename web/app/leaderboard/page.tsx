@@ -15,6 +15,7 @@ import { apiGet, showToast } from '../lib/api';
 import { charHeadUrl } from '../lib/chars';
 import { winPctColor } from '../lib/colorUtils';
 import { BadgePill, loadAllBadges, type BadgeInfo } from '../lib/badges';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 import './leaderboard.css';
 
 const PAGE_SIZE = 25;
@@ -127,6 +128,7 @@ function Sparkline({ deltas }: { deltas: number[] }) {
 }
 
 export default function LeaderboardPage() {
+  useDocumentTitle('Smash Bracket — Leaderboard');
   const [myUsername, setMyUsername] = useState('');
   const [badges, setBadges] = useState<Record<string, BadgeInfo>>({});
 

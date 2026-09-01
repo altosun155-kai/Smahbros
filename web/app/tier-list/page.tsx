@@ -35,6 +35,7 @@ import { useRef, useState } from 'react';
 import PageContainer, { PageHeader } from '../components/PageContainer';
 import { apiGet, apiPut, showToast } from '../lib/api';
 import { charImgUrl, SMASH_ROSTER } from '../lib/chars';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 import './tier-list.css';
 
 type Tier = 'S' | 'A' | 'B' | 'C' | 'D' | 'F';
@@ -124,6 +125,7 @@ interface DragIndicator {
 }
 
 export default function TierListPage() {
+  useDocumentTitle('Smash Bracket — Tier List');
   const [loading, setLoading] = useState(true);
   const [zones, setZones] = useState<Record<Zone, string[]>>(emptyZones());
   const [lastSaved, setLastSaved] = useState('');

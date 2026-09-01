@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import PageContainer, { PageHeader } from '../components/PageContainer';
 import { apiDelete, apiGet, showToast } from '../lib/api';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 import './my-brackets.css';
 
 interface BracketSummary {
@@ -31,6 +32,7 @@ interface BracketSummary {
 }
 
 export default function MyBracketsPage() {
+  useDocumentTitle('Smash Bracket — My Brackets');
   const [loading, setLoading] = useState(true);
   const [brackets, setBrackets] = useState<BracketSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);

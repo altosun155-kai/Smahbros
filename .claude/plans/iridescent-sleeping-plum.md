@@ -1,75 +1,71 @@
-# Migration — 0.3, 0.4, 0.5, Phase 1 now; Phase 2 page-by-page after
+# Retire legacy .html pages — redirect to React, archive the files
 
 ## Context
 
-0.1 (docs) and 0.2 (tokens/Tailwind) are done and verified. The user asked to move on from relying on the legacy HTML and "do the rest of the todos" — i.e. 0.3, 0.4, 0.5, Phase 1, Phase 2 (14 legacy pages), Phase 3 (PWA), Phase 4 (polish).
+The Next.js migration (0.3 → Phase 4, tracked in this same plan file previously) is complete: all 14 `web/public/*.html` pages have real React ports under `web/app/*`, verified live. But nothing in that work actually cut over traffic — `web/public/*.html` is still fully reachable, and per this session's own investigation, **the main bottom nav bar rendered on every single React page currently links to the legacy `.html` versions**, not the React ports, for 7 of its 8 items. The user asked to redirect everything to the React pages now and keep the old HTML files as archives (not delete them).
 
-That full scope is too large to pre-plan or build in one pass responsibly — 14 legacy pages totaling ~9,100 lines, several with substantial stateful behavior (`tournament.html`'s VS-score modal, `bracket.html`'s bracket engine). Pre-planning every page's exact behavior now, before reading each page closely, would violate this repo's own norm ("precise, detailed specs are the norm here") — I'd be guessing at edge cases I haven't read yet.
+Investigation (direct grep across `web/app`, confirmed against `next.config.js` and the Next.js redirects docs) found two distinct things to fix, not one:
 
-So this plan covers the **foundational batch** concretely (0.3, 0.4, 0.5, Phase 1 — these don't require per-page archaeology, and everything else is blocked on them). Phase 2 is scoped as a **sequenced page-by-page loop** that starts immediately after, each page read and ported individually (no separate approval stop per page — proceeding page-by-page is itself what's being approved here), with an update after each page rather than one after all 14. Phase 3/4 are sketched at a level appropriate to plan now and will get their own concrete plan once Phase 2 is done and their actual remaining surface is known.
+1. **No redirects exist from old paths to new ones.** `next.config.js` has no `redirects()` key at all — visiting `/duel.html` today serves the static legacy file untouched, with no cutover.
+2. **Several places in the *already-ported React code* still link to the legacy `.html` paths directly**, instead of the React routes that have existed since Phase 2. This is the more consequential bug — real users clicking real nav links in the new app get sent back into the old vanilla-JS pages:
+   - `web/app/components/AppShell.tsx` — the shared bottom nav (rendered on every page via `AuthGate`): 7 of 8 `href`s point at `/play.html`, `/leaderboard.html`, `/stats.html`, `/mastery.html`, `/tier-list.html`, `/favorites.html`, `/profile.html`. Their `matches` arrays (used for active-tab highlighting) also reference the `.html` paths, which is harmless dead weight once fixed (`usePathname()` never reports a `.html` path for an App Router route) but worth cleaning up alongside the `href`s rather than leaving stale.
+   - `web/app/play/page.tsx` — the "1v1 Duel" card links to `/duel.html` instead of `/duel`.
+   - `web/app/draft/[roomId]/DraftCharacterSelect.tsx:205` — a "view tier list" link points at `/tier-list.html` instead of `/tier-list`.
+   - `web/app/stats/page.tsx:392` — a player-name link builds `/profile.html?user=...`; confirmed `web/app/profile/page.tsx` already reads the same `?user=` param via `useSearchParams()`, so `/profile?user=...` is a drop-in fix.
+   - `web/app/login/page.tsx:44,116` — post-login redirect uses `window.location.href = 'index.html'` (a **relative** path, no leading slash) instead of `/`. This isn't just a legacy-path issue: since it's relative, it resolves against the current URL rather than the site root, so it happens to still land on `/index.html` today only because `/login` has no trailing slash — worth fixing to `/` outright rather than relying on that coincidence.
 
-Existing patterns confirmed by reading the code (reuse these, don't reinvent):
-- `web/app/draft/*` is the one real precedent for a migrated page: `'use client'`, `apiGet`/`apiPost` from [api.ts](web/app/lib/api.ts), legacy CSS classes (`btn btn-primary`, `card`, `page-container`) applied directly via `className` — no component library yet, that's what 0.3 builds.
-- `apiFetch` in [api.ts](web/app/lib/api.ts) already 401-redirects to `/login.html` reactively — that's a *fallback*, not a guard; nothing today blocks an unauthenticated render before data loads, which is what 0.4 fixes.
-- [nav-inject.js](web/public/js/nav-inject.js) is the single source of truth for the legacy nav (top bar + mobile bottom nav) — 0.4's React shell ports this exact structure/link list, not a redesign.
-- [auth.js](web/public/js/auth.js) — `getToken`/`isLoggedIn`/`requireAuth`/`redirectIfLoggedIn`/`logout` — 0.4's guard is the React-idiomatic equivalent of these, reusing `getToken`/`clearToken` already in `api.ts`.
-- `web/next.config.js` rewrites `/` → `/index.html` and proxies `/api/*` → Render. This stays as-is until `index.html` itself migrates (last-but-one in the Phase 2 order below, since `/` needs to flip from that rewrite to a real `app/page.tsx` in the same change).
-- `GET /health` already exists (`api.py:135`) — Phase 1 is a client-side polling/UX addition only, no backend work.
+Confirmed via the Next.js redirects doc (`node_modules/next/dist/docs/.../redirects.md`): "Redirects are checked before the filesystem which includes pages and `/public` files" — so a `redirects()` entry for `/duel.html` will intercept the request before Next ever serves the static file in `web/public/duel.html`. This means the legacy files can stay exactly where they are (true archives, unreferenced but present) with no need to move or rename them.
 
-## 0.3 — Component base
+**Checked and cleared**: whether any *already-live* React page still executes `web/public/js/{nav-inject,game-menu,auth}.js` at runtime, which would mean those scripts' own internal `.html` links (there are many — `nav-inject.js`'s nav markup, `game-menu.js`'s panel CTAs and menu items) are live on a React page today, invisible to a `.tsx`-only grep. They are not: `app/page.tsx` only imports `game-menu.css` (styling), and reimplements every one of `game-menu.js`'s links natively in JSX already pointed at clean routes (`/duel`, `/my-brackets`, `/bracket`, etc.) — confirmed by reading its actual `<Link href>` values, not just its header comment (which references the legacy file descriptively, as a porting note, not a live dependency). Every other file matching a grep for these script names (`AppShell.tsx`, `AuthGate.tsx`, `useServerReady.ts`, `useAuthGuard.ts`, `api.ts`, `play/page.tsx`) does so only in comments describing what was ported from. No React page has a `<script src>` or dynamic-import pointing at any of the three legacy JS files.
 
-New `web/app/components/`: `Button`, `Card`, `Modal`, `Toast` (wraps the existing `showToast` in `api.ts` rather than replacing it), `PageContainer`. Each is a thin wrapper around the **existing** legacy CSS classes (`.btn`, `.btn-primary`, `.btn-outline`, `.card`, `.page-container`, `.glass`, modal markup patterns already in `style.css`) with typed props — not new visual design, since `tokens.css`/`style.css` already define the look. This replaces draft's current pattern of hand-typing `className="btn btn-primary"` and inline `style={{...}}` per page. Retrofit `web/app/draft/*` to use the new components in the same pass, since it's the only existing consumer and leaving it on the old pattern would mean two conventions live side by side immediately.
+## Changes
 
-**Done when**: `draft/page.tsx` and `draft/[roomId]/*` use the new components with no visual change (screenshot diff before/after); `npm run build` clean.
+**1. `next.config.js`** — add a `redirects()` export alongside the existing `rewrites()`, one entry per legacy page. **`permanent: false` (307) for now, not `true`** — a 308 is aggressively browser-cached, and this cutover just turned up 5 bad internal links nobody had spotted; if any of these 14 destinations turns out wrong, a 308 means testers keep hitting the stale redirect from cache long after the config is fixed. Flip every entry to `permanent: true` once all 14 are confirmed landing correctly in real use (real login flow, real nav clicks, not just curl) — leave a `// TODO(flip to permanent once confirmed)`-style comment at the top of the block so that follow-up isn't forgotten.
 
-## 0.4 — Auth guard + app shell
+```js
+async redirects() {
+  return [
+    { source: '/index.html', destination: '/', permanent: false },
+    { source: '/login.html', destination: '/login', permanent: false },
+    { source: '/play.html', destination: '/play', permanent: false },
+    { source: '/my-brackets.html', destination: '/my-brackets', permanent: false },
+    { source: '/favorites.html', destination: '/favorites', permanent: false },
+    { source: '/invites.html', destination: '/invites', permanent: false },
+    { source: '/stats.html', destination: '/stats', permanent: false },
+    { source: '/mastery.html', destination: '/mastery', permanent: false },
+    { source: '/tier-list.html', destination: '/tier-list', permanent: false },
+    { source: '/duel.html', destination: '/duel', permanent: false },
+    { source: '/leaderboard.html', destination: '/leaderboard', permanent: false },
+    { source: '/profile.html', destination: '/profile', permanent: false },
+    { source: '/tournament.html', destination: '/tournament', permanent: false },
+    { source: '/bracket.html', destination: '/bracket', permanent: false },
+  ];
+},
+```
+Query strings pass through automatically (confirmed in the docs), so `/profile.html?user=foo` → `/profile?user=foo` needs no special-casing.
 
-- `web/app/lib/useAuthGuard.ts`: client hook — on mount, if `!getToken()`, `router.replace('/login.html')` (matches `requireAuth()`'s redirect target exactly) and renders nothing until the check resolves, avoiding a flash of protected content. Store `loginReturnUrl` in `localStorage` exactly as `auth.js` does, so a login on the legacy page can hand back to a Next.js route.
-- `web/app/components/AppShell.tsx`: React port of `nav-inject.js` — top bar with logo/menu-trigger/user avatar+name, mobile bottom nav with the same 8 links and the same active-page highlighting logic, ported to `usePathname()` instead of `window.location.pathname`. The existing `GameMenu` overlay (vanilla JS, used by the menu trigger) stays as-is for now — 0.4 doesn't port it, just wires the trigger to call it the same way `nav-inject.js` does, since GameMenu isn't in scope until whichever Phase-2 page actually owns it (`index.html`).
-- Wire both into `layout.tsx`, replacing the current placeholder back-link.
+**2. Fix the internal links found above** so the React app links directly to its own routes instead of bouncing through the new redirect:
+- `AppShell.tsx`: rewrite all 8 `BOTTOM_NAV_ITEMS` entries to real routes (`/play`, `/leaderboard`, `/stats`, `/mastery`, `/tier-list`, `/favorites`, `/profile`) and drop the now-dead `.html` entries from each `matches` array.
+- `play/page.tsx`: `/duel.html` → `/duel`.
+- `draft/[roomId]/DraftCharacterSelect.tsx:205`: `/tier-list.html` → `/tier-list`.
+- `stats/page.tsx:392`: `` `/profile.html?user=...` `` → `` `/profile?user=...` ``.
+- `login/page.tsx:44,116`: `window.location.href = 'index.html'` → `'/'` (both occurrences; the second keeps its `returnUrl ||` fallback).
 
-**Done when**: an unauthenticated visit to `/draft` redirects to `/login.html` (no flash); an authenticated visit shows the ported nav with correct active-state highlighting; legacy pages are unaffected (they don't route through this layout's guard).
+**3. Leave `web/public/*.html` untouched** — no deletion, no move. They stay as inert archives, reachable only by someone typing the exact old URL, which now 307s them straight to the React page (308 once flipped, per point 1).
 
-## 0.5 — Local-dev harness
+**4. CLAUDE.md** — update the Architecture section's framing (the "both are currently live and both are currently deployed" line) to reflect that `web/public/*` is now redirect-only archive, not a live parallel surface. This is the only place a future session would learn that — make sure it actually lands, not just gets mentioned in this plan. Also note there: once the redirects are live, the archived pages are unreachable **by URL** (including by a developer typing `/duel.html` to compare legacy behavior against the React port side-by-side, the exact verification method used throughout this migration) — the files remain fully readable in git history and on disk, just not servable. Worth knowing before relying on live side-by-side comparison again for any future port-correctness question.
 
-Formalize the already-used-ad-hoc convention from CLAUDE.md's Working Conventions into an actual runnable script (`scripts/dev.sh` or `package.json` root script): scratch SQLite DB, throwaway `SECRET_KEY`, backend on 8850, frontend on 8851, temporarily-pointed `API_BASE`/`WS_ORIGIN`/`next.config.js` rewrite — as an opt-in flag/env rather than hand-editing those constants each time, so switching back to production values before wrapping a change is a diff revert, not a manual re-type. Exact mechanism (shell script vs. `.env.local` + doc) to be decided while implementing based on what's cleanest against `next.config.js`'s current hardcoded rewrite URL.
+## Verification
 
-**Done when**: one command brings up backend+frontend against the scratch DB; reverting to prod config is a single `git checkout` of the touched files, not manual re-editing.
+1. `cd web && npm run build` — clean, confirm no redirect/rewrite conflicts reported.
+2. Local harness: `curl -I` each of the 14 old paths (e.g. `/duel.html`) — confirm `307` (matching `permanent: false` above; re-check for `308` only after the later flip) with `Location` pointing at the correct new route, including the query-string case (`/profile.html?user=x`).
+3. Playwright: load a ported page (e.g. `/stats`), click through every bottom-nav item — confirm each navigates directly to its React route with no visible redirect hop (check `location.pathname` after each, not just that it eventually lands right).
+4. Confirm `/duel` from `play/page.tsx`'s card, `/tier-list` from the draft character-select link, and a real login flow's post-login landing page (`/`) all point directly at React routes now.
+5. `git status --short web/public/` — empty, confirms the archived files themselves are untouched.
+6. **`grep -rn "\.html" web/app/` should return nothing but comments.** This is the check that would have caught this task's own bad links before a user did — run it after all fixes land, not just against the 5 known-bad spots, so a sixth link nobody's spotted yet doesn't slip through the same way.
+7. Nothing committed or pushed, per standing convention.
 
-## Phase 1 — Cold-start keep-warm
+## Follow-up (after this lands and is confirmed live — not part of this pass)
 
-Client-side only (`GET /health` already exists). Add a lightweight ping-on-load in the new `AppShell`/root layout: fire `GET /api/health` on mount; if it hasn't resolved within ~4s, show the existing "server waking up" toast pattern (reuse `showToast` from `api.ts`) instead of leaving the user staring at a blank/loading page — matching the ~4s threshold already documented in CLAUDE.md's Gotchas for the legacy lobby. No backend change.
-
-## Phase 2 — Page-by-page migration (sequenced, no per-page approval stop)
-
-Order, smallest/lowest-risk to largest/most stateful, with `login.html` pulled to the front since 0.4's guard needs a real login flow to redirect to and verify against:
-
-1. `login.html` (218 lines)
-2. `play.html` (107)
-3. `my-brackets.html` (183)
-4. `favorites.html` (228)
-5. `invites.html` (304)
-6. `stats.html` (389)
-7. `mastery.html` (480)
-8. `tier-list.html` (500)
-9. `duel.html` (944)
-10. `leaderboard.html` (953)
-11. `profile.html` (1316)
-12. `index.html` (232 lines, but ordered here because flipping `/` from `next.config.js`'s rewrite to a real `app/page.tsx` is safest once everything it links to already exists as a Next.js route)
-13. `tournament.html` (1572) — per the user's own correction, this is a **port** of the existing VS-score modal (`pickTournamentScore`, stock scores, 30s undo, winner banner, `PATCH /brackets/{id}/winner`), not new design
-14. `bracket.html` (1667) — last: the bracket-engine page, highest line count, most other pages link into it
-
-For each page: read the legacy `.html` + any page-specific `.js`, port markup/behavior 1:1 into `web/app/<route>/page.tsx` using the 0.3 components + 0.4 shell/guard, verify against the running legacy page side-by-side (Playwright), then move to the next page. Report progress after each page rather than batching all 14 into one final report, so anything that looks off surfaces early.
-
-## Phase 3 — PWA / Phase 4 — Launch polish
-
-Not concretely planned yet — both depend on Phase 2 being complete (a PWA manifest/service worker needs final routes to exist; launch polish needs the final page set to audit). Will scope these for real once Phase 2 finishes.
-
-## Verification (for 0.3/0.4/0.5/Phase 1, this round)
-
-1. `cd web && npm run build` — clean.
-2. Local harness (once 0.5 exists, else the existing manual scratch-DB steps): unauthenticated `/draft` → redirects to `/login.html`, no flash; authenticated → shows ported nav, correct active link.
-3. Screenshot diff of `/draft` before/after 0.3's component swap — no visual change.
-4. Simulate a slow/cold backend (or just observe real Render cold start) → "waking up" toast appears within ~4s.
-5. Legacy pages (e.g. `index.html`) still render unaffected — nothing in this batch touches `web/public/*`.
-6. Nothing committed or pushed, per standing convention.
+- **Flip `permanent: false` → `true` on all 14 redirects, and delete the `TODO(flip to permanent once confirmed)` comment**, once a real login flow and a real click-through of every nav item (including on mobile) confirm all 14 destinations are correct. A `permanent: false` left indefinitely in `next.config.js` is exactly the kind of thing that quietly survives a year — don't let this be a one-time "later."
+- **Re-run `grep -rn "\.html" web/app/` periodically, not just once now.** The check is only as good as the last time someone ran it, and new pages/links will keep getting added after this task is done. Worth a mental note (or an actual CI/lint step, if that's ever worth building) rather than treating this pass's clean grep as a permanent guarantee.

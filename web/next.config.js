@@ -25,6 +25,37 @@ const nextConfig = {
       { source: '/api/:path*', destination: `${API_PROXY_TARGET}/:path*` },
     ];
   },
+  // TODO(flip to permanent once confirmed): all 14 entries below are
+  // permanent: false (307) deliberately, not true (308) -- a 308 is
+  // aggressively browser-cached, and if any destination below turns out
+  // wrong, testers keep hitting the stale redirect from cache long after
+  // this file is fixed. Flip every entry to true once a real login flow and
+  // a real click-through of every nav item (including on mobile) confirm all
+  // 14 land correctly, then delete this comment.
+  //
+  // web/public/*.html stay on disk as archives -- not deleted, not moved.
+  // Next checks redirects before the filesystem (including /public), so
+  // these never reach the static files anymore; the files remain readable
+  // in git and on disk, just not servable. Query strings (e.g.
+  // ?user=name on profile.html) pass through to the destination automatically.
+  async redirects() {
+    return [
+      { source: '/index.html', destination: '/', permanent: false },
+      { source: '/login.html', destination: '/login', permanent: false },
+      { source: '/play.html', destination: '/play', permanent: false },
+      { source: '/my-brackets.html', destination: '/my-brackets', permanent: false },
+      { source: '/favorites.html', destination: '/favorites', permanent: false },
+      { source: '/invites.html', destination: '/invites', permanent: false },
+      { source: '/stats.html', destination: '/stats', permanent: false },
+      { source: '/mastery.html', destination: '/mastery', permanent: false },
+      { source: '/tier-list.html', destination: '/tier-list', permanent: false },
+      { source: '/duel.html', destination: '/duel', permanent: false },
+      { source: '/leaderboard.html', destination: '/leaderboard', permanent: false },
+      { source: '/profile.html', destination: '/profile', permanent: false },
+      { source: '/tournament.html', destination: '/tournament', permanent: false },
+      { source: '/bracket.html', destination: '/bracket', permanent: false },
+    ];
+  },
 };
 
 module.exports = nextConfig;

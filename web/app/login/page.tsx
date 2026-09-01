@@ -12,10 +12,12 @@
 import { useEffect, useRef, useState } from 'react';
 import '../../public/css/auth.css';
 import { API_BASE, apiGet, apiPost, getToken, setToken, setUsername } from '../lib/api';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 
 const WAIT_ATTEMPTS = 10; // up to ~90s, matches the original waitForServer()
 
 export default function LoginPage() {
+  useDocumentTitle('Smash Bracket — Sign In');
   const [redirecting, setRedirecting] = useState(true);
   const [serverReady, setServerReady] = useState(false);
   const [serverNotice, setServerNotice] = useState<string | null>(null);
@@ -39,7 +41,7 @@ export default function LoginPage() {
   // login form at all. Runs before the rest of the page renders.
   useEffect(() => {
     if (getToken()) {
-      window.location.href = 'index.html';
+      window.location.href = '/';
       return;
     }
     setRedirecting(false);
@@ -111,7 +113,7 @@ export default function LoginPage() {
       setUsername(data.username);
       const returnUrl = localStorage.getItem('loginReturnUrl');
       localStorage.removeItem('loginReturnUrl');
-      window.location.href = returnUrl || 'index.html';
+      window.location.href = returnUrl || '/';
     } catch (err) {
       setEnterError((err as Error).message || 'Something went wrong.');
       setBusyTile(null);

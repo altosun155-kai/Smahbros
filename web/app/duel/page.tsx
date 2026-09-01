@@ -19,6 +19,7 @@ import { apiGet, apiPost, showToast } from '../lib/api';
 import { charImgUrl, SMASH_ROSTER } from '../lib/chars';
 import { winPctColor } from '../lib/colorUtils';
 import { BadgePill, loadAllBadges, type BadgeInfo } from '../lib/badges';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 import './duel.css';
 
 interface UserRow {
@@ -172,6 +173,7 @@ function CharPicker({ value, onSelect, style }: { value: string; onSelect: (char
 }
 
 export default function DuelPage() {
+  useDocumentTitle('Smash Bracket — 1v1 Duel');
   const [allUsers, setAllUsers] = useState<UserRow[]>([]);
   const [myUsername, setMyUsername] = useState<string | null>(null);
   const [badges, setBadges] = useState<Record<string, BadgeInfo>>({});

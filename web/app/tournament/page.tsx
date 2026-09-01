@@ -20,6 +20,7 @@ import { apiDelete, apiGet, apiPatch, apiPost, getToken, showToast, wsUrl } from
 import { SMASH_ROSTER, charHeadUrl, charImgUrl } from '../lib/chars';
 import { BadgePill, loadAllBadges, type BadgeInfo } from '../lib/badges';
 import { buildBracketPairs, buildEntriesFromLineups, type BracketStyle, type Entry, type SeedMode } from '../lib/bracketEngine';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 import './tournament.css';
 
 type BadgeMap = Record<string, BadgeInfo>;
@@ -239,6 +240,7 @@ const SCENARIOS = [
 ] as const;
 
 export default function TournamentPage() {
+  useDocumentTitle('Smash Bracket — Live Tournament');
   const searchParams = useSearchParams();
   const tournamentId = searchParams.get('id');
 

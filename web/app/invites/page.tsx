@@ -10,6 +10,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import PageContainer, { PageHeader } from '../components/PageContainer';
 import { apiDelete, apiGet, apiPatch, showToast } from '../lib/api';
+import { useDocumentTitle } from '../lib/useDocumentTitle';
 import './invites.css';
 
 const POLL_MS = 12000;
@@ -41,6 +42,7 @@ function Badge({ status }: { status: 'pending' | 'accepted' | 'declined' }) {
 }
 
 export default function InvitesPage() {
+  useDocumentTitle('Smash Bracket — Invites');
   const [tab, setTab] = useState<'received' | 'sent'>('received');
 
   const [receivedLoading, setReceivedLoading] = useState(true);

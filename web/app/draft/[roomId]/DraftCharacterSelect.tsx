@@ -77,7 +77,7 @@ export default function DraftCharacterSelect({
     loadRail();
   }, [loadRail]);
 
-  // "Build a tier list" opens tier-list.html in a new tab -- re-check when the
+  // "Build a tier list" opens /tier-list in a new tab -- re-check when the
   // player comes back, so finishing it there is reflected here without a manual reload.
   useEffect(() => {
     const onVisible = () => {
@@ -202,7 +202,7 @@ export default function DraftCharacterSelect({
           {pinned.length === 0 && !q && (
             <div className="draft-rail-hint">
               No favorites yet —{' '}
-              <a href="/tier-list.html" target="_blank" rel="noopener noreferrer">
+              <a href="/tier-list" target="_blank" rel="noopener noreferrer">
                 build a tier list
               </a>{' '}
               to get a pinned section here.

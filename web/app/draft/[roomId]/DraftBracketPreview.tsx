@@ -17,6 +17,24 @@ function parseLabel(label: string): { player: string | null; character: string |
   return { player: parts[0].trim(), character: parts.slice(1).join(' — ').trim() };
 }
 
+// The reveal screen's flip ids are keyed by each pick's *original* slot_index
+// (portrait-{playerId}-{slot_index}, set from room.picks). The backend's
+// _deal_bracket() shuffles each player's own pick order before seeding the
+// bracket (see routers/draft.py), so a bracket match's position tells us
+// nothing about which original slot a character came from -- and bracket_data
+// carries only "username — character" labels, no slot_index. Character names
+// are unique per player (the backend rejects picking the same character into
+// two slots), so looking the character back up in room.picks recovers the
+// correct original slot_index and lets the flip id match the reveal side
+// exactly. This replaced an earlier version keyed off the bracket-panel
+// index, which collapsed every one of a player's picks onto the same id
+// whenever a room only ever has one live bracket (always, today) -- broke
+// Flip's from/to matching for any chars_per_player > 1.
+function pickSlotFor(room: DraftRoomState, playerId: number, character: string | null): number | undefined {
+  if (character == null) return undefined;
+  return (room.picks[String(playerId)] || []).find((p) => p.character === character)?.slot_index;
+}
+
 function BracketEntry({ label, flipId }: { label: string; flipId?: string }) {
   const { player, character } = parseLabel(label);
   if (!player) {
@@ -74,18 +92,20 @@ export default function DraftBracketPreview({
       className={room.bracket_ids.length > 1 ? 'draft-bracket-carousel' : undefined}
       style={room.bracket_ids.length === 1 ? { display: 'flex', justifyContent: 'center' } : undefined}
     >
-      {brackets.map((b, slot) => (
+      {brackets.map((b) => (
         <div key={b.id} className="draft-bracket-panel">
           <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 10, fontSize: '0.95rem' }}>Bracket</h3>
           {b.bracket_data.map((pair, mi) => {
-            const aPlayer = parseLabel(pair.a).player;
-            const bPlayer = parseLabel(pair.b).player;
+            const { player: aPlayer, character: aChar } = parseLabel(pair.a);
+            const { player: bPlayer, character: bChar } = parseLabel(pair.b);
             const aId = aPlayer ? usernameToId[aPlayer] : undefined;
             const bId = bPlayer ? usernameToId[bPlayer] : undefined;
+            const aSlot = aId != null ? pickSlotFor(room, aId, aChar) : undefined;
+            const bSlot = bId != null ? pickSlotFor(room, bId, bChar) : undefined;
             return (
               <div key={mi} className="draft-bracket-match">
-                <BracketEntry label={pair.a} flipId={aId != null ? `portrait-${aId}-${slot}` : undefined} />
-                <BracketEntry label={pair.b} flipId={bId != null ? `portrait-${bId}-${slot}` : undefined} />
+                <BracketEntry label={pair.a} flipId={aId != null && aSlot != null ? `portrait-${aId}-${aSlot}` : undefined} />
+                <BracketEntry label={pair.b} flipId={bId != null && bSlot != null ? `portrait-${bId}-${bSlot}` : undefined} />
               </div>
             );
           })}

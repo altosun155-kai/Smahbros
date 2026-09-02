@@ -1633,20 +1633,36 @@ a:hover {
 }
 
 /* ── Draft reveal + Flip transition + bracket preview ────────────────────── */
+/* Four-corner reveal: each of the (up to 4) players' name sits pinned to its
+   own quadrant's outer corner, with their pick cluster trailing inboard
+   toward screen center -- not a centered box. `.draft-reveal-corner` itself
+   only lays out a single player's name+picks in a row; which literal corner
+   it's pinned to and which way that row faces (picks trailing right vs left)
+   is entirely nth-child position -- DraftReveal.tsx renders slots in a fixed
+   0..3 = top-left/top-right/bottom-left/bottom-right order. Degrades to the
+   original simple stacked column below 700px -- the cinematic corner spread
+   is a desktop/tablet flourish, not worth fighting small-screen space for. */
 .draft-reveal-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
-  gap: 24px;
-  padding: 32px 16px;
-  max-width: 640px;
-  margin: 0 auto;
+  min-height: min(70vh, 640px);
+  padding: 24px 8px;
 }
 .draft-reveal-corner {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
+}
+.draft-reveal-grid > :nth-child(1) { justify-self: start; align-self: start; }
+.draft-reveal-grid > :nth-child(2) { justify-self: end; align-self: start; flex-direction: row-reverse; }
+.draft-reveal-grid > :nth-child(3) { justify-self: start; align-self: end; }
+.draft-reveal-grid > :nth-child(4) { justify-self: end; align-self: end; flex-direction: row-reverse; }
+@media (max-width: 700px) {
+  .draft-reveal-grid { display: flex; flex-direction: column; align-items: center; gap: 20px; min-height: auto; padding: 24px 16px; }
+  .draft-reveal-grid > :nth-child(1), .draft-reveal-grid > :nth-child(2), .draft-reveal-grid > :nth-child(3), .draft-reveal-grid > :nth-child(4) {
+    justify-self: unset; align-self: unset; flex-direction: column;
+  }
 }
 .draft-reveal-picks-1 { display: grid; grid-template-columns: 1fr; width: 100px; }
 .draft-reveal-picks-4 { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6px; width: 140px; }

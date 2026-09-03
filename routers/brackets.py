@@ -426,7 +426,7 @@ def end_tournament(bracket_id: int, db: Session = Depends(get_db), current_user:
     # this is the first time ending (not already_ended).
     bonuses = []
     if not already_ended and gf_completed and b.round_winners and b.bracket_data:
-        from routers.matches import _get_or_create_stat, ELO_DEFAULT, K_FACTOR
+        from routers.matches import _get_or_create_stat, ELO_DEFAULT
         num_players = len(b.players or [])
         k = num_players * 4  # 4p=16, 8p=32, 16p=64
 

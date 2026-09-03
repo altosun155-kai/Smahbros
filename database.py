@@ -150,6 +150,13 @@ class MatchResult(Base):
     bracket_id   = Column(Integer, ForeignKey("brackets.id"), nullable=True)
     match_key    = Column(String, nullable=True)
     elo_delta    = Column(Integer, default=0, nullable=False)
+    # Explicit marker for a free-pool bracket match where both entries belong
+    # to the same real player (winner_id == loser_id) -- set once, at write
+    # time, rather than inferred later by comparing winner_id/loser_id. Keeps
+    # "was this a self-match" a stored fact instead of a query-time deduction
+    # that every future reader (leaderboard, history, shame feed) has to get
+    # right independently.
+    is_self_match = Column(Boolean, default=False, nullable=False)
     created_at   = Column(DateTime, default=_now)
 
     winner  = relationship("User", foreign_keys=[winner_id])

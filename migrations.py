@@ -38,6 +38,7 @@ def _run_migrations():
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_test BOOLEAN DEFAULT FALSE NOT NULL"))
             conn.execute(text("UPDATE users SET is_test = TRUE WHERE username ILIKE 'testuser%'"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS background_character VARCHAR"))
+            conn.execute(text("ALTER TABLE match_results ADD COLUMN IF NOT EXISTS is_self_match BOOLEAN DEFAULT FALSE NOT NULL"))
             # Indexes for hot query paths
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_winner_id  ON match_results(winner_id)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_loser_id   ON match_results(loser_id)"))
@@ -160,6 +161,8 @@ def _run_migrations():
                 conn.execute(text("ALTER TABLE match_results ADD COLUMN match_key VARCHAR"))
             if "elo_delta" not in mr_cols:
                 conn.execute(text("ALTER TABLE match_results ADD COLUMN elo_delta INTEGER DEFAULT 0"))
+            if "is_self_match" not in mr_cols:
+                conn.execute(text("ALTER TABLE match_results ADD COLUMN is_self_match BOOLEAN DEFAULT 0 NOT NULL"))
             b_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(brackets)"))}
             if "chars_per_player" not in b_cols:
                 conn.execute(text("ALTER TABLE brackets ADD COLUMN chars_per_player INTEGER DEFAULT 2"))

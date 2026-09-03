@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost, apiPut } from '../../lib/api';
 import { charImgUrl, SMASH_ROSTER } from '../../lib/chars';
 import type { DraftRoomState } from '../../lib/useDraftRoom';
@@ -39,6 +39,7 @@ export default function DraftCharacterSelect({
   const [activeSlot, setActiveSlot] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const railRef = useRef<HTMLDivElement>(null);
 
   const loadRail = useCallback(async () => {
     try {
@@ -113,7 +114,7 @@ export default function DraftCharacterSelect({
   const allSlotsFilled = myPicks.length === room.chars_per_player && myPicks.every((p) => !!p.character);
   const allSlotsLocked = myPicks.length === room.chars_per_player && myPicks.every((p) => p.locked);
 
-  async function pick(character: string) {
+  async function pick(character: string, sourceEl?: HTMLElement) {
     setBusy(true);
     setError(null);
     try {
@@ -122,6 +123,17 @@ export default function DraftCharacterSelect({
       // Auto-advance to the next slot so picking N characters is one pass
       // through the rail instead of a manual tab-then-pick per slot.
       setActiveSlot((prev) => Math.min(prev + 1, room.chars_per_player - 1));
+      // Nudge the rail down by roughly one row so the next character lands
+      // where the one just picked was -- picking several in a row (common for
+      // chars_per_player > 1, or just browsing) doesn't need a manual rescroll
+      // after every click. Approximate (uses the clicked button's own height +
+      // .draft-rail's 6px gap rather than tracking exact row positions), which
+      // is fine for a scroll nudge; scrollBy clamps at the list's real bounds
+      // on its own, so overscrolling past the end is a non-issue.
+      if (sourceEl && railRef.current) {
+        const rowHeight = sourceEl.getBoundingClientRect().height + 6;
+        railRef.current.scrollBy({ top: rowHeight, behavior: 'smooth' });
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -162,7 +174,7 @@ export default function DraftCharacterSelect({
         className={`draft-rail-item${c === activeCharacter ? ' selected' : ''}${taken ? ' taken' : ''}`}
         disabled={busy || !!activePick?.locked || taken}
         title={taken ? `Already picked for another slot` : undefined}
-        onClick={() => pick(c)}
+        onClick={(e) => pick(c, e.currentTarget)}
       >
         <img src={charImgUrl(c)} alt={c} onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')} />
         <span>{c}</span>
@@ -192,7 +204,7 @@ export default function DraftCharacterSelect({
       />
 
       <div className="draft-select-panels">
-        <div className="draft-rail">
+        <div className="draft-rail" ref={railRef}>
           {pinnedFiltered.length > 0 && (
             <>
               <div className="draft-rail-divider">{pinnedLabel}</div>

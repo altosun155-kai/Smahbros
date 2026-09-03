@@ -306,6 +306,13 @@ export default function TournamentPage() {
   const undoMatchKeyRef = useRef<string | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const undoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Set only when the just-recorded match is the Grand Final -- once its own
+  // 30s undo window closes with no undo taken, the tournament auto-ends.
+  // Deliberately tied to the *same* undo timer/window rather than a separate,
+  // shorter one: ending before the Grand Final's own correction window closes
+  // would award placement bonuses that a same-match undo can no longer cleanly
+  // reverse (undo only removes the round_winners entry, not paid-out Elo).
+  const undoIsGrandFinalRef = useRef(false);
 
   const [wsEnded, setWsEnded] = useState(false);
 
@@ -753,23 +760,29 @@ export default function TournamentPage() {
       if (isGrandFinal) patchBody.tournament_winner = winnerEntry.player;
       await apiPatch(`/brackets/${tournamentId}/winner`, patchBody);
 
-      if (winnerEntry.player !== loserEntry.player) {
-        await apiPost('/matches/record', {
-          winner_username: winnerEntry.player,
-          winner_char: winnerEntry.character,
-          winner_kills: winnerKills,
-          loser_username: loserEntry.player,
-          loser_char: loserEntry.character,
-          loser_kills: loserKills,
-          bracket_id: parseInt(tournamentId!, 10),
-          match_key: key,
-        });
-        Object.keys(eloCacheRef.current)
-          .filter((k) => k.startsWith(winnerEntry.player + '/') || k.startsWith(loserEntry.player + '/'))
-          .forEach((k) => delete eloCacheRef.current[k]);
-        lbCacheRef.current = null;
-      }
-      showUndoBtn(`${winnerEntry.player} (${winnerEntry.character})`, key);
+      // Always call /matches/record, even when winnerEntry.player ===
+      // loserEntry.player (a free-pool self-match) -- the backend's own
+      // guard (routers/matches.py's record_match) is the single shared place
+      // that decides what a self-match does to Elo/stats, and it still logs
+      // a MatchResult row (0 delta) so the match isn't invisible in history.
+      // A frontend-side skip here used to bypass the backend call entirely,
+      // which meant self-matches left no record at all -- exactly the kind
+      // of per-call-site guard that was asked not to exist.
+      await apiPost('/matches/record', {
+        winner_username: winnerEntry.player,
+        winner_char: winnerEntry.character,
+        winner_kills: winnerKills,
+        loser_username: loserEntry.player,
+        loser_char: loserEntry.character,
+        loser_kills: loserKills,
+        bracket_id: parseInt(tournamentId!, 10),
+        match_key: key,
+      });
+      Object.keys(eloCacheRef.current)
+        .filter((k) => k.startsWith(winnerEntry.player + '/') || k.startsWith(loserEntry.player + '/'))
+        .forEach((k) => delete eloCacheRef.current[k]);
+      lbCacheRef.current = null;
+      showUndoBtn(`${winnerEntry.player} (${winnerEntry.character})`, key, isGrandFinal);
       await fetchAndRender();
       if (!wasDecided) advanceScoreModal(finishedKey);
     } catch (err) {
@@ -778,9 +791,10 @@ export default function TournamentPage() {
   }
 
   // ── Undo bar ──────────────────────────────────────────────────────────────
-  function showUndoBtn(label: string, matchKey: string) {
+  function showUndoBtn(label: string, matchKey: string, isGrandFinal = false) {
     if (!canRecord) return;
     undoMatchKeyRef.current = matchKey;
+    undoIsGrandFinalRef.current = isGrandFinal;
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
     if (undoIntervalRef.current) clearInterval(undoIntervalRef.current);
     setUndoLabel(label);
@@ -794,6 +808,13 @@ export default function TournamentPage() {
     undoTimerRef.current = setTimeout(() => {
       setUndoLabel(null);
       undoMatchKeyRef.current = null;
+      // Undo window closed without being used -- if that match was the Grand
+      // Final, the tournament is done and nothing can still correct it here,
+      // so wrap it up automatically instead of leaving it sitting live.
+      if (undoIsGrandFinalRef.current) {
+        undoIsGrandFinalRef.current = false;
+        endTournamentNow();
+      }
     }, 30000);
   }
 
@@ -801,6 +822,7 @@ export default function TournamentPage() {
     if (!undoMatchKeyRef.current) return;
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
     if (undoIntervalRef.current) clearInterval(undoIntervalRef.current);
+    undoIsGrandFinalRef.current = false;
     try {
       const res = await apiDelete<{ undone?: string }>(`/brackets/${tournamentId}/result/${undoMatchKeyRef.current}`);
       showToast(`Undid: ${res.undone || 'result'}`, 'success');
@@ -1565,7 +1587,16 @@ function ScoreModal({
   const p1Img = charImgUrl(a.character);
   const p2Img = charImgUrl(b.character);
 
-  const p1EloDisplay = hoverPreview ? (
+  // Free-pool draft brackets can pit two of the same real player's entries
+  // (different characters) against each other from the quarterfinals on --
+  // by design, not a seeding bug (see _deal_bracket in routers/draft.py).
+  // The backend guard (routers/matches.py's record_match) already zeroes the
+  // Elo/stat effect for this case; the modal needs its own awareness so it
+  // doesn't show two identical "<player> WINS" columns, a hover Elo preview
+  // that would be wrong once picked, and rank arrows that mean nothing here.
+  const isSelfMatch = a.player === b.player;
+
+  const p1EloDisplay = isSelfMatch ? null : hoverPreview ? (
     <span style={{ color: hoverPreview.p1Delta >= 0 ? '#4caf50' : '#e74c3c', fontSize: '1.15em', fontWeight: 900 }}>
       {hoverPreview.p1Delta >= 0 ? '+' : '−'}
       {Math.abs(hoverPreview.p1Delta)}
@@ -1574,7 +1605,7 @@ function ScoreModal({
   ) : (
     <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.78em' }}>{modalElo.a} elo</span>
   );
-  const p2EloDisplay = hoverPreview ? (
+  const p2EloDisplay = isSelfMatch ? null : hoverPreview ? (
     <span style={{ color: hoverPreview.p2Delta >= 0 ? '#4caf50' : '#e74c3c', fontSize: '1.15em', fontWeight: 900 }}>
       {hoverPreview.p2Delta >= 0 ? '+' : '−'}
       {Math.abs(hoverPreview.p2Delta)}
@@ -1636,43 +1667,68 @@ function ScoreModal({
                 Spectating — host picks score
               </div>
             )}
-            <div style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
-              <div className="vcp-section">
-                <div className="vcp-label vcp-p1-label">{a.player} WINS</div>
-                <div className="vcp-btns">
-                  {p1Scenarios.map((s) => (
-                    <button
-                      key={s.id}
-                      className="vcp-btn vcp-p1"
-                      style={canRecord ? undefined : { pointerEvents: 'none', opacity: 0.7, cursor: 'default' }}
-                      onMouseOver={() => onHover(s.wk, s.lk)}
-                      onMouseOut={onHoverReset}
-                      onClick={() => onPick(s.wk, s.lk)}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
+            {isSelfMatch ? (
+              // Both entries are the same real player -- there's no elo/rank
+              // stake in this match (the backend already zeroes it), so
+              // there's nothing to score. Advancing one character is the
+              // only decision left; no hover preview, no rank arrows.
+              <div style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
+                <button
+                  type="button"
+                  className="vcp-btn vcp-p1"
+                  style={canRecord ? { flex: 1, padding: '10px 14px' } : { flex: 1, padding: '10px 14px', pointerEvents: 'none', opacity: 0.7, cursor: 'default' }}
+                  onClick={() => onPick(3, 0)}
+                >
+                  Advance {a.character}
+                </button>
+                <button
+                  type="button"
+                  className="vcp-btn vcp-p2"
+                  style={canRecord ? { flex: 1, padding: '10px 14px' } : { flex: 1, padding: '10px 14px', pointerEvents: 'none', opacity: 0.7, cursor: 'default' }}
+                  onClick={() => onPick(0, 3)}
+                >
+                  Advance {b.character}
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
+                <div className="vcp-section">
+                  <div className="vcp-label vcp-p1-label">{a.player} WINS</div>
+                  <div className="vcp-btns">
+                    {p1Scenarios.map((s) => (
+                      <button
+                        key={s.id}
+                        className="vcp-btn vcp-p1"
+                        style={canRecord ? undefined : { pointerEvents: 'none', opacity: 0.7, cursor: 'default' }}
+                        onMouseOver={() => onHover(s.wk, s.lk)}
+                        onMouseOut={onHoverReset}
+                        onClick={() => onPick(s.wk, s.lk)}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ width: 1, background: 'rgba(255,255,255,0.18)', alignSelf: 'stretch', flexShrink: 0 }} />
+                <div className="vcp-section">
+                  <div className="vcp-label vcp-p2-label">{b.player} WINS</div>
+                  <div className="vcp-btns">
+                    {p2Scenarios.map((s) => (
+                      <button
+                        key={s.id}
+                        className="vcp-btn vcp-p2"
+                        style={canRecord ? undefined : { pointerEvents: 'none', opacity: 0.7, cursor: 'default' }}
+                        onMouseOver={() => onHover(s.lk, s.wk)}
+                        onMouseOut={onHoverReset}
+                        onClick={() => onPick(s.lk, s.wk)}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <div style={{ width: 1, background: 'rgba(255,255,255,0.18)', alignSelf: 'stretch', flexShrink: 0 }} />
-              <div className="vcp-section">
-                <div className="vcp-label vcp-p2-label">{b.player} WINS</div>
-                <div className="vcp-btns">
-                  {p2Scenarios.map((s) => (
-                    <button
-                      key={s.id}
-                      className="vcp-btn vcp-p2"
-                      style={canRecord ? undefined : { pointerEvents: 'none', opacity: 0.7, cursor: 'default' }}
-                      onMouseOver={() => onHover(s.lk, s.wk)}
-                      onMouseOut={onHoverReset}
-                      onClick={() => onPick(s.lk, s.wk)}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -1691,7 +1747,9 @@ function ScoreModal({
       </div>
 
       <div className="vs-winner-row">
-        <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: 'rgba(255,255,255,0.38)', marginBottom: 8, display: canRecord ? '' : 'none' }}>Pick Score (stocks)</div>
+        <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: 'rgba(255,255,255,0.38)', marginBottom: 8, display: canRecord ? '' : 'none' }}>
+          {isSelfMatch ? 'Advance a Character' : 'Pick Score (stocks)'}
+        </div>
         <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.38)', fontWeight: 600, letterSpacing: 0.5, marginBottom: 8, display: canRecord ? 'none' : '' }}>Only the host can record results</div>
 
         {/* Mobile winner-first picker -- id kept as the legacy #mobileScorePicker
@@ -1708,41 +1766,66 @@ function ScoreModal({
             same as the original markup; without this base style it would
             show on every viewport, not just portrait mobile. */}
         <div id="mobileScorePicker" style={{ display: 'none' }}>
-          <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
-            <button type="button" className={`m-win-btn m-win-p1${mobileWinner === 'p1' ? ' active' : ''}`} onClick={() => onSelectMobileWinner('p1')}>
-              <span>{a.player} WON</span>
-            </button>
-            <button type="button" className={`m-win-btn m-win-p2${mobileWinner === 'p2' ? ' active' : ''}`} onClick={() => onSelectMobileWinner('p2')}>
-              <span>{b.player} WON</span>
-            </button>
-          </div>
-          {mobileWinner && (
-            <div>
-              <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 12 }}>Pick score</div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                {(mobileWinner === 'p1' ? p1Scenarios : p2Scenarios).map((s) => {
-                  const prev = modalPreview[s.id];
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      className="m-score-card"
-                      style={canRecord ? undefined : { cursor: 'default', opacity: 0.45, pointerEvents: 'none' }}
-                      onClick={() => (mobileWinner === 'p1' ? onPick(s.wk, s.lk) : onPick(s.lk, s.wk))}
-                    >
-                      <div className="m-score-name">{s.label}</div>
-                      {prev && (prev.rankW != null || prev.rankL != null) && (
-                        <div className="m-rank-row">
-                          <span style={{ color: '#4caf50' }}>{prev.rankW != null ? `↑#${prev.rankW}` : ''}</span>
-                          <span style={{ color: '#e74c3c' }}>{prev.rankL != null ? `↓#${prev.rankL}` : ''}</span>
-                        </div>
-                      )}
-                      {prev && <div className="m-elo-val">{`+${prev.elo}`}</div>}
-                    </button>
-                  );
-                })}
-              </div>
+          {isSelfMatch ? (
+            // Same "no elo/rank stake" reasoning as the desktop branch above --
+            // just the two characters to advance, no winner-then-score flow.
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                type="button"
+                className="m-win-btn m-win-p1"
+                style={canRecord ? undefined : { cursor: 'default', opacity: 0.45, pointerEvents: 'none' }}
+                onClick={() => onPick(3, 0)}
+              >
+                <span>Advance {a.character}</span>
+              </button>
+              <button
+                type="button"
+                className="m-win-btn m-win-p2"
+                style={canRecord ? undefined : { cursor: 'default', opacity: 0.45, pointerEvents: 'none' }}
+                onClick={() => onPick(0, 3)}
+              >
+                <span>Advance {b.character}</span>
+              </button>
             </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
+                <button type="button" className={`m-win-btn m-win-p1${mobileWinner === 'p1' ? ' active' : ''}`} onClick={() => onSelectMobileWinner('p1')}>
+                  <span>{a.player} WON</span>
+                </button>
+                <button type="button" className={`m-win-btn m-win-p2${mobileWinner === 'p2' ? ' active' : ''}`} onClick={() => onSelectMobileWinner('p2')}>
+                  <span>{b.player} WON</span>
+                </button>
+              </div>
+              {mobileWinner && (
+                <div>
+                  <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 12 }}>Pick score</div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    {(mobileWinner === 'p1' ? p1Scenarios : p2Scenarios).map((s) => {
+                      const prev = modalPreview[s.id];
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className="m-score-card"
+                          style={canRecord ? undefined : { cursor: 'default', opacity: 0.45, pointerEvents: 'none' }}
+                          onClick={() => (mobileWinner === 'p1' ? onPick(s.wk, s.lk) : onPick(s.lk, s.wk))}
+                        >
+                          <div className="m-score-name">{s.label}</div>
+                          {prev && (prev.rankW != null || prev.rankL != null) && (
+                            <div className="m-rank-row">
+                              <span style={{ color: '#4caf50' }}>{prev.rankW != null ? `↑#${prev.rankW}` : ''}</span>
+                              <span style={{ color: '#e74c3c' }}>{prev.rankL != null ? `↓#${prev.rankL}` : ''}</span>
+                            </div>
+                          )}
+                          {prev && <div className="m-elo-val">{`+${prev.elo}`}</div>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

@@ -315,7 +315,7 @@ export default function LeaderboardPage() {
             </span>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ overflowX: 'auto' }} id="charTableScroll">
             <table className="data-table" id="charTable">
               <thead>
                 <tr>
@@ -501,7 +501,7 @@ export default function LeaderboardPage() {
                   Hide provisional ranks
                 </label>
               </div>
-              <div style={{ overflowX: 'auto' }}>
+              <div style={{ overflowX: 'auto' }} id="globalTableWrap">
                 <table className="data-table" id="globalTable">
                   <thead>
                     <tr>

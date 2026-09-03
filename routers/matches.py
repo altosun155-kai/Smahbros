@@ -130,7 +130,8 @@ def shame_feed(
 ):
     """Recent clean-sweep (3-stock) events. Omit limit to fetch all."""
     q = db.query(MatchResult).filter(
-        MatchResult.winner_kills >= 3, MatchResult.loser_kills == 0
+        MatchResult.winner_kills >= 3, MatchResult.loser_kills == 0,
+        MatchResult.is_self_match == False,  # noqa: E712 -- "player 3-stocked themselves" isn't a shame-feed moment
     )
     if victim:
         loser_user = db.query(User).filter(User.username == victim).first()
@@ -166,7 +167,27 @@ def record_match(req: MatchRecord, db: Session = Depends(get_db), current_user: 
     if not winner or not loser:
         raise HTTPException(status_code=400, detail="Unknown username")
     if winner.id == loser.id:
-        return {"ok": True, "skipped": "self-play"}
+        # Self-match: reachable in free-pool draft brackets once two of the
+        # same real player's entries (different characters) meet in the
+        # quarterfinals or later -- by design, not a seeding bug (see
+        # _deal_bracket in routers/draft.py). The match still happened and
+        # still has a winner for the bracket's own record-keeping, but it
+        # must not move any rating or counter: previously this returned
+        # before creating any row at all, which meant the match vanished
+        # from history entirely rather than just being excluded from stats.
+        # Logged with elo_delta=0 and is_self_match=True instead -- no
+        # CharacterStats/User column touched, no CharacterMatchup update.
+        mr = MatchResult(
+            winner_id=winner.id, winner_char=req.winner_char, winner_kills=req.winner_kills,
+            loser_id=loser.id,   loser_char=req.loser_char,   loser_kills=req.loser_kills,
+            bracket_id=req.bracket_id,
+            match_key=req.match_key,
+            elo_delta=0,
+            is_self_match=True,
+        )
+        db.add(mr)
+        db.commit()
+        return {"ok": True, "self_match": True, "elo_delta": 0}
 
     ws = _get_or_create_stat(db, winner.id, req.winner_char)
     ls = _get_or_create_stat(db, loser.id,  req.loser_char)

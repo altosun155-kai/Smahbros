@@ -6,10 +6,12 @@
 // not a redesign. usePathname() replaces window.location.pathname.
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { apiGet } from '../lib/api';
+import GameMenuOverlay from './GameMenuOverlay';
+import '../../public/css/game-menu.css';
 
 const MENU_ICON = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: '1em', height: '1em', verticalAlign: '-0.15em' }}>
@@ -35,20 +37,11 @@ interface Me {
   avatar_url?: string | null;
 }
 
-function openGameMenu() {
-  // GameMenu is the legacy vanilla overlay (web/public/js/game-menu.js), not
-  // yet loaded on Next.js pages -- porting it is out of scope here (deferred
-  // to index.html's own migration, the page that actually owns it). Mirrors
-  // nav-inject.js's own `typeof GameMenu !== 'undefined'` guard so the
-  // trigger is a harmless no-op until then instead of throwing.
-  if (typeof (window as unknown as { GameMenu?: { open: () => void } }).GameMenu !== 'undefined') {
-    (window as unknown as { GameMenu: { open: () => void } }).GameMenu.open();
-  }
-}
-
 export default function AppShell() {
   const pathname = usePathname();
   const [me, setMe] = useState<Me | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
   // The home page IS the menu (its own cinematic 3-column layout) -- a second
   // top bar with a redundant Menu trigger would be confusing there, same as
   // nav-inject.js's isHomeMenuPage skip (it checked for #homeMenuMount;
@@ -69,6 +62,15 @@ export default function AppShell() {
     };
   }, []);
 
+  // Safety net for a route change the overlay's own link-click handler
+  // didn't catch (browser back/forward, a link outside the overlay) --
+  // GameMenuOverlay's onClickCapture is the primary path (it runs ahead of
+  // the navigation itself, which matters for View Transitions), this just
+  // makes sure the menu is never left open on a page it wasn't opened on.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
   const avatarUrl = me
     ? me.avatar_url || `https://api.dicebear.com/9.x/pixel-art/svg?seed=${encodeURIComponent(me.username)}`
     : '';
@@ -80,7 +82,7 @@ export default function AppShell() {
           <Link className="logo" href="/">
             Smash<span>Bros</span>
           </Link>
-          <button type="button" className="menu-trigger" onClick={openGameMenu}>
+          <button type="button" className="menu-trigger" ref={menuTriggerRef} onClick={() => setMenuOpen(true)}>
             {MENU_ICON} Menu
           </button>
           <div className="nav-right">
@@ -113,6 +115,8 @@ export default function AppShell() {
           </Link>
         ))}
       </nav>
+
+      <GameMenuOverlay open={menuOpen} onClose={() => setMenuOpen(false)} triggerRef={menuTriggerRef} />
     </>
   );
 }

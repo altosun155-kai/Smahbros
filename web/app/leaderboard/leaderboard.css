@@ -40,13 +40,22 @@
 
 /* Elo history modal */
 #eloHistModal { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; }
-.elohist-box { background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:20px; width:360px; max-width:95vw; }
+/* Pre-existing in the legacy page too, not just this port: with up to 20 rows
+   fetched (see openEloHist's limit=20) and no height cap, the box could grow
+   taller than the viewport with no way to reach the rest -- barely noticeable
+   on a tall desktop window, but a real problem on a phone's much shorter
+   viewport, where 20 rows routinely exceed it. flex column + a scrollable
+   body keeps the title/close button pinned and puts the overflow where a
+   user can actually reach it. */
+.elohist-box { background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:20px; width:360px; max-width:95vw; max-height: 80vh; display: flex; flex-direction: column; }
 .elohist-box h3 { font-size:0.95rem; font-weight:700; margin-bottom:14px; }
+.elohist-body { overflow-y: auto; }
 .elohist-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:0.83rem; }
 .elohist-row:last-child { border-bottom:none; }
 .elohist-delta { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size:1rem; font-weight:800; min-width:52px; }
 .elohist-vs { flex:1; color:var(--text-muted); }
 .elohist-score { font-size:0.75rem; color:var(--text-muted); }
+.elohist-view-btn { grid-column: 1 / -1; margin-top: 4px; padding: 8px; background: var(--card-bg2); border: 1px solid var(--border); border-radius: 6px; color: var(--accent-blue); font-size: 0.8rem; font-weight: 700; cursor: pointer; }
 .elohist-date { font-size:0.72rem; color:var(--text-muted); white-space:nowrap; }
 .char-row-clickable { cursor:pointer; }
 .char-row-clickable:hover td { background:rgba(255,255,255,0.04); }

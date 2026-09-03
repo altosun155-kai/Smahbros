@@ -99,7 +99,6 @@ def char_elo_history(
             ((MatchResult.loser_id  == user.id) & (MatchResult.loser_char  == character))
         )
         .order_by(MatchResult.created_at.desc())
-        .limit(limit)
         .all()
     )
 
@@ -118,7 +117,37 @@ def char_elo_history(
             "opp_kills": r.loser_kills if won else r.winner_kills,
             "created_at": r.created_at.isoformat(),
         })
-    return results
+
+    # Tournament-finish placement bonuses (1st/2nd/3rd) are a completely
+    # separate mechanism from per-match Elo -- they're stored per-bracket in
+    # Bracket.placements (see routers/brackets.py's end_tournament), not as
+    # MatchResult rows, so they'd otherwise be invisible here even though
+    # they moved this same character's rating. Merged in chronologically
+    # (using the bracket's created_at, the only timestamp placements have --
+    # not perfectly precise if a tournament was ended long after it started,
+    # but the best available without a real placements-awarded-at column) so
+    # a character's Elo history is the full picture, not just the match half.
+    brackets = db.query(Bracket).filter(Bracket.placements.isnot(None)).all()
+    for b in brackets:
+        p = b.placements or {}
+        placement_entries = []
+        if p.get("1st"):
+            placement_entries.append(("1st", p["1st"]))
+        if p.get("2nd"):
+            placement_entries.append(("2nd", p["2nd"]))
+        for entry in (p.get("3rd") or []):
+            placement_entries.append(("3rd", entry))
+        for place, entry in placement_entries:
+            if entry.get("player") == username and entry.get("char") == character:
+                results.append({
+                    "placement": place,
+                    "elo_delta": entry.get("elo_bonus", 0),
+                    "bracket_name": b.name,
+                    "created_at": b.created_at.isoformat(),
+                })
+
+    results.sort(key=lambda r: r["created_at"], reverse=True)
+    return results[:limit]
 
 
 @router.get("/matches/shame")

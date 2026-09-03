@@ -749,8 +749,25 @@ export default function TournamentPage() {
     const winnerLabel = `${winnerEntry.player} — ${winnerEntry.character}`;
     const scoreStr = `${winnerKills}-${loserKills}`;
 
-    const rounds = lastRenderedRoundsRef.current;
-    const isGrandFinal = rounds.length > 1 && key === `r${rounds.length - 1}_m0`;
+    // Computed straight from bracket_data.length (always current, since it's
+    // read off dataRef -- the same source of truth every other bracket-state
+    // check in this function already uses), not from lastRenderedRoundsRef,
+    // which only reflects whatever `rounds` this component last rendered.
+    // That ref is fine for UI purposes (advanceScoreModal's "what's the next
+    // open match" walk), but using it here meant a correction/re-score, or
+    // any path where the ref hadn't caught up to the latest bracket_data by
+    // the moment this fired, could compute the wrong total round count and
+    // silently miss the real Grand Final -- exactly how a completed bracket
+    // can end up with a full round_winners map but no tournament_winner and
+    // no placements. bracket_data.length is always a power of two (every
+    // seeding path pads to one), so this is exact, not an approximation:
+    // log2(N) halvings to reach the single final match, plus that final
+    // round itself. Also fixes the 2-player case, where bracket_data has
+    // exactly one match and that match *is* the Grand Final -- the old
+    // `rounds.length > 1` guard excluded it outright.
+    const bracketSize = dataRef.current?.bracket_data?.length || 0;
+    const totalRounds = bracketSize > 0 ? Math.round(Math.log2(bracketSize)) + 1 : 0;
+    const isGrandFinal = totalRounds > 0 && key === `r${totalRounds - 1}_m0`;
 
     try {
       if (wasDecided) {

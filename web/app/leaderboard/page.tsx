@@ -62,13 +62,20 @@ interface AvgRow {
 }
 
 interface EloHistRow {
-  won: boolean;
+  // Match-result rows have won/opponent/.../kills; placement-bonus rows
+  // (tournament 1st/2nd/3rd, a completely separate mechanism -- see
+  // routers/matches.py::char_elo_history) have placement/bracket_name
+  // instead. elo_delta and created_at are common to both, which is what the
+  // merged, chronologically-sorted list from the API relies on.
   elo_delta: number;
-  opponent: string;
-  opponent_char: string;
-  my_kills: number;
-  opp_kills: number;
   created_at: string;
+  won?: boolean;
+  opponent?: string;
+  opponent_char?: string;
+  my_kills?: number;
+  opp_kills?: number;
+  placement?: '1st' | '2nd' | '3rd';
+  bracket_name?: string;
 }
 
 function fallbackAvatar(username: string) {
@@ -411,6 +418,7 @@ export default function LeaderboardPage() {
                   rank={rankLabel(i, true)}
                   avatar={av}
                   onFallback={() => fallbackAvatar(entry.username)}
+                  onViewHistory={() => openEloHist(entry.username, entry.character)}
                   name={
                     <>
                       {entry.username}
@@ -719,13 +727,13 @@ export default function LeaderboardPage() {
           }}
         >
           <div className="elohist-box">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexShrink: 0 }}>
               <h3 style={{ margin: 0 }}>{histTitle}</h3>
               <button type="button" onClick={() => setHistOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.1rem', cursor: 'pointer', padding: '2px 6px' }}>
                 ✕
               </button>
             </div>
-            <div>
+            <div className="elohist-body">
               {histLoading && <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading…</div>}
               {histError && <div style={{ color: '#e74c3c', fontSize: '0.85rem' }}>Error: {histError}</div>}
               {histRows && histRows.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: '8px 0' }}>No matches recorded yet.</div>}
@@ -737,6 +745,22 @@ export default function LeaderboardPage() {
                     const color = r.elo_delta >= 0 ? '#27ae60' : '#e74c3c';
                     const score = r.my_kills || r.opp_kills ? `${r.my_kills}-${r.opp_kills}` : '';
                     const date = new Date(r.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    if (r.placement) {
+                      const medal = r.placement === '1st' ? '🥇' : r.placement === '2nd' ? '🥈' : '🥉';
+                      return (
+                        <div key={i} className="elohist-row">
+                          <span className="elohist-delta" style={{ color }}>
+                            {sign}
+                            {r.elo_delta}
+                          </span>
+                          <span title="Tournament placement bonus">{medal}</span>
+                          <span className="elohist-vs">
+                            {r.placement} place <span style={{ color: 'var(--text-muted)' }}>({r.bracket_name})</span>
+                          </span>
+                          <span className="elohist-date">{date}</span>
+                        </div>
+                      );
+                    }
                     return (
                       <div key={i} className="elohist-row">
                         <span className="elohist-delta" style={{ color }}>
@@ -903,6 +927,7 @@ function MobileCard({
   name,
   headline,
   children,
+  onViewHistory,
 }: {
   isMine: boolean;
   provisional: boolean;
@@ -912,6 +937,14 @@ function MobileCard({
   name: React.ReactNode;
   headline: React.ReactNode;
   children: React.ReactNode;
+  // Only the char-stats card list passes this -- global/avg cards are
+  // player-level, with no single character to show elo history for. The
+  // legacy tap-to-expand behavior (this card's own onClick) is untouched;
+  // this is an explicit, separate action inside the expanded detail, since
+  // the desktop table's row-click already opens elo history on tap and
+  // silently doing the same on this card's own tap would remove the
+  // expand/collapse the legacy mobile card has always had.
+  onViewHistory?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -931,7 +964,21 @@ function MobileCard({
         <span className="avg-card-elo">{headline}</span>
         <span className="avg-card-chevron">›</span>
       </div>
-      <div className="avg-card-detail">{children}</div>
+      <div className="avg-card-detail">
+        {children}
+        {onViewHistory && (
+          <button
+            type="button"
+            className="elohist-view-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewHistory();
+            }}
+          >
+            View Elo History →
+          </button>
+        )}
+      </div>
     </div>
   );
 }

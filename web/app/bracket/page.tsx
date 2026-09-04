@@ -447,7 +447,19 @@ export default function BracketPage() {
     }
     if (!val || val === prev) return;
 
-    const isGrandFinal = rounds.length > 1 && key === `r${rounds.length - 1}_m0`;
+    // Computed straight from currentBracket.length (the round-1 pairing state,
+    // always current in this closure since setWinner is redefined every
+    // render), not from rounds.length -- the same class of bug fixed in
+    // web/app/tournament/page.tsx's pickTournamentScore: `rounds.length > 1`
+    // wrongly excludes the 2-entry case (a single match that IS the Grand
+    // Final), and rounds itself is read off lastRenderedRoundsRef, a ref that
+    // isn't guaranteed to reflect this render if anything upstream lags.
+    // currentBracket.length is always a power of two (every seeding path
+    // pads to one), so log2(N)+1 is exact: log2(N) halvings to reach the
+    // single final match, plus that final round itself.
+    const bracketSize = currentBracket.length;
+    const totalRounds = bracketSize > 0 ? Math.round(Math.log2(bracketSize)) + 1 : 0;
+    const isGrandFinal = totalRounds > 0 && key === `r${totalRounds - 1}_m0`;
     if (isGrandFinal) {
       const we = parseLabel(val);
       if (we) {

@@ -912,8 +912,14 @@ export default function TournamentPage() {
   }
 
   const hasBracket = data.bracket_data && data.bracket_data.length > 0;
-  const numPlayers = (data.players || []).length;
-  const tK = numPlayers * 4;
+  // Mirrors routers/brackets.py's _placement_bonus_k exactly -- 8 points per
+  // round survived (log2 of the padded entry count), not a flat multiple of
+  // player count. bracket_data.length is round-1 MATCHES (padded entries /
+  // 2), always a power of two, so no separate bye-padding handling is
+  // needed here either. Keep both in sync if the formula changes again.
+  const bracketSize = data.bracket_data?.length || 0;
+  const totalRounds = bracketSize > 0 ? Math.round(Math.log2(bracketSize)) + 1 : 0;
+  const tK = 8 * totalRounds;
 
   return (
     <PageContainer>

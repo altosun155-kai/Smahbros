@@ -86,7 +86,10 @@ export default function HomePage() {
         if (!bg) return;
         const xPct = (e.clientX / window.innerWidth - 0.5) * 2;
         const yPct = (e.clientY / window.innerHeight - 0.5) * 2;
-        bg.style.transform = `scale(1.06) translate(${xPct * -1.5}%, ${yPct * -1.5}%)`;
+        // 1.35 matches game-menu.css's .home-bg base scale -- keep these in
+        // sync, or the render visibly snaps smaller the instant the mouse
+        // moves and this inline transform overrides the CSS one.
+        bg.style.transform = `scale(1.35) translate(${xPct * -1.5}%, ${yPct * -1.5}%)`;
       });
     }
     document.addEventListener('mousemove', onMouseMove);

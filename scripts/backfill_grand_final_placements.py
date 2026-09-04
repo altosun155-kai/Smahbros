@@ -1,7 +1,27 @@
 """Find brackets whose Grand Final was actually completed (round_winners has
-a real entry for the true final match) but never got a `winner`/placements,
-because the old isGrandFinal condition in web/app/tournament/page.tsx could
-miss it (fixed in this same change -- see CLAUDE.md's Known Gaps).
+a real entry for the true final match) but never got placements, from either
+of two distinct causes:
+
+  1. `Bracket.winner` itself was never set -- the original isGrandFinal bug in
+     web/app/tournament/page.tsx and web/app/bracket/page.tsx (fixed).
+  2. `Bracket.winner` IS set correctly (the isGrandFinal fix is working) but
+     `Bracket.placements` is still null/empty, and `Bracket.is_live` is still
+     True -- because placements and is_live used to only ever get cleared in
+     end_tournament (PATCH /brackets/{id}/end), a separate, host-triggered
+     action from the PATCH /winner call that sets `winner`. Confirmed live
+     via Bracket 91 (Draft #9): winner = 'kai', placements = NULL, is_live
+     still True (so it sat in GET /brackets/live and the home page's
+     "Continue" panel despite being over). Both are now fixed to happen
+     automatically inside set_bracket_winner the instant `tournament_winner`
+     is set (see CLAUDE.md) -- brackets found by this script predate that
+     fix, so it never ran for them.
+
+Originally only checked for cause 1 (filtered on `winner IS NULL`), which
+silently missed cause 2 entirely -- bracket 91 has a real winner, so the old
+filter never even looked at it. Widened to catch both: any bracket whose
+Grand Final round_winners entry is real, with placements still null/empty,
+regardless of whether `winner` happens to already be set. Also flags
+`is_live` as a proposed change for any target still marked True.
 
 DRY RUN ONLY. Prints every proposed change -- bracket id/name, the derived
 tournament winner, and each placement's player/character/elo_bonus -- and
@@ -25,7 +45,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database import Bracket, User, SessionLocal
-from routers.brackets import _parse_label, _compute_round_participants
+from routers.brackets import _parse_label, _compute_round_participants, _has_real_placements, _placement_bonus_k
 
 
 def expected_gf_round_index(bracket_data_len: int) -> int:
@@ -45,7 +65,7 @@ def main():
     try:
         candidates = (
             db.query(Bracket)
-            .filter(Bracket.winner.is_(None), Bracket.bracket_data.isnot(None))
+            .filter(Bracket.bracket_data.isnot(None))
             .all()
         )
 
@@ -53,6 +73,8 @@ def main():
         for b in candidates:
             if not b.bracket_data or not b.round_winners:
                 continue
+            if _has_real_placements(b):
+                continue  # already has real placements (e.g. bracket 21) -- not a target
 
             gf_ri = expected_gf_round_index(len(b.bracket_data))
             gf_key = f"r{gf_ri}_m0"
@@ -64,14 +86,26 @@ def main():
                 continue
 
             found_any = True
-            num_players = len(b.players or [])
-            k = num_players * 4  # matches end_tournament's k = num_players * 4
+            k = _placement_bonus_k(len(b.bracket_data))  # same shared formula _award_placements uses
 
             rw = b.round_winners
             participants = _compute_round_participants(b.bracket_data, rw)
             max_ri = gf_ri
 
+            winner_status = (
+                f"already set to {b.winner!r} -- only placements/Elo are missing"
+                if b.winner else "NULL -- both winner and placements are missing"
+            )
             print(f"\n=== Bracket {b.id} — {b.name!r} (host_id={b.user_id}, is_live={b.is_live}) ===")
+            print(f"  Bracket.winner: {winner_status}")
+            if b.is_live:
+                # set_bracket_winner now clears this the instant a Grand
+                # Final resolves (see CLAUDE.md) -- these brackets predate
+                # that fix, so it never ran. Still is_live=True means they
+                # sit in GET /brackets/live and the home page's "Continue"
+                # panel despite being over -- found live via Bracket 91
+                # (Draft #9), which showed exactly this.
+                print("  Bracket.is_live: True -- proposed change: False (tournament is actually over)")
             print(f"  Grand Final key: {gf_key}  ->  {gf_winner_label}")
 
             gf_winner_player, gf_winner_char = _parse_label(gf_winner_label)
@@ -109,7 +143,7 @@ def main():
                 print(f"    {place:>4}: {player} ({char})  +{bonus} elo  [current player elo: {current_elo}]")
 
         if not found_any:
-            print("No brackets found with a complete Grand Final but a null winner.")
+            print("No brackets found with a complete Grand Final but missing placements.")
         else:
             print("\nDry run only -- nothing was written. Review the above, then decide "
                   "whether to build the apply step (this script has no write path yet).")

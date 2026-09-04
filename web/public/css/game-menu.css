@@ -42,19 +42,41 @@ main.page-container:has(#homeMenuMount) {
 .home-bg {
   position: absolute; inset: 0;
   background-size: cover;
-  background-position: right center;
-  filter: brightness(0.3);
+  /* center top, not right center -- the source renders are full-body
+     character art with the figure roughly centered and a lot of empty
+     headroom above it. "right center" pinned whatever was at the image's
+     right edge (often near-empty background) to the shell's right edge,
+     which is what pushed the actual character off-frame to the left. "center
+     top" plus the larger scale below keeps the figure centered behind the
+     panel and lets any vertical overflow crop off the bottom instead of the
+     top, which reads as the character "standing" in the shell rather than
+     being cut off mid-body. */
+  background-position: center top;
+  filter: brightness(0.55);
   z-index: 0;
-  /* Baseline overscan so the JS-driven parallax translate (desktop only,
-     see game-menu.js's mousemove listener) never reveals an edge -- the
-     scale margin absorbs the small pointer-tracked offset. */
-  transform: scale(1.06);
+  /* Zoomed in well past a bare `cover` fill so the character reads as a
+     large, present render behind the panel rather than a thumbnail lost in
+     the frame -- transform-origin center top keeps the top of the render
+     fixed as it scales, so the extra size bleeds off the bottom edge
+     (cropped by .home-shell's overflow:hidden) instead of centering the zoom
+     and cropping evenly on all sides. Also the baseline overscan for the
+     JS-driven parallax translate (desktop only, see page.tsx's mousemove
+     handler, which uses this same scale) -- keeps the small pointer-tracked
+     offset from ever revealing an edge. */
+  transform: scale(1.35);
+  transform-origin: center top;
   transition: transform 0.3s ease-out;
 }
 .home-bg::after {
   content: '';
   position: absolute; inset: 0;
-  background: linear-gradient(90deg, var(--bg) 0%, var(--bg) 30%, rgba(15,15,23,0.55) 55%, transparent 78%);
+  /* Tightened to roughly the menu column's own width (was solid through 30%
+     and not fully transparent until 78%, which blotted out the panel column
+     too, on top of .home-panel having no surface of its own to read against
+     -- see .home-panel below). This gradient's job is just menu-text
+     legibility over the art, not hiding the character from the rest of the
+     shell. */
+  background: linear-gradient(90deg, var(--bg) 0%, var(--bg) 18%, rgba(15,15,23,0.35) 34%, transparent 52%);
 }
 .home-elo-badge {
   position: relative; z-index: 2;
@@ -137,7 +159,21 @@ main.page-container:has(#homeMenuMount) {
 
 .home-panel {
   min-height: 240px;
-  padding-top: 6px;
+  padding: 20px 24px;
+  /* Glass, not solid -- matches the --glass-bg/--glass-blur/--glass-border
+     pattern used everywhere else a card sits over other content (profile.css's
+     .profile-card, duel.css, bracket.css's .sidebar-card, mastery.css). This
+     used to have no background at all, which reads as "opaque black card"
+     in practice: .home-bg::after's gradient was solid var(--bg) well past
+     this column's position, so the panel had nothing to show through even
+     though its own CSS was transparent. Now that the gradient is tightened
+     to the menu column (see .home-bg::after above), the panel needs its own
+     surface so its text stays legible against the character art behind it. */
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
 }
 .home-panel-content { transition: opacity 0.15s ease; }
 .home-panel-content.fading { opacity: 0; }

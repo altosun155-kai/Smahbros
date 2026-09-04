@@ -194,17 +194,75 @@ def _posters(db: Session) -> list[dict]:
     } for r in rows if not r.winner.is_test and not r.loser.is_test]
 
 
+def _last_draft_champion_character(db: Session) -> str | None:
+    """Character the most recent completed draft tournament was won with --
+    the home background's default fallback (see home_summary). "Completed"
+    means Bracket.winner is set, which only happens once the Grand Final's
+    tournament_winner has actually been recorded (see isGrandFinal in
+    web/app/tournament/page.tsx and web/app/bracket/page.tsx) -- so this
+    returns nothing for any tournament that hit that bug, same as it would
+    for a tournament that's simply still in progress. "Most recent" is by
+    Bracket.created_at (when it started, not when it finished -- there's no
+    separate completed-at column, same approximation used for placement-elo
+    history in routers/matches.py).
+
+    Draft brackets are mode == "draft" (see routers/draft.py's
+    _build_free_pool_bracket). Bracket.winner only stores the winning
+    player's username, not their character, so the character is read
+    straight from the Grand Final's own round_winners label (same
+    "player — character" format everything else here parses) rather than
+    Bracket.placements, which needs the host to also click "End Tournament" --
+    a separate, later step this shouldn't have to wait on.
+    """
+    b = (
+        db.query(Bracket)
+        .filter(Bracket.mode == "draft", Bracket.winner.isnot(None))
+        .order_by(Bracket.created_at.desc())
+        .first()
+    )
+    if not b or not b.bracket_data or not b.round_winners:
+        return None
+
+    # Grand Final round index: bracket_data is always padded to a power of 2,
+    # so it's log2(len) halvings from round 1. Same bit-walk as
+    # end_tournament and scripts/backfill_grand_final_placements.py.
+    r1_count = len(b.bracket_data)
+    gf_ri = 0
+    n = r1_count
+    while n > 1:
+        n >>= 1
+        gf_ri += 1
+
+    gf_label = b.round_winners.get(f"r{gf_ri}_m0", "")
+    if not gf_label or " — " not in gf_label:
+        return None
+    player, character = gf_label.split(" — ", 1)
+    if player != b.winner:
+        return None  # round_winners/winner disagree -- don't trust it
+    return character
+
+
 @router.get("/home/summary")
 def home_summary(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     in_progress = _in_progress(db, current_user)
     last_session = _last_session(db, current_user) if in_progress is None else None
     champion = get_champion(db)
-    # The home-page background fade defaults to the site champion's character
-    # (unchanged behavior) but each player can override it for themselves via
-    # PATCH /users/me/background-character -- deliberately a separate field
-    # from `champion`, which still reports the *actual* site champion for the
-    # leaderboard panel/Elo badge regardless of this override.
-    background_character = current_user.background_character or (champion["character"] if champion else None)
+    # The home-page background fade: each player's own override (set via
+    # PATCH /users/me/background-character) wins if they made one --
+    # deliberately a separate field from `champion`, which still reports the
+    # *actual* site champion for the leaderboard panel/Elo badge regardless
+    # of this override. Absent that, it's the character that won the most
+    # recent completed draft tournament (see _last_draft_champion_character)
+    # rather than the champion's own main -- a tournament win is a specific,
+    # recent moment; "champion" is just whoever currently has the highest
+    # Elo, which can be true for months without them touching this
+    # character recently. Falls back to the champion's character (the
+    # previous default) only once no draft tournament has ever completed.
+    background_character = (
+        current_user.background_character
+        or _last_draft_champion_character(db)
+        or (champion["character"] if champion else None)
+    )
     return {
         "in_progress": in_progress,
         "last_session": last_session,

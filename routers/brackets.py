@@ -159,6 +159,164 @@ class GenerateBracketData(BaseModel):
     entries: list = []
 
 
+def _has_real_placements(b: Bracket) -> bool:
+    """True if this bracket already has actual placement entries recorded --
+    not just a non-None-but-empty {} (end_tournament sets that on ANY end,
+    including an early one with no Grand Final, so {} alone doesn't mean
+    'already placed'). Canonical definition -- scripts/backfill_grand_final_
+    placements.py imports this rather than keeping its own copy."""
+    p = b.placements or {}
+    return bool(p.get("1st")) or bool(p.get("2nd")) or bool(p.get("3rd"))
+
+
+def _placement_bonus_k(bracket_data_len: int) -> int:
+    """Placement-bonus scale factor: 8 points per round survived, not a flat
+    multiple of player count. "Rounds" is the bracket's total round count --
+    log2 of the padded entry count. bracket_data holds round-1 MATCHES
+    (padded entries / 2), always a power of two (every seeding path pads to
+    one), so bracket_data_len alone is enough -- no separate handling needed
+    for a non-power-of-two entry count, byes and all, since the padding
+    already happened before this ever sees it.
+
+    Logarithmic in entries, not linear: winning a 32-entry bracket is 5
+    match wins, not 8x the work of a 4-entry one. The old `num_players * 4`
+    formula scaled with distinct player count, which is the same as entry
+    count for a plain single-elim bracket (entries == players) but diverges
+    for a free-pool draft, where one player can hold many entries
+    (chars_per_player > 1) -- that's the case this was actually changed for:
+    the old formula gave a 4-player/32-entry draft bracket the same k=16 as
+    a 4-entry bracket, while a 32-DISTINCT-PLAYER bracket got k=128, roughly
+    five match-wins' worth of Elo stacked on top of the matches themselves.
+    The new formula scales with entries survived either way: 4 entries -> k=16
+    (unchanged -- this is why a plain single-elim bracket, and bracket 21's
+    historical elo_bonus:16, are unaffected), 16 -> k=32, 32 -> k=40.
+
+    Mirrored in web/app/tournament/page.tsx's Elo Rewards display -- keep
+    both in sync if this changes again. scripts/backfill_grand_final_
+    placements.py imports this rather than keeping its own copy.
+    """
+    if bracket_data_len < 1:
+        return 0
+    gf_ri = 0
+    n = bracket_data_len
+    while n > 1:
+        n >>= 1
+        gf_ri += 1
+    total_rounds = gf_ri + 1
+    return 8 * total_rounds
+
+
+def _award_placements(b: Bracket, db: Session) -> list[tuple]:
+    """Compute Grand Final placement bonuses (1st/2nd/3rd) and apply them to
+    character Elo, storing the result on Bracket.placements. Called from two
+    places:
+      - set_bracket_winner, the instant `tournament_winner` is set -- the
+        normal path now, so placements land the moment the Grand Final
+        actually resolves instead of waiting on a separate "End Tournament"
+        click (or the client-side 30s undo-timeout auto-end in
+        tournament/page.tsx, which only fires if that tab stays open --
+        see CLAUDE.md's Known Gaps for the gap this closes, found via
+        Bracket 91: winner set correctly, placements sitting null).
+      - end_tournament, kept for two cases this doesn't cover: a bracket
+        ended early where the Grand Final happens to have JUST completed in
+        the same request, and (mostly for old data / other write paths)
+        anything that ever sets Bracket.winner without going through
+        set_bracket_winner.
+
+    Idempotent via _has_real_placements -- calling this twice (e.g.
+    set_bracket_winner already awarded, then the host clicks End Tournament)
+    returns [] the second time and touches nothing, so the same bonus can
+    never be applied to Elo twice. Does NOT handle a correction after the
+    fact (re-scoring the Grand Final to a different winner once placements
+    are already set) -- that would need to reverse the old bonus before
+    applying a new one, which neither this nor the pre-existing
+    end_tournament code did; out of scope here, worth its own task if it
+    ever comes up.
+    """
+    if _has_real_placements(b) or not b.round_winners or not b.bracket_data:
+        return []
+
+    from routers.matches import _get_or_create_stat, ELO_DEFAULT
+    k = _placement_bonus_k(len(b.bracket_data))
+
+    rw = b.round_winners
+
+    # Compute the expected Grand Final round index from bracket size.
+    # bracket_data is always padded to a power of 2, so GF is at
+    # r<log2(len)>_m0. Walk the bit to avoid importing math. Derived
+    # straight from round_winners/bracket_data rather than trusting
+    # Bracket.winner's truthiness -- this is what makes the function safe to
+    # call unconditionally from both call sites regardless of whether
+    # `winner` happens to already be set.
+    r1_count = len(b.bracket_data)
+    expected_gf_ri = 0
+    n = r1_count
+    while n > 1:
+        n >>= 1
+        expected_gf_ri += 1
+
+    gf_winner_label = rw.get(f"r{expected_gf_ri}_m0", "")
+    max_ri = expected_gf_ri
+    bonuses: list[tuple] = []
+
+    if gf_winner_label and " — " in gf_winner_label:
+        participants = _compute_round_participants(b.bracket_data, rw)
+
+        # 1st place: Grand Final winner
+        gf_winner_player, gf_winner_char = _parse_label(gf_winner_label)
+        if gf_winner_player:
+            bonuses.append((gf_winner_player, gf_winner_char, round(k * 1.0), "1st"))
+
+        # 2nd place: Grand Final loser
+        gf_a_label, gf_b_label = participants.get(max_ri, {}).get(0, ("", ""))
+        gf_a_player, gf_a_char = _parse_label(gf_a_label)
+        gf_b_player, gf_b_char = _parse_label(gf_b_label)
+        if gf_winner_player:
+            if gf_a_player and gf_a_player != gf_winner_player:
+                bonuses.append((gf_a_player, gf_a_char, round(k * 0.5), "2nd"))
+            elif gf_b_player and gf_b_player != gf_winner_player:
+                bonuses.append((gf_b_player, gf_b_char, round(k * 0.5), "2nd"))
+
+        # 3rd place: Semifinal losers (only if there was a semifinal round)
+        if max_ri > 0:
+            sf_matches = participants.get(max_ri - 1, {})
+            for sf_mi, (sf_a_label, sf_b_label) in sf_matches.items():
+                sf_winner_label = rw.get(f"r{max_ri-1}_m{sf_mi}", "")
+                sf_winner_player, _ = _parse_label(sf_winner_label)
+                sf_a_player, sf_a_char = _parse_label(sf_a_label)
+                sf_b_player, sf_b_char = _parse_label(sf_b_label)
+                if sf_winner_player:
+                    if sf_a_player and sf_a_player != sf_winner_player:
+                        bonuses.append((sf_a_player, sf_a_char, round(k * 0.25), "3rd"))
+                    elif sf_b_player and sf_b_player != sf_winner_player:
+                        bonuses.append((sf_b_player, sf_b_char, round(k * 0.25), "3rd"))
+
+        # Save placements to the bracket record (player + character)
+        placement_map = {"1st": None, "2nd": None, "3rd": []}
+        for (player, char, bonus, place) in bonuses:
+            entry = {"player": player, "char": char, "elo_bonus": bonus}
+            if place == "1st":
+                placement_map["1st"] = entry
+            elif place == "2nd":
+                placement_map["2nd"] = entry
+            elif place == "3rd":
+                placement_map["3rd"].append(entry)
+        b.placements = placement_map
+        flag_modified(b, "placements")
+
+        # Apply bonuses to character Elo
+        for (player, char, bonus, _) in bonuses:
+            if not player or not char:
+                continue
+            user = db.query(User).filter(User.username == player).first()
+            if not user:
+                continue
+            stat = _get_or_create_stat(db, user.id, char)
+            stat.elo = (stat.elo or ELO_DEFAULT) + bonus
+
+    return bonuses
+
+
 def _infer_winner(b: Bracket) -> str | None:
     """Derive the tournament champion from round_winners if b.winner is unset."""
     if b.winner:
@@ -305,10 +463,31 @@ def set_bracket_winner(bracket_id: int, req: WinnerUpdate, db: Session = Depends
         rs[req.key] = req.score
         b.round_scores = rs
         flag_modified(b, "round_scores")
+    bonuses = []
     if req.tournament_winner:
         b.winner = req.tournament_winner
+        # The Grand Final has just resolved -- the tournament is over, the
+        # same instant end_tournament used to declare it over manually.
+        # Previously only end_tournament ever cleared this, so a completed
+        # bracket sat as is_live=True (still showing in GET /brackets/live
+        # and the home page's "Continue" panel) until a host separately
+        # remembered to click "End Tournament" -- found live via Bracket 91
+        # (Draft #9): winner set correctly, still is_live=True.
+        b.is_live = False
+        # Award placements right here too, instead of waiting on that same
+        # separate click. See _award_placements's own docstring for why.
+        bonuses = _award_placements(b, db)
     db.commit()
-    return {"ok": True}
+    # `bonuses` mirrors end_tournament's response shape -- non-empty exactly
+    # when this call is what actually awarded them (a later /end call on the
+    # same bracket will report [] via its own idempotency check, having
+    # nothing left to do). Neither web/app/tournament/page.tsx nor
+    # web/app/bracket/page.tsx surfaces this yet -- both still only show a
+    # placement-bonus toast from the separate /end call, which will now
+    # often report no bonuses since this call already awarded them. Worth
+    # wiring a toast to this response directly; left as a frontend follow-up
+    # rather than done here.
+    return {"ok": True, "bonuses": [{"player": p, "char": c, "bonus": bo, "place": pl} for p, c, bo, pl in bonuses]}
 
 
 @router.patch("/brackets/{bracket_id}/my-character")
@@ -417,91 +596,17 @@ def end_tournament(bracket_id: int, db: Session = Depends(get_db), current_user:
     already_ended = not b.is_live
     b.is_live = False
 
-    # b.winner is only set via set_bracket_winner (tournament_winner field)
-    # when the actual Grand Final match is recorded. If it's null here, the
-    # tournament is being ended early — do not assign a winner or give bonuses.
-    gf_completed = bool(b.winner)
-
-    # Award placement bonuses only if the Grand Final was completed and
-    # this is the first time ending (not already_ended).
+    # Placements are normally already set by set_bracket_winner the instant
+    # the Grand Final resolved -- this call is now just the no-op idempotent
+    # case for that (see _award_placements). Still calling it here covers
+    # ending early where the Grand Final happens to have JUST completed in
+    # this same request, and any bracket whose winner got set some other
+    # way. `not already_ended` keeps a repeat /end call on an
+    # already-ended bracket from doing anything at all, on top of
+    # _award_placements's own idempotency guard.
     bonuses = []
-    if not already_ended and gf_completed and b.round_winners and b.bracket_data:
-        from routers.matches import _get_or_create_stat, ELO_DEFAULT
-        num_players = len(b.players or [])
-        k = num_players * 4  # 4p=16, 8p=32, 16p=64
-
-        rw = b.round_winners
-
-        # Compute the expected Grand Final round index from bracket size.
-        # bracket_data is always padded to a power of 2, so GF is at
-        # r<log2(len)>_m0. Walk the bit to avoid importing math.
-        r1_count = len(b.bracket_data)
-        expected_gf_ri = 0
-        n = r1_count
-        while n > 1:
-            n >>= 1
-            expected_gf_ri += 1
-
-        # Only award bonuses if the Grand Final was actually played.
-        # Using the expected round index (from bracket size) prevents early-end
-        # scenarios from misidentifying a semifinal winner as champion.
-        gf_winner_label = rw.get(f"r{expected_gf_ri}_m0", "")
-        max_ri = expected_gf_ri
-
-        if gf_winner_label and " — " in gf_winner_label:
-            participants = _compute_round_participants(b.bracket_data, rw)
-
-            # 1st place: Grand Final winner
-            gf_winner_player, gf_winner_char = _parse_label(gf_winner_label)
-            if gf_winner_player:
-                bonuses.append((gf_winner_player, gf_winner_char, round(k * 1.0), "1st"))
-
-            # 2nd place: Grand Final loser
-            gf_a_label, gf_b_label = participants.get(max_ri, {}).get(0, ("", ""))
-            gf_a_player, gf_a_char = _parse_label(gf_a_label)
-            gf_b_player, gf_b_char = _parse_label(gf_b_label)
-            if gf_winner_player:
-                if gf_a_player and gf_a_player != gf_winner_player:
-                    bonuses.append((gf_a_player, gf_a_char, round(k * 0.5), "2nd"))
-                elif gf_b_player and gf_b_player != gf_winner_player:
-                    bonuses.append((gf_b_player, gf_b_char, round(k * 0.5), "2nd"))
-
-            # 3rd place: Semifinal losers (only if there was a semifinal round)
-            if max_ri > 0:
-                sf_matches = participants.get(max_ri - 1, {})
-                for sf_mi, (sf_a_label, sf_b_label) in sf_matches.items():
-                    sf_winner_label = rw.get(f"r{max_ri-1}_m{sf_mi}", "")
-                    sf_winner_player, _ = _parse_label(sf_winner_label)
-                    sf_a_player, sf_a_char = _parse_label(sf_a_label)
-                    sf_b_player, sf_b_char = _parse_label(sf_b_label)
-                    if sf_winner_player:
-                        if sf_a_player and sf_a_player != sf_winner_player:
-                            bonuses.append((sf_a_player, sf_a_char, round(k * 0.25), "3rd"))
-                        elif sf_b_player and sf_b_player != sf_winner_player:
-                            bonuses.append((sf_b_player, sf_b_char, round(k * 0.25), "3rd"))
-
-            # Save placements to the bracket record (player + character)
-            placement_map = {"1st": None, "2nd": None, "3rd": []}
-            for (player, char, bonus, place) in bonuses:
-                entry = {"player": player, "char": char, "elo_bonus": bonus}
-                if place == "1st":
-                    placement_map["1st"] = entry
-                elif place == "2nd":
-                    placement_map["2nd"] = entry
-                elif place == "3rd":
-                    placement_map["3rd"].append(entry)
-            b.placements = placement_map
-            flag_modified(b, "placements")
-
-            # Apply bonuses to character Elo
-            for (player, char, bonus, _) in bonuses:
-                if not player or not char:
-                    continue
-                user = db.query(User).filter(User.username == player).first()
-                if not user:
-                    continue
-                stat = _get_or_create_stat(db, user.id, char)
-                stat.elo = (stat.elo or ELO_DEFAULT) + bonus
+    if not already_ended:
+        bonuses = _award_placements(b, db)
 
     # Always mark placements so list_brackets can distinguish ended-early from drafts
     if b.placements is None:

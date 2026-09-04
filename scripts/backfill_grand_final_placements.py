@@ -20,36 +20,52 @@ Originally only checked for cause 1 (filtered on `winner IS NULL`), which
 silently missed cause 2 entirely -- bracket 91 has a real winner, so the old
 filter never even looked at it. Widened to catch both: any bracket whose
 Grand Final round_winners entry is real, with placements still null/empty,
-regardless of whether `winner` happens to already be set. Also flags
-`is_live` as a proposed change for any target still marked True.
+regardless of whether `winner` happens to already be set. Also flags/clears
+`is_live` for any target still marked True, matching set_bracket_winner's
+current behavior exactly.
 
-DRY RUN ONLY. Prints every proposed change -- bracket id/name, the derived
-tournament winner, and each placement's player/character/elo_bonus -- and
-writes nothing. Elo is a stored, mutated-in-place column (also documented in
-CLAUDE.md), so applying this is one-way; review the printed output first.
-Actually writing the changes is a deliberately separate, not-yet-built step
-(see bottom of this file) -- run this, read the output, decide, then ask for
-the apply path to be added.
+Default is DRY RUN: prints every proposed change -- bracket id/name, the
+derived tournament winner, is_live, and each placement's
+player/character/elo_bonus -- and writes nothing.
+
+Pass --apply to actually write: sets Bracket.winner (if not already set),
+clears Bracket.is_live (if still True), and calls the same _award_placements
+routers/brackets.py's set_bracket_winner/end_tournament call -- so a
+backfilled bracket gets exactly what a freshly-completed one would, not a
+second, potentially-drifting reimplementation of the same math. Elo is a
+stored, mutated-in-place column (documented in CLAUDE.md) -- applying this is
+one-way, there is no undo. Each bracket is committed and printed immediately
+after being applied, so a run that's interrupted partway leaves a clean,
+auditable trail of exactly what was and wasn't written.
 
 Usage:
     DATABASE_URL=<real prod connection string> python scripts/backfill_grand_final_placements.py
+    DATABASE_URL=<real prod connection string> python scripts/backfill_grand_final_placements.py --apply
 
-Reuses the exact same helpers routers/brackets.py's real /brackets/{id}/end
-endpoint uses (_parse_label, _compute_round_participants) and mirrors its
-placement/bonus math exactly, rather than re-deriving it here and risking
-drift between the two.
+Reuses the exact same helpers routers/brackets.py's real endpoints use
+(_parse_label, _compute_round_participants, _placement_bonus_k,
+_award_placements) rather than re-deriving any of it here and risking drift
+between the two.
 """
+import argparse
 import sys
 import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database import Bracket, User, SessionLocal
-from routers.brackets import _parse_label, _compute_round_participants, _has_real_placements, _placement_bonus_k
+from database import Bracket, User, CharacterStats, SessionLocal
+from routers.brackets import (
+    _parse_label,
+    _compute_round_participants,
+    _has_real_placements,
+    _placement_bonus_k,
+    _award_placements,
+)
+from routers.matches import ELO_DEFAULT
 
 
 def expected_gf_round_index(bracket_data_len: int) -> int:
-    """Mirrors end_tournament's own bit-walk exactly (routers/brackets.py) --
+    """Mirrors end_tournament's/_award_placements's own bit-walk exactly --
     bracket_data is always padded to a power of two, so the Grand Final is at
     round index log2(len)."""
     ri = 0
@@ -60,96 +76,157 @@ def expected_gf_round_index(bracket_data_len: int) -> int:
     return ri
 
 
-def main():
+def _iter_candidates(db):
+    """Yield (bracket, gf_key, gf_winner_label, gf_ri) for every bracket that
+    needs backfilling -- shared detection logic for both dry-run and apply,
+    so the two can never look at a different set of brackets."""
+    candidates = (
+        db.query(Bracket)
+        .filter(Bracket.bracket_data.isnot(None))
+        .order_by(Bracket.id)
+        .all()
+    )
+    for b in candidates:
+        if not b.bracket_data or not b.round_winners:
+            continue
+        if _has_real_placements(b):
+            continue  # already has real placements (e.g. bracket 21) -- not a target
+
+        gf_ri = expected_gf_round_index(len(b.bracket_data))
+        gf_key = f"r{gf_ri}_m0"
+        gf_winner_label = (b.round_winners or {}).get(gf_key, "")
+
+        # Not actually complete -- the true final genuinely has no recorded
+        # result yet. Not our bug, skip.
+        if not gf_winner_label or " — " not in gf_winner_label:
+            continue
+
+        yield b, gf_key, gf_winner_label, gf_ri
+
+
+def _current_character_elo(db, player: str, char: str):
+    """Read-only lookup of a character's current stored Elo, for the audit
+    printout -- deliberately not _get_or_create_stat, which would create and
+    dirty a new zero-games row as a side effect of just printing. ELO_DEFAULT
+    (not created yet) matches what _get_or_create_stat would initialize it
+    to the first time this character is actually touched."""
+    user = db.query(User).filter(User.username == player).first()
+    if not user:
+        return "?"
+    stat = db.query(CharacterStats).filter_by(user_id=user.id, character=char).first()
+    return stat.elo if stat and stat.elo is not None else ELO_DEFAULT
+
+
+def _derive_proposed(b: Bracket, gf_key: str, gf_winner_label: str, gf_ri: int):
+    """Re-derive winner + placements independently of _award_placements, for
+    the audit printout -- side-effect-free (no session mutation), so dry-run
+    can call this freely. Mirrors _award_placements's own math exactly; used
+    in apply mode too, to print what SHOULD happen before actually calling
+    _award_placements, and to sanity-check the two agree."""
+    k = _placement_bonus_k(len(b.bracket_data))
+    rw = b.round_winners
+    participants = _compute_round_participants(b.bracket_data, rw)
+    max_ri = gf_ri
+
+    gf_winner_player, gf_winner_char = _parse_label(gf_winner_label)
+    proposed = []
+    if gf_winner_player:
+        proposed.append((gf_winner_player, gf_winner_char, round(k * 1.0), "1st"))
+
+    gf_a_label, gf_b_label = participants.get(max_ri, {}).get(0, ("", ""))
+    gf_a_player, gf_a_char = _parse_label(gf_a_label)
+    gf_b_player, gf_b_char = _parse_label(gf_b_label)
+    if gf_winner_player:
+        if gf_a_player and gf_a_player != gf_winner_player:
+            proposed.append((gf_a_player, gf_a_char, round(k * 0.5), "2nd"))
+        elif gf_b_player and gf_b_player != gf_winner_player:
+            proposed.append((gf_b_player, gf_b_char, round(k * 0.5), "2nd"))
+
+    if max_ri > 0:
+        sf_matches = participants.get(max_ri - 1, {})
+        for sf_mi, (sf_a_label, sf_b_label) in sf_matches.items():
+            sf_winner_label = rw.get(f"r{max_ri-1}_m{sf_mi}", "")
+            sf_winner_player, _ = _parse_label(sf_winner_label)
+            sf_a_player, sf_a_char = _parse_label(sf_a_label)
+            sf_b_player, sf_b_char = _parse_label(sf_b_label)
+            if sf_winner_player:
+                if sf_a_player and sf_a_player != sf_winner_player:
+                    proposed.append((sf_a_player, sf_a_char, round(k * 0.25), "3rd"))
+                elif sf_b_player and sf_b_player != sf_winner_player:
+                    proposed.append((sf_b_player, sf_b_char, round(k * 0.25), "3rd"))
+
+    return gf_winner_player, k, proposed
+
+
+def main(apply: bool):
     db = SessionLocal()
     try:
-        candidates = (
-            db.query(Bracket)
-            .filter(Bracket.bracket_data.isnot(None))
-            .all()
-        )
-
         found_any = False
-        for b in candidates:
-            if not b.bracket_data or not b.round_winners:
-                continue
-            if _has_real_placements(b):
-                continue  # already has real placements (e.g. bracket 21) -- not a target
-
-            gf_ri = expected_gf_round_index(len(b.bracket_data))
-            gf_key = f"r{gf_ri}_m0"
-            gf_winner_label = (b.round_winners or {}).get(gf_key, "")
-
-            # Not actually complete -- the true final genuinely has no
-            # recorded result yet. Not our bug, skip.
-            if not gf_winner_label or " — " not in gf_winner_label:
-                continue
-
+        for b, gf_key, gf_winner_label, gf_ri in _iter_candidates(db):
             found_any = True
-            k = _placement_bonus_k(len(b.bracket_data))  # same shared formula _award_placements uses
-
-            rw = b.round_winners
-            participants = _compute_round_participants(b.bracket_data, rw)
-            max_ri = gf_ri
+            was_live = b.is_live
+            gf_winner_player, k, proposed = _derive_proposed(b, gf_key, gf_winner_label, gf_ri)
 
             winner_status = (
                 f"already set to {b.winner!r} -- only placements/Elo are missing"
                 if b.winner else "NULL -- both winner and placements are missing"
             )
+            verb = "Applied" if apply else "Proposed"
             print(f"\n=== Bracket {b.id} — {b.name!r} (host_id={b.user_id}, is_live={b.is_live}) ===")
             print(f"  Bracket.winner: {winner_status}")
-            if b.is_live:
+            if was_live:
                 # set_bracket_winner now clears this the instant a Grand
                 # Final resolves (see CLAUDE.md) -- these brackets predate
                 # that fix, so it never ran. Still is_live=True means they
                 # sit in GET /brackets/live and the home page's "Continue"
                 # panel despite being over -- found live via Bracket 91
                 # (Draft #9), which showed exactly this.
-                print("  Bracket.is_live: True -- proposed change: False (tournament is actually over)")
+                print(f"  Bracket.is_live: True -- {verb.lower()} change: False (tournament is actually over)")
             print(f"  Grand Final key: {gf_key}  ->  {gf_winner_label}")
-
-            gf_winner_player, gf_winner_char = _parse_label(gf_winner_label)
-            proposed = []
-            if gf_winner_player:
-                proposed.append((gf_winner_player, gf_winner_char, round(k * 1.0), "1st"))
-
-            gf_a_label, gf_b_label = participants.get(max_ri, {}).get(0, ("", ""))
-            gf_a_player, gf_a_char = _parse_label(gf_a_label)
-            gf_b_player, gf_b_char = _parse_label(gf_b_label)
-            if gf_winner_player:
-                if gf_a_player and gf_a_player != gf_winner_player:
-                    proposed.append((gf_a_player, gf_a_char, round(k * 0.5), "2nd"))
-                elif gf_b_player and gf_b_player != gf_winner_player:
-                    proposed.append((gf_b_player, gf_b_char, round(k * 0.5), "2nd"))
-
-            if max_ri > 0:
-                sf_matches = participants.get(max_ri - 1, {})
-                for sf_mi, (sf_a_label, sf_b_label) in sf_matches.items():
-                    sf_winner_label = rw.get(f"r{max_ri-1}_m{sf_mi}", "")
-                    sf_winner_player, _ = _parse_label(sf_winner_label)
-                    sf_a_player, sf_a_char = _parse_label(sf_a_label)
-                    sf_b_player, sf_b_char = _parse_label(sf_b_label)
-                    if sf_winner_player:
-                        if sf_a_player and sf_a_player != sf_winner_player:
-                            proposed.append((sf_a_player, sf_a_char, round(k * 0.25), "3rd"))
-                        elif sf_b_player and sf_b_player != sf_winner_player:
-                            proposed.append((sf_b_player, sf_b_char, round(k * 0.25), "3rd"))
-
-            print(f"  Proposed Bracket.winner = {gf_winner_player!r}")
-            print(f"  Proposed placements + Elo bonuses (k={k}):")
+            print(f"  {verb} Bracket.winner = {gf_winner_player!r}")
+            print(f"  {verb} placements + Elo bonuses (k={k}):")
             for player, char, bonus, place in proposed:
-                user = db.query(User).filter(User.username == player).first()
-                current_elo = user.elo if user else "?"
-                print(f"    {place:>4}: {player} ({char})  +{bonus} elo  [current player elo: {current_elo}]")
+                current_elo = _current_character_elo(db, player, char)
+                print(f"    {place:>4}: {player} ({char})  +{bonus} elo  [current elo before: {current_elo}]")
+
+            if not apply:
+                continue
+
+            # Actually write it -- same call set_bracket_winner makes, so
+            # this bracket ends up in exactly the state a freshly-completed
+            # one would, not a second, possibly-drifting reimplementation.
+            if not b.winner:
+                b.winner = gf_winner_player
+            if was_live:
+                b.is_live = False
+            awarded = _award_placements(b, db)
+            db.commit()
+
+            if set(awarded) != set((p, c, bo, pl) for p, c, bo, pl in proposed):
+                print("  ⚠️  WARNING: _award_placements's actual result differs from the "
+                      "printout above -- the printed values were NOT what got written. "
+                      f"Actually applied: {awarded}")
+            print(f"  ✅ committed -- Bracket {b.id} updated.")
 
         if not found_any:
             print("No brackets found with a complete Grand Final but missing placements.")
+        elif not apply:
+            print("\nDry run only -- nothing was written. Re-run with --apply to write these "
+                  "changes for real. Elo is stored and mutated in place -- there is no undo.")
         else:
-            print("\nDry run only -- nothing was written. Review the above, then decide "
-                  "whether to build the apply step (this script has no write path yet).")
+            print("\nApply complete -- every change printed above was written and committed.")
     finally:
         db.close()
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Actually write the changes (Bracket.winner, Bracket.is_live, Bracket.placements, "
+             "character Elo). Default is dry-run: print only, write nothing. "
+             "Elo is stored and mutated in place -- there is no undo.",
+    )
+    args = parser.parse_args()
+    main(apply=args.apply)

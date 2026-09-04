@@ -27,6 +27,31 @@ def _now():
     return datetime.now(timezone.utc)
 
 
+def to_utc_iso(dt) -> str | None:
+    """ISO-8601 string for a stored timestamp, always carrying an explicit
+    UTC offset. Every DateTime column in this file is a plain
+    Column(DateTime) (no timezone=True), and both backends round-trip it as
+    naive: SQLite always strips tzinfo (confirmed live), and Postgres's
+    default TIMESTAMP WITHOUT TIME ZONE does the same. So even though
+    _now() writes a UTC-aware value, dt.isoformat() on a value just read
+    back produces a bare string with no offset -- and a bare ISO string is
+    exactly what JS's `new Date(...)` parses as LOCAL time, not UTC. Every
+    value in these columns IS UTC by convention (that's what _now() means to
+    guarantee) -- this just re-labels it as such before it goes out over the
+    API, so a browser's `new Date()` (and every `.toLocaleString()`/
+    `.toLocaleDateString()` call already downstream of it, all over
+    web/app/*) converts to the viewer's real local time instead of silently
+    treating the server's raw UTC clock as if it were already local.
+    Use this everywhere a stored datetime is serialized -- not
+    dt.isoformat() directly, which is exactly the bug this fixes.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -69,6 +94,18 @@ class Bracket(Base):
     confirmed_lineups  = Column(JSON, default=dict)
     teams              = Column(JSON, nullable=True)
     placements         = Column(JSON, nullable=True)
+    # When placements were actually awarded (set by _award_placements,
+    # routers/brackets.py) -- distinct from created_at (when the bracket was
+    # started). Placements can land long after creation for a tournament
+    # that ran for hours, so using created_at as a stand-in (the only option
+    # before this column existed) sorted a placement row into the wrong spot
+    # in any feed ordered by time -- confirmed live via Draft #9 and bracket
+    # 4, both backfilled with created_at and showing up before the matches
+    # that actually earned them. Nullable: rows placed before this column
+    # existed (e.g. bracket 21's April placements) have no real answer here,
+    # so routers/matches.py's char_elo_history falls back to created_at only
+    # for those.
+    placements_awarded_at = Column(DateTime, nullable=True)
     created_at         = Column(DateTime, default=_now)
 
     owner   = relationship("User", back_populates="brackets")

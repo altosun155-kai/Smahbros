@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from database import User, Bracket, TournamentInvite, DraftRoom, DraftPick, MatchResult, CharacterStats
+from database import User, Bracket, TournamentInvite, DraftRoom, DraftPick, MatchResult, CharacterStats, to_utc_iso
 from auth import get_db, get_current_user
 from routers.brackets import _compute_round_participants, _infer_winner
 from routers.leaderboard import get_champion
@@ -70,7 +70,7 @@ def _in_progress(db: Session, user: User) -> dict | None:
             "name": b.name,
             "round_or_progress": _bracket_round_label(b),
             "leader": b.owner.username,
-            "started_at": b.created_at.isoformat() if b.created_at else None,
+            "started_at": to_utc_iso(b.created_at),
             "_sort": b.created_at or datetime.min,
         })
 
@@ -84,7 +84,7 @@ def _in_progress(db: Session, user: User) -> dict | None:
             "name": f"Draft #{r.id}",
             "round_or_progress": _draft_progress_label(db, r),
             "leader": r.host.username,
-            "started_at": r.created_at.isoformat() if r.created_at else None,
+            "started_at": to_utc_iso(r.created_at),
             "_sort": r.created_at or datetime.min,
         })
 
@@ -117,7 +117,7 @@ def _last_session(db: Session, user: User) -> dict | None:
     return {
         "name": latest.name,
         "winner": winner,
-        "ended_at": latest.created_at.isoformat() if latest.created_at else None,
+        "ended_at": to_utc_iso(latest.created_at),
     }
 
 
@@ -147,7 +147,7 @@ def _last_duel(db: Session, user: User) -> dict | None:
         "opponent": opponent_name,
         "result": "W" if m.winner_id == user.id else "L",
         "record": record,
-        "played_at": m.created_at.isoformat() if m.created_at else None,
+        "played_at": to_utc_iso(m.created_at),
     }
 
 
@@ -190,7 +190,7 @@ def _posters(db: Session) -> list[dict]:
         "loser": r.loser.username,
         "loser_char": r.loser_char,
         "loser_avatar": r.loser.avatar_url,
-        "created_at": r.created_at.isoformat() if r.created_at else None,
+        "created_at": to_utc_iso(r.created_at),
     } for r in rows if not r.winner.is_test and not r.loser.is_test]
 
 

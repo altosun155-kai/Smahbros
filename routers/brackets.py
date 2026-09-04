@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from pydantic import BaseModel
 
-from database import User, Bracket, TournamentInvite, CharacterStats, MatchResult
+from database import User, Bracket, TournamentInvite, CharacterStats, MatchResult, _now, to_utc_iso
 from auth import get_db, get_current_user
 
 
@@ -303,6 +303,16 @@ def _award_placements(b: Bracket, db: Session) -> list[tuple]:
                 placement_map["3rd"].append(entry)
         b.placements = placement_map
         flag_modified(b, "placements")
+        # _now(), not datetime.utcnow() -- utcnow() returns a naive
+        # datetime, which serializes via isoformat() with no UTC offset
+        # (e.g. "2026-08-20T18:59:01", vs _now()'s
+        # "2026-08-20T18:59:01+00:00"). Every other timestamp column in this
+        # schema (created_at, updated_at) already uses _now() for exactly
+        # this reason -- a naive string here is what a browser's
+        # `new Date(...)` parses as LOCAL time instead of UTC, silently
+        # shifting the displayed time by the viewer's UTC offset wherever
+        # this field is eventually shown.
+        b.placements_awarded_at = _now()
 
         # Apply bonuses to character Elo
         for (player, char, bonus, _) in bonuses:
@@ -355,7 +365,7 @@ def bracket_to_dict(b: Bracket, include_invites: bool = False, viewer: User | No
         "chars_per_player": b.chars_per_player or 2,
         "confirmed_lineups": b.confirmed_lineups or {},
         "placements": b.placements or {},
-        "created_at": b.created_at.isoformat(),
+        "created_at": to_utc_iso(b.created_at),
     }
     if include_invites:
         d["invites"] = [
@@ -377,7 +387,7 @@ def list_brackets(db: Session = Depends(get_db), current_user: User = Depends(ge
         .order_by(Bracket.created_at.desc())
         .all()
     )
-    return [{"id": b.id, "name": b.name, "mode": b.mode, "is_live": b.is_live, "winner": b.winner, "placements": b.placements, "created_at": b.created_at.isoformat()} for b in brackets]
+    return [{"id": b.id, "name": b.name, "mode": b.mode, "is_live": b.is_live, "winner": b.winner, "placements": b.placements, "created_at": to_utc_iso(b.created_at)} for b in brackets]
 
 
 @router.post("/brackets")
@@ -420,7 +430,7 @@ def list_live_brackets(db: Session = Depends(get_db), current_user: User = Depen
     for inv in invites:
         b = inv.bracket
         if b and b.is_live:
-            result.append({"id": b.id, "name": b.name, "host": b.owner.username, "created_at": b.created_at.isoformat()})
+            result.append({"id": b.id, "name": b.name, "host": b.owner.username, "created_at": to_utc_iso(b.created_at)})
     return result
 
 

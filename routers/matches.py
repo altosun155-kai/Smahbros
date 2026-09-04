@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
 
-from database import User, CharacterStats, MatchResult, Bracket, CharacterMatchup, DraftRoom
+from database import User, CharacterStats, MatchResult, Bracket, CharacterMatchup, DraftRoom, to_utc_iso
 from auth import get_db, get_current_user
 
 router = APIRouter(tags=["matches"])
@@ -115,18 +115,22 @@ def char_elo_history(
             "opponent_char": opponent_char,
             "my_kills": r.winner_kills if won else r.loser_kills,
             "opp_kills": r.loser_kills if won else r.winner_kills,
-            "created_at": r.created_at.isoformat(),
+            "created_at": to_utc_iso(r.created_at),
         })
 
     # Tournament-finish placement bonuses (1st/2nd/3rd) are a completely
     # separate mechanism from per-match Elo -- they're stored per-bracket in
-    # Bracket.placements (see routers/brackets.py's end_tournament), not as
-    # MatchResult rows, so they'd otherwise be invisible here even though
+    # Bracket.placements (see routers/brackets.py's _award_placements), not
+    # as MatchResult rows, so they'd otherwise be invisible here even though
     # they moved this same character's rating. Merged in chronologically
-    # (using the bracket's created_at, the only timestamp placements have --
-    # not perfectly precise if a tournament was ended long after it started,
-    # but the best available without a real placements-awarded-at column) so
-    # a character's Elo history is the full picture, not just the match half.
+    # using Bracket.placements_awarded_at (set the moment _award_placements
+    # actually writes placements) -- falls back to created_at (when the
+    # bracket was STARTED, not when it finished) only for rows placed before
+    # that column existed, which have no better answer available. Using
+    # created_at unconditionally used to sort every placement row into the
+    # wrong spot for any tournament that ran a while after it was created --
+    # confirmed live via Draft #9 and bracket 4, both showing up before the
+    # matches that actually earned them.
     brackets = db.query(Bracket).filter(Bracket.placements.isnot(None)).all()
     for b in brackets:
         p = b.placements or {}
@@ -139,11 +143,12 @@ def char_elo_history(
             placement_entries.append(("3rd", entry))
         for place, entry in placement_entries:
             if entry.get("player") == username and entry.get("char") == character:
+                timestamp = b.placements_awarded_at or b.created_at
                 results.append({
                     "placement": place,
                     "elo_delta": entry.get("elo_bonus", 0),
                     "bracket_name": b.name,
-                    "created_at": b.created_at.isoformat(),
+                    "created_at": to_utc_iso(timestamp),
                 })
 
     results.sort(key=lambda r: r["created_at"], reverse=True)
@@ -177,7 +182,7 @@ def shame_feed(
         "loser": r.loser.username,
         "loser_char": r.loser_char,
         "loser_avatar": r.loser.avatar_url,
-        "created_at": r.created_at.isoformat(),
+        "created_at": to_utc_iso(r.created_at),
     } for r in rows if not r.winner.is_test and not r.loser.is_test]
 
 

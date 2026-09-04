@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from database import Bracket, TournamentPreset, User
+from database import Bracket, TournamentPreset, User, to_utc_iso
 from auth import get_db, get_current_user
 
 router = APIRouter(tags=["presets"])
@@ -42,7 +42,7 @@ def _preset_to_dict(p: TournamentPreset) -> dict:
         "bracket_style": p.bracket_style,
         "pool_mode": p.pool_mode or "slot",
         "chars_per_player": p.chars_per_player,
-        "created_at": p.created_at.isoformat(),
+        "created_at": to_utc_iso(p.created_at),
     }
 
 

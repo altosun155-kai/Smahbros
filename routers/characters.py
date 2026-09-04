@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
 
-from database import User, CharacterRanking, CharacterStats, FavoriteCharacters, CharacterMatchup
+from database import User, CharacterRanking, CharacterStats, FavoriteCharacters, CharacterMatchup, to_utc_iso
 from auth import get_db, get_current_user
 
 _avg_cache: dict = {"data": None, "ts": 0.0}
@@ -79,7 +79,7 @@ def get_ranking(db: Session = Depends(get_db), current_user: User = Depends(get_
     cr = db.query(CharacterRanking).filter(CharacterRanking.owner_id == current_user.id).first()
     if not cr:
         return {"ranking": None, "updated_at": None}
-    return {"ranking": cr.ranking, "updated_at": cr.updated_at.isoformat()}
+    return {"ranking": cr.ranking, "updated_at": to_utc_iso(cr.updated_at)}
 
 
 @router.put("/characters/ranking")
@@ -103,7 +103,7 @@ def get_ranking_by_user(username: str, db: Session = Depends(get_db)):
     cr = db.query(CharacterRanking).filter(CharacterRanking.owner_id == user.id).first()
     if not cr:
         raise HTTPException(status_code=404, detail="No tier list found for this user")
-    return {"username": user.username, "ranking": cr.ranking, "updated_at": cr.updated_at.isoformat()}
+    return {"username": user.username, "ranking": cr.ranking, "updated_at": to_utc_iso(cr.updated_at)}
 
 
 # ── Favorites ─────────────────────────────────────────────────────────────────

@@ -39,6 +39,7 @@ def _run_migrations():
             conn.execute(text("UPDATE users SET is_test = TRUE WHERE username ILIKE 'testuser%'"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS background_character VARCHAR"))
             conn.execute(text("ALTER TABLE match_results ADD COLUMN IF NOT EXISTS is_self_match BOOLEAN DEFAULT FALSE NOT NULL"))
+            conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS placements_awarded_at TIMESTAMP"))
             # Indexes for hot query paths
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_winner_id  ON match_results(winner_id)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_loser_id   ON match_results(loser_id)"))
@@ -172,6 +173,8 @@ def _run_migrations():
                 conn.execute(text("ALTER TABLE brackets ADD COLUMN teams TEXT DEFAULT NULL"))
             if "placements" not in b_cols:
                 conn.execute(text("ALTER TABLE brackets ADD COLUMN placements TEXT DEFAULT NULL"))
+            if "placements_awarded_at" not in b_cols:
+                conn.execute(text("ALTER TABLE brackets ADD COLUMN placements_awarded_at TIMESTAMP"))
             try:
                 tp_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(tournament_presets)"))}
                 if "pool_mode" not in tp_cols:

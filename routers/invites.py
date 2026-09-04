@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from database import User, Bracket, TournamentInvite
+from database import User, Bracket, TournamentInvite, to_utc_iso
 from auth import get_db, get_current_user
 
 router = APIRouter(prefix="/invites", tags=["invites"])
@@ -33,7 +33,7 @@ def get_received_invites(db: Session = Depends(get_db), current_user: User = Dep
             "bracket_name": i.bracket.name,
             "inviter": i.inviter.username,
             "status": i.status,
-            "created_at": i.created_at.isoformat(),
+            "created_at": to_utc_iso(i.created_at),
         }
         for i in invites
     ]
@@ -54,7 +54,7 @@ def get_sent_invites(db: Session = Depends(get_db), current_user: User = Depends
             "bracket_name": i.bracket.name,
             "invitee": i.invitee.username,
             "status": i.status,
-            "created_at": i.created_at.isoformat(),
+            "created_at": to_utc_iso(i.created_at),
         }
         for i in invites
     ]
@@ -71,7 +71,7 @@ def get_bracket_invites(bracket_id: int, db: Session = Depends(get_db), current_
             "id": i.id,
             "invitee": i.invitee.username,
             "status": i.status,
-            "created_at": i.created_at.isoformat(),
+            "created_at": to_utc_iso(i.created_at),
         }
         for i in invites
     ]

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from pydantic import BaseModel
 
-from database import User, DraftRoom, DraftPick, Bracket, _now
+from database import User, DraftRoom, DraftPick, Bracket, _now, to_utc_iso
 from auth import get_db, get_current_user
 import ws_manager
 
@@ -190,7 +190,7 @@ def draft_room_to_dict(db: Session, room: DraftRoom, viewer_id: int | None = Non
         "picks": picks_by_player,
         "bracket_id": room.bracket_id,
         "bracket_ids": room.bracket_ids or [],
-        "created_at": room.created_at.isoformat(),
+        "created_at": to_utc_iso(room.created_at),
     }
 
 

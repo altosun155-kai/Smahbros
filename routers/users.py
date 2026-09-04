@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from datetime import datetime
 from routers.ratelimit import rate_limit
 
-from database import User, Bracket, MatchResult, ProfileComment
+from database import User, Bracket, MatchResult, ProfileComment, to_utc_iso
 from auth import get_db, get_current_user
 
 router = APIRouter(tags=["users"])
@@ -190,7 +190,7 @@ def activity(username: str, db: Session = Depends(get_db), current_user: User = 
         "loser": r.loser.username,
         "loser_char": r.loser_char,
         "elo_delta": r.elo_delta or 0,
-        "created_at": r.created_at.isoformat(),
+        "created_at": to_utc_iso(r.created_at),
     } for r in results]
 
 
@@ -202,7 +202,7 @@ def get_comments(username: str, db: Session = Depends(get_db), current_user: Use
     comments = db.query(ProfileComment).filter(ProfileComment.target_id == user.id)\
         .order_by(ProfileComment.created_at.desc()).limit(50).all()
     return [{"id": c.id, "author": c.author.username, "author_avatar": c.author.avatar_url,
-             "content": c.content, "created_at": c.created_at.isoformat()} for c in comments]
+             "content": c.content, "created_at": to_utc_iso(c.created_at)} for c in comments]
 
 
 @router.post("/users/{username}/comments")
@@ -221,7 +221,7 @@ def post_comment(username: str, req: CommentCreate, request: Request, db: Sessio
     db.refresh(comment)
     return {"id": comment.id, "author": current_user.username,
             "author_avatar": current_user.avatar_url,
-            "content": comment.content, "created_at": comment.created_at.isoformat()}
+            "content": comment.content, "created_at": to_utc_iso(comment.created_at)}
 
 
 @router.delete("/comments/{comment_id}")

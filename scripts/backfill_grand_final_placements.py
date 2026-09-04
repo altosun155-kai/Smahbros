@@ -32,11 +32,19 @@ Pass --apply to actually write: sets Bracket.winner (if not already set),
 clears Bracket.is_live (if still True), and calls the same _award_placements
 routers/brackets.py's set_bracket_winner/end_tournament call -- so a
 backfilled bracket gets exactly what a freshly-completed one would, not a
-second, potentially-drifting reimplementation of the same math. Elo is a
-stored, mutated-in-place column (documented in CLAUDE.md) -- applying this is
-one-way, there is no undo. Each bracket is committed and printed immediately
-after being applied, so a run that's interrupted partway leaves a clean,
-auditable trail of exactly what was and wasn't written.
+second, potentially-drifting reimplementation of the same math.
+Bracket.placements_awarded_at (the field any activity feed/Elo history
+actually sorts on -- see routers/matches.py's char_elo_history) is set to
+one second after this bracket's own last recorded MatchResult, NOT "now"
+(the moment this script happens to run) and NOT created_at (when the
+bracket was STARTED) -- confirmed live via Draft #9 and bracket 4, both
+showing their placement row sorted above the matches that earned it because
+created_at was the only timestamp placements had before this column
+existed. Elo is a stored, mutated-in-place column (documented in
+CLAUDE.md) -- applying this is one-way, there is no undo. Each bracket is
+committed and printed immediately after being applied, so a run that's
+interrupted partway leaves a clean, auditable trail of exactly what was and
+wasn't written.
 
 Usage:
     DATABASE_URL=<real prod connection string> python scripts/backfill_grand_final_placements.py
@@ -53,7 +61,9 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database import Bracket, User, CharacterStats, SessionLocal
+from datetime import timedelta
+
+from database import Bracket, User, CharacterStats, MatchResult, SessionLocal
 from routers.brackets import (
     _parse_label,
     _compute_round_participants,
@@ -62,6 +72,27 @@ from routers.brackets import (
     _award_placements,
 )
 from routers.matches import ELO_DEFAULT
+
+
+def _placements_awarded_at_for_backfill(db, bracket: Bracket):
+    """Timestamp to backfill Bracket.placements_awarded_at with: one second
+    after the bracket's own last recorded MatchResult (the Grand Final, for
+    a bracket that actually completed one), so the placement row sorts
+    right after the matches that earned it instead of at the bracket's
+    created_at (when it was STARTED, not when it finished) -- the bug this
+    whole backfill exists to fix, confirmed live via Draft #9 and bracket 4.
+    Falls back to created_at only if this bracket has no MatchResult rows at
+    all (no live path ever writes placements_awarded_at without a real last
+    match to anchor to, so this fallback is backfill-only)."""
+    last_match = (
+        db.query(MatchResult)
+        .filter(MatchResult.bracket_id == bracket.id)
+        .order_by(MatchResult.created_at.desc())
+        .first()
+    )
+    if last_match:
+        return last_match.created_at + timedelta(seconds=1), False
+    return bracket.created_at, True  # (timestamp, used_fallback)
 
 
 def expected_gf_round_index(bracket_data_len: int) -> int:
@@ -189,6 +220,10 @@ def main(apply: bool):
                 current_elo = _current_character_elo(db, player, char)
                 print(f"    {place:>4}: {player} ({char})  +{bonus} elo  [current elo before: {current_elo}]")
 
+            awarded_at, used_fallback = _placements_awarded_at_for_backfill(db, b)
+            print(f"  {verb} placements_awarded_at = {awarded_at.isoformat()}"
+                  + ("  (fallback: no MatchResult rows found for this bracket, used created_at)" if used_fallback else "  (1s after this bracket's last recorded match)"))
+
             if not apply:
                 continue
 
@@ -200,6 +235,12 @@ def main(apply: bool):
             if was_live:
                 b.is_live = False
             awarded = _award_placements(b, db)
+            # _award_placements just stamped placements_awarded_at with
+            # "now" (the moment this backfill script happened to run) --
+            # correct for a live award, wrong here, since this tournament
+            # actually finished whenever its last real match was played.
+            # Override with the value computed and printed above.
+            b.placements_awarded_at = awarded_at
             db.commit()
 
             if set(awarded) != set((p, c, bo, pl) for p, c, bo, pl in proposed):

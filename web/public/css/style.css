@@ -1588,6 +1588,21 @@ a:hover {
 .draft-stat span { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
 .draft-stat strong { font-size: 1rem; }
 
+/* This block used to be the whole mobile layout for the draft pick screen
+   (DraftCharacterSelect.tsx): reflow the same three-panel desktop markup
+   (.draft-select-panels/.draft-portrait/.draft-rail/.draft-stats-grid) into
+   a single column with the rail as a horizontal scroll-snap strip. The
+   component now renders a completely different tree under this same
+   700px breakpoint (2x5 favorites grid, slot-progress row, compressed stat
+   line -- see .draft-select-mobile below) rather than reflowing this one, so
+   .draft-select-panels/.draft-portrait/.draft-stats-grid below never
+   actually match anything at this width anymore -- left in place as inert
+   rather than deleted, in case anything else ever reuses this markup shape.
+   The .draft-rail/-item/-divider/-hint rules here DO still matter, though:
+   DraftCharacterSelect.tsx's "More fighters" modal reuses those exact same
+   classes for its full-roster list, so this horizontal-strip styling would
+   apply there too if left unscoped -- overridden back to a vertical list by
+   the higher-specificity .draft-roster-modal rules further down. */
 @media (max-width: 700px) {
   .draft-select-panels {
     grid-template-columns: 1fr;
@@ -1631,6 +1646,371 @@ a:hover {
   }
   .draft-stats-grid { order: 3; }
 }
+
+/* ── Mobile draft character-select (2x5 grid redesign) ───────────────────── */
+/* Replaces the old horizontal-scroll rail as the primary picker on mobile --
+   see DraftCharacterSelect.tsx's `isMobile` branch. Ten favorites (or, with
+   none set, this player's ten most-won characters) laid out as 5 columns x
+   2 rows, all visible with no scrolling, plus a "More fighters" button that
+   opens the full roster (the desktop rail's own markup, reused) in a modal
+   for anything outside that top 10. */
+@media (max-width: 700px) {
+  /* Owns the whole viewport -- position: fixed; inset: 0, not a normal-flow
+     child of main.page-container. Chosen over (a) teaching a real
+     height-flex chain to body/AppShell/.page-container (correct long-term,
+     but a global-layout change touching every page) or (b) a JS-measured
+     "100dvh minus my own offsetTop" custom property (no hardcoded pixels,
+     but still a runtime measurement standing in for a constant). Fixed
+     positioning removes the navbar height, .page-container's own padding,
+     and body's un-flexed min-height from the equation entirely -- nothing
+     upstream needs to change, and slot-row/stage/lockbar below can use
+     real flex (0 0 auto / 1 1 0) against a real 100% height with no vh
+     guess and no measured offset. Its own compact header replaces the
+     (now-covered) site navbar; #bottomNav is separately hidden below since
+     mis-tapping into 8 nav destinations under a single-action screen is
+     exactly the risk this screen exists to avoid.
+     contain: layout paint isolates this subtree's layout/paint from the
+     rest of the page -- tried specifically because a fixed-position
+     overlay swapping in for the (non-view-transitioned, confirmed: no
+     <ViewTransition> wraps this lobby-to-picking swap, and the app's
+     view-transition meta tag only applies to full-document navigations,
+     which client-side routing here isn't) lobby screen risked a visible
+     jump if the browser had to recompute layout for anything outside this
+     subtree at the same time. */
+  .draft-select-mobile {
+    position: fixed;
+    inset: 0;
+    z-index: 700; /* above #bottomNav (600) and .sticky-bar (601) */
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    contain: layout paint;
+  }
+
+  /* Compact header replacing the covered site navbar -- just enough to
+     orient ("you're picking as ___"), not a full nav. */
+  .draft-mobile-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--navbar-bg);
+  }
+  .draft-mobile-header img,
+  .draft-mobile-header-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  .draft-mobile-header-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--card-bg2);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+  .draft-mobile-header span { font-weight: 600; font-size: 0.9rem; }
+
+  .draft-slot-row {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 16px 0;
+  }
+  /* Left-aligned under the slot row -- matters more at 8 slots than 4. */
+  .draft-pick-count {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  /* Slot progress -- N boxes: a number (empty), a headshot (filled), or a
+     headshot + lock badge (locked). Tapping a filled, unlocked box clears
+     it -- picks are undoable without hunting for a separate control.
+     Tapping an EMPTY box is a no-op (there's no cursor left to move). */
+  .draft-slot-progress {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  /* 4x2 at 8 slots (VALID_CHARS_PER_PLAYER is 1/4/8, so this is the only
+     other case) -- a single flex row wraps 8 boxes into an uneven
+     7-then-1-orphan line on a real phone width. Both rows even at 4
+     across instead, same 44px box size as the 1/4-slot row. */
+  .draft-slot-progress.grid-4x2 {
+    display: grid;
+    grid-template-columns: repeat(4, 44px);
+    gap: 8px;
+  }
+  /* Brief shake -- tapping an unpicked character while every slot is full
+     (N > 1) is a no-op, but the tap should still visibly register as
+     *seen* rather than silently doing nothing. Replayed via DraftCharacter
+     Select.tsx keying this element on an incrementing pulseKey, so a
+     repeat trigger re-mounts the element and the animation runs again --
+     a plain class toggle wouldn't replay on back-to-back triggers. */
+  .draft-slot-progress.pulse { animation: draft-full-pulse 0.32s ease-out; }
+  @keyframes draft-full-pulse {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    50% { transform: translateX(4px); }
+    75% { transform: translateX(-2px); }
+    100% { transform: translateX(0); }
+  }
+  .draft-slot-box {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    border: 2px solid var(--border);
+    background: var(--card-bg2);
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .draft-slot-box img { width: 100%; height: 100%; object-fit: cover; }
+  .draft-slot-box-num { color: var(--text-muted); font-size: 0.9rem; font-weight: 700; }
+  /* The next-target indicator -- the lowest-index empty slot, i.e. where
+     the next tap on an unpicked character will land. Matters once holes
+     are possible: clearing slot 3 of 8 and then tapping a character
+     shouldn't feel like it landed somewhere random. */
+  .draft-slot-box.next-target {
+    border-color: var(--accent-blue);
+    animation: draft-next-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes draft-next-pulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(176, 188, 206, 0.25); }
+    50% { box-shadow: 0 0 0 5px rgba(176, 188, 206, 0.45); }
+  }
+  .draft-slot-box.locked { border-color: var(--accent-gold); cursor: default; }
+  .draft-slot-box:disabled { cursor: default; } /* empty box -- tap is a no-op */
+  .draft-slot-lock {
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    font-size: 0.6rem;
+    background: var(--card-bg);
+    border-radius: 4px 0 0 0;
+    padding: 1px 2px;
+    line-height: 1;
+  }
+
+  /* The bleed area: the card (grid + "More fighters") sits inside it, and
+     the render-target character's full render fills all remaining stage
+     height below it. A real flex:1 1 0 + min-height:0 against the fixed
+     wrapper's real 100%-height column now -- not a vh guess -- so this
+     stays correct regardless of how tall the card + slot row above it get
+     (4 vs 8 slots, search open, etc). */
+  .draft-mobile-stage {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin: 12px 16px 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+  }
+  .draft-select-mobile-body {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    background: var(--card-bg);
+    border-radius: var(--radius);
+  }
+  /* Fills whatever stage height the card (fixed, content-sized) doesn't use
+     -- not a fixed height guessed in advance, so it's correct regardless of
+     how tall the card ends up. */
+  .draft-bg-portrait-wrap {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+  }
+  .draft-bg-portrait {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    /* Bottom-anchored, not top -- every character then stands on the same
+       baseline regardless of source art dimensions, and the image scales
+       down (not clips) when the slot grid grows to two rows at 8 slots. */
+    object-position: bottom center;
+    opacity: 0.55;
+    pointer-events: none;
+  }
+  .draft-grid-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .draft-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .draft-grid-tile {
+    position: relative;
+    aspect-ratio: 1;
+    min-width: 0;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card-bg2);
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .draft-grid-tile img { width: 100%; height: 100%; object-fit: contain; }
+  /* Persistent -- filled tint + a small slot-number badge -- for as long as
+     the character stays picked, regardless of whether it's the one
+     currently shown big in the render. .render-target is the separate,
+     subtler indicator for that ("currently shown" != "picked": a picked
+     character can sit in a hole while a DIFFERENT one is the active
+     render). */
+  .draft-grid-tile.picked { border-color: var(--accent-blue); background: rgba(176, 188, 206, 0.18); }
+  .draft-grid-tile.render-target { box-shadow: 0 0 0 2px var(--accent-blue) inset; }
+  .draft-grid-tile-badge {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 9px;
+    border: 2px solid var(--bg);
+    background: var(--accent-blue);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+  .draft-grid-tile:disabled { cursor: not-allowed; opacity: 0.55; }
+
+  .draft-more-btn { width: 100%; }
+
+  /* One line naming the render-target character plus its record, instead
+     of an unattached "Unplayed / no record" that named nothing on screen. */
+  .draft-stat-line {
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    text-align: left;
+  }
+
+  /* "More fighters" modal -- its own toggle-aware list rows (mobileRailItem
+     in the component, NOT desktop's cursor-based railItem), reusing the
+     desktop rail's visual markup (.draft-rail/-item/-divider/-hint) --
+     forced back to a vertical list here since it'd otherwise inherit the
+     horizontal snap-strip rules meant for a different context (same
+     breakpoint, unscoped selector). Higher specificity wins regardless of
+     which rule comes first. */
+  .draft-roster-modal .draft-rail {
+    flex-direction: column;
+    max-height: 60vh;
+    overflow-x: visible;
+    overflow-y: auto;
+    scroll-snap-type: none;
+  }
+  .draft-roster-modal .draft-rail-item {
+    flex-direction: row;
+    width: auto;
+    flex-shrink: 1;
+    scroll-snap-align: none;
+  }
+  /* Persistent picked state here too -- a pick made through this modal may
+     not be in the top-10 grid, so this is the only place to undo it. */
+  .draft-roster-modal .draft-rail-item.picked { border-color: var(--accent-blue); background: rgba(176, 188, 206, 0.15); }
+  .draft-roster-modal .draft-rail-item:disabled { opacity: 0.55; cursor: not-allowed; }
+  .draft-rail-item-badge {
+    margin-left: auto;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 10px;
+    background: var(--accent-blue);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .draft-roster-modal .draft-rail-divider {
+    flex-shrink: 0;
+    width: auto;
+    border-top: 1px solid var(--border);
+    border-left: none;
+    margin-top: 4px;
+    padding: 10px 2px 4px;
+    scroll-snap-align: none;
+  }
+  .draft-roster-modal .draft-rail-divider:first-child { border-top: none; margin-top: 0; padding-top: 2px; }
+  .draft-roster-modal .draft-rail-hint { width: auto; white-space: normal; }
+
+  /* Lock in bar -- a normal flex:0 0 auto child of the fixed column now,
+     not the shared/global .sticky-bar (that class's position:fixed +
+     bottom-nav-relative offset math is exactly what fixed-positioning this
+     whole screen was meant to escape). Its own safe-area padding since it
+     no longer inherits any from a shared ancestor rule. */
+  .draft-mobile-lockbar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px calc(env(safe-area-inset-bottom, 0px) + 12px);
+    border-top: 1px solid var(--border);
+    background: var(--navbar-bg);
+  }
+  /* A real visual state change rather than a button that reads the same
+     solid color whether it's clickable or not -- confirmed live that the
+     shared .btn-primary:disabled alone (a slightly darker blue-grey fill)
+     wasn't enough contrast against the enabled state at a glance. Disabled
+     drops the fill entirely -- muted flat outline at reduced opacity -- so
+     "not ready yet" is unmistakable next to enabled's full-opacity blue. */
+  .draft-mobile-lockbar .draft-lockin-mobile {
+    width: 100%;
+    padding: 14px 20px;
+    font-size: 1.05rem;
+  }
+  .draft-mobile-lockbar .draft-lockin-mobile:disabled {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1.5px solid var(--border);
+    opacity: 0.5;
+  }
+}
+
+/* Hides the global bottom nav while a draft is actually being picked --
+   eight nav destinations under a single-action focused screen is a mis-tap
+   risk, and this screen (position: fixed, see .draft-select-mobile above)
+   now owns the whole viewport regardless, reclaiming the ~60px #bottomNav
+   would otherwise take. Toggled by DraftCharacterSelect.tsx on a body
+   class keyed on room.status === 'picking' (not this component's own
+   mount/unmount -- see that file for why). Specificity (1 class + 1 id)
+   beats the plain #bottomNav rule regardless of media-query nesting, no
+   !important needed. */
+body.draft-picking-active #bottomNav { display: none; }
 
 /* ── Draft reveal + Flip transition + bracket preview ────────────────────── */
 /* Four-corner reveal: each of the (up to 4) players' name sits pinned to its

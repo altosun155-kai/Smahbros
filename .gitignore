@@ -5,6 +5,9 @@ node_modules/
 web/.next/
 repomix-output.xml
 .playwright-mcp/
+web/test-results/
+web/playwright-report/
+web/blob-report/
 # New/untracked skill dirs only (already-tracked ones like github, render-deploy,
 # sentry-python-sdk, supabase-postgres-best-practices, vercel-deploy are unaffected --
 # gitignore doesn't untrack files already in git). Keeps third-party marketplace

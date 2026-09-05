@@ -1,5 +1,6 @@
 import random
 from datetime import timedelta
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -32,7 +33,14 @@ class DraftRoomCreate(BaseModel):
 
 class PickUpdate(BaseModel):
     slot_index: int
-    character: str
+    # Optional, defaulting to None -- a request that omits it, sends null, or
+    # sends "" all mean the same thing: clear this slot. Normalized to a true
+    # None before it's ever compared or stored (see pick_draft_character), so
+    # the DB never ends up with an empty-string character -- distinct from
+    # None to every downstream reader (raw `character IS NOT NULL` filters,
+    # a future consumer that doesn't already happen to treat "" as falsy the
+    # way today's few callers do).
+    character: Optional[str] = None
 
 
 class SlotRequest(BaseModel):
@@ -312,11 +320,15 @@ def pick_draft_character(room_id: int, req: PickUpdate, db: Session = Depends(ge
         raise HTTPException(status_code=403, detail="Not a member of this draft room")
     if not (0 <= req.slot_index < room.chars_per_player):
         raise HTTPException(status_code=400, detail="Invalid slot_index")
-    if req.character:
+    # "" and None both mean "clear this slot" -- normalize once here so the
+    # DB only ever stores a real character name or a true NULL, never a
+    # stray empty string (see PickUpdate.character).
+    character = req.character or None
+    if character:
         dup = db.query(DraftPick).filter(
             DraftPick.room_id == room_id,
             DraftPick.player_id == current_user.id,
-            DraftPick.character == req.character,
+            DraftPick.character == character,
             DraftPick.slot_index != req.slot_index,
         ).first()
         if dup:
@@ -330,9 +342,9 @@ def pick_draft_character(room_id: int, req: PickUpdate, db: Session = Depends(ge
     if pick and pick.locked_at is not None:
         raise HTTPException(status_code=400, detail="Slot is already locked")
     if pick:
-        pick.character = req.character
+        pick.character = character
     else:
-        pick = DraftPick(room_id=room_id, player_id=current_user.id, slot_index=req.slot_index, character=req.character)
+        pick = DraftPick(room_id=room_id, player_id=current_user.id, slot_index=req.slot_index, character=character)
         db.add(pick)
     db.commit()
     db.refresh(room)

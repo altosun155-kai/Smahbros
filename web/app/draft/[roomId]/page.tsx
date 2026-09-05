@@ -19,7 +19,7 @@ function isFullyLocked(picks: { locked: boolean }[] | undefined, charsPerPlayer:
 export default function DraftRoomPage() {
   const params = useParams<{ roomId: string }>();
   const roomId = Number(params.roomId);
-  const { room, error, notJoined, refetch, myId } = useDraftRoom(roomId);
+  const { room, error, notJoined, refetch, myId, setPick } = useDraftRoom(roomId);
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
 
@@ -78,7 +78,7 @@ export default function DraftRoomPage() {
   if (room.status === 'lobby') {
     body = <DraftLobby room={room} myId={myId} onChanged={refetch} />;
   } else if (room.status === 'picking' && !fullyLocked && myId != null) {
-    body = <DraftCharacterSelect room={room} myId={myId} onChanged={refetch} />;
+    body = <DraftCharacterSelect room={room} myId={myId} onChanged={refetch} setPick={setPick} />;
   } else if (room.status === 'live') {
     body = <DraftReveal room={room} />;
   } else {

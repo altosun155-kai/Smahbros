@@ -1797,6 +1797,19 @@ a:hover {
   }
   .draft-slot-box.locked { border-color: var(--accent-gold); cursor: default; }
   .draft-slot-box:disabled { cursor: default; } /* empty box -- tap is a no-op */
+  /* A failed pick/clear rolls back optimistic state automatically -- without
+     this it just reads as a mis-tap, since nothing distinguishes "reverted
+     because the server said no" from "never registered". Red flash on the
+     specific slot that failed, not a global toast, so it's obvious *which*
+     pick didn't take. animation-fill-mode is deliberately left at its
+     default (not "forwards") -- the box returns to whatever its underlying
+     state (locked/next-target/plain) says once the animation ends, rather
+     than getting stuck red. */
+  .draft-slot-box.failed { animation: draft-slot-fail-flash 0.7s ease-out; }
+  @keyframes draft-slot-fail-flash {
+    0%, 100% { box-shadow: none; }
+    15%, 55% { box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.7); border-color: #e74c3c; }
+  }
   .draft-slot-lock {
     position: absolute;
     bottom: -1px;

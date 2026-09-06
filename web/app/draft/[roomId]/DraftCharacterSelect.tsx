@@ -270,6 +270,22 @@ export default function DraftCharacterSelect({
   const [pulseKey, setPulseKey] = useState(0);
   const [locking, setLocking] = useState(false);
 
+  // A failed pick/clear rolls back silently otherwise -- from the player's
+  // side that reads as a mis-tap, not a failure, and they learn nothing
+  // (see applyAdd/applyRemove below). failedSlot flashes that specific slot
+  // box red for a beat so a real failure looks like one. The timer ref is
+  // cleared and restarted on every call (not just set-once) so two failures
+  // on the same slot in quick succession each get the full flash duration
+  // rather than the second failure's flash getting cut short by the first
+  // failure's already-pending clear.
+  const [failedSlot, setFailedSlot] = useState<number | null>(null);
+  const failedSlotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function flashFailure(slotIndex: number) {
+    if (failedSlotTimerRef.current) clearTimeout(failedSlotTimerRef.current);
+    setFailedSlot(slotIndex);
+    failedSlotTimerRef.current = setTimeout(() => setFailedSlot(null), 700);
+  }
+
   // Seed once the real picks arrive (not on every myPicks change) -- a
   // mid-draft refresh should show whatever was already picked, not the
   // empty state, without this re-running every time a pick changes it.
@@ -313,6 +329,8 @@ export default function DraftCharacterSelect({
     } catch (e) {
       setError((e as Error).message);
       setLastAddedSlot(prior);
+      flashFailure(slotIndex);
+      haptic([15, 60, 15, 60, 15]); // distinct from the [8] success tap -- this one should feel like a failure
     }
   }
 
@@ -326,6 +344,8 @@ export default function DraftCharacterSelect({
     } catch (e) {
       setError((e as Error).message);
       setLastAddedSlot(prior);
+      flashFailure(slotIndex);
+      haptic([15, 60, 15, 60, 15]);
     }
   }
 
@@ -548,7 +568,7 @@ export default function DraftCharacterSelect({
                 <button
                   key={i}
                   type="button"
-                  className={`draft-slot-box${i === nextEmptyIndex ? ' next-target' : ''}${p.locked ? ' locked' : ''}`}
+                  className={`draft-slot-box${i === nextEmptyIndex ? ' next-target' : ''}${p.locked ? ' locked' : ''}${failedSlot === i ? ' failed' : ''}`}
                   disabled={!p.character}
                   title={p.locked ? 'Locked' : p.character ? 'Tap to remove this pick' : `Slot ${i + 1} — empty`}
                   onClick={() => onSlotBoxTap(i)}

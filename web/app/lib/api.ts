@@ -82,15 +82,43 @@ export function showToast(message: string, type: string = 'info', duration: numb
   return toast;
 }
 
-// ── Core fetch with 502 retry ─────────────────────
-async function apiFetch<T = any>(method: string, path: string, body: unknown = null, auth: boolean = true): Promise<T> {
-  const headers: Record<string, string> = {};
+// Shared by both apiFetch and apiFetchFast below -- one place to decide
+// what a Response means (401 -> session expired, !ok -> parse an error
+// body, 204 -> null, else -> json), so a future change to that logic can't
+// land in only one of the two paths and quietly diverge from the other.
+async function handleResponse<T>(res: Response): Promise<T> {
+  if (res.status === 401) {
+    clearToken();
+    // '/login' (the Next.js port), not '/login.html' -- api.ts is only used
+    // from web/app/*, so a session expiring mid-use should keep the visitor
+    // inside the Next app rather than bouncing them out to the legacy page.
+    if (typeof window !== 'undefined') window.location.href = '/login';
+    throw new Error('Session expired. Please log in again.');
+  }
 
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const errData = await res.json();
+      detail = errData.detail || errData.message || JSON.stringify(errData);
+    } catch (_) {
+      try {
+        detail = (await res.text()) || detail;
+      } catch (_) {}
+    }
+    throw new Error(detail);
+  }
+
+  if (res.status === 204) return null as T;
+  return (await res.json()) as T;
+}
+
+function buildRequest(method: string, body: unknown, auth: boolean): { headers: Record<string, string>; requestBody: BodyInit | undefined } {
+  const headers: Record<string, string> = {};
   if (auth) {
     const token = getToken();
     if (token) headers['Authorization'] = 'Bearer ' + token;
   }
-
   let requestBody: BodyInit | undefined = undefined;
   if (body !== null) {
     if (body instanceof URLSearchParams) {
@@ -101,6 +129,15 @@ async function apiFetch<T = any>(method: string, path: string, body: unknown = n
       requestBody = JSON.stringify(body);
     }
   }
+  return { headers, requestBody };
+}
+
+// ── Core fetch with 502 retry ─────────────────────
+// For page-load-shaped calls: tolerates a Render cold start by retrying
+// with a long, deliberate wait. Wrong shape for a call the user is actively
+// waiting on mid-interaction -- see apiFetchFast below for that case.
+async function apiFetch<T = any>(method: string, path: string, body: unknown = null, auth: boolean = true): Promise<T> {
+  const { headers, requestBody } = buildRequest(method, body, auth);
 
   for (let attempt = 0; attempt < RETRY_ATTEMPTS; attempt++) {
     if (attempt > 0) {
@@ -124,33 +161,43 @@ async function apiFetch<T = any>(method: string, path: string, body: unknown = n
 
     if (res.status === 502 && attempt < RETRY_ATTEMPTS - 1) continue;
 
-    if (res.status === 401) {
-      clearToken();
-      // '/login' (the Next.js port), not '/login.html' -- api.ts is only used
-      // from web/app/*, so a session expiring mid-use should keep the visitor
-      // inside the Next app rather than bouncing them out to the legacy page.
-      if (typeof window !== 'undefined') window.location.href = '/login';
-      throw new Error('Session expired. Please log in again.');
-    }
-
-    if (!res.ok) {
-      let detail = `HTTP ${res.status}`;
-      try {
-        const errData = await res.json();
-        detail = errData.detail || errData.message || JSON.stringify(errData);
-      } catch (_) {
-        try {
-          detail = (await res.text()) || detail;
-        } catch (_) {}
-      }
-      throw new Error(detail);
-    }
-
-    if (res.status === 204) return null as T;
-    return (await res.json()) as T;
+    return handleResponse<T>(res);
   }
 
   throw new Error('API is unavailable after multiple retries. Please try again later.');
+}
+
+// ── Fast-fail fetch, no retry ──────────────────────
+// For calls made mid-interaction (a tap the user is watching resolve right
+// now), where apiFetch's up-to-3-attempts/25s-wait shape would read as a
+// hang, not a cold start. Single attempt, aborted at FAST_TIMEOUT_MS if the
+// server never responds at all -- apiFetch has no such bound, since a
+// hanging fetch() there just becomes the next 502-shaped retry candidate
+// once it settles; here there's no retry to fall through to, so an
+// unbounded hang has to be turned into a real rejection instead.
+// Deliberately not wired into apiGet/apiPost/etc. -- only exported per verb
+// as needed (apiPutFast, today), so a caller has to opt in explicitly
+// rather than this becoming the default path by accident.
+const FAST_TIMEOUT_MS = 3000;
+
+async function apiFetchFast<T = any>(method: string, path: string, body: unknown = null, auth: boolean = true): Promise<T> {
+  const { headers, requestBody } = buildRequest(method, body, auth);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FAST_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(API_BASE + path, { method, headers, body: requestBody, signal: controller.signal });
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') {
+      throw new Error('Request timed out.');
+    }
+    throw new Error('Could not reach the API.');
+  } finally {
+    clearTimeout(timer);
+  }
+
+  return handleResponse<T>(res);
 }
 
 export function apiGet<T = any>(path: string, auth: boolean = true): Promise<T> {
@@ -163,6 +210,10 @@ export function apiPost<T = any>(path: string, body?: unknown, auth: boolean = t
 
 export function apiPut<T = any>(path: string, body?: unknown, auth: boolean = true): Promise<T> {
   return apiFetch<T>('PUT', path, body ?? null, auth);
+}
+
+export function apiPutFast<T = any>(path: string, body?: unknown, auth: boolean = true): Promise<T> {
+  return apiFetchFast<T>('PUT', path, body ?? null, auth);
 }
 
 export function apiPatch<T = any>(path: string, body?: unknown, auth: boolean = true): Promise<T> {

@@ -1,7 +1,12 @@
-// chars.ts — byte-identical logic port of web/public/js/chars.js.
-// Keep every override-map entry identical to the vanilla file: these exist
-// specifically to patch characters whose Supabase filenames diverge from
-// their display names, and re-deriving them risks reintroducing that bug.
+// chars.ts — was originally a byte-identical logic port of
+// web/public/js/chars.js; that file is now deleted (see git history for its
+// last content). It held 7 wrong CHAR_HEAD_OVERRIDES entries that porting
+// "byte-identical" carried straight into this file -- the exact failure the
+// old header comment here was trying to guard against ("re-deriving them
+// risks reintroducing that bug"), except the source being copied from was
+// itself already wrong. Its pages were redirect-archived and unreachable by
+// URL (see CLAUDE.md's next.config.js redirects), so nothing live referenced
+// it; deleted rather than left as a bad template for the next port.
 
 export const SUPABASE_CHARS = 'https://oqtdlertvgmopnibrbiu.supabase.co/storage/v1/object/public/Characters/';
 
@@ -32,13 +37,21 @@ export const CHAR_NO_IMAGE: Set<string> = new Set([]);
 // filename that isn't the real one), and three more (the Miis) were
 // needless -- the unadorned default (name + "_icon.png") already matches
 // and the override was actively pointing at the wrong asset instead.
-// This is a pre-existing data bug, not introduced by the port: the identical
-// wrong values are already present in web/public/js/chars.js (the legacy
-// vanilla file this was ported from), which is why porting it "byte-
-// identical" carried the bug forward. Left web/public/js/chars.js itself
-// unfixed -- its pages are redirect-archived and unreachable by URL (see
-// CLAUDE.md), out of scope for this task -- but the same fix applies there
-// if that file is ever revisited.
+// This was a pre-existing data bug, not introduced by the port: the
+// identical wrong values were already present in web/public/js/chars.js,
+// the legacy vanilla file this was originally ported from -- porting it
+// "byte-identical" carried the bug forward rather than catching it. That
+// file has since been deleted (see the header comment above) rather than
+// left around as a bad template.
+//
+// Audited against the live bucket afterward (scratch script, not
+// committed): with these 7 fixed, 0 entries below point at a missing file,
+// but 7 of the remaining 9 are now provably redundant -- their value is
+// byte-identical to what the default rule (name + "_icon.png") already
+// produces on its own. Only 'Pokémon Trainer' and 'Pyra/Mythra' need a real
+// override (the default rule can't reproduce "é" or "/" in a filename).
+// Left as-is pending a decision on whether to shrink the table down to
+// those two -- noted here so that decision has the evidence next to it.
 export const CHAR_HEAD_OVERRIDES: Record<string, string> = {
   'Pokémon Trainer':  'Pokemon Trainer_icon.png',
   'Rosalina & Luma':  'Rosalina & Luma_icon.png',    // was "Rosalina and Luma_icon.png" -- real file keeps the ampersand, unlike the full portrait

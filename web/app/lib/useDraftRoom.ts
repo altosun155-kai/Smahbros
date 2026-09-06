@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { apiGet, apiPut, getToken, getUsername, wsUrl } from './api';
+import { apiGet, apiPutFast, getToken, getUsername, wsUrl } from './api';
 
 export interface DraftPick {
   slot_index: number;
@@ -161,7 +161,13 @@ export function useDraftRoom(roomId: number | null) {
       });
 
       try {
-        await apiPut(`/draft/rooms/${roomId}/pick`, { slot_index: slotIndex, character });
+        // Fast-fail, not apiFetch's page-load-shaped retry: this is a tap
+        // the player is actively watching resolve, not a cold-start wait --
+        // see api.ts's apiFetchFast for why the two calls need different
+        // shapes. A single ~3s attempt means a real failure (or a hung
+        // connection) rolls back and surfaces quickly instead of leaving the
+        // optimistic pick showing for up to ~75s of retries first.
+        await apiPutFast(`/draft/rooms/${roomId}/pick`, { slot_index: slotIndex, character });
       } catch (e) {
         if (requestSeqRef.current[slotIndex] === seq) {
           setMyPicks((prev) => {

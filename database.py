@@ -1,7 +1,20 @@
 from sqlalchemy import create_engine, Column, Integer, String, JSON, DateTime, ForeignKey, Boolean, UniqueConstraint, Index
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from datetime import datetime, timezone
 import os
+
+# Plain JSON everywhere except Postgres, where it's JSONB -- matches what's
+# actually in the live production database today for the six columns this
+# is used on (confirmed via `information_schema.columns`, not assumed: all
+# six came back jsonb). Those columns got jsonb because they were added to
+# already-existing tables via a raw ALTER TABLE ... JSONB in migrations.py,
+# while every OTHER environment's create_all() -- which runs first and only
+# creates a table that doesn't exist yet -- had been building them as plain
+# `Column(JSON, ...)` (== json on Postgres) the whole time. Defined once and
+# reused rather than repeated per column so the two paths can't drift apart
+# silently again the same way.
+JSONColumn = JSON().with_variant(JSONB(), "postgresql")
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./smash.db")
 
@@ -89,15 +102,15 @@ class Bracket(Base):
     players      = Column(JSON, default=list)
     entries      = Column(JSON, default=list)
     bracket_data  = Column(JSON, default=list)
-    round_winners      = Column(JSON, default=dict)
-    round_scores       = Column(JSON, default=dict)
+    round_winners      = Column(JSONColumn, default=dict)
+    round_scores       = Column(JSONColumn, default=dict)
     bracket_style      = Column(String, default="strongVsStrong")
     is_live            = Column(Boolean, default=False)
     winner             = Column(String, nullable=True)
     chars_per_player   = Column(Integer, default=2)
-    confirmed_lineups  = Column(JSON, default=dict)
-    teams              = Column(JSON, nullable=True)
-    placements         = Column(JSON, nullable=True)
+    confirmed_lineups  = Column(JSONColumn, default=dict)
+    teams              = Column(JSONColumn, nullable=True)
+    placements         = Column(JSONColumn, nullable=True)
     # When placements were actually awarded (set by _award_placements,
     # routers/brackets.py) -- distinct from created_at (when the bracket was
     # started). Placements can land long after creation for a tournament
@@ -243,7 +256,7 @@ class DraftRoom(Base):
     chars_per_player = Column(Integer, default=1, nullable=False)        # 1, 4, or 8 -- picks per PLAYER, not room total
     players          = Column(JSON, default=list)                       # ordered [user_id, ...] = join order
     bracket_id       = Column(Integer, ForeignKey("brackets.id"), nullable=True, index=True)  # legacy, unused going forward
-    bracket_ids      = Column(JSON, default=list)                       # ordered [bracket_id, ...], len == chars_per_player
+    bracket_ids      = Column(JSONColumn, default=list)                 # ordered [bracket_id, ...], len == chars_per_player
     created_at       = Column(DateTime, default=_now)
 
     host    = relationship("User", foreign_keys=[host_id])

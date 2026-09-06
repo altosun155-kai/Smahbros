@@ -51,6 +51,7 @@ web/public/js/nav-inject.js — Injects shared nav bar — never hardcode nav HT
 - PostgreSQL prod URL starts `postgres://` but SQLAlchemy needs `postgresql://` — patched in `database.py`
 - `smash.db` (SQLite) is local-only; never commit it
 - Supabase image URLs use `%20` encoding for spaces in fighter names (e.g. `Donkey%20Kong.png`)
+- **`character_skins` is a real production table with no declared model and no sqlite counterpart.** It exists only in `migrations.py`'s Postgres branch (`CREATE TABLE IF NOT EXISTS character_skins ...`), and nothing anywhere in the codebase queries or writes it — looks like an abandoned feature scaffold. Left alone (the table itself, not a live concern) — but if a future session wants to build a `character_skins` feature, this row already exists with whatever shape that original `CREATE TABLE` gave it; declaring a new SQLAlchemy model with that name needs to match it (or migrate it) rather than assume a fresh table.
 
 ## Known Gaps
 

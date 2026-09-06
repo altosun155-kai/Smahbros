@@ -52,16 +52,17 @@ def _run_migrations():
                 conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_cs_user_char ON character_stats(user_id, character)"))
             except Exception:
                 pass
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS character_matchups (
-                    id SERIAL PRIMARY KEY,
-                    char_a VARCHAR NOT NULL,
-                    char_b VARCHAR NOT NULL,
-                    wins_a INTEGER NOT NULL DEFAULT 0,
-                    wins_b INTEGER NOT NULL DEFAULT 0,
-                    UNIQUE(char_a, char_b)
-                )
-            """))
+            # character_matchups, tournament_presets, draft_rooms, and
+            # draft_picks are all declared SQLAlchemy models (database.py) --
+            # api.py's create_all() runs before this function and always
+            # creates them first, from the model, so a CREATE TABLE IF NOT
+            # EXISTS for any of them here could never fire for real in any
+            # environment. Removed (previously present, dead since each
+            # became a model) rather than left as a second, silently-stale
+            # definition of the same table's shape -- see CLAUDE.md's
+            # migration-testing note for why that's worth avoiding on its
+            # own. character_skins is NOT a declared model (see CLAUDE.md's
+            # Known Gaps) -- its CREATE TABLE below is real and stays.
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS character_skins (
                     id SERIAL PRIMARY KEY,
@@ -70,44 +71,12 @@ def _run_migrations():
                     updated_at TIMESTAMP DEFAULT NOW()
                 )
             """))
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS tournament_presets (
-                    id SERIAL PRIMARY KEY,
-                    creator_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                    name VARCHAR NOT NULL,
-                    players JSONB DEFAULT '[]',
-                    fill_mode VARCHAR DEFAULT 'elo',
-                    seed_mode VARCHAR DEFAULT 'elo',
-                    bracket_style VARCHAR DEFAULT 'strongVsStrong',
-                    chars_per_player INTEGER DEFAULT 2,
-                    created_at TIMESTAMP DEFAULT NOW()
-                )
-            """))
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS draft_rooms (
-                    id SERIAL PRIMARY KEY,
-                    host_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                    status VARCHAR NOT NULL DEFAULT 'lobby',
-                    num_players INTEGER NOT NULL DEFAULT 4,
-                    chars_per_player INTEGER NOT NULL DEFAULT 1,
-                    players JSONB DEFAULT '[]',
-                    bracket_id INTEGER REFERENCES brackets(id),
-                    bracket_ids JSONB DEFAULT '[]',
-                    created_at TIMESTAMP DEFAULT NOW()
-                )
-            """))
+            # bracket_ids predates draft_rooms having a declared model column
+            # for it in some already-deployed environments -- this ALTER is
+            # still real (not superseded by create_all() the way the removed
+            # CREATE TABLE above it was), since it patches an existing table
+            # that was missing the column, not one that doesn't exist yet.
             conn.execute(text("ALTER TABLE draft_rooms ADD COLUMN IF NOT EXISTS bracket_ids JSONB DEFAULT '[]'"))
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS draft_picks (
-                    id SERIAL PRIMARY KEY,
-                    room_id INTEGER NOT NULL REFERENCES draft_rooms(id) ON DELETE CASCADE,
-                    player_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                    slot_index INTEGER NOT NULL,
-                    character VARCHAR,
-                    locked_at TIMESTAMP,
-                    UNIQUE(room_id, player_id, slot_index)
-                )
-            """))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_dp_room_id ON draft_picks(room_id)"))
             # Duplicate character picks were explicitly allowed before free-pool
             # draft brackets required them to be unique -- pre-existing duplicate
@@ -206,61 +175,23 @@ def _run_migrations():
                 conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_cs_user_char ON character_stats(user_id, character)"))
             except Exception:
                 pass
-            existing = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))}
-            if "character_matchups" not in existing:
-                conn.execute(text("""
-                    CREATE TABLE character_matchups (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        char_a VARCHAR NOT NULL,
-                        char_b VARCHAR NOT NULL,
-                        wins_a INTEGER NOT NULL DEFAULT 0,
-                        wins_b INTEGER NOT NULL DEFAULT 0,
-                        UNIQUE(char_a, char_b)
-                    )
-                """))
-            if "tournament_presets" not in existing:
-                conn.execute(text("""
-                    CREATE TABLE tournament_presets (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        creator_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                        name VARCHAR NOT NULL,
-                        players TEXT DEFAULT '[]',
-                        fill_mode VARCHAR DEFAULT 'elo',
-                        seed_mode VARCHAR DEFAULT 'elo',
-                        bracket_style VARCHAR DEFAULT 'strongVsStrong',
-                        chars_per_player INTEGER DEFAULT 2,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                """))
-            if "draft_rooms" not in existing:
-                conn.execute(text("""
-                    CREATE TABLE draft_rooms (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        host_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                        status VARCHAR NOT NULL DEFAULT 'lobby',
-                        num_players INTEGER NOT NULL DEFAULT 4,
-                        chars_per_player INTEGER NOT NULL DEFAULT 1,
-                        players TEXT DEFAULT '[]',
-                        bracket_id INTEGER REFERENCES brackets(id),
-                        bracket_ids TEXT DEFAULT '[]',
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                """))
+            # character_matchups, tournament_presets, draft_rooms, and
+            # draft_picks are all declared SQLAlchemy models (database.py) --
+            # api.py's create_all() runs before this function and always
+            # creates them first, from the model, so the CREATE TABLE blocks
+            # previously here for all four (guarded by an `existing` check,
+            # same idea as IF NOT EXISTS) could never fire for real in any
+            # environment. Removed, along with the now-unused `existing`
+            # lookup they were the only consumers of.
+            #
+            # bracket_ids predates draft_rooms having a declared model column
+            # for it in some already-deployed environments -- this ALTER is
+            # still real (not superseded by create_all() the way the removed
+            # CREATE TABLE was), since it patches an existing table that was
+            # missing the column, not one that doesn't exist yet.
             dr_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(draft_rooms)"))}
             if "bracket_ids" not in dr_cols:
                 conn.execute(text("ALTER TABLE draft_rooms ADD COLUMN bracket_ids TEXT DEFAULT '[]'"))
-            if "draft_picks" not in existing:
-                conn.execute(text("""
-                    CREATE TABLE draft_picks (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        room_id INTEGER NOT NULL REFERENCES draft_rooms(id) ON DELETE CASCADE,
-                        player_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                        slot_index INTEGER NOT NULL,
-                        character VARCHAR,
-                        locked_at TIMESTAMP,
-                        UNIQUE(room_id, player_id, slot_index)
-                    )
-                """))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_dp_room_id ON draft_picks(room_id)"))
             # Duplicate character picks were explicitly allowed before free-pool
             # draft brackets required them to be unique -- pre-existing duplicate

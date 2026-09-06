@@ -13,9 +13,15 @@ interface ModalProps {
   onClose: () => void;
   children: ReactNode;
   maxWidth?: number;
+  // Additive -- every existing caller keeps the default .glass look
+  // unchanged. Lets one call site override the panel's background (e.g.
+  // draft's roster picker, where .glass's translucency let busy content
+  // behind it ghost through) without touching the shared class every other
+  // modal still uses.
+  panelClassName?: string;
 }
 
-export default function Modal({ open, onClose, children, maxWidth = 480 }: ModalProps) {
+export default function Modal({ open, onClose, children, maxWidth = 480, panelClassName }: ModalProps) {
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -38,14 +44,14 @@ export default function Modal({ open, onClose, children, maxWidth = 480 }: Modal
         position: 'fixed',
         inset: 0,
         zIndex: 300,
-        background: 'rgba(0,0,0,0.7)',
+        background: 'rgba(0,0,0,0.78)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
       <div
-        className="glass"
+        className={`glass${panelClassName ? ` ${panelClassName}` : ''}`}
         style={{
           maxWidth,
           width: '90%',

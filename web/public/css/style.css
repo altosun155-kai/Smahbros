@@ -1598,11 +1598,15 @@ a:hover {
    .draft-select-panels/.draft-portrait/.draft-stats-grid below never
    actually match anything at this width anymore -- left in place as inert
    rather than deleted, in case anything else ever reuses this markup shape.
-   The .draft-rail/-item/-divider/-hint rules here DO still matter, though:
-   DraftCharacterSelect.tsx's "More fighters" modal reuses those exact same
-   classes for its full-roster list, so this horizontal-strip styling would
-   apply there too if left unscoped -- overridden back to a vertical list by
-   the higher-specificity .draft-roster-modal rules further down. */
+   The .draft-rail/-item/-divider/-hint rules here used to matter too, for
+   mobile's "More fighters" modal, which reused that exact markup for its
+   full-roster list. Not anymore: that modal was rebuilt around its own
+   .draft-roster-grid (a grid of .draft-roster-tile, not .draft-rail-item).
+   Desktop's rail still uses .draft-rail/-item/-divider/-hint unchanged, but
+   only ever renders above 700px (the isMobile hook swaps the whole tree at
+   that breakpoint) -- meaning nothing renders these classes AT this width
+   anymore, on either branch. Left in place as inert alongside the rules
+   above rather than deleted, same reasoning. */
 @media (max-width: 700px) {
   .draft-select-panels {
     grid-template-columns: 1fr;
@@ -1874,6 +1878,13 @@ a:hover {
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    /* Belt-and-suspenders against a missing/misnamed asset (see
+       .draft-slot-box, the same fix applied there for the same reason): the
+       onError handler on the <img> hides it, but that's a JS-timing thing --
+       this clips a broken image's alt-text fallback at the CSS layer too,
+       so a bad filename degrades to a blank tile instead of spilling text
+       across neighboring tiles. */
+    overflow: hidden;
   }
   .draft-grid-tile img { width: 100%; height: 100%; object-fit: contain; }
   /* Persistent -- filled tint + a small slot-number badge -- for as long as
@@ -1917,56 +1928,114 @@ a:hover {
     text-align: left;
   }
 
-  /* "More fighters" modal -- its own toggle-aware list rows (mobileRailItem
-     in the component, NOT desktop's cursor-based railItem), reusing the
-     desktop rail's visual markup (.draft-rail/-item/-divider/-hint) --
-     forced back to a vertical list here since it'd otherwise inherit the
-     horizontal snap-strip rules meant for a different context (same
-     breakpoint, unscoped selector). Higher specificity wins regardless of
-     which rule comes first. */
-  .draft-roster-modal .draft-rail {
-    flex-direction: column;
-    max-height: 60vh;
-    overflow-x: visible;
-    overflow-y: auto;
-    scroll-snap-type: none;
+  /* "More fighters" modal panel -- overrides .glass's near-transparent
+     background (rgba(255,255,255,0.045) + a blur that's already halved on
+     mobile for GPU cost, see the perf media query near the top of this
+     file) via Modal.tsx's panelClassName prop, additive to that component
+     rather than changing .glass for every other modal in the app. Confirmed
+     live that the default .glass look let the favorites grid and the
+     render behind it ghost straight through -- solid background fixes that
+     outright; backdrop-filter left in as a harmless no-op rather than
+     removed, in case a future lighter-weight use of this same panel wants
+     it back. */
+  .draft-roster-panel {
+    background: var(--card-bg) !important;
+    border-color: var(--border) !important;
   }
-  .draft-roster-modal .draft-rail-item {
-    flex-direction: row;
-    width: auto;
-    flex-shrink: 1;
-    scroll-snap-align: none;
-  }
-  /* Persistent picked state here too -- a pick made through this modal may
-     not be in the top-10 grid, so this is the only place to undo it. */
-  .draft-roster-modal .draft-rail-item.picked { border-color: var(--accent-blue); background: rgba(176, 188, 206, 0.15); }
-  .draft-roster-modal .draft-rail-item:disabled { opacity: 0.55; cursor: not-allowed; }
-  .draft-rail-item-badge {
-    margin-left: auto;
-    min-width: 20px;
-    height: 20px;
-    padding: 0 5px;
-    border-radius: 10px;
-    background: var(--accent-blue);
-    color: #fff;
-    font-size: 0.7rem;
-    font-weight: 700;
+  .draft-roster-header {
     display: flex;
+    gap: 8px;
     align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+    margin-bottom: 10px;
   }
-  .draft-roster-modal .draft-rail-divider {
+  .draft-roster-header .draft-rail-search { flex: 1; margin-bottom: 0; }
+  /* Same visual language as tournament/page.tsx's .vs-close ("✕ Close" pill)
+     -- not its position: absolute, which was built for a full-bleed modal
+     this panel isn't. Static in the header row instead. */
+  .roster-close-btn {
     flex-shrink: 0;
-    width: auto;
-    border-top: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    border-radius: 6px;
+    padding: 9px 14px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .roster-close-btn:hover { background: rgba(255, 255, 255, 0.2); }
+
+  /* The roster grid -- replaces the old one-per-row list. Matches the
+     favorites grid's visual language (icon tiles) instead of switching to a
+     dense text list mid-flow. 3-across, chosen over a 4-across Elo-only
+     variant after a side-by-side comparison -- see modalGridItem's comment
+     in DraftCharacterSelect.tsx for why. */
+  .draft-roster-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding-right: 2px; /* keeps the scrollbar off the tiles' own edge */
+  }
+  /* Section labels ("Your Favorites" / "All Fighters") span the full grid
+     width as their own row, rather than becoming just another cell. */
+  .draft-roster-grid .draft-rail-divider {
+    grid-column: 1 / -1;
     border-left: none;
     margin-top: 4px;
     padding: 10px 2px 4px;
-    scroll-snap-align: none;
   }
-  .draft-roster-modal .draft-rail-divider:first-child { border-top: none; margin-top: 0; padding-top: 2px; }
-  .draft-roster-modal .draft-rail-hint { width: auto; white-space: normal; }
+  .draft-roster-grid .draft-rail-divider:first-child { border-top: none; margin-top: 0; padding-top: 2px; }
+  .draft-roster-grid .draft-rail-hint { grid-column: 1 / -1; white-space: normal; }
+
+  .draft-roster-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 4px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card-bg2);
+    cursor: pointer;
+  }
+  .draft-roster-tile.picked { border-color: var(--accent-blue); background: rgba(176, 188, 206, 0.18); }
+  .draft-roster-tile:disabled { cursor: not-allowed; opacity: 0.55; }
+  .draft-roster-tile-icon {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    /* Same CSS-level containment as .draft-slot-box/.draft-grid-tile -- a
+       broken image's alt text shouldn't be able to spill past this tile
+       regardless of whether the onError handler has run yet. */
+    overflow: hidden;
+  }
+  .draft-roster-tile-icon img { width: 100%; height: 100%; object-fit: contain; }
+  .draft-roster-tile-name {
+    font-size: 0.66rem;
+    line-height: 1.15;
+    text-align: center;
+    /* Wraps to 2 lines rather than truncating -- "Banjo & Kazooie",
+       "Captain Falcon" etc. need to stay fully legible at 4-across, not get
+       cut to "Captain Fal…". */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  /* Quiet on purpose: most of the roster is unplayed for any one player (a
+     handful of favorites played regularly vs. ~85 fighters total), so an
+     empty stat area needs to read as genuinely blank, not as a repeated
+     "Unplayed" label shouting on every tile. min-height reserves the row's
+     space either way, so tiles with and without a number still align. */
+  .draft-roster-tile-stat {
+    min-height: 1.1em;
+    font-size: 0.62rem;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    opacity: 0.75;
+  }
 
   /* Lock in bar -- a normal flex:0 0 auto child of the fixed column now,
      not the shared/global .sticky-bar (that class's position:fixed +

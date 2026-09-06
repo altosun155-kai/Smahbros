@@ -133,6 +133,17 @@ export default function DraftCharacterSelect({
     return m;
   }, [stats]);
 
+  // Full stat row per character, for the "More fighters" modal's per-tile
+  // Elo/record -- same /characters/stats fetch as winsByChar above, so this
+  // is a second lookup map over data already in hand, not a second request.
+  // A character with no row here (never played) reads as unplayed -- most
+  // of the roster, for any one player.
+  const statsByChar = useMemo(() => {
+    const m = new Map<string, StatRow>();
+    for (const s of stats) m.set(s.character, s);
+    return m;
+  }, [stats]);
+
   // Deduped remainder -- everything in the roster that isn't already pinned
   // above -- ordered by wins descending, alphabetical as the tiebreak (covers
   // both real ties and the shared "0 wins" bucket of untested/winless
@@ -391,37 +402,59 @@ export default function DraftCharacterSelect({
     );
   }
 
-  // "More fighters" modal's list row -- same toggle semantics as the grid
-  // (this is what makes a pick made in here undoable at all: it isn't
-  // necessarily in the top-10 grid to tap again there). Desktop's railItem
-  // is deliberately NOT reused -- it's built around the cursor concept
-  // mobile no longer has.
-  function mobileRailItem(c: string) {
+  // "More fighters" modal's grid tile -- same toggle semantics as the
+  // favorites grid (this is what makes a pick made in here undoable at all:
+  // it isn't necessarily in the top-10 grid to tap again there). Desktop's
+  // railItem is deliberately NOT reused -- it's built around the cursor
+  // concept mobile no longer has. Not the same component as mobileTile
+  // either: that one is icon-only (fixed 10-tile grid, no room for a label);
+  // this one carries a name + Elo/record, needed once the grid covers the
+  // full ~85-character roster instead of a curated 10. Both share the same
+  // picked/locked/badge *state* (pickedSlotByChar, myPicks) -- only the
+  // markup differs.
+  //
+  // 3-across with Elo + W-L record, chosen over a 4-across Elo-only variant
+  // built for a side-by-side comparison: the extra column's scan-rate
+  // advantage didn't survive contact (tall name+stat cards, not compact
+  // icons -- ~12 tiles visible at 4-across vs. ~9 at 3-across, not the
+  // ~24-vs-18 the raw tile math predicted), while 4-across couldn't fit
+  // "Banjo & Kazooie" on one line and pushed same-row Elo numbers to
+  // different baselines depending on whether a neighbor's name wrapped.
+  // Most of the roster has no record at all for any one player -- that's
+  // deliberately quiet here (blank, not a repeated "Unplayed" label), so the
+  // few tiles that DO have a number are what stand out, rather than every
+  // blank tile shouting equally.
+  function modalGridItem(c: string) {
     const slotIdx = pickedSlotByChar.get(c);
     const picked = slotIdx != null;
     const lockedHere = picked && myPicks[slotIdx].locked;
+    const stat = statsByChar.get(c);
+    const statText = stat ? `${stat.elo} · ${stat.wins}-${stat.losses}` : '';
     return (
       <button
         key={c}
         type="button"
-        className={`draft-rail-item${picked ? ' picked' : ''}`}
+        className={`draft-roster-tile${picked ? ' picked' : ''}`}
         disabled={allLocked || lockedHere}
-        title={picked ? `Picked for slot ${slotIdx + 1} — tap to remove` : undefined}
+        title={picked ? `Picked for slot ${slotIdx + 1} — tap to remove` : c}
         onClick={() => toggleCharacter(c)}
       >
-        <img src={charImgUrl(c)} alt={c} onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')} />
-        <span>{c}</span>
-        {picked && <span className="draft-rail-item-badge">{slotIdx + 1}</span>}
+        <span className="draft-roster-tile-icon">
+          <img src={charImgUrl(c)} alt={c} onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')} />
+          {picked && <span className="draft-grid-tile-badge">{slotIdx + 1}</span>}
+        </span>
+        <span className="draft-roster-tile-name">{c}</span>
+        <span className="draft-roster-tile-stat">{statText}</span>
       </button>
     );
   }
 
   const mobileRosterList = (
-    <div className="draft-rail">
+    <div className="draft-roster-grid">
       {pinnedFiltered.length > 0 && (
         <>
           <div className="draft-rail-divider">Your Favorites</div>
-          {pinnedFiltered.map(mobileRailItem)}
+          {pinnedFiltered.map(modalGridItem)}
         </>
       )}
       {pinned.length === 0 && !q && (
@@ -436,7 +469,7 @@ export default function DraftCharacterSelect({
       {restFiltered.length > 0 && (
         <>
           <div className="draft-rail-divider">All Fighters</div>
-          {restFiltered.map(mobileRailItem)}
+          {restFiltered.map(modalGridItem)}
         </>
       )}
       {q && pinnedFiltered.length === 0 && restFiltered.length === 0 && (
@@ -521,7 +554,11 @@ export default function DraftCharacterSelect({
                   onClick={() => onSlotBoxTap(i)}
                 >
                   {p.character ? (
-                    <img src={charHeadUrl(p.character)} alt={p.character} />
+                    <img
+                      src={charHeadUrl(p.character)}
+                      alt={p.character}
+                      onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')}
+                    />
                   ) : (
                     <span className="draft-slot-box-num">{i + 1}</span>
                   )}
@@ -559,16 +596,25 @@ export default function DraftCharacterSelect({
           )}
         </div>
 
-        <Modal open={rosterOpen} onClose={() => setRosterOpen(false)} maxWidth={420}>
+        <Modal open={rosterOpen} onClose={() => setRosterOpen(false)} maxWidth={420} panelClassName="draft-roster-panel">
           <div className="draft-roster-modal">
-            <input
-              type="text"
-              className="draft-rail-search"
-              placeholder="Search characters…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              autoFocus
-            />
+            <div className="draft-roster-header">
+              <input
+                type="text"
+                className="draft-rail-search"
+                placeholder="Search characters…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                autoFocus
+              />
+              {/* Same visual language as tournament/page.tsx's .vs-close ("✕
+                  Close") -- not its absolute positioning, which was built for
+                  a full-bleed modal this panel isn't. Static in a header row
+                  next to the search box instead. */}
+              <button type="button" className="roster-close-btn" onClick={() => setRosterOpen(false)}>
+                ✕ Close
+              </button>
+            </div>
             {mobileRosterList}
           </div>
         </Modal>

@@ -22,19 +22,37 @@ export const CHAR_FILE_OVERRIDES: Record<string, string> = {
 
 export const CHAR_NO_IMAGE: Set<string> = new Set([]);
 
+// Unlike CHAR_FILE_OVERRIDES, the icon (chara_2) exports were uploaded with
+// their own, inconsistent naming choices -- not just the full-portrait
+// filename plus "_icon". Confirmed against the live Supabase bucket
+// (HEAD-equivalent checks against every entry here and every no-entry
+// default for a punctuation/space-bearing roster name) after the mobile
+// "More fighters" modal work shipped a broken slot-box image for Bowser Jr.:
+// four entries below were wrong in the exact same way (a plausible-looking
+// filename that isn't the real one), and three more (the Miis) were
+// needless -- the unadorned default (name + "_icon.png") already matches
+// and the override was actively pointing at the wrong asset instead.
+// This is a pre-existing data bug, not introduced by the port: the identical
+// wrong values are already present in web/public/js/chars.js (the legacy
+// vanilla file this was ported from), which is why porting it "byte-
+// identical" carried the bug forward. Left web/public/js/chars.js itself
+// unfixed -- its pages are redirect-archived and unreachable by URL (see
+// CLAUDE.md), out of scope for this task -- but the same fix applies there
+// if that file is ever revisited.
 export const CHAR_HEAD_OVERRIDES: Record<string, string> = {
   'Pokémon Trainer':  'Pokemon Trainer_icon.png',
-  'Rosalina & Luma':  'Rosalina and Luma_icon.png',
-  'Pac-Man':          'Pac Man_icon.png',
-  'Bowser Jr.':       'Bowser Jr_icon.png',
+  'Rosalina & Luma':  'Rosalina & Luma_icon.png',    // was "Rosalina and Luma_icon.png" -- real file keeps the ampersand, unlike the full portrait
+  'Pac-Man':          'Pac-Man_icon.png',            // was "Pac Man_icon.png" -- real file keeps the hyphen, unlike the full portrait
+  'Bowser Jr.':       'Bowser Jr._icon.png',         // was "Bowser Jr_icon.png" -- real file keeps the period, unlike the full portrait
   'King K. Rool':     'King K. Rool_icon.png',
   'Banjo & Kazooie':  'Banjo & Kazooie_icon.png',
   'Pyra/Mythra':      'Pyra Mythra_icon.png',
   'R.O.B.':           'R.O.B._icon.png',
-  'Wii Fit Trainer':  'WII Fit Trainer_icon.png',
-  'Mii Brawler':      'Mii_fighter_icon.png',
-  'Mii Swordfighter': 'Mii_sword_icon.png',
-  'Mii Gunner':       'Mii_gunner_icon.png',
+  'Wii Fit Trainer':  'Wii Fit Trainer_icon.png',    // was "WII Fit Trainer_icon.png" -- real file uses normal case, unlike the full portrait
+  // Mii Brawler/Swordfighter/Gunner: no entry needed -- the icon exports use
+  // the plain display name ("Mii Brawler_icon.png", etc.), not the
+  // Mii_fighter/_sword/_gunner naming the full-portrait override uses. The
+  // removed entries pointed at Mii_fighter_icon.png etc., which don't exist.
 };
 
 export function charImgUrl(name: string): string {

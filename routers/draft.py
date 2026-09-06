@@ -1,5 +1,5 @@
 import random
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,13 +7,20 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from pydantic import BaseModel
 
-from database import User, DraftRoom, DraftPick, Bracket, _now, to_utc_iso
+from database import User, DraftRoom, DraftPick, Bracket, CharacterStats, FavoriteCharacters, _now, to_utc_iso
 from auth import get_db, get_current_user
 import ws_manager
 
 router = APIRouter(tags=["draft"])
 
 VALID_CHARS_PER_PLAYER = (1, 4, 8)
+
+# Sentinel "oldest possible" for _prefill_fill_order's recency sort -- a row
+# should never actually have a null updated_at (default=_now on insert), but
+# sorting a hypothetical null-timestamp row last rather than crashing is the
+# safer failure mode for something that only ever affects fill order, never
+# correctness of what's stored.
+_EPOCH = datetime.min
 
 
 def _next_power_of_two(n: int) -> int:
@@ -49,6 +56,76 @@ class SlotRequest(BaseModel):
 
 def _push(db: Session, room: DraftRoom):
     ws_manager.push(f"draft:{room.id}", draft_room_to_dict(db, room, viewer_id=None))
+
+
+def _prefill_fill_order(db: Session, player_id: int) -> list[str]:
+    """The candidate character order for one player's pre-fill, longer than
+    any real chars_per_player -- the caller truncates. Two tiers, in order:
+
+      1. Most-played (CharacterStats.wins + losses, descending; ties broken
+         by most-recently-played, not alphabetically -- see below),
+         characters with zero games excluded -- a character nobody's
+         played isn't "most played", it just hasn't been touched.
+      2. Starred favorites, in saved order, with anything already listed in
+         tier 1 skipped so the same character never appears twice.
+
+    Nothing outside these two lists is ever included -- an empty result
+    (new player, no favorites) is correct, not a bug; the caller leaves
+    those slots empty rather than inventing a pick from the wider roster.
+
+    Tiebreak note: alphabetical was the first cut here, but it's an
+    arbitrary axis -- a player with a spread of 1-2-game characters would
+    get the exact same alphabetically-biased fill every single draft,
+    forever. CharacterStats.updated_at (onupdate=_now) is already loaded on
+    every row here and needs no new query: record_match (routers/matches.py)
+    is the ONLY writer that ever touches a CharacterStats row's wins/losses/
+    elo/kills/deaths (confirmed by grep -- every other reference in the
+    codebase is a read), so onupdate necessarily stamps updated_at at the
+    exact moment a match involving that character is recorded. That makes
+    it a real "last played" timestamp, not a coincidental side effect of
+    some unrelated write. Two stable sorts (not one sort on a combined key)
+    so the datetime side doesn't need its own None-handling or negation
+    trick: pre-sort by recency, then a second stable sort by games-played
+    preserves that recency order within each tied games-played group.
+    """
+    stats_rows = db.query(CharacterStats).filter(CharacterStats.user_id == player_id).all()
+    candidates = [r for r in stats_rows if (r.wins + r.losses) > 0]
+    by_recency = sorted(candidates, key=lambda r: r.updated_at or _EPOCH, reverse=True)
+    most_played = sorted(by_recency, key=lambda r: -(r.wins + r.losses))
+    order = [r.character for r in most_played]
+
+    fav = db.query(FavoriteCharacters).filter(FavoriteCharacters.owner_id == player_id).first()
+    seen = set(order)
+    for c in (fav.characters if fav else []) or []:
+        if c not in seen:
+            order.append(c)
+            seen.add(c)
+    return order
+
+
+def _prefill_picks_for_player(db: Session, room: DraftRoom, player_id: int) -> None:
+    """Writes real DraftPick rows for this player's pre-fill, same shape
+    pick_draft_character itself would write -- not local-only state, so the
+    picks survive a refresh and other players see the slot count immediately
+    over the WS push start_draft_room already sends. Only ever called from
+    start_draft_room at the lobby -> picking transition (see that function's
+    own comment for why that makes this exactly-once with no extra flag
+    needed); existing-row guard below is defensive insurance, not a live
+    path -- pick_draft_character requires status == 'picking', which can't
+    be true yet for any player at the moment this runs.
+    """
+    order = _prefill_fill_order(db, player_id)[: room.chars_per_player]
+    if not order:
+        return
+    existing_slots = {
+        p.slot_index for p in db.query(DraftPick).filter(
+            DraftPick.room_id == room.id, DraftPick.player_id == player_id
+        ).all()
+    }
+    for slot_index, character in enumerate(order):
+        if slot_index in existing_slots:
+            continue
+        db.add(DraftPick(room_id=room.id, player_id=player_id, slot_index=slot_index, character=character))
 
 
 def _deal_bracket(entries_by_player: dict, chars_per_player: int) -> list:
@@ -279,6 +356,23 @@ def start_draft_room(room_id: int, db: Session = Depends(get_db), current_user: 
     if len(room.players or []) < 2:
         raise HTTPException(status_code=400, detail="Need at least 2 players to start")
     room.status = "picking"
+
+    # Pre-fill: runs exactly once per room because this transition itself
+    # does -- join_draft_room only accepts new players while status ==
+    # 'lobby' (so room.players is frozen by the time we get here), and the
+    # guard above (`if room.status != 'lobby': raise 400`) means a given
+    # room can only ever pass through this line once. That makes "once per
+    # player per room" a property of *when* this runs, not something that
+    # needs its own tracking column -- deliberately not a "has this player
+    # been pre-filled" flag: the naive alternative (fill on component mount
+    # if slots are empty) is exactly the bug this avoids, since a player who
+    # deliberately clears every slot would look identical to a never-filled
+    # one and get refilled on the next refresh.
+    users_by_id = {u.id: u for u in db.query(User).filter(User.id.in_(room.players or [])).all()}
+    for pid in room.players or []:
+        user = users_by_id.get(pid)
+        if user is not None and user.draft_prefill_enabled:
+            _prefill_picks_for_player(db, room, pid)
     db.commit()
 
     other_lobbies = db.query(DraftRoom).filter(

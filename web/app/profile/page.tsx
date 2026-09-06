@@ -33,6 +33,7 @@ interface Me {
   avatar_url: string | null;
   featured_badge: string | null;
   background_character: string | null;
+  draft_prefill_enabled: boolean;
 }
 
 interface ProfileBadge {
@@ -136,6 +137,10 @@ export default function ProfilePage() {
   const [myBracketsSummary, setMyBracketsSummary] = useState('Loading…');
   const [bgChar, setBgChar] = useState('');
   const [bgCharSaved, setBgCharSaved] = useState(false);
+  // Default true so the pre-data-load render matches the documented default
+  // (someone who's never touched the setting gets ON) instead of flashing
+  // unchecked before meData arrives.
+  const [draftPrefill, setDraftPrefill] = useState(true);
 
   const [rivalInput, setRivalInput] = useState('');
   const [rivalUsername, setRivalUsername] = useState('');
@@ -205,6 +210,7 @@ export default function ProfilePage() {
         setSeedInput(meData.username);
         setBgChar(meData.background_character || '');
         setFeaturedBadgeId(meData.featured_badge || null);
+        setDraftPrefill(meData.draft_prefill_enabled);
 
         apiGet<{ name: string }[]>('/brackets')
           .then((brackets) => {
@@ -314,6 +320,17 @@ export default function ProfilePage() {
       setAvatarSheetOpen(false);
     } catch (err) {
       showToast('Error saving avatar: ' + (err as Error).message, 'error');
+    }
+  }
+
+  async function saveDraftPrefill(enabled: boolean) {
+    const prior = draftPrefill;
+    setDraftPrefill(enabled); // optimistic -- rolled back below on failure
+    try {
+      await apiPatch('/users/me/draft-prefill', { enabled });
+    } catch (err) {
+      setDraftPrefill(prior);
+      showToast('Could not save: ' + (err as Error).message, 'error');
     }
   }
 
@@ -771,6 +788,21 @@ export default function ProfilePage() {
                 ))}
               </select>
               {bgCharSaved && <span style={{ marginLeft: 10, fontSize: '0.8rem', color: '#27ae60' }}>Saved ✓</span>}
+            </div>
+          )}
+
+          {/* Draft Pre-fill — own profile only */}
+          {!viewingOther && (
+            <div className="prof-section">
+              <div className="prof-section-title">Draft Pre-fill</div>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: 10 }}>
+                When a draft starts, pre-fill your pick slots with your most-played characters, then your favorites.
+                You can still remove or change any pre-filled pick.
+              </p>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer', width: 'fit-content' }}>
+                <input type="checkbox" checked={draftPrefill} onChange={(e) => saveDraftPrefill(e.target.checked)} />
+                Pre-fill my picks at the start of a draft
+              </label>
             </div>
           )}
 

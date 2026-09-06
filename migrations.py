@@ -40,6 +40,7 @@ def _run_migrations():
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS background_character VARCHAR"))
             conn.execute(text("ALTER TABLE match_results ADD COLUMN IF NOT EXISTS is_self_match BOOLEAN DEFAULT FALSE NOT NULL"))
             conn.execute(text("ALTER TABLE brackets ADD COLUMN IF NOT EXISTS placements_awarded_at TIMESTAMP"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS draft_prefill_enabled BOOLEAN DEFAULT TRUE NOT NULL"))
             # Indexes for hot query paths
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_winner_id  ON match_results(winner_id)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_loser_id   ON match_results(loser_id)"))
@@ -192,6 +193,8 @@ def _run_migrations():
                 conn.execute(text("ALTER TABLE users ADD COLUMN is_test BOOLEAN DEFAULT 0"))
             if "background_character" not in u_cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN background_character VARCHAR"))
+            if "draft_prefill_enabled" not in u_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN draft_prefill_enabled BOOLEAN DEFAULT 1 NOT NULL"))
             conn.execute(text("UPDATE users SET is_admin = 1 WHERE username = 'kai'"))
             conn.execute(text("UPDATE users SET is_test = 1 WHERE username LIKE 'testuser%'"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mr_winner_id  ON match_results(winner_id)"))

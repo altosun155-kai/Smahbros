@@ -381,6 +381,28 @@ export default function DraftCharacterSelect({
     applyRemove(i);
   }
 
+  // Pre-fill's own escape hatch: default-ON pre-fill means someone drafting
+  // manually tonight starts from a full board, not an empty one -- clearing
+  // it one tap at a time is worse than the manual fill it's replacing.
+  // Confirmed (matches the existing pattern in tier-list/page.tsx's "Move
+  // all characters back to Unranked?") since this removes multiple real
+  // picks at once, not a single undoable tap. Only ever clears UNLOCKED
+  // slots -- a locked pick can't be cleared one at a time either, so this
+  // doesn't grant Clear All a power no single tap already has.
+  function clearAllUnlocked() {
+    const toClear = myPicks.filter((p) => p.character && !p.locked);
+    if (toClear.length === 0) return;
+    if (!confirm(`Clear all ${toClear.length} pick${toClear.length === 1 ? '' : 's'}?`)) return;
+    haptic([12, 30, 12]);
+    setLastAddedSlot(null);
+    for (const p of toClear) {
+      setPick(p.slot_index, null).catch((e) => {
+        setError((e as Error).message);
+        flashFailure(p.slot_index);
+      });
+    }
+  }
+
   async function handleLockAll() {
     setLocking(true);
     setError(null);
@@ -542,6 +564,7 @@ export default function DraftCharacterSelect({
     const filledCount = myPicks.filter((p) => p.character).length;
     const nextEmptyIndex = myPicks.findIndex((p) => !p.character);
     const lockLabel = allLocked ? 'Locked in ✓' : allFilled ? 'Lock in' : `Pick ${room.chars_per_player - filledCount} more`;
+    const clearableCount = myPicks.filter((p) => p.character && !p.locked).length;
 
     const me = room.players.find((p) => p.id === myId);
 
@@ -586,7 +609,18 @@ export default function DraftCharacterSelect({
                 </button>
               ))}
             </div>
-            <span className="draft-pick-count">{filledCount}/{room.chars_per_player} picked</span>
+            <div className="draft-slot-row-footer">
+              <span className="draft-pick-count">{filledCount}/{room.chars_per_player} picked</span>
+              {/* Only rendered when there's something it could actually do --
+                  an all-empty or all-locked board has nothing to clear, and
+                  hiding it then is one less thing sitting on screen to
+                  mis-tap during normal picking. */}
+              {clearableCount > 0 && (
+                <button type="button" className="draft-clear-all-btn" onClick={clearAllUnlocked}>
+                  Clear all
+                </button>
+              )}
+            </div>
           </div>
         )}
 

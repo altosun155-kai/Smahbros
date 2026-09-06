@@ -65,6 +65,10 @@ class User(Base):
     is_admin        = Column(Boolean, default=False, nullable=False)
     is_test         = Column(Boolean, default=False, nullable=False)
     elo             = Column(Integer, default=1000, nullable=False)
+    # Draft pick-screen pre-fill preference (routers/draft.py's start_draft_room).
+    # Default ON -- someone who has never touched the setting gets a
+    # pre-filled screen, not an empty one.
+    draft_prefill_enabled = Column(Boolean, default=True, nullable=False)
     created_at      = Column(DateTime, default=_now)
 
     brackets          = relationship("Bracket", back_populates="owner", cascade="all, delete-orphan")

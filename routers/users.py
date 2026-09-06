@@ -27,6 +27,10 @@ class BackgroundCharacterUpdate(BaseModel):
     character: str | None  # None (or "") reverts to the site champion's character
 
 
+class DraftPrefillUpdate(BaseModel):
+    enabled: bool
+
+
 class SetTestFlag(BaseModel):
     is_test: bool
 
@@ -36,7 +40,8 @@ def get_me(db: Session = Depends(get_db), current_user: User = Depends(get_curre
     current_user.last_seen = datetime.utcnow()
     db.commit()
     return {"id": current_user.id, "username": current_user.username, "avatar_url": current_user.avatar_url,
-            "featured_badge": current_user.featured_badge, "background_character": current_user.background_character}
+            "featured_badge": current_user.featured_badge, "background_character": current_user.background_character,
+            "draft_prefill_enabled": current_user.draft_prefill_enabled}
 
 
 @router.put("/users/me/avatar")
@@ -59,6 +64,13 @@ def set_featured_badge(req: FeaturedBadgeUpdate, db: Session = Depends(get_db), 
 @router.patch("/users/me/background-character")
 def set_background_character(req: BackgroundCharacterUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     current_user.background_character = (req.character or "").strip() or None
+    db.commit()
+    return {"ok": True}
+
+
+@router.patch("/users/me/draft-prefill")
+def set_draft_prefill(req: DraftPrefillUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    current_user.draft_prefill_enabled = req.enabled
     db.commit()
     return {"ok": True}
 

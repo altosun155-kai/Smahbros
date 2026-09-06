@@ -167,6 +167,8 @@ class CharacterStats(Base):
     wins       = Column(Integer, default=0, nullable=False)
     losses     = Column(Integer, default=0, nullable=False)
     sacrifices    = Column(Integer, default=0, nullable=False)
+    # Doubles as "last played" for routers/draft.py's pre-fill tiebreak --
+    # true only while record_match stays the sole writer of this row's stats.
     updated_at    = Column(DateTime, default=_now, onupdate=_now)
 
     owner = relationship("User", back_populates="character_stats")

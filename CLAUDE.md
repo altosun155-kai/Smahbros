@@ -40,6 +40,7 @@ web/public/js/nav-inject.js — Injects shared nav bar — never hardcode nav HT
 
 **Backend**
 - New DB columns: add `ADD COLUMN IF NOT EXISTS` in `_run_migrations()`, not a new Alembic file
+- **Testing a migration requires a DB shaped like production before you run it, not a fresh one.** `api.py`'s lifespan calls `Base.metadata.create_all(bind=engine)` *before* `_run_migrations()` — for a table that doesn't exist yet, `create_all()` builds it from the current SQLAlchemy model (new column already included), so `_run_migrations()`'s own `ALTER TABLE` line for that column never actually executes as an ALTER; it silently no-ops. A scratch DB created fresh (`rm -f test.db` then start the app) never exercises that ALTER either — it only ever proves the *model* is right, not the migration. To actually test a migration: create the DB with the table already present and the new column absent (raw `CREATE TABLE`/`INSERT` matching the pre-migration schema, or a copy of a real pre-existing DB), then run the real startup sequence (`create_all()` — a no-op for that table — followed by `_run_migrations()`), then query the existing rows. Confirmed by hitting this exact gap live: every prior scratch verification this session started from a fresh DB and had never actually run an `ALTER TABLE` as an alter, only production had.
 - All routes return JSON; errors use `JSONResponse(status_code=…)`
 - Auth middleware extracts JWT via `decode_token()` from `auth.py`
 - Rate limiting lives in `routers/ratelimit.py`

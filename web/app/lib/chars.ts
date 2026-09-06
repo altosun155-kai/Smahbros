@@ -27,45 +27,22 @@ export const CHAR_FILE_OVERRIDES: Record<string, string> = {
 
 export const CHAR_NO_IMAGE: Set<string> = new Set([]);
 
-// Unlike CHAR_FILE_OVERRIDES, the icon (chara_2) exports were uploaded with
-// their own, inconsistent naming choices -- not just the full-portrait
-// filename plus "_icon". Confirmed against the live Supabase bucket
-// (HEAD-equivalent checks against every entry here and every no-entry
-// default for a punctuation/space-bearing roster name) after the mobile
-// "More fighters" modal work shipped a broken slot-box image for Bowser Jr.:
-// four entries below were wrong in the exact same way (a plausible-looking
-// filename that isn't the real one), and three more (the Miis) were
-// needless -- the unadorned default (name + "_icon.png") already matches
-// and the override was actively pointing at the wrong asset instead.
-// This was a pre-existing data bug, not introduced by the port: the
-// identical wrong values were already present in web/public/js/chars.js,
-// the legacy vanilla file this was originally ported from -- porting it
-// "byte-identical" carried the bug forward rather than catching it. That
-// file has since been deleted (see the header comment above) rather than
-// left around as a bad template.
-//
-// Audited against the live bucket afterward (scratch script, not
-// committed): with these 7 fixed, 0 entries below point at a missing file,
-// but 7 of the remaining 9 are now provably redundant -- their value is
-// byte-identical to what the default rule (name + "_icon.png") already
-// produces on its own. Only 'Pokémon Trainer' and 'Pyra/Mythra' need a real
-// override (the default rule can't reproduce "é" or "/" in a filename).
-// Left as-is pending a decision on whether to shrink the table down to
-// those two -- noted here so that decision has the evidence next to it.
+// The rule: every icon (chara_2) export in the bucket is named
+// "<display name>_icon.png", verbatim, for the ENTIRE roster except the two
+// names below -- including every name with an ampersand or a period
+// (Banjo & Kazooie, Mr. Game & Watch, R.O.B., King K. Rool, Bowser Jr., ...).
+// Punctuation that's a normal filename character passes through fine; only
+// a name containing something that literally can't appear in a filename
+// needs an override at all. That's the whole rule -- assuming otherwise
+// (that punctuation in general was the risk) is exactly what produced 7
+// wrong entries here previously: real fixes for real bugs, but guesses
+// rather than checks, on names that turned out not to need fixing in the
+// first place. Audited against the live bucket (scratch script, not
+// committed) to confirm: with only these two entries, every one of the
+// other 83 roster names still resolves via the default rule alone.
 export const CHAR_HEAD_OVERRIDES: Record<string, string> = {
-  'Pokémon Trainer':  'Pokemon Trainer_icon.png',
-  'Rosalina & Luma':  'Rosalina & Luma_icon.png',    // was "Rosalina and Luma_icon.png" -- real file keeps the ampersand, unlike the full portrait
-  'Pac-Man':          'Pac-Man_icon.png',            // was "Pac Man_icon.png" -- real file keeps the hyphen, unlike the full portrait
-  'Bowser Jr.':       'Bowser Jr._icon.png',         // was "Bowser Jr_icon.png" -- real file keeps the period, unlike the full portrait
-  'King K. Rool':     'King K. Rool_icon.png',
-  'Banjo & Kazooie':  'Banjo & Kazooie_icon.png',
-  'Pyra/Mythra':      'Pyra Mythra_icon.png',
-  'R.O.B.':           'R.O.B._icon.png',
-  'Wii Fit Trainer':  'Wii Fit Trainer_icon.png',    // was "WII Fit Trainer_icon.png" -- real file uses normal case, unlike the full portrait
-  // Mii Brawler/Swordfighter/Gunner: no entry needed -- the icon exports use
-  // the plain display name ("Mii Brawler_icon.png", etc.), not the
-  // Mii_fighter/_sword/_gunner naming the full-portrait override uses. The
-  // removed entries pointed at Mii_fighter_icon.png etc., which don't exist.
+  'Pokémon Trainer': 'Pokemon Trainer_icon.png', // "é" can't appear in the uploaded filename
+  'Pyra/Mythra':      'Pyra Mythra_icon.png',    // "/" can't appear in a filename at all
 };
 
 export function charImgUrl(name: string): string {

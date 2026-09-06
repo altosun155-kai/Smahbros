@@ -90,6 +90,10 @@ def _prefill_fill_order(db: Session, player_id: int) -> list[str]:
     """
     stats_rows = db.query(CharacterStats).filter(CharacterStats.user_id == player_id).all()
     candidates = [r for r in stats_rows if (r.wins + r.losses) > 0]
+    # updated_at == "last played" only holds while record_match stays the
+    # sole writer (see the column comment in database.py) -- a future stats
+    # recompute/backfill script would silently turn this into "last
+    # recomputed" with no error and no visible symptom here.
     by_recency = sorted(candidates, key=lambda r: r.updated_at or _EPOCH, reverse=True)
     most_played = sorted(by_recency, key=lambda r: -(r.wins + r.losses))
     order = [r.character for r in most_played]

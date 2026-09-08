@@ -34,6 +34,19 @@ export function useDraftRoom(roomId: number | null) {
   const [notJoined, setNotJoined] = useState(false);
   const myIdRef = useRef<number | null>(null);
 
+  // Mirrors room.status for the WS handler below, which needs the PREVIOUS
+  // status to detect a lobby -> picking transition -- reading `room` itself
+  // there would close over whatever it was when the WS effect last ran, not
+  // the latest value (room isn't in that effect's dependency array, and
+  // shouldn't be: re-subscribing the socket on every status change would be
+  // its own bug). Kept in sync with room via the effect right below it,
+  // rather than a second independently-updated ref, so there's one source
+  // of truth for "what status did we last know about".
+  const roomStatusRef = useRef<DraftRoomState['status'] | null>(null);
+  useEffect(() => {
+    roomStatusRef.current = room?.status ?? null;
+  }, [room]);
+
   // The current player's own picks, tracked separately from `room` while the
   // room is in "picking" status -- see the WS effect below for why. Seeded
   // from a real GET (which reveals the caller's own picks server-side, see
@@ -112,6 +125,28 @@ export function useDraftRoom(roomId: number | null) {
       try {
         incoming = JSON.parse(evt.data);
       } catch {
+        return;
+      }
+      // A third moment myPicks can go stale with no self-heal path
+      // otherwise, alongside the WS-reconnect and visibilitychange re-seeds
+      // above/below: routers/draft.py's start_draft_room writes real picks
+      // server-side (pre-fill) at the exact instant it flips the room from
+      // 'lobby' to 'picking', for every player at once -- not just the host
+      // who triggered it. A client already sitting on the lobby screen when
+      // that happens seeded myPicks from a GET taken BEFORE pre-fill ran,
+      // and the masked broadcast this handler normally trusts can never
+      // carry that player's own picks to fix it (see the comment above this
+      // effect) -- so without this, that client's local "0 picks" belief
+      // never corrects itself. Reproduced live: it read as a stuck draft
+      // screen -- every tap on an already-pre-filled character 400'd
+      // ("You've already picked that character for another slot"), and
+      // every tap on anything else silently overwrote a real pre-filled
+      // pick, both because pickedSlotByChar/emptyIdx were computed from the
+      // stale, all-empty myPicks. refetch() (not setRoom(incoming)) because
+      // this is exactly the reconnect/visibilitychange situation -- local
+      // truth needs re-grounding from a real GET, not from this broadcast.
+      if (roomStatusRef.current !== 'picking' && incoming.status === 'picking') {
+        refetch();
         return;
       }
       setRoom(incoming);

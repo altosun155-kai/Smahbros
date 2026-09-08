@@ -16,10 +16,12 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import PageContainer from '../components/PageContainer';
 import BracketOptionsPicker, { type BracketOptionsValue } from '../components/BracketOptionsPicker';
+import SurvivorStrip from '../components/SurvivorStrip';
 import { apiDelete, apiGet, apiPatch, apiPost, getToken, showToast, wsUrl } from '../lib/api';
 import { SMASH_ROSTER, charHeadUrl, charImgUrl } from '../lib/chars';
 import { BadgePill, loadAllBadges, type BadgeInfo } from '../lib/badges';
 import { buildBracketPairs, buildEntriesFromLineups, type BracketStyle, type Entry, type SeedMode } from '../lib/bracketEngine';
+import { parseLabel } from '../lib/bracketSurvivors';
 import { useDocumentTitle } from '../lib/useDocumentTitle';
 import './tournament.css';
 
@@ -96,12 +98,10 @@ function rankAfter(lb: EloLbRow[], username: string, character: string, newElo: 
   return rank;
 }
 
-function parseLabel(label: string | null | undefined): { player: string; character: string } | null {
-  if (!label) return null;
-  const idx = label.indexOf(' — ');
-  if (idx === -1) return null;
-  return { player: label.slice(0, idx), character: label.slice(idx + 3) };
-}
+// parseLabel is imported from ../lib/bracketSurvivors -- same behavior
+// (null on anything without ' — ', including 'BYE'), extracted there so
+// SurvivorStrip's computeSurvivors doesn't hand-roll a third copy of this
+// alongside this file's own former copy and the backend's _parse_label.
 
 // ── Round computation (computeRounds/getWinner) ───────────────────────────
 function getWinner(ri: number, mi: number, pairs: [string | null, string | null][], roundWinners: Record<string, string>): string | null {
@@ -962,6 +962,17 @@ export default function TournamentPage() {
         )}
       </div>
 
+      {hasBracket && (
+        <div style={{ marginBottom: 14 }}>
+          <SurvivorStrip
+            bracketData={data.bracket_data}
+            roundWinners={data.round_winners || {}}
+            players={data.players}
+            charsPerPlayer={data.chars_per_player || 1}
+          />
+        </div>
+      )}
+
       {data.is_live && !hasBracket ? (
         <LineupPhase
           data={data}
@@ -1412,22 +1423,35 @@ function BracketPhase({
 }) {
   const roundWinners = data.round_winners || {};
   const roundScores = data.round_scores || {};
+  // The SurvivorStrip above renders exactly when chars_per_player > 1, and
+  // shows the same player names plus survivor counts -- this row is the
+  // inverse of that condition, so the roster shows up in exactly one place:
+  // the strip when it's up (chars_per_player > 1), these plain chips when
+  // it's not (chars_per_player == 1, where the strip is hidden and this is
+  // the only place the roster appears at all).
+  const showPlayersChips = (data.chars_per_player || 1) <= 1;
 
   return (
     <div>
-      <div style={{ marginBottom: 24, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Players:</span>
-        {(data.players || []).map((p) => (
-          <span key={p} style={{ background: 'var(--card-bg2)', border: '1px solid var(--border)', borderRadius: 20, padding: '3px 10px', fontSize: '0.82rem', color: 'var(--text)' }}>
-            {p}
-          </span>
-        ))}
-        {isHost && data.is_live && (
-          <button type="button" className={`btn btn-outline btn-sm${liveSwapMode ? ' active' : ''}`} onClick={onToggleLiveSwap} style={{ marginLeft: 'auto' }}>
-            {liveSwapMode ? '✅ Done Swapping' : '🔀 Swap Matchup'}
-          </button>
-        )}
-      </div>
+      {(showPlayersChips || (isHost && data.is_live)) && (
+        <div style={{ marginBottom: 24, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+          {showPlayersChips && (
+            <>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Players:</span>
+              {(data.players || []).map((p) => (
+                <span key={p} style={{ background: 'var(--card-bg2)', border: '1px solid var(--border)', borderRadius: 20, padding: '3px 10px', fontSize: '0.82rem', color: 'var(--text)' }}>
+                  {p}
+                </span>
+              ))}
+            </>
+          )}
+          {isHost && data.is_live && (
+            <button type="button" className={`btn btn-outline btn-sm${liveSwapMode ? ' active' : ''}`} onClick={onToggleLiveSwap} style={{ marginLeft: 'auto' }}>
+              {liveSwapMode ? '✅ Done Swapping' : '🔀 Swap Matchup'}
+            </button>
+          )}
+        </div>
+      )}
 
       {liveSwapMode && (
         <div style={{ background: 'rgba(0,119,200,0.12)', border: '1px solid rgba(0,119,200,0.35)', borderRadius: 8, padding: '10px 14px', fontSize: '0.85rem', color: 'var(--accent-blue)', marginBottom: 12 }}>

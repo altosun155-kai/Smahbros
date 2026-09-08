@@ -19,9 +19,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import PageContainer, { PageHeader } from '../components/PageContainer';
 import BracketOptionsPicker, { type BracketOptionsValue } from '../components/BracketOptionsPicker';
+import SurvivorStrip from '../components/SurvivorStrip';
 import { apiDelete, apiGet, apiPatch, apiPost, showToast } from '../lib/api';
 import { SMASH_ROSTER, charHeadUrl, charImgUrl } from '../lib/chars';
 import { BadgePill, loadAllBadges, type BadgeInfo } from '../lib/badges';
+import { parseLabel } from '../lib/bracketSurvivors';
 import {
   buildBracketPairs,
   getSeedElo,
@@ -432,11 +434,13 @@ export default function BracketPage() {
     }
   }
 
-  function parseLabel(label: string): { player: string; character: string } | null {
-    const idx = label.indexOf(' — ');
-    if (idx === -1) return null;
-    return { player: label.slice(0, idx), character: label.slice(idx + 3) };
-  }
+  // parseLabel is imported from ../lib/bracketSurvivors -- checked
+  // behaviorally identical to this file's former local copy (it only
+  // omitted the shared version's `if (!label) return null` guard, which
+  // never mattered here since every call site passes a real non-empty
+  // string and '' falls through indexOf to the same -1/null result
+  // either way) -- deleted rather than left as a third copy alongside the
+  // backend's own routers/brackets.py::_parse_label.
 
   function setWinner(key: string, val: string, winnerKills = 0, loserKills = 0) {
     const rounds = lastRenderedRoundsRef.current;
@@ -1151,6 +1155,14 @@ export default function BracketPage() {
                   <div className="win-name">{winnerBannerName}</div>
                 </div>
               )}
+              <div style={{ marginBottom: 12 }}>
+                <SurvivorStrip
+                  bracketData={currentBracket.map(([a, b]) => ({ a: entryLabel(a), b: entryLabel(b) }))}
+                  roundWinners={roundWinners}
+                  players={players}
+                  charsPerPlayer={charsPerPlayer}
+                />
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                 <button type="button" className={`btn btn-outline btn-sm${swapMode ? ' active' : ''}`} onClick={toggleSwapMode}>
                   {swapMode ? '✅ Done Editing' : '✏️ Edit / Swap Entries'}

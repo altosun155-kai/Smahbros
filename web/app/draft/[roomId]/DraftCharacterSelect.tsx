@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { apiGet, apiPost, apiPut } from '../../lib/api';
+import { apiGet, apiPost, apiPut, ApiError } from '../../lib/api';
 import { charHeadUrl, charImgUrl, SMASH_ROSTER } from '../../lib/chars';
 import { haptic } from '../../lib/haptics';
 import type { DraftPick, DraftRoomState } from '../../lib/useDraftRoom';
@@ -320,6 +320,22 @@ export default function DraftCharacterSelect({
     return m;
   }, [myPicks]);
 
+  // A 409 means the server rejected the request because this client's view
+  // of the slot was already wrong -- setPick has already self-healed local
+  // state to the real value by the time this runs (see useDraftRoom.ts).
+  // That's a materially different situation from every other failure this
+  // screen surfaces (a timeout, a lock conflict, a genuine server error):
+  // nothing broke, the screen was just stale, and it's already fixed. Says
+  // so instead of showing the generic server string, which would read as
+  // "something went wrong" for a case where the correct reaction is just
+  // "look again before tapping."
+  function errorMessageFor(e: unknown): string {
+    if (e instanceof ApiError && e.status === 409) {
+      return 'Your screen was out of date — updated to match. Take another look before picking.';
+    }
+    return (e as Error).message;
+  }
+
   async function applyAdd(slotIndex: number, character: string) {
     haptic([8]);
     const prior = lastAddedSlot;
@@ -327,7 +343,7 @@ export default function DraftCharacterSelect({
     try {
       await setPick(slotIndex, character);
     } catch (e) {
-      setError((e as Error).message);
+      setError(errorMessageFor(e));
       setLastAddedSlot(prior);
       flashFailure(slotIndex);
       haptic([15, 60, 15, 60, 15]); // distinct from the [8] success tap -- this one should feel like a failure
@@ -342,7 +358,7 @@ export default function DraftCharacterSelect({
     try {
       await setPick(slotIndex, null);
     } catch (e) {
-      setError((e as Error).message);
+      setError(errorMessageFor(e));
       setLastAddedSlot(prior);
       flashFailure(slotIndex);
       haptic([15, 60, 15, 60, 15]);
@@ -397,7 +413,7 @@ export default function DraftCharacterSelect({
     setLastAddedSlot(null);
     for (const p of toClear) {
       setPick(p.slot_index, null).catch((e) => {
-        setError((e as Error).message);
+        setError(errorMessageFor(e));
         flashFailure(p.slot_index);
       });
     }

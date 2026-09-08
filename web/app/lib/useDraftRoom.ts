@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { apiGet, apiPutFast, getToken, getUsername, wsUrl } from './api';
+import { apiGet, apiPutFast, ApiError, getToken, getUsername, wsUrl } from './api';
 
 export interface DraftPick {
   slot_index: number;
@@ -202,15 +202,42 @@ export function useDraftRoom(roomId: number | null) {
         // shapes. A single ~3s attempt means a real failure (or a hung
         // connection) rolls back and surfaces quickly instead of leaving the
         // optimistic pick showing for up to ~75s of retries first.
-        await apiPutFast(`/draft/rooms/${roomId}/pick`, { slot_index: slotIndex, character });
+        //
+        // expected_character is prior's character -- what this client
+        // believed the slot held before this action. The server compares
+        // it against the real stored value and 409s if they've diverged
+        // (routers/draft.py's optimistic-concurrency guard), which is how
+        // the stale-seed bug's worse half got fixed: before this, a tap
+        // that DIDN'T collide with a duplicate-character check just wrote
+        // through and silently overwrote whatever was really there.
+        await apiPutFast(`/draft/rooms/${roomId}/pick`, {
+          slot_index: slotIndex,
+          character,
+          expected_character: prior?.character ?? null,
+        });
       } catch (e) {
         if (requestSeqRef.current[slotIndex] === seq) {
-          setMyPicks((prev) => {
-            if (!prev) return prev;
-            const next = prev.slice();
-            next[slotIndex] = prior ?? { slot_index: slotIndex, character: null, locked: false };
-            return next;
-          });
+          if (e instanceof ApiError && e.status === 409) {
+            // Self-heal, not rollback: `prior` is exactly the belief that
+            // was wrong (it's what got sent as expected_character and
+            // rejected), so restoring it would put the same stale value
+            // right back. actual_character in the response body is the
+            // server's real truth for this slot -- use that instead.
+            const actual = (e.body as { actual_character?: string | null } | null)?.actual_character ?? null;
+            setMyPicks((prev) => {
+              if (!prev) return prev;
+              const next = prev.slice();
+              next[slotIndex] = { slot_index: slotIndex, character: actual, locked: prev[slotIndex]?.locked ?? false };
+              return next;
+            });
+          } else {
+            setMyPicks((prev) => {
+              if (!prev) return prev;
+              const next = prev.slice();
+              next[slotIndex] = prior ?? { slot_index: slotIndex, character: null, locked: false };
+              return next;
+            });
+          }
         }
         throw e;
       }

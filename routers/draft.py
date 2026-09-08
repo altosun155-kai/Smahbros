@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from pydantic import BaseModel
@@ -48,6 +49,19 @@ class PickUpdate(BaseModel):
     # a future consumer that doesn't already happen to treat "" as falsy the
     # way today's few callers do).
     character: Optional[str] = None
+    # Optimistic-concurrency guard, optional and backward-compatible.
+    # Presence -- not just a non-None value -- is what matters: a caller
+    # that omits this field entirely gets today's exact behavior (no
+    # check at all), while one that sends it (including explicitly as
+    # null, meaning "I believe this slot is empty") gets it compared
+    # against the slot's real stored value. "Omitted" and "sent as null"
+    # both read as None on this field, so the endpoint can't tell them
+    # apart from expected_character's value alone -- it checks
+    # 'expected_character' in req.model_fields_set instead (verified
+    # directly: Pydantic v2 tracks presence-in-input separately from the
+    # resolved value). Desktop's own apiPut call never sends this field,
+    # so it's structurally unaffected.
+    expected_character: Optional[str] = None
 
 
 class SlotRequest(BaseModel):
@@ -422,6 +436,45 @@ def pick_draft_character(room_id: int, req: PickUpdate, db: Session = Depends(ge
     # DB only ever stores a real character name or a true NULL, never a
     # stray empty string (see PickUpdate.character).
     character = req.character or None
+
+    # Fetched before the duplicate check (moved up from below it) so the
+    # optimistic-concurrency guard has this slot's real current value to
+    # compare against. Pure reordering of a read -- doesn't change what the
+    # duplicate check below sees or does.
+    pick = db.query(DraftPick).filter(
+        DraftPick.room_id == room_id,
+        DraftPick.player_id == current_user.id,
+        DraftPick.slot_index == req.slot_index,
+    ).first()
+
+    # Optimistic-concurrency guard: only runs when the caller actually sent
+    # expected_character (see PickUpdate's comment on why presence, not
+    # value, is what's checked). Applies uniformly to the whole request --
+    # a pick and a clear are both just "character the caller wants this
+    # slot to end up holding" -- so a clear made against a stale belief
+    # about what's currently there fails exactly the same way a pick does,
+    # rather than needing its own separate check.
+    #
+    # "Empty" has three representations here, not one: no DraftPick row at
+    # all, a row with character IS NULL, and -- historically, before the
+    # `character = req.character or None` normalization a few lines up
+    # existed at all -- a row that got written with character = ''
+    # directly. All three have to compare equal to a null expectation, or a
+    # perfectly legitimate first pick into a slot that happens to carry an
+    # old empty-string row 409s for no real reason. `or None` on both sides
+    # collapses all three (missing row, NULL, '') to the same None -- not
+    # just on `expected` (a fresh request can't produce '' post-
+    # normalization) but on `actual` too, since a pre-existing '' row is
+    # exactly the case the request-side normalization can't reach.
+    if "expected_character" in req.model_fields_set:
+        expected = req.expected_character or None
+        actual = (pick.character if pick else None) or None
+        if expected != actual:
+            return JSONResponse(status_code=409, content={
+                "detail": "Your view of this slot is out of date.",
+                "actual_character": actual,
+            })
+
     if character:
         dup = db.query(DraftPick).filter(
             DraftPick.room_id == room_id,
@@ -432,11 +485,6 @@ def pick_draft_character(room_id: int, req: PickUpdate, db: Session = Depends(ge
         if dup:
             raise HTTPException(status_code=400, detail="You've already picked that character for another slot")
 
-    pick = db.query(DraftPick).filter(
-        DraftPick.room_id == room_id,
-        DraftPick.player_id == current_user.id,
-        DraftPick.slot_index == req.slot_index,
-    ).first()
     if pick and pick.locked_at is not None:
         raise HTTPException(status_code=400, detail="Slot is already locked")
     if pick:

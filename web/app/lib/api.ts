@@ -82,6 +82,25 @@ export function showToast(message: string, type: string = 'info', duration: numb
   return toast;
 }
 
+// Thrown instead of a plain Error for any !res.ok response -- .message is
+// identical to what a plain Error would have carried (every existing
+// (e as Error).message caller across the app keeps working unchanged), but
+// a caller that needs more than the string can check `instanceof ApiError`
+// for the real status code and the parsed body. First real consumer:
+// useDraftRoom.ts's setPick, which needs a 409's actual_character out of
+// the body to self-heal -- a plain Error's message-only shape can't carry
+// that.
+export class ApiError extends Error {
+  status: number;
+  body: unknown;
+  constructor(message: string, status: number, body: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+  }
+}
+
 // Shared by both apiFetch and apiFetchFast below -- one place to decide
 // what a Response means (401 -> session expired, !ok -> parse an error
 // body, 204 -> null, else -> json), so a future change to that logic can't
@@ -98,15 +117,17 @@ async function handleResponse<T>(res: Response): Promise<T> {
 
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
+    let body: unknown = null;
     try {
       const errData = await res.json();
+      body = errData;
       detail = errData.detail || errData.message || JSON.stringify(errData);
     } catch (_) {
       try {
         detail = (await res.text()) || detail;
       } catch (_) {}
     }
-    throw new Error(detail);
+    throw new ApiError(detail, res.status, body);
   }
 
   if (res.status === 204) return null as T;
